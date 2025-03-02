@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotification } from "../components/ui/Notification";
@@ -8,6 +8,7 @@ const ProfileContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  padding: 2rem;
 `;
 
 const PageHeader = styled.div`
@@ -54,34 +55,49 @@ const Avatar = styled.div`
   justify-content: center;
   color: white;
   font-size: 2.5rem;
-  font-weight: 600;
+  font-weight: bold;
 `;
 
 const ProfileInfo = styled.div`
-  flex: 1;
+  display: flex;
+  flex-direction: column;
 `;
 
 const ProfileName = styled.h2`
   font-size: 1.5rem;
-  color: ${({ theme }) => theme.colors.text.primary};
   margin-bottom: 0.5rem;
+  color: ${({ theme }) => theme.colors.text.primary};
 `;
 
-const ProfileRole = styled.div`
+const ProfileRole = styled.p`
   color: ${({ theme }) => theme.colors.text.secondary};
   font-size: 1rem;
   margin-bottom: 0.5rem;
 `;
 
-const ProfileEmail = styled.div`
+const ProfileEmail = styled.p`
   color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: 0.875rem;
+  font-size: 0.9rem;
 `;
 
-const Form = styled.form`
+const ProfileForm = styled.form`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+`;
+
+const FormSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const SectionTitle = styled.h3`
+  font-size: 1.2rem;
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const FormGroup = styled.div`
@@ -90,36 +106,39 @@ const FormGroup = styled.div`
   gap: 0.5rem;
 `;
 
-const Label = styled.label`
+const FormLabel = styled.label`
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
   font-weight: 500;
-  color: ${({ theme }) => theme.colors.text.primary};
 `;
 
-const Input = styled.input`
-  padding: 0.75rem;
+const FormInput = styled.input`
+  padding: 0.75rem 1rem;
+  border-radius: ${({ theme }) => theme.borderRadius.small};
   border: 1px solid
     ${({ theme, error }) => (error ? theme.colors.error : theme.colors.border)};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  font-size: 1rem;
-  background-color: ${({ theme }) => theme.colors.surface};
+  background-color: ${({ theme }) => theme.colors.background};
   color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
 
   &:focus {
     outline: none;
-    border-color: ${({ theme, error }) =>
-      error ? theme.colors.error : theme.colors.primary};
-    box-shadow: 0 0 0 2px
-      ${({ theme, error }) =>
-        error ? `${theme.colors.error}33` : `${theme.colors.primary}33`};
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.text.tertiary};
   }
 `;
 
-const ErrorMessage = styled.div`
+const ErrorMessage = styled.p`
   color: ${({ theme }) => theme.colors.error};
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
 `;
 
-const ButtonGroup = styled.div`
+const FormActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
@@ -128,28 +147,39 @@ const ButtonGroup = styled.div`
 
 const Button = styled.button`
   padding: 0.75rem 1.5rem;
-  background-color: ${({ theme, variant }) =>
-    variant === "primary" ? theme.colors.primary : "transparent"};
-  color: ${({ theme, variant }) =>
-    variant === "primary" ? "white" : theme.colors.text.primary};
-  border: ${({ theme, variant }) =>
-    variant === "outline" ? `1px solid ${theme.colors.border}` : "none"};
   border-radius: ${({ theme }) => theme.borderRadius.small};
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background-color: ${({ theme, variant }) =>
-      variant === "primary"
-        ? `${theme.colors.primary}dd`
-        : `${theme.colors.border}33`};
-  }
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+`;
+
+const PrimaryButton = styled(Button)`
+  background-color: ${({ theme }) => theme.colors.primary};
+  color: white;
+  border: none;
+
+  &:hover:not(:disabled) {
+    background-color: ${({ theme }) => theme.colors.primaryDark};
+  }
+`;
+
+const SecondaryButton = styled(Button)`
+  background-color: transparent;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+
+  &:hover:not(:disabled) {
+    background-color: ${({ theme }) => theme.colors.background};
   }
 `;
 
@@ -159,23 +189,62 @@ const Profile = () => {
   const { showNotification } = useNotification();
 
   const [formData, setFormData] = useState({
-    name: user?.name || "",
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
     email: user?.email || "",
-    phone: "",
-    company: "",
+    username: user?.username || "",
+    phone: user?.phone || "",
+    company: user?.company || "",
   });
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
+  // Mettre à jour les données du formulaire lorsque l'utilisateur change
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        username: user.username || "",
+        phone: user.phone || "",
+        company: user.company || "",
+      });
+    }
+  }, [user]);
+
   // Obtenir les initiales de l'utilisateur
-  const getInitials = (name) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase();
+  const getInitials = () => {
+    if (!user) return "U";
+    if (user.firstName && user.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    return user.username ? user.username[0].toUpperCase() : "U";
+  };
+
+  // Obtenir le nom complet de l'utilisateur
+  const getFullName = () => {
+    if (!user) return "Utilisateur";
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    return user.username || "Utilisateur";
+  };
+
+  // Obtenir le rôle de l'utilisateur en français
+  const getUserRole = () => {
+    if (!user) return "Utilisateur";
+    switch (user.role) {
+      case "admin":
+        return "Administrateur";
+      case "manager":
+        return "Gestionnaire";
+      case "employee":
+        return "Employé";
+      default:
+        return "Utilisateur";
+    }
   };
 
   // Mise à jour du formulaire
@@ -191,8 +260,12 @@ const Profile = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name) {
-      newErrors.name = "Le nom est requis";
+    if (!formData.firstName) {
+      newErrors.firstName = "Le prénom est requis";
+    }
+
+    if (!formData.lastName) {
+      newErrors.lastName = "Le nom est requis";
     }
 
     if (!formData.email) {
@@ -246,72 +319,108 @@ const Profile = () => {
 
       <ProfileCard>
         <ProfileHeader>
-          <Avatar>{getInitials(user?.name)}</Avatar>
+          <Avatar>{getInitials()}</Avatar>
           <ProfileInfo>
-            <ProfileName>{user?.name || "Utilisateur"}</ProfileName>
-            <ProfileRole>{user?.role || "Utilisateur"}</ProfileRole>
-            <ProfileEmail>{user?.email || "email@example.com"}</ProfileEmail>
+            <ProfileName>{getFullName()}</ProfileName>
+            <ProfileRole>{getUserRole()}</ProfileRole>
+            <ProfileEmail>{user?.email}</ProfileEmail>
           </ProfileInfo>
         </ProfileHeader>
 
-        <Form onSubmit={handleSubmit}>
-          <FormGroup>
-            <Label htmlFor="name">Nom</Label>
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              value={formData.name}
-              onChange={handleChange}
-              error={!!errors.name}
-            />
-            {errors.name && <ErrorMessage>{errors.name}</ErrorMessage>}
-          </FormGroup>
+        <ProfileForm onSubmit={handleSubmit}>
+          <FormSection>
+            <SectionTitle>Informations personnelles</SectionTitle>
+            <FormGroup>
+              <FormLabel htmlFor="firstName">Prénom</FormLabel>
+              <FormInput
+                id="firstName"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                placeholder="Votre prénom"
+                error={errors.firstName}
+              />
+              {errors.firstName && (
+                <ErrorMessage>{errors.firstName}</ErrorMessage>
+              )}
+            </FormGroup>
 
-          <FormGroup>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              error={!!errors.email}
-            />
-            {errors.email && <ErrorMessage>{errors.email}</ErrorMessage>}
-          </FormGroup>
+            <FormGroup>
+              <FormLabel htmlFor="lastName">Nom</FormLabel>
+              <FormInput
+                id="lastName"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                placeholder="Votre nom"
+                error={errors.lastName}
+              />
+              {errors.lastName && (
+                <ErrorMessage>{errors.lastName}</ErrorMessage>
+              )}
+            </FormGroup>
 
-          <FormGroup>
-            <Label htmlFor="phone">Téléphone</Label>
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={handleChange}
-            />
-          </FormGroup>
+            <FormGroup>
+              <FormLabel htmlFor="email">Email</FormLabel>
+              <FormInput
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Votre email"
+                error={errors.email}
+              />
+              {errors.email && <ErrorMessage>{errors.email}</ErrorMessage>}
+            </FormGroup>
 
-          <FormGroup>
-            <Label htmlFor="company">Entreprise</Label>
-            <Input
-              id="company"
-              name="company"
-              type="text"
-              value={formData.company}
-              onChange={handleChange}
-            />
-          </FormGroup>
+            <FormGroup>
+              <FormLabel htmlFor="username">Nom d'utilisateur</FormLabel>
+              <FormInput
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="Votre nom d'utilisateur"
+                disabled
+              />
+            </FormGroup>
+          </FormSection>
 
-          <ButtonGroup>
-            <Button type="button" variant="outline">
-              Annuler
-            </Button>
-            <Button type="submit" variant="primary" disabled={isLoading}>
-              {isLoading ? "Enregistrement..." : "Enregistrer"}
-            </Button>
-          </ButtonGroup>
-        </Form>
+          <FormSection>
+            <SectionTitle>Coordonnées</SectionTitle>
+            <FormGroup>
+              <FormLabel htmlFor="phone">Téléphone</FormLabel>
+              <FormInput
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="Votre numéro de téléphone"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel htmlFor="company">Entreprise</FormLabel>
+              <FormInput
+                id="company"
+                name="company"
+                value={formData.company}
+                onChange={handleChange}
+                placeholder="Votre entreprise"
+              />
+            </FormGroup>
+          </FormSection>
+
+          <FormActions>
+            <SecondaryButton type="button">Annuler</SecondaryButton>
+            <PrimaryButton type="submit" disabled={isLoading}>
+              {isLoading
+                ? "Enregistrement..."
+                : "Enregistrer les modifications"}
+            </PrimaryButton>
+          </FormActions>
+        </ProfileForm>
       </ProfileCard>
     </ProfileContainer>
   );

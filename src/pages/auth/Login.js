@@ -7,6 +7,7 @@ import { FormInput } from "../../components/ui/Form";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import { useNotification } from "../../components/ui/Notification";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Animations
 const fadeInUp = keyframes`
@@ -140,7 +141,7 @@ const SocialButton = styled(Button)`
 `;
 
 // Composant Login
-const Login = ({ onLogin }) => {
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -148,6 +149,7 @@ const Login = ({ onLogin }) => {
 
   const navigate = useNavigate();
   const { showNotification } = useNotification();
+  const { login } = useAuth();
 
   // Valider le formulaire
   const validateForm = () => {
@@ -178,23 +180,8 @@ const Login = ({ onLogin }) => {
     setIsLoading(true);
 
     try {
-      // Corriger l'URL pour utiliser le préfixe /api
-      const response = await fetch("http://localhost:5001/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors de la connexion");
-      }
-
-      // Appeler la fonction de connexion
-      onLogin(data.user, data.token);
+      // Utiliser la fonction login du contexte d'authentification
+      const response = await login(email, password);
 
       // Afficher une notification de succès
       showNotification({

@@ -31,7 +31,7 @@ class User {
     try {
       const connection = await connectDB();
       const [rows] = await connection.execute(
-        "SELECT id, username, email, role, created_at FROM users WHERE id = ?",
+        "SELECT id, username, email, role, firstName, lastName, created_at FROM users WHERE id = ?",
         [id]
       );
       if (rows.length === 0) return null;

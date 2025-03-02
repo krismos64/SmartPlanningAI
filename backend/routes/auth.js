@@ -82,6 +82,8 @@ router.post("/login", async (req, res) => {
       username: user.username,
       email: user.email,
       role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
       token,
     });
   } catch (error) {
@@ -99,6 +101,8 @@ router.get("/profile", auth, async (req, res) => {
       username: req.user.username,
       email: req.user.email,
       role: req.user.role,
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
     });
   } catch (error) {
     console.error("Erreur lors de la récupération du profil:", error);

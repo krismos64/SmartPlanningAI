@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNotification } from "../components/ui/Notification";
+import { API_ROUTES, apiRequest } from "../config/api";
 
 export const useEmployees = () => {
   const [loading, setLoading] = useState(true);
@@ -8,9 +9,16 @@ export const useEmployees = () => {
 
   const fetchEmployees = useCallback(async () => {
     try {
-      const response = await fetch("/api/employees");
-      const data = await response.json();
-      setEmployees(data);
+      const data = await apiRequest(API_ROUTES.EMPLOYEES.BASE);
+
+      // Vérifier si data est un tableau, sinon initialiser un tableau vide
+      if (Array.isArray(data)) {
+        setEmployees(data);
+      } else {
+        console.error("Les données reçues ne sont pas un tableau:", data);
+        setEmployees([]);
+      }
+
       setLoading(false);
     } catch (error) {
       console.error("Erreur lors du chargement des employés:", error);
@@ -19,6 +27,7 @@ export const useEmployees = () => {
         title: "Erreur",
         message: "Impossible de charger la liste des employés.",
       });
+      setEmployees([]);
       setLoading(false);
     }
   }, [showNotification]);
@@ -26,17 +35,10 @@ export const useEmployees = () => {
   const addEmployee = useCallback(
     async (employeeData) => {
       try {
-        const response = await fetch("/api/employees", {
+        await apiRequest(API_ROUTES.EMPLOYEES.BASE, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(employeeData),
         });
-
-        if (!response.ok) {
-          throw new Error("Erreur lors de la sauvegarde");
-        }
 
         showNotification({
           type: "success",
@@ -62,17 +64,10 @@ export const useEmployees = () => {
   const updateEmployee = useCallback(
     async (id, employeeData) => {
       try {
-        const response = await fetch(`/api/employees/${id}`, {
+        await apiRequest(API_ROUTES.EMPLOYEES.DETAIL(id), {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(employeeData),
         });
-
-        if (!response.ok) {
-          throw new Error("Erreur lors de la modification");
-        }
 
         showNotification({
           type: "success",
@@ -102,13 +97,9 @@ export const useEmployees = () => {
       }
 
       try {
-        const response = await fetch(`/api/employees/${id}`, {
+        await apiRequest(API_ROUTES.EMPLOYEES.DETAIL(id), {
           method: "DELETE",
         });
-
-        if (!response.ok) {
-          throw new Error("Erreur lors de la suppression");
-        }
 
         showNotification({
           type: "success",
@@ -132,11 +123,14 @@ export const useEmployees = () => {
   );
 
   const employeesByStatus = useMemo(() => {
+    // S'assurer que employees est un tableau avant d'appeler filter
+    const employeesArray = Array.isArray(employees) ? employees : [];
+
     return {
-      all: employees.length,
-      active: employees.filter((e) => e.status === "active").length,
-      pending: employees.filter((e) => e.status === "pending").length,
-      inactive: employees.filter((e) => e.status === "inactive").length,
+      all: employeesArray.length,
+      active: employeesArray.filter((e) => e.status === "active").length,
+      pending: employeesArray.filter((e) => e.status === "pending").length,
+      inactive: employeesArray.filter((e) => e.status === "inactive").length,
     };
   }, [employees]);
 
@@ -151,7 +145,7 @@ export const useEmployees = () => {
 
   return {
     loading,
-    employees,
+    employees: Array.isArray(employees) ? employees : [],
     fetchEmployees,
     addEmployee,
     updateEmployee,

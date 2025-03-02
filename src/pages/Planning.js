@@ -344,6 +344,198 @@ const ColorOption = styled.div`
   }
 `;
 
+const EmptyStateContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  box-shadow: ${({ theme }) => theme.shadows.small};
+  text-align: center;
+  margin-top: 2rem;
+  animation: ${slideInUp} 0.4s ease-out;
+`;
+
+const EmptyStateIcon = styled.div`
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+`;
+
+const EmptyStateTitle = styled.h3`
+  font-size: 1.5rem;
+  font-weight: ${({ theme }) => theme.typography.fontWeights.semiBold};
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: 1rem;
+`;
+
+const EmptyStateDescription = styled.p`
+  font-size: 1rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  max-width: 500px;
+  margin-bottom: 2rem;
+`;
+
+const ViewToggle = styled.div`
+  display: flex;
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  overflow: hidden;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const MonthView = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const WeekdayHeader = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+`;
+
+const WeekdayCell = styled.div`
+  text-align: center;
+  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  padding: 0.5rem;
+`;
+
+const DaysGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+`;
+
+const CurrentMonth = styled.div`
+  font-weight: ${({ theme }) => theme.typography.fontWeights.semiBold};
+  font-size: 1.25rem;
+  min-width: 150px;
+  text-align: center;
+`;
+
+const TodayButton = styled.button`
+  background: none;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.small};
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  color: ${({ theme }) => theme.colors.text.primary};
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.background};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const EventsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  overflow: hidden;
+`;
+
+const EventItem = styled.div`
+  padding: 0.25rem 0.5rem;
+  border-radius: ${({ theme }) => theme.borderRadius.small};
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  background-color: ${({ theme, type }) => {
+    switch (type) {
+      case "meeting":
+        return `${theme.colors.primary}22`;
+      case "training":
+        return `${theme.colors.success}22`;
+      case "personal":
+        return `${theme.colors.warning}22`;
+      default:
+        return `${theme.colors.primary}22`;
+    }
+  }};
+  color: ${({ theme, type }) => {
+    switch (type) {
+      case "meeting":
+        return theme.colors.primary;
+      case "training":
+        return theme.colors.success;
+      case "personal":
+        return theme.colors.warning;
+      default:
+        return theme.colors.primary;
+    }
+  }};
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: ${({ theme }) => theme.shadows.small};
+  }
+`;
+
+// Icônes
+const PlusIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    style={{ marginRight: "0.5rem" }}
+  >
+    <path
+      d="M12 5V19M5 12H19"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ChevronLeftIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M15 18L9 12L15 6"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ChevronRightIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M9 18L15 12L9 6"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 // Composant Planning
 const Planning = () => {
   const [view, setView] = useState("month");
@@ -357,30 +549,8 @@ const Planning = () => {
     type: "meeting",
   });
 
-  // Données fictives pour les événements
-  const [events, setEvents] = useState([
-    {
-      id: 1,
-      title: "Réunion d'équipe",
-      date: new Date(2023, 9, 15),
-      time: "10:00 - 11:30",
-      type: "meeting",
-    },
-    {
-      id: 2,
-      title: "Formation React",
-      date: new Date(2023, 9, 20),
-      time: "14:00 - 16:00",
-      type: "training",
-    },
-    {
-      id: 3,
-      title: "Entretien annuel",
-      date: new Date(2023, 9, 25),
-      time: "09:00 - 10:00",
-      type: "personal",
-    },
-  ]);
+  // Données fictives pour les événements - initialement vide
+  const [events, setEvents] = useState([]);
 
   // Données fictives pour les employés
   const employees = [
@@ -601,95 +771,11 @@ const Planning = () => {
         <PageTitleContainer>
           <PageTitle>Planning</PageTitle>
           <PageDescription>
-            Gérez les plannings de vos équipes et visualisez les événements à
-            venir.
+            Gérez les événements et les rendez-vous de votre équipe
           </PageDescription>
         </PageTitleContainer>
-
         <ActionButtons>
-          <Button variant="outline">
-            <span>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M22 3H2L10 12.46V19L14 21V12.46L22 3Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            Filtrer
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setSelectedEvent(null);
-              setNewEvent({
-                title: "",
-                date: new Date().toISOString().split("T")[0],
-                time: "",
-                type: "meeting",
-              });
-              setShowModal(true);
-            }}
-          >
-            <span>+</span>
-            Nouvel événement
-          </Button>
-        </ActionButtons>
-      </PageHeader>
-
-      <CalendarContainer>
-        <CalendarHeader>
-          <MonthNavigation>
-            <NavButton onClick={goToPreviousMonth}>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M15 18L9 12L15 6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </NavButton>
-            <MonthTitle>{formatMonthYear(currentDate)}</MonthTitle>
-            <NavButton onClick={goToNextMonth}>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M9 18L15 12L9 6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </NavButton>
-            <Button variant="outline" onClick={goToToday}>
-              Aujourd'hui
-            </Button>
-          </MonthNavigation>
-
-          <ViewOptions>
+          <ViewToggle>
             <ViewButton
               active={view === "month"}
               onClick={() => setView("month")}
@@ -705,44 +791,78 @@ const Planning = () => {
             <ViewButton active={view === "day"} onClick={() => setView("day")}>
               Jour
             </ViewButton>
-          </ViewOptions>
-        </CalendarHeader>
+          </ViewToggle>
+          <Button primary onClick={() => setShowModal(true)}>
+            <PlusIcon />
+            Nouvel événement
+          </Button>
+        </ActionButtons>
+      </PageHeader>
 
-        <CalendarGrid>
-          {weekdays.map((weekday) => (
-            <WeekdayHeader key={weekday}>{weekday}</WeekdayHeader>
-          ))}
+      {events.length === 0 ? (
+        <EmptyStateContainer>
+          <EmptyStateIcon>📅</EmptyStateIcon>
+          <EmptyStateTitle>Aucun événement planifié</EmptyStateTitle>
+          <EmptyStateDescription>
+            Vous n'avez pas encore ajouté d'événements à votre planning.
+            Commencez par créer votre premier événement.
+          </EmptyStateDescription>
+          <Button primary onClick={() => setShowModal(true)}>
+            <PlusIcon />
+            Créer un événement
+          </Button>
+        </EmptyStateContainer>
+      ) : (
+        <>
+          <CalendarHeader>
+            <MonthNavigation>
+              <NavButton onClick={goToPreviousMonth}>
+                <ChevronLeftIcon />
+              </NavButton>
+              <CurrentMonth>{formatMonthYear(currentDate)}</CurrentMonth>
+              <NavButton onClick={goToNextMonth}>
+                <ChevronRightIcon />
+              </NavButton>
+            </MonthNavigation>
+            <TodayButton onClick={goToToday}>Aujourd'hui</TodayButton>
+          </CalendarHeader>
 
-          {days.map((day, index) => {
-            const dayEvents = getEventsForDay(day.date);
-
-            return (
-              <DayCell
-                key={index}
-                isCurrentMonth={day.isCurrentMonth}
-                isToday={day.isToday}
-                onClick={() => handleDayClick(day.date)}
-              >
-                <DayNumber isToday={day.isToday}>
-                  {day.date.getDate()}
-                </DayNumber>
-
-                <EventsContainer>
-                  {dayEvents.map((event) => (
-                    <Event
-                      key={event.id}
-                      color={event.color}
-                      onClick={(e) => handleEventClick(event, e)}
-                    >
-                      {event.title}
-                    </Event>
-                  ))}
-                </EventsContainer>
-              </DayCell>
-            );
-          })}
-        </CalendarGrid>
-      </CalendarContainer>
+          {view === "month" && (
+            <MonthView>
+              <WeekdayHeader>
+                {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(
+                  (day, index) => (
+                    <WeekdayCell key={index}>{day}</WeekdayCell>
+                  )
+                )}
+              </WeekdayHeader>
+              <DaysGrid>
+                {getDaysInMonth(currentDate).map((day, index) => (
+                  <DayCell
+                    key={index}
+                    currentMonth={day.getMonth() === currentDate.getMonth()}
+                    today={isSameDay(day, new Date())}
+                    onClick={() => handleDayClick(day)}
+                  >
+                    <DayNumber>{day.getDate()}</DayNumber>
+                    <EventsList>
+                      {getEventsForDay(day).map((event) => (
+                        <EventItem
+                          key={event.id}
+                          type={event.type}
+                          onClick={(e) => handleEventClick(event, e)}
+                        >
+                          {event.title}
+                        </EventItem>
+                      ))}
+                    </EventsList>
+                  </DayCell>
+                ))}
+              </DaysGrid>
+            </MonthView>
+          )}
+        </>
+      )}
 
       {showModal && (
         <Modal onClick={() => setShowModal(false)}>

@@ -205,6 +205,13 @@ const LoadingIndicator = styled.div`
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
 
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 2rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-size: 1rem;
+`;
+
 // Icônes
 const ClockIcon = () => (
   <svg
@@ -250,82 +257,138 @@ const Dashboard = () => {
   const [activities, setActivities] = useState([]);
   const [searchResults, setSearchResults] = useState(null);
 
+  // Fonction pour obtenir le prénom et le nom de l'utilisateur
+  const getUserFullName = () => {
+    if (!user) return "Utilisateur";
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    return user.username || "Utilisateur";
+  };
+
   // Simuler le chargement des données
   useEffect(() => {
     const timer = setTimeout(() => {
-      setStats([
-        {
-          id: 1,
-          title: "Employés actifs",
-          value: 128,
-          change: "+12%",
-          positive: true,
-          icon: "👥",
-          color: "#4F46E5",
-        },
-        {
-          id: 2,
-          title: "Demandes en attente",
-          value: 8,
-          change: "-3%",
-          positive: true,
-          icon: "📝",
-          color: "#F59E0B",
-        },
-        {
-          id: 3,
-          title: "Congés approuvés",
-          value: 24,
-          change: "+18%",
-          positive: true,
-          icon: "✅",
-          color: "#10B981",
-        },
-        {
-          id: 4,
-          title: "Heures travaillées",
-          value: 1842,
-          change: "+5%",
-          positive: true,
-          icon: "⏱️",
-          color: "#6366F1",
-        },
-      ]);
+      // Vérifier si l'utilisateur a des données
+      const hasData = false; // À remplacer par une vérification réelle des données
 
-      setActivities([
-        {
-          id: 1,
-          title: "Demande de congés approuvée",
-          time: "Il y a 2 heures",
-          user: "Sophie Martin",
-          icon: "✅",
-          color: "#10B981",
-        },
-        {
-          id: 2,
-          title: "Nouvelle demande de congés",
-          time: "Il y a 4 heures",
-          user: "Thomas Dubois",
-          icon: "📝",
-          color: "#F59E0B",
-        },
-        {
-          id: 3,
-          title: "Réunion d'équipe planifiée",
-          time: "Il y a 6 heures",
-          user: "Julie Lefebvre",
-          icon: "📅",
-          color: "#4F46E5",
-        },
-        {
-          id: 4,
-          title: "Rapport mensuel généré",
-          time: "Il y a 1 jour",
-          user: "Nicolas Moreau",
-          icon: "📊",
-          color: "#6366F1",
-        },
-      ]);
+      if (hasData) {
+        setStats([
+          {
+            id: 1,
+            title: "Employés actifs",
+            value: 128,
+            change: "+12%",
+            positive: true,
+            icon: "👥",
+            color: "#4F46E5",
+          },
+          {
+            id: 2,
+            title: "Demandes en attente",
+            value: 8,
+            change: "-3%",
+            positive: true,
+            icon: "📝",
+            color: "#F59E0B",
+          },
+          {
+            id: 3,
+            title: "Congés approuvés",
+            value: 24,
+            change: "+18%",
+            positive: true,
+            icon: "✅",
+            color: "#10B981",
+          },
+          {
+            id: 4,
+            title: "Heures travaillées",
+            value: 1842,
+            change: "+5%",
+            positive: true,
+            icon: "⏱️",
+            color: "#6366F1",
+          },
+        ]);
+
+        setActivities([
+          {
+            id: 1,
+            title: "Demande de congés approuvée",
+            time: "Il y a 2 heures",
+            user: "Sophie Martin",
+            icon: "✅",
+            color: "#10B981",
+          },
+          {
+            id: 2,
+            title: "Nouvelle demande de congés",
+            time: "Il y a 4 heures",
+            user: "Thomas Dubois",
+            icon: "📝",
+            color: "#F59E0B",
+          },
+          {
+            id: 3,
+            title: "Réunion d'équipe planifiée",
+            time: "Il y a 6 heures",
+            user: "Julie Lefebvre",
+            icon: "📅",
+            color: "#4F46E5",
+          },
+          {
+            id: 4,
+            title: "Rapport mensuel généré",
+            time: "Il y a 1 jour",
+            user: "Nicolas Moreau",
+            icon: "📊",
+            color: "#6366F1",
+          },
+        ]);
+      } else {
+        // Données vides pour un nouvel utilisateur
+        setStats([
+          {
+            id: 1,
+            title: "Employés actifs",
+            value: 0,
+            change: "0%",
+            positive: true,
+            icon: "👥",
+            color: "#4F46E5",
+          },
+          {
+            id: 2,
+            title: "Demandes en attente",
+            value: 0,
+            change: "0%",
+            positive: true,
+            icon: "📝",
+            color: "#F59E0B",
+          },
+          {
+            id: 3,
+            title: "Congés approuvés",
+            value: 0,
+            change: "0%",
+            positive: true,
+            icon: "✅",
+            color: "#10B981",
+          },
+          {
+            id: 4,
+            title: "Heures travaillées",
+            value: 0,
+            change: "0%",
+            positive: true,
+            icon: "⏱️",
+            color: "#6366F1",
+          },
+        ]);
+
+        setActivities([]);
+      }
 
       setLoading(false);
     }, 1000);
@@ -344,7 +407,7 @@ const Dashboard = () => {
       <DashboardHeader>
         <WelcomeSection>
           <WelcomeCard>
-            <h1>Bonjour, Admin!</h1>
+            <h1>Bonjour, {getUserFullName()}!</h1>
             <p>
               Bienvenue sur votre tableau de bord. Voici un aperçu de votre
               activité récente.
@@ -380,26 +443,33 @@ const Dashboard = () => {
 
           <ActivitiesSection>
             <SectionTitle>Activités récentes</SectionTitle>
-            <ActivityList>
-              {activities.map((activity) => (
-                <ActivityItem key={activity.id}>
-                  <ActivityIcon color={activity.color}>
-                    {activity.icon}
-                  </ActivityIcon>
-                  <ActivityContent>
-                    <ActivityTitle>{activity.title}</ActivityTitle>
-                    <ActivityMeta>
-                      <ActivityTime>
-                        <ClockIcon /> {activity.time}
-                      </ActivityTime>
-                      <ActivityUser>
-                        <UserIcon /> {activity.user}
-                      </ActivityUser>
-                    </ActivityMeta>
-                  </ActivityContent>
-                </ActivityItem>
-              ))}
-            </ActivityList>
+            {activities.length > 0 ? (
+              <ActivityList>
+                {activities.map((activity) => (
+                  <ActivityItem key={activity.id}>
+                    <ActivityIcon color={activity.color}>
+                      {activity.icon}
+                    </ActivityIcon>
+                    <ActivityContent>
+                      <ActivityTitle>{activity.title}</ActivityTitle>
+                      <ActivityMeta>
+                        <ActivityTime>
+                          <ClockIcon /> {activity.time}
+                        </ActivityTime>
+                        <ActivityUser>
+                          <UserIcon /> {activity.user}
+                        </ActivityUser>
+                      </ActivityMeta>
+                    </ActivityContent>
+                  </ActivityItem>
+                ))}
+              </ActivityList>
+            ) : (
+              <EmptyState>
+                Aucune activité récente. Commencez à utiliser l'application pour
+                voir apparaître vos activités ici.
+              </EmptyState>
+            )}
           </ActivitiesSection>
         </>
       )}

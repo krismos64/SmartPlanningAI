@@ -31,7 +31,7 @@ const PageHeader = styled.div`
   @media (min-width: 768px) {
     flex-direction: row;
     align-items: center;
-  justify-content: space-between;
+    justify-content: space-between;
   }
 `;
 
@@ -108,6 +108,38 @@ const FormGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
+`;
+
+const EmptyStateContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  box-shadow: ${({ theme }) => theme.shadows.small};
+  text-align: center;
+  margin-top: 2rem;
+`;
+
+const EmptyStateIcon = styled.div`
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+`;
+
+const EmptyStateTitle = styled.h3`
+  font-size: 1.5rem;
+  font-weight: ${({ theme }) => theme.typography.fontWeights.semiBold};
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: 1rem;
+`;
+
+const EmptyStateDescription = styled.p`
+  font-size: 1rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  max-width: 500px;
+  margin-bottom: 2rem;
 `;
 
 // Composant principal
@@ -209,99 +241,118 @@ const Employees = () => {
         </HeaderRight>
       </PageHeader>
 
-      <TabsContainer>
-        <Tab
-          active={activeTab === "all"}
-          onClick={() => handleTabChange("all")}
-        >
-          Tous
-          <TabBadge active={activeTab === "all"}>{countByStatus.all}</TabBadge>
-        </Tab>
-        <Tab
-          active={activeTab === "active"}
-          onClick={() => handleTabChange("active")}
-        >
-          Actifs
-          <TabBadge active={activeTab === "active"}>
-            {countByStatus.active}
-          </TabBadge>
-        </Tab>
-        <Tab
-          active={activeTab === "pending"}
-          onClick={() => handleTabChange("pending")}
-        >
-          En attente
-          <TabBadge active={activeTab === "pending"}>
-            {countByStatus.pending}
-          </TabBadge>
-        </Tab>
-        <Tab
-          active={activeTab === "inactive"}
-          onClick={() => handleTabChange("inactive")}
-        >
-          Inactifs
-          <TabBadge active={activeTab === "inactive"}>
-            {countByStatus.inactive}
-          </TabBadge>
-        </Tab>
-      </TabsContainer>
+      {employees.length === 0 && !loading ? (
+        <EmptyStateContainer>
+          <EmptyStateIcon>👥</EmptyStateIcon>
+          <EmptyStateTitle>Aucun employé</EmptyStateTitle>
+          <EmptyStateDescription>
+            Vous n'avez pas encore ajouté d'employés à votre entreprise.
+            Commencez par ajouter votre premier employé.
+          </EmptyStateDescription>
+          <Button primary onClick={handleAddEmployee}>
+            <PlusIcon />
+            Ajouter un employé
+          </Button>
+        </EmptyStateContainer>
+      ) : (
+        <>
+          <TabsContainer>
+            <Tab
+              active={activeTab === "all"}
+              onClick={() => handleTabChange("all")}
+            >
+              Tous
+              <TabBadge active={activeTab === "all"}>
+                {countByStatus.all}
+              </TabBadge>
+            </Tab>
+            <Tab
+              active={activeTab === "active"}
+              onClick={() => handleTabChange("active")}
+            >
+              Actifs
+              <TabBadge active={activeTab === "active"}>
+                {countByStatus.active}
+              </TabBadge>
+            </Tab>
+            <Tab
+              active={activeTab === "pending"}
+              onClick={() => handleTabChange("pending")}
+            >
+              En attente
+              <TabBadge active={activeTab === "pending"}>
+                {countByStatus.pending}
+              </TabBadge>
+            </Tab>
+            <Tab
+              active={activeTab === "inactive"}
+              onClick={() => handleTabChange("inactive")}
+            >
+              Inactifs
+              <TabBadge active={activeTab === "inactive"}>
+                {countByStatus.inactive}
+              </TabBadge>
+            </Tab>
+          </TabsContainer>
 
-      <FormGrid>
-        <FormSelect
-          label="Département"
-          name="department"
-          value={filters.department}
-          onChange={handleFilterChange}
-        >
-          <option value="">Tous les départements</option>
-          {EMPLOYEE_DEPARTMENTS.map((dept) => (
-            <option key={dept.value} value={dept.value}>
-              {dept.label}
-            </option>
-          ))}
-        </FormSelect>
-          <FormSelect
-          label="Rôle"
-          name="role"
-          value={filters.role}
-          onChange={handleFilterChange}
-        >
-          <option value="">Tous les rôles</option>
-          {EMPLOYEE_ROLES.map((role) => (
-            <option key={role.value} value={role.value}>
-              {role.label}
-            </option>
-          ))}
-        </FormSelect>
-          <FormSelect
-          label="Statut"
-          name="status"
-          value={filters.status}
-          onChange={handleFilterChange}
-        >
-          <option value="">Tous les statuts</option>
-          {EMPLOYEE_STATUSES.map((status) => (
-            <option key={status.value} value={status.value}>
-              {status.label}
-            </option>
-          ))}
-        </FormSelect>
-      </FormGrid>
+          <FormGrid>
+            <FormSelect
+              label="Département"
+              name="department"
+              value={filters.department}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous les départements</option>
+              {EMPLOYEE_DEPARTMENTS.map((dept) => (
+                <option key={dept.value} value={dept.value}>
+                  {dept.label}
+                </option>
+              ))}
+            </FormSelect>
+            <FormSelect
+              label="Rôle"
+              name="role"
+              value={filters.role}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous les rôles</option>
+              {EMPLOYEE_ROLES.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
+            </FormSelect>
+            <FormSelect
+              label="Statut"
+              name="status"
+              value={filters.status}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous les statuts</option>
+              {EMPLOYEE_STATUSES.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </FormSelect>
+          </FormGrid>
 
-      <DataTable
-        title={`Liste des employés (${filteredEmployees.length})`}
-          data={filteredEmployees}
-        columns={EMPLOYEE_TABLE_COLUMNS}
-        loading={loading}
-          pagination={true}
-        pageSize={10}
-        onRowClick={(employee) => {
-          setEditingEmployee(employee);
-          setShowModal(true);
-        }}
-          emptyStateTitle="Aucun employé trouvé"
-          emptyStateMessage="Aucun employé ne correspond à vos critères de recherche."
-        />
+          <DataTable
+            title={`Liste des employés (${filteredEmployees.length})`}
+            data={filteredEmployees}
+            columns={EMPLOYEE_TABLE_COLUMNS}
+            loading={loading}
+            pagination={true}
+            pageSize={10}
+            onRowClick={(employee) => {
+              setEditingEmployee(employee);
+              setShowModal(true);
+            }}
+            emptyStateTitle="Aucun employé trouvé"
+            emptyStateMessage="Aucun employé ne correspond à vos critères de recherche."
+          />
+        </>
+      )}
 
       {showModal && (
         <Modal
