@@ -196,12 +196,6 @@ const UserMenuButton = styled.button`
   }
 `;
 
-const UserMenuDivider = styled.div`
-  height: 1px;
-  background-color: ${({ theme }) => theme.colors.border};
-  margin: ${({ theme }) => `${theme.spacing.xs} 0`};
-`;
-
 const MobileMenuButton = styled.button`
   display: none;
   background: none;
@@ -230,12 +224,6 @@ const MobileMenu = styled.div`
     padding: ${({ theme }) => theme.spacing.lg};
     z-index: 1000;
   }
-`;
-
-const MobileNavLink = styled(NavLink)`
-  padding: ${({ theme }) => theme.spacing.md};
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
-  display: block;
 `;
 
 const NotificationsPanel = styled.div`
@@ -535,13 +523,8 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsPanelOpen, setNotificationsPanelOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAllAsRead,
-    removeNotification,
-  } = useRealTimeNotifications();
+  const { notifications, markAsRead, markAllAsRead } =
+    useRealTimeNotifications();
 
   const isActive = (path) => {
     return location.pathname === path;

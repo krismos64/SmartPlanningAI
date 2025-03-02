@@ -19,7 +19,6 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [error, setError] = useState(null);
 
   // Définir l'utilisateur avec le rôle admin
   const setUserWithAdminRole = (userData) => {
@@ -69,7 +68,6 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error("Erreur de connexion:", error);
-      setError(error.message || "Erreur lors de la connexion");
       return false;
     } finally {
       setIsLoading(false);
@@ -93,7 +91,6 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error("Erreur d'inscription:", error);
-      setError(error.message || "Erreur lors de l'inscription");
       return false;
     } finally {
       setIsLoading(false);
