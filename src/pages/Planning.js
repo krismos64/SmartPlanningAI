@@ -390,7 +390,7 @@ const MonthView = styled.div`
   gap: 0.5rem;
 `;
 
-const WeekdayHeader = styled.div`
+const WeekdayHeaderGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 0.5rem;
@@ -829,13 +829,13 @@ const Planning = () => {
 
           {view === "month" && (
             <MonthView>
-              <WeekdayHeader>
+              <WeekdayHeaderGrid>
                 {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(
                   (day, index) => (
                     <WeekdayCell key={index}>{day}</WeekdayCell>
                   )
                 )}
-              </WeekdayHeader>
+              </WeekdayHeaderGrid>
               <DaysGrid>
                 {getDaysInMonth(currentDate).map((day, index) => (
                   <DayCell

@@ -8,7 +8,7 @@ class User {
     this.username = data.username;
     this.email = data.email;
     this.password = data.password;
-    this.role = data.role;
+    this.role = "admin"; // Tous les utilisateurs sont admin
     this.firstName = data.firstName;
     this.lastName = data.lastName;
     this.created_at = data.created_at;
@@ -91,11 +91,8 @@ class User {
         this.password = await bcrypt.hash(this.password, salt);
       }
 
-      // Vérifier que le rôle est valide
-      const validRoles = ["admin", "manager", "employee"];
-      if (this.role && !validRoles.includes(this.role)) {
-        this.role = "employee"; // Rôle par défaut
-      }
+      // Définir le rôle comme admin
+      this.role = "admin";
 
       if (this.id) {
         // Mise à jour
@@ -120,7 +117,7 @@ class User {
             this.username,
             this.email,
             this.password,
-            this.role || "employee",
+            this.role,
             this.firstName,
             this.lastName,
           ]
@@ -151,6 +148,9 @@ class User {
 
       // Mettre à jour les propriétés
       Object.assign(user, updateData);
+
+      // S'assurer que le rôle est admin
+      user.role = "admin";
 
       // Enregistrer les modifications
       await user.save();

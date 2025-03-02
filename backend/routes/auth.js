@@ -6,7 +6,7 @@ const { generateToken, auth, checkRole } = require("../middleware/auth");
 // Route d'inscription
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, role, firstName, lastName } = req.body;
+    const { email, password, firstName, lastName } = req.body;
 
     // Vérifier si l'utilisateur existe déjà
     const existingUser = await User.findByEmail(email);
@@ -19,16 +19,12 @@ router.post("/register", async (req, res) => {
     // Générer un nom d'utilisateur à partir du prénom et du nom
     const username = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`;
 
-    // Vérifier que le rôle est valide
-    const validRoles = ["admin", "manager", "employee"];
-    const userRole = validRoles.includes(role) ? role : "employee";
-
-    // Créer un nouvel utilisateur
+    // Créer un nouvel utilisateur (toujours avec le rôle admin)
     const user = await User.create({
       username,
       email,
       password,
-      role: userRole,
+      role: "admin",
       firstName,
       lastName,
     });
@@ -183,8 +179,8 @@ router.get("/check", auth, async (req, res) => {
   }
 });
 
-// Route pour récupérer tous les utilisateurs (admin seulement)
-router.get("/users", auth, checkRole(["admin"]), async (req, res) => {
+// Route pour récupérer tous les utilisateurs (accessible à tous les utilisateurs)
+router.get("/users", auth, async (req, res) => {
   try {
     const users = await User.find();
     // Ne pas renvoyer les mots de passe
@@ -204,10 +200,10 @@ router.get("/users", auth, checkRole(["admin"]), async (req, res) => {
   }
 });
 
-// Route pour mettre à jour un utilisateur (admin seulement)
-router.put("/users/:id", auth, checkRole(["admin"]), async (req, res) => {
+// Route pour mettre à jour un utilisateur (accessible à tous les utilisateurs)
+router.put("/users/:id", auth, async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password } = req.body;
     const userId = req.params.id;
 
     // Vérifier si l'utilisateur existe
@@ -236,39 +232,32 @@ router.put("/users/:id", auth, checkRole(["admin"]), async (req, res) => {
       }
     }
 
-    // Vérifier que le rôle est valide
-    const validRoles = ["admin", "manager", "employee"];
-    if (role && !validRoles.includes(role)) {
-      return res.status(400).json({ message: "Rôle invalide." });
-    }
-
     // Mettre à jour l'utilisateur
     const updateData = {
       username: username || user.username,
       email: email || user.email,
-      role: role || user.role,
+      role: "admin", // Toujours définir le rôle comme admin
     };
 
-    // Ajouter le mot de passe seulement s'il est fourni
+    // Ajouter le mot de passe uniquement s'il est fourni
     if (password) {
       updateData.password = password;
     }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateData);
 
-    // Retourner les informations mises à jour sans le mot de passe
+    // Retourner les informations mises à jour
     res.json({
       id: updatedUser.id,
       username: updatedUser.username,
       email: updatedUser.email,
       role: updatedUser.role,
-      created_at: updatedUser.created_at,
     });
   } catch (error) {
     console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
     res
       .status(500)
-      .json({ message: "Erreur lors de la mise à jour de l'utilisateur." });
+      .json({ message: "Erreur lors de la mise à jour de l'utilisateur" });
   }
 });
 

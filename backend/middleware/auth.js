@@ -28,6 +28,9 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: "Utilisateur non trouvé." });
     }
 
+    // Définir le rôle de l'utilisateur comme admin
+    user.role = "admin";
+
     // Ajouter l'utilisateur à l'objet req pour une utilisation ultérieure
     req.user = user;
 
@@ -49,21 +52,14 @@ const auth = async (req, res, next) => {
   }
 };
 
-// Middleware pour vérifier les rôles
+// Middleware pour vérifier les rôles (maintenant tous les utilisateurs sont admin)
 const checkRole = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: "Utilisateur non authentifié." });
     }
 
-    if (!roles.includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({
-          message: "Accès refusé. Vous n'avez pas les droits nécessaires.",
-        });
-    }
-
+    // Tous les utilisateurs ont accès à toutes les fonctionnalités
     next();
   };
 };
