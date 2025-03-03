@@ -260,27 +260,31 @@ const ContentContainer = styled.div`
   min-width: 0;
 `;
 
-const Title = styled.div`
-  font-weight: ${({ theme }) => theme.typography.fontWeights.semiBold};
+const Title = styled.h4`
+  margin: 0 0 4px;
   font-size: ${({ theme }) => theme.typography.sizes.md};
-  margin-bottom: 4px;
+  font-weight: ${({ theme }) => theme.typography.fontWeights.semibold};
 `;
 
-const Message = styled.div`
+const Message = styled.p`
+  margin: 0;
   font-size: ${({ theme }) => theme.typography.sizes.sm};
-  opacity: 0.9;
-  word-wrap: break-word;
+  line-height: 1.4;
+  word-break: break-word;
 `;
 
 const CloseButton = styled.button`
   background: none;
   border: none;
-  color: inherit;
+  color: currentColor;
   cursor: pointer;
   padding: 4px;
-  margin-left: 12px;
+  margin-left: 8px;
   opacity: 0.7;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 
   &:hover {
@@ -292,56 +296,59 @@ const ProgressBar = styled.div`
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 3px;
+  height: 4px;
   background-color: rgba(255, 255, 255, 0.3);
-  animation: ${progressAnimation} ${({ $duration }) => `${$duration}ms`} linear;
+  transition: width 0.1s linear;
 `;
 
 // Contexte pour les notifications
 const NotificationContext = React.createContext({
+  notifications: [],
   showNotification: () => {},
   hideNotification: () => {},
 });
 
-// Hook pour utiliser les notifications
 export const useNotification = () => React.useContext(NotificationContext);
 
 // Composant de notification individuelle
-const NotificationComponent = ({
-  id,
-  type,
-  title,
-  message,
-  duration,
-  onClose,
-}) => {
-  const [isClosing, setIsClosing] = useState(false);
+const Notification = React.memo(({ notification, onClose }) => {
+  const { id, type, title, message, duration, isClosing } = notification;
+  const [progressWidth, setProgressWidth] = useState(100);
+  const timeoutRef = React.useRef(null);
 
+  // Gérer la fermeture automatique
   useEffect(() => {
-    let timer;
+    if (duration > 0) {
+      // Démarrer l'animation de progression
+      const startTime = Date.now();
+      const endTime = startTime + duration;
 
-    if (duration !== Infinity) {
-      timer = setTimeout(() => {
-        setIsClosing(true);
-        setTimeout(() => {
-          onClose(id);
-        }, 300);
-      }, duration);
+      const updateProgress = () => {
+        const now = Date.now();
+        const remaining = Math.max(0, endTime - now);
+        const percent = (remaining / duration) * 100;
+
+        setProgressWidth(percent);
+
+        if (percent > 0) {
+          timeoutRef.current = requestAnimationFrame(updateProgress);
+        } else {
+          onClose();
+        }
+      };
+
+      timeoutRef.current = requestAnimationFrame(updateProgress);
     }
 
     return () => {
-      clearTimeout(timer);
+      if (timeoutRef.current) {
+        cancelAnimationFrame(timeoutRef.current);
+      }
     };
-  }, [id, duration, onClose]);
+  }, [duration, onClose]);
 
-  const handleClose = () => {
-    setIsClosing(true);
-    setTimeout(() => {
-      onClose(id);
-    }, 300);
-  };
-
-  const renderIcon = () => {
+  // Récupérer l'icône en fonction du type
+  const getIcon = () => {
     switch (type) {
       case "success":
         return <SuccessIcon />;
@@ -357,40 +364,56 @@ const NotificationComponent = ({
 
   return (
     <NotificationItem type={type} $isClosing={isClosing}>
-      <IconContainer>{renderIcon()}</IconContainer>
+      <IconContainer>{getIcon()}</IconContainer>
       <ContentContainer>
         {title && <Title>{title}</Title>}
         {message && <Message>{message}</Message>}
       </ContentContainer>
-      <CloseButton onClick={handleClose} aria-label="Fermer">
+      <CloseButton onClick={onClose}>
         <CloseIcon />
       </CloseButton>
-      {duration !== Infinity && (
-        <ProgressBar className="notification-progress" $duration={duration} />
+      {duration > 0 && (
+        <ProgressBar
+          className="notification-progress"
+          style={{ width: `${progressWidth}%` }}
+        />
       )}
     </NotificationItem>
   );
-};
+});
 
-// Fournisseur de notifications
+Notification.displayName = "Notification";
+
+// Composant fournisseur de notifications
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
-  const showNotification = ({
-    type = "info",
-    title,
-    message,
-    duration = 5000,
-  }) => {
-    const id = Date.now();
-    setNotifications((prev) => [
-      ...prev,
-      { id, type, title, message, duration },
-    ]);
-    return id;
-  };
+  // Afficher une notification
+  const showNotification = React.useCallback(
+    ({ type = "info", title, message, duration = 5000 }) => {
+      console.log("Affichage d'une notification:", { type, title, message });
 
-  const hideNotification = (id) => {
+      const id = Date.now().toString();
+
+      setNotifications((prev) => [
+        ...prev,
+        {
+          id,
+          type,
+          title,
+          message,
+          duration,
+          createdAt: new Date(),
+        },
+      ]);
+
+      return id;
+    },
+    []
+  );
+
+  // Masquer une notification
+  const hideNotification = React.useCallback((id) => {
     setNotifications((prev) =>
       prev.map((notification) =>
         notification.id === id
@@ -399,23 +422,23 @@ export const NotificationProvider = ({ children }) => {
       )
     );
 
+    // Supprimer la notification après l'animation
     setTimeout(() => {
       setNotifications((prev) =>
         prev.filter((notification) => notification.id !== id)
       );
     }, 300);
-  };
+  }, []);
 
-  const contextValue = {
-    notifications,
-    showNotification,
-    hideNotification,
-  };
-
-  // Stocker le contexte dans window pour les fonctions d'aide
-  if (typeof window !== "undefined") {
-    window.__NOTIFICATION_CONTEXT__ = contextValue;
-  }
+  // Valeur du contexte
+  const contextValue = React.useMemo(
+    () => ({
+      notifications,
+      showNotification,
+      hideNotification,
+    }),
+    [notifications, showNotification, hideNotification]
+  );
 
   return (
     <NotificationContext.Provider value={contextValue}>
@@ -423,9 +446,9 @@ export const NotificationProvider = ({ children }) => {
       {createPortal(
         <NotificationContainer>
           {notifications.map((notification) => (
-            <NotificationComponent
+            <Notification
               key={notification.id}
-              {...notification}
+              notification={notification}
               onClose={() => hideNotification(notification.id)}
             />
           ))}

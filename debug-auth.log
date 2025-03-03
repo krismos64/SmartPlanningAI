@@ -1,0 +1,4 @@
+
+🚀 Serveur de débogage d'authentification démarré sur le port 5001
+🔐 Route de connexion disponible sur http://localhost:5001/api/auth/login
+✅ Connexion à la base de données MySQL réussie

@@ -17,17 +17,59 @@ const app = express();
 // Connecter à la base de données
 connectDB();
 
+// Configuration CORS
+const corsOptions = {
+  origin: [
+    process.env.FRONTEND_URL || "http://localhost:5002",
+    "http://localhost:3000",
+    "http://localhost:5004",
+    "http://localhost:5005",
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
+
 // Middleware
 app.use(express.json());
-app.use(
-  cors({
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:5002",
-      "http://localhost:5004",
-    ],
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
+
+// Middleware de journalisation des requêtes
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log("Headers:", req.headers);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log("Body:", JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
+// Middleware pour ajouter les en-têtes CORS manuellement
+app.use((req, res, next) => {
+  // Vérifier si l'origine de la requête est autorisée
+  const origin = req.headers.origin;
+  if (corsOptions.origin.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  } else {
+    // Si l'origine n'est pas dans la liste, utiliser la première origine comme fallback
+    res.header("Access-Control-Allow-Origin", corsOptions.origin[0]);
+  }
+
+  res.header("Access-Control-Allow-Methods", corsOptions.methods.join(", "));
+  res.header(
+    "Access-Control-Allow-Headers",
+    corsOptions.allowedHeaders.join(", ")
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  // Gérer les requêtes OPTIONS (preflight)
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  next();
+});
 
 // Routes API
 app.use("/api/employees", employeesRoutes);
@@ -42,10 +84,11 @@ app.get("/", (req, res) => {
 
 // Gestion des erreurs
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error("Erreur serveur:", err);
+  console.error("Stack trace:", err.stack);
   res.status(500).json({
     error: "Une erreur est survenue",
-    message: process.env.NODE_ENV === "development" ? err.message : undefined,
+    message: err.message || "Erreur interne du serveur",
   });
 });
 
@@ -153,6 +196,12 @@ const startServer = async () => {
     const server = app.listen(PORT, () => {
       console.log(`🚀 Serveur démarré sur le port ${PORT}`);
       console.log(`📚 Documentation API: http://localhost:${PORT}/api-docs`);
+      console.log(
+        `🔑 JWT Secret: ${
+          process.env.JWT_SECRET || "smartplanningai_secret_key"
+        }`
+      );
+      console.log(`🌐 CORS Origins: ${JSON.stringify(corsOptions.origin)}`);
     });
 
     // Gérer les erreurs de serveur
@@ -165,5 +214,16 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+// Gérer les erreurs non capturées
+process.on("uncaughtException", (error) => {
+  console.error("Erreur non capturée:", error);
+  console.error("Stack trace:", error.stack);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Promesse rejetée non gérée:", reason);
+  console.error("Promise:", promise);
+});
 
 startServer();

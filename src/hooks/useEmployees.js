@@ -1,14 +1,26 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNotification } from "../components/ui/Notification";
 import { API_ROUTES, apiRequest } from "../config/api";
+import { useAuth } from "../contexts/AuthContext";
 
 export const useEmployees = () => {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
   const { showNotification } = useNotification();
+  const { isAuthenticated, user } = useAuth();
+  const [error, setError] = useState(null);
 
   const fetchEmployees = useCallback(async () => {
+    // Ne pas effectuer la requête si l'utilisateur n'est pas authentifié
+    if (!isAuthenticated) {
+      setLoading(false);
+      setError("Vous devez être connecté pour accéder à cette ressource");
+      setEmployees([]);
+      return;
+    }
+
     try {
+      // Utiliser apiRequest sans ajouter manuellement le token
       const data = await apiRequest(API_ROUTES.EMPLOYEES.BASE);
 
       // Vérifier si data est un tableau, sinon initialiser un tableau vide
@@ -20,6 +32,7 @@ export const useEmployees = () => {
       }
 
       setLoading(false);
+      setError(null);
     } catch (error) {
       console.error("Erreur lors du chargement des employés:", error);
       showNotification({
@@ -29,8 +42,9 @@ export const useEmployees = () => {
       });
       setEmployees([]);
       setLoading(false);
+      setError(error.message || "Erreur lors du chargement des employés");
     }
-  }, [showNotification]);
+  }, [showNotification, isAuthenticated]);
 
   const addEmployee = useCallback(
     async (employeeData) => {
@@ -140,8 +154,13 @@ export const useEmployees = () => {
   );
 
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
+    // Ne charger les employés que si l'utilisateur est authentifié
+    if (isAuthenticated) {
+      fetchEmployees();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchEmployees, isAuthenticated]);
 
   return {
     loading,
@@ -151,5 +170,6 @@ export const useEmployees = () => {
     updateEmployee,
     deleteEmployee,
     getEmployeesByStatus,
+    error,
   };
 };

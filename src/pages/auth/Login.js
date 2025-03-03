@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import Lottie from "lottie-react";
@@ -144,12 +144,23 @@ const SocialButton = styled(Button)`
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
-
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, loginError } = useAuth();
   const { showNotification } = useNotification();
-  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  // Afficher l'erreur de connexion si elle existe
+  useEffect(() => {
+    if (loginError) {
+      showNotification({
+        type: "error",
+        title: "Erreur de connexion",
+        message: loginError,
+      });
+    }
+  }, [loginError]);
 
   // Valider le formulaire
   const validateForm = () => {
@@ -180,18 +191,31 @@ const Login = () => {
     setIsLoading(true);
 
     try {
+      console.log("Tentative de connexion avec:", { email, password: "***" });
+
       // Utiliser la fonction login du contexte d'authentification
-      const response = await login(email, password);
+      const success = await login(email, password);
 
-      // Afficher une notification de succès
-      showNotification({
-        type: "success",
-        title: "Connexion réussie",
-        message: "Bienvenue sur SmartPlanning AI !",
-      });
+      console.log("Résultat de la connexion:", success);
 
-      // Rediriger vers le tableau de bord
-      navigate("/dashboard");
+      if (success) {
+        // Afficher une notification de succès
+        showNotification({
+          type: "success",
+          title: "Connexion réussie",
+          message: "Bienvenue sur SmartPlanning AI !",
+        });
+
+        // Rediriger vers le tableau de bord
+        navigate("/dashboard");
+      } else {
+        // Afficher une notification d'erreur si le login a échoué mais n'a pas lancé d'exception
+        showNotification({
+          type: "error",
+          title: "Échec de connexion",
+          message: loginError || "Identifiants incorrects. Veuillez réessayer.",
+        });
+      }
     } catch (error) {
       console.error("Erreur lors de la connexion:", error);
 
@@ -200,7 +224,7 @@ const Login = () => {
         type: "error",
         title: "Erreur de connexion",
         message:
-          error.message || "Identifiants incorrects. Veuillez réessayer.",
+          error.message || "Une erreur est survenue lors de la connexion.",
       });
     } finally {
       setIsLoading(false);

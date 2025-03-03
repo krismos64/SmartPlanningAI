@@ -1,23 +1,58 @@
 // config/db.js
 const mysql = require("mysql2/promise");
 const dotenv = require("dotenv");
+const path = require("path");
 
 // Charger les variables d'environnement
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
+// Afficher les variables d'environnement de la base de données
+console.log("Variables d'environnement de la base de données:");
+console.log("- DB_HOST:", process.env.DB_HOST);
+console.log("- DB_USER:", process.env.DB_USER);
+console.log("- DB_NAME:", process.env.DB_NAME);
+
+// Créer un pool de connexions pour une meilleure gestion
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "SmartPlanningAI",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
+
+// Fonction pour obtenir une connexion du pool
 const connectDB = async () => {
   try {
-    const connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-    });
-    console.log("✅ Connexion à la base de données MySQL réussie");
-    return connection;
+    // Vérifier si le nom de la base de données est défini
+    if (!process.env.DB_NAME) {
+      throw new Error("La variable d'environnement DB_NAME n'est pas définie");
+    }
+
+    // Obtenir une connexion du pool
+    const connection = await pool.getConnection();
+
+    // Vérifier que la base de données est bien sélectionnée
+    const [result] = await connection.query("SELECT DATABASE() as db");
+    const selectedDB = result[0].db;
+
+    console.log(
+      `✅ Connexion à la base de données MySQL réussie (Base sélectionnée: ${selectedDB})`
+    );
+
+    // Libérer la connexion pour qu'elle retourne au pool
+    connection.release();
+
+    // Retourner le pool pour les requêtes futures
+    return pool;
   } catch (err) {
     console.error("❌ Erreur de connexion à MySQL:", err.message);
-    process.exit(1);
+    console.error("Stack trace:", err.stack);
+
+    // Ne pas quitter le processus, mais propager l'erreur
+    throw err;
   }
 };
 

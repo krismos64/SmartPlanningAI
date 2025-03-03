@@ -839,7 +839,7 @@ const Navbar = () => {
   const navLinks = [
     { to: "/dashboard", icon: <DashboardIcon />, label: "Tableau de bord" },
     { to: "/employees", icon: <EmployeesIcon />, label: "Employés" },
-    { to: "/planning", icon: <PlanningIcon />, label: "Planning" },
+    { to: "/schedule", icon: <PlanningIcon />, label: "Planning" },
     { to: "/vacations", icon: <VacationsIcon />, label: "Congés" },
     { to: "/reports", icon: <ReportsIcon />, label: "Rapports" },
     { to: "/settings", icon: <SettingsIcon />, label: "Paramètres" },

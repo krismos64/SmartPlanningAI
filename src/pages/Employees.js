@@ -160,6 +160,7 @@ const Employees = () => {
     updateEmployee,
     deleteEmployee,
     getEmployeesByStatus,
+    error,
   } = useEmployees();
 
   // Filtrer les employés avec useMemo pour éviter les recalculs inutiles
@@ -241,7 +242,18 @@ const Employees = () => {
         </HeaderRight>
       </PageHeader>
 
-      {employees.length === 0 && !loading ? (
+      {error ? (
+        <EmptyStateContainer>
+          <EmptyStateIcon>⚠️</EmptyStateIcon>
+          <EmptyStateTitle>Erreur d'authentification</EmptyStateTitle>
+          <EmptyStateDescription>
+            {error}. Veuillez vous connecter pour accéder à cette page.
+          </EmptyStateDescription>
+          <Button primary as="a" href="/login">
+            Se connecter
+          </Button>
+        </EmptyStateContainer>
+      ) : employees.length === 0 && !loading ? (
         <EmptyStateContainer>
           <EmptyStateIcon>👥</EmptyStateIcon>
           <EmptyStateTitle>Aucun employé</EmptyStateTitle>

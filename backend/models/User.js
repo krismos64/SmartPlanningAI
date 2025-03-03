@@ -8,16 +8,17 @@ class User {
     this.username = data.username;
     this.email = data.email;
     this.password = data.password;
-    this.role = "admin"; // Tous les utilisateurs sont admin
+    this.role = data.role || "admin"; // Tous les utilisateurs sont admin par défaut
     this.firstName = data.firstName;
     this.lastName = data.lastName;
     this.created_at = data.created_at;
   }
 
   static async find() {
+    let pool = null;
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      pool = await connectDB();
+      const [rows] = await pool.execute(
         "SELECT id, username, email, role, firstName, lastName, created_at FROM users"
       );
       return rows.map((row) => new User(row));
@@ -28,9 +29,10 @@ class User {
   }
 
   static async findById(id) {
+    let pool = null;
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      pool = await connectDB();
+      const [rows] = await pool.execute(
         "SELECT id, username, email, role, firstName, lastName, created_at FROM users WHERE id = ?",
         [id]
       );
@@ -46,12 +48,23 @@ class User {
   }
 
   static async findByEmail(email) {
+    let pool = null;
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
-        "SELECT * FROM users WHERE email = ?",
-        [email]
+      console.log(`Recherche de l'utilisateur avec l'email: ${email}`);
+      pool = await connectDB();
+
+      // Vérifier que la base de données est bien sélectionnée
+      const [dbCheck] = await pool.query("SELECT DATABASE() as db");
+      console.log(`Base de données sélectionnée: ${dbCheck[0].db}`);
+
+      const [rows] = await pool.execute("SELECT * FROM users WHERE email = ?", [
+        email,
+      ]);
+
+      console.log(
+        `Résultat de la recherche: ${rows.length} utilisateur(s) trouvé(s)`
       );
+
       if (rows.length === 0) return null;
       return new User(rows[0]);
     } catch (error) {
@@ -64,9 +77,10 @@ class User {
   }
 
   static async findByUsername(username) {
+    let pool = null;
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      pool = await connectDB();
+      const [rows] = await pool.execute(
         "SELECT * FROM users WHERE username = ?",
         [username]
       );
@@ -82,21 +96,26 @@ class User {
   }
 
   async save() {
+    let pool = null;
     try {
-      const connection = await connectDB();
+      pool = await connectDB();
 
       // Si le mot de passe est en texte brut, le hacher
-      if (this.password && !this.password.startsWith("$2b$")) {
+      if (
+        this.password &&
+        !this.password.startsWith("$2b$") &&
+        !this.password.startsWith("$2a$")
+      ) {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
       }
 
-      // Définir le rôle comme admin
-      this.role = "admin";
+      // Définir le rôle comme admin si non défini
+      this.role = this.role || "admin";
 
       if (this.id) {
         // Mise à jour
-        await connection.execute(
+        await pool.execute(
           "UPDATE users SET username = ?, email = ?, password = ?, role = ?, firstName = ?, lastName = ? WHERE id = ?",
           [
             this.username,
@@ -111,7 +130,7 @@ class User {
         return this;
       } else {
         // Création
-        const [result] = await connection.execute(
+        const [result] = await pool.execute(
           "INSERT INTO users (username, email, password, role, firstName, lastName) VALUES (?, ?, ?, ?, ?, ?)",
           [
             this.username,
@@ -150,7 +169,7 @@ class User {
       Object.assign(user, updateData);
 
       // S'assurer que le rôle est admin
-      user.role = "admin";
+      user.role = user.role || "admin";
 
       // Enregistrer les modifications
       await user.save();
@@ -166,9 +185,10 @@ class User {
   }
 
   static async delete(id) {
+    let pool = null;
     try {
-      const connection = await connectDB();
-      await connection.execute("DELETE FROM users WHERE id = ?", [id]);
+      pool = await connectDB();
+      await pool.execute("DELETE FROM users WHERE id = ?", [id]);
       return true;
     } catch (error) {
       console.error(
@@ -181,9 +201,40 @@ class User {
 
   async comparePassword(candidatePassword) {
     try {
-      return await bcrypt.compare(candidatePassword, this.password);
+      console.log(
+        "Comparaison du mot de passe pour l'utilisateur:",
+        this.email
+      );
+      console.log("Mot de passe haché stocké:", this.password);
+
+      if (!candidatePassword) {
+        console.error("Mot de passe candidat manquant");
+        return false;
+      }
+
+      if (!this.password) {
+        console.error(
+          "Mot de passe haché manquant pour l'utilisateur:",
+          this.email
+        );
+        return false;
+      }
+
+      // Vérifier si le mot de passe est au format bcrypt
+      if (
+        !this.password.startsWith("$2b$") &&
+        !this.password.startsWith("$2a$")
+      ) {
+        console.error("Le mot de passe stocké n'est pas au format bcrypt");
+        return false;
+      }
+
+      const isMatch = await bcrypt.compare(candidatePassword, this.password);
+      console.log("Résultat de la comparaison:", isMatch);
+      return isMatch;
     } catch (error) {
       console.error("Erreur lors de la comparaison des mots de passe:", error);
+      console.error("Stack trace:", error.stack);
       throw error;
     }
   }

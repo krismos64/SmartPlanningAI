@@ -51,26 +51,54 @@ router.post("/register", async (req, res) => {
 // Route de connexion
 router.post("/login", async (req, res) => {
   try {
+    console.log("Tentative de connexion avec:", req.body);
+
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      console.log("Email ou mot de passe manquant");
+      return res.status(400).json({ message: "Email et mot de passe requis." });
+    }
 
     // Vérifier si l'utilisateur existe
     const user = await User.findByEmail(email);
     if (!user) {
+      console.log("Utilisateur non trouvé:", email);
       return res
         .status(401)
         .json({ message: "Email ou mot de passe incorrect." });
     }
 
+    console.log("Utilisateur trouvé:", {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
     // Vérifier le mot de passe
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
+    try {
+      const isMatch = await user.comparePassword(password);
+      console.log("Résultat de la comparaison du mot de passe:", isMatch);
+
+      if (!isMatch) {
+        console.log("Mot de passe incorrect pour:", email);
+        return res
+          .status(401)
+          .json({ message: "Email ou mot de passe incorrect." });
+      }
+    } catch (passwordError) {
+      console.error(
+        "Erreur lors de la vérification du mot de passe:",
+        passwordError
+      );
       return res
-        .status(401)
-        .json({ message: "Email ou mot de passe incorrect." });
+        .status(500)
+        .json({ message: "Erreur lors de la vérification du mot de passe." });
     }
 
     // Générer un token JWT
     const token = generateToken(user.id);
+    console.log("Token généré pour l'utilisateur:", user.id);
 
     // Retourner les informations de l'utilisateur sans le mot de passe
     res.json({
@@ -84,6 +112,7 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
+    console.error("Stack trace:", error.stack);
     res.status(500).json({ message: "Erreur lors de la connexion." });
   }
 });

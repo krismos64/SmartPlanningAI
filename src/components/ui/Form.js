@@ -643,9 +643,35 @@ export const FormSwitch = ({
   </StyledFormGroup>
 );
 
-export const FormGroup = ({ children, noMargin }) => (
-  <StyledFormGroup noMargin={noMargin}>{children}</StyledFormGroup>
-);
+export const FormGroup = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+export const Button = styled.button`
+  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
+  border: none;
+  border-radius: ${({ theme }) => theme.borderRadius.small};
+  font-size: ${({ theme }) => theme.typography.sizes.md};
+  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: ${({ theme, variant }) =>
+    variant === "secondary"
+      ? theme.colors.secondary
+      : variant === "danger"
+      ? theme.colors.danger
+      : theme.colors.primary};
+  color: ${({ theme }) => theme.colors.surface};
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
 
 // Création d'un objet nommé pour l'export par défaut
 const FormComponents = {
@@ -656,6 +682,7 @@ const FormComponents = {
   FormRadio,
   FormSwitch,
   FormGroup,
+  Button,
 };
 
 export default FormComponents;

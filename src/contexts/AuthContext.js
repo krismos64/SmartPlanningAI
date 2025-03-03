@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [loginError, setLoginError] = useState(null);
 
   // Définir l'utilisateur avec le rôle admin
   const setUserWithAdminRole = (userData) => {
@@ -35,14 +36,54 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await apiRequest(API_ROUTES.AUTH.ME);
-        // Définir l'utilisateur comme admin
-        const adminUser = setUserWithAdminRole(response.user);
-        setUser(adminUser);
-        setIsAuthenticated(true);
+        // Vérifier si le token est présent dans localStorage
+        const token = localStorage.getItem("token");
+        console.log("Token au chargement:", token);
+
+        // Vérifier si l'utilisateur est déjà dans localStorage
+        const storedUser = localStorage.getItem("user");
+        if (storedUser && token) {
+          const parsedUser = JSON.parse(storedUser);
+          // Définir l'utilisateur comme admin
+          const adminUser = setUserWithAdminRole(parsedUser);
+          setUser(adminUser);
+          setIsAuthenticated(true);
+          console.log("Utilisateur restauré depuis localStorage:", adminUser);
+        } else if (token) {
+          // Si token mais pas d'utilisateur, essayer de récupérer l'utilisateur depuis l'API
+          try {
+            // Note: Cette fonctionnalité n'est pas disponible dans la nouvelle API
+            // Nous utilisons simplement les données stockées localement
+            setUser(null);
+            setIsAuthenticated(false);
+            localStorage.removeItem("token");
+          } catch (error) {
+            console.error(
+              "Erreur lors de la récupération de l'utilisateur:",
+              error
+            );
+            // Si erreur, supprimer le token et l'utilisateur
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        } else {
+          // Ni token ni utilisateur
+          setUser(null);
+          setIsAuthenticated(false);
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+        }
       } catch (error) {
+        console.error(
+          "Erreur lors de la vérification de l'authentification:",
+          error
+        );
         setUser(null);
         setIsAuthenticated(false);
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
       } finally {
         setIsLoading(false);
       }
@@ -53,11 +94,44 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     setIsLoading(true);
+    setLoginError(null);
+
     try {
-      const response = await apiRequest(API_ROUTES.AUTH.LOGIN, {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
+      console.log("Tentative de connexion avec:", { email, password: "***" });
+
+      if (!email || !password) {
+        setLoginError("Email et mot de passe requis");
+        setIsLoading(false);
+        return false;
+      }
+
+      const response = await apiRequest(API_ROUTES.LOGIN, "POST", {
+        email,
+        password,
       });
+
+      if (response.error) {
+        console.error("Erreur de connexion:", response.error);
+        setLoginError(response.error);
+        setIsLoading(false);
+        return false;
+      }
+
+      console.log("Réponse de login:", {
+        ...response,
+        token: response.token ? "***" : null,
+      });
+
+      // Stocker le token si présent dans la réponse
+      if (response.token) {
+        localStorage.setItem("token", response.token);
+        console.log("Token stocké avec succès");
+      } else {
+        console.error("Pas de token dans la réponse");
+        setLoginError("Pas de token dans la réponse");
+        setIsLoading(false);
+        return false;
+      }
 
       // Définir l'utilisateur comme admin
       const adminUser = setUserWithAdminRole(response);
@@ -65,9 +139,12 @@ export const AuthProvider = ({ children }) => {
       setUser(adminUser);
       setIsAuthenticated(true);
       localStorage.setItem("user", JSON.stringify(adminUser));
+
+      console.log("Utilisateur connecté:", { ...adminUser, token: "***" });
       return true;
     } catch (error) {
       console.error("Erreur de connexion:", error);
+      setLoginError(error.message || "Erreur de connexion");
       return false;
     } finally {
       setIsLoading(false);
@@ -77,10 +154,20 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     setIsLoading(true);
     try {
-      const response = await apiRequest(API_ROUTES.AUTH.REGISTER, {
-        method: "POST",
-        body: JSON.stringify(userData),
-      });
+      const response = await apiRequest(API_ROUTES.REGISTER, "POST", userData);
+
+      if (response.error) {
+        console.error("Erreur d'inscription:", response.error);
+        return false;
+      }
+
+      // Stocker le token si présent dans la réponse
+      if (response.token) {
+        localStorage.setItem("token", response.token);
+        console.log("Token stocké après inscription:", response.token);
+      } else {
+        console.error("Pas de token dans la réponse d'inscription");
+      }
 
       // Définir l'utilisateur comme admin
       const adminUser = setUserWithAdminRole(response);
@@ -97,59 +184,44 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
-    await apiRequest(API_ROUTES.AUTH.LOGOUT, {
-      method: "POST",
-    });
-
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem("user");
+  const logout = () => {
+    try {
+      setUser(null);
+      setIsAuthenticated(false);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+    }
   };
 
-  // Fonction pour récupérer tous les utilisateurs (accessible à tous)
+  // Fonction pour récupérer tous les utilisateurs
   const getUsers = async () => {
-    const token = localStorage.getItem("token");
-    return await apiRequest(API_ROUTES.AUTH.USERS, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    // Cette fonctionnalité n'est pas disponible dans la nouvelle API
+    console.warn("La fonctionnalité getUsers n'est pas implémentée");
+    return { success: false, message: "Fonctionnalité non implémentée" };
   };
 
-  // Fonction pour mettre à jour un utilisateur (accessible à tous)
+  // Fonction pour mettre à jour un utilisateur
   const updateUser = async (userId, userData) => {
-    const token = localStorage.getItem("token");
-    // S'assurer que le rôle est admin
-    const adminUserData = {
-      ...userData,
-      role: "admin",
-    };
-
-    return await apiRequest(API_ROUTES.AUTH.USER_DETAIL(userId), {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(adminUserData),
-    });
+    // Cette fonctionnalité n'est pas disponible dans la nouvelle API
+    console.warn("La fonctionnalité updateUser n'est pas implémentée");
+    return { success: false, message: "Fonctionnalité non implémentée" };
   };
 
-  // Fonction pour supprimer un utilisateur (accessible à tous)
+  // Fonction pour supprimer un utilisateur
   const deleteUser = async (userId) => {
-    const token = localStorage.getItem("token");
-    return await apiRequest(API_ROUTES.AUTH.USER_DETAIL(userId), {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    // Cette fonctionnalité n'est pas disponible dans la nouvelle API
+    console.warn("La fonctionnalité deleteUser n'est pas implémentée");
+    return { success: false, message: "Fonctionnalité non implémentée" };
   };
 
   const value = {
     isAuthenticated,
     isLoading,
     user,
+    loginError,
     login,
     logout,
     register,

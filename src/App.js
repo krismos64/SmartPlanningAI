@@ -8,7 +8,7 @@ import { lazy, Suspense } from "react";
 import ThemeProvider from "./components/ThemeProvider";
 import { NotificationProvider } from "./components/ui/Notification";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import RealTimeNotificationProvider from "./components/ui/RealTimeNotification";
+import theme from "./theme";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
@@ -19,7 +19,7 @@ const Login = lazy(() => import("./pages/auth/Login"));
 const Register = lazy(() => import("./pages/auth/Register"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Employees = lazy(() => import("./pages/Employees"));
-const Planning = lazy(() => import("./pages/Planning"));
+const Schedule = lazy(() => import("./pages/Schedule"));
 const Vacations = lazy(() => import("./pages/Vacations"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -50,7 +50,9 @@ const ProtectedRoute = ({ children }) => {
     return <LoadingFallback />;
   }
 
-  if (!isAuthenticated) {
+  // Vérifier si l'utilisateur est authentifié ou s'il existe dans localStorage
+  const storedUser = localStorage.getItem("user");
+  if (!isAuthenticated && !storedUser) {
     return <Navigate to="/login" replace />;
   }
 
@@ -65,11 +67,15 @@ const AdminRoute = ({ children }) => {
     return <LoadingFallback />;
   }
 
-  if (!isAuthenticated) {
+  // Vérifier si l'utilisateur est authentifié ou s'il existe dans localStorage
+  const storedUser = localStorage.getItem("user");
+  if (!isAuthenticated && !storedUser) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user && user.role !== "admin") {
+  // Vérifier le rôle de l'utilisateur (soit depuis le contexte, soit depuis localStorage)
+  const currentUser = user || (storedUser ? JSON.parse(storedUser) : null);
+  if (currentUser && currentUser.role !== "admin") {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -78,58 +84,56 @@ const AdminRoute = ({ children }) => {
 
 const App = () => {
   return (
-    <Router>
-      <ThemeProvider>
+    <ThemeProvider theme={theme}>
+      <AuthProvider>
         <NotificationProvider>
-          <AuthProvider>
-            <RealTimeNotificationProvider>
-              <Suspense fallback={<LoadingFallback />}>
-                <Routes>
-                  {/* Landing Page */}
-                  <Route path="/" element={<LandingPage />} />
+          <Router>
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
+                {/* Landing Page */}
+                <Route path="/" element={<LandingPage />} />
 
-                  {/* Routes d'authentification */}
-                  <Route element={<AuthLayout />}>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                  </Route>
+                {/* Routes d'authentification */}
+                <Route element={<AuthLayout />}>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                </Route>
 
-                  {/* Routes protégées */}
+                {/* Routes protégées */}
+                <Route
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/employees" element={<Employees />} />
+                  <Route path="/schedule" element={<Schedule />} />
+                  <Route path="/vacations" element={<Vacations />} />
+                  <Route path="/stats" element={<Stats />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/profile" element={<Profile />} />
+
+                  {/* Routes Admin */}
                   <Route
+                    path="/users"
                     element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
+                      <AdminRoute>
+                        <UserManagement />
+                      </AdminRoute>
                     }
-                  >
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/employees" element={<Employees />} />
-                    <Route path="/planning" element={<Planning />} />
-                    <Route path="/vacations" element={<Vacations />} />
-                    <Route path="/stats" element={<Stats />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/profile" element={<Profile />} />
+                  />
+                </Route>
 
-                    {/* Routes Admin */}
-                    <Route
-                      path="/users"
-                      element={
-                        <AdminRoute>
-                          <UserManagement />
-                        </AdminRoute>
-                      }
-                    />
-                  </Route>
-
-                  {/* Page 404 */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </RealTimeNotificationProvider>
-          </AuthProvider>
+                {/* Page 404 */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </Router>
         </NotificationProvider>
-      </ThemeProvider>
-    </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 
