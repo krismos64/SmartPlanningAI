@@ -13,7 +13,7 @@ export const useShifts = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiRequest(API_ROUTES.SHIFTS, "GET");
+      const response = await apiRequest(API_ROUTES.SHIFTS.BASE, "GET");
       if (response.error) {
         setError(response.error);
         return;
@@ -32,7 +32,11 @@ export const useShifts = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiRequest(API_ROUTES.SHIFTS, "POST", shiftData);
+      const response = await apiRequest(
+        API_ROUTES.SHIFTS.BASE,
+        "POST",
+        shiftData
+      );
       if (response.error) {
         setError(response.error);
         throw new Error(response.error);
@@ -54,7 +58,7 @@ export const useShifts = () => {
       setLoading(true);
       setError(null);
       const response = await apiRequest(
-        `${API_ROUTES.SHIFTS}/${id}`,
+        API_ROUTES.SHIFTS.DETAIL(id),
         "PUT",
         shiftData
       );
@@ -80,7 +84,7 @@ export const useShifts = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiRequest(`${API_ROUTES.SHIFTS}/${id}`, "DELETE");
+      const response = await apiRequest(API_ROUTES.SHIFTS.DETAIL(id), "DELETE");
       if (response.error) {
         setError(response.error);
         throw new Error(response.error);

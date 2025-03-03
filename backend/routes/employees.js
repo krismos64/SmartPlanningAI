@@ -43,13 +43,16 @@ router.get("/:id", auth, async (req, res) => {
 // @route   POST /api/employees
 // @desc    Créer un nouvel employé
 // @access  Public
-router.post("/", auth, checkRole(["admin", "manager"]), async (req, res) => {
+router.post("/", auth, async (req, res) => {
   try {
+    console.log("Données reçues dans la route POST /api/employees:", req.body);
     const employee = new Employee(req.body);
     await employee.save();
     res.status(201).json(employee);
   } catch (error) {
     console.error("Erreur lors de la création de l'employé:", error);
+    console.error("Message d'erreur:", error.message);
+    console.error("Stack trace:", error.stack);
     res
       .status(500)
       .json({ message: "Erreur lors de la création de l'employé" });
@@ -59,7 +62,7 @@ router.post("/", auth, checkRole(["admin", "manager"]), async (req, res) => {
 // @route   PUT /api/employees/:id
 // @desc    Mettre à jour un employé
 // @access  Public
-router.put("/:id", auth, checkRole(["admin", "manager"]), async (req, res) => {
+router.put("/:id", auth, async (req, res) => {
   try {
     const employee = await Employee.findByIdAndUpdate(req.params.id, req.body);
     if (!employee) {
@@ -80,7 +83,7 @@ router.put("/:id", auth, checkRole(["admin", "manager"]), async (req, res) => {
 // @route   DELETE /api/employees/:id
 // @desc    Supprimer un employé
 // @access  Public
-router.delete("/:id", auth, checkRole(["admin"]), async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
   try {
     const result = await Employee.delete(req.params.id);
     if (!result) {

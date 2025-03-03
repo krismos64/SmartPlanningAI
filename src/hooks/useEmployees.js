@@ -25,7 +25,23 @@ export const useEmployees = () => {
 
       // Vérifier si data est un tableau, sinon initialiser un tableau vide
       if (Array.isArray(data)) {
-        setEmployees(data);
+        // Transformer les données pour correspondre au format attendu par le frontend
+        const transformedData = data.map((employee) => ({
+          id: employee.id,
+          firstName: employee.first_name,
+          lastName: employee.last_name,
+          email: employee.email,
+          role: employee.role,
+          department: employee.department,
+          birthDate: employee.birth_date,
+          startDate: employee.start_date,
+          status: employee.status || "active",
+          hoursWorked: employee.hours_worked,
+          overtimeHours: employee.overtime_hours,
+          createdAt: employee.created_at,
+        }));
+
+        setEmployees(transformedData);
       } else {
         console.error("Les données reçues ne sont pas un tableau:", data);
         setEmployees([]);
@@ -49,9 +65,21 @@ export const useEmployees = () => {
   const addEmployee = useCallback(
     async (employeeData) => {
       try {
+        // Transformer les données pour correspondre au format attendu par le backend
+        const transformedData = {
+          first_name: employeeData.firstName,
+          last_name: employeeData.lastName,
+          email: employeeData.email || null,
+          role: employeeData.role || null,
+          department: employeeData.department || null,
+          birth_date: employeeData.birthDate || null,
+          start_date: employeeData.startDate || null,
+          status: employeeData.status || "active",
+        };
+
         await apiRequest(API_ROUTES.EMPLOYEES.BASE, {
           method: "POST",
-          body: JSON.stringify(employeeData),
+          body: JSON.stringify(transformedData),
         });
 
         showNotification({
@@ -78,9 +106,21 @@ export const useEmployees = () => {
   const updateEmployee = useCallback(
     async (id, employeeData) => {
       try {
+        // Transformer les données pour correspondre au format attendu par le backend
+        const transformedData = {
+          first_name: employeeData.firstName,
+          last_name: employeeData.lastName,
+          email: employeeData.email || null,
+          role: employeeData.role || null,
+          department: employeeData.department || null,
+          birth_date: employeeData.birthDate || null,
+          start_date: employeeData.startDate || null,
+          status: employeeData.status || "active",
+        };
+
         await apiRequest(API_ROUTES.EMPLOYEES.DETAIL(id), {
           method: "PUT",
-          body: JSON.stringify(employeeData),
+          body: JSON.stringify(transformedData),
         });
 
         showNotification({

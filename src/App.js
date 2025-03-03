@@ -24,7 +24,6 @@ const Vacations = lazy(() => import("./pages/Vacations"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
-const UserManagement = lazy(() => import("./pages/UserManagement"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 
@@ -54,29 +53,6 @@ const ProtectedRoute = ({ children }) => {
   const storedUser = localStorage.getItem("user");
   if (!isAuthenticated && !storedUser) {
     return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
-
-// Admin Route Component
-const AdminRoute = ({ children }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
-
-  if (isLoading) {
-    return <LoadingFallback />;
-  }
-
-  // Vérifier si l'utilisateur est authentifié ou s'il existe dans localStorage
-  const storedUser = localStorage.getItem("user");
-  if (!isAuthenticated && !storedUser) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Vérifier le rôle de l'utilisateur (soit depuis le contexte, soit depuis localStorage)
-  const currentUser = user || (storedUser ? JSON.parse(storedUser) : null);
-  if (currentUser && currentUser.role !== "admin") {
-    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
@@ -114,16 +90,6 @@ const App = () => {
                   <Route path="/stats" element={<Stats />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/profile" element={<Profile />} />
-
-                  {/* Routes Admin */}
-                  <Route
-                    path="/users"
-                    element={
-                      <AdminRoute>
-                        <UserManagement />
-                      </AdminRoute>
-                    }
-                  />
                 </Route>
 
                 {/* Page 404 */}

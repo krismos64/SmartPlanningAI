@@ -30,6 +30,7 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
     department: employee?.department || "",
     role: employee?.role || "",
     status: employee?.status || "active",
+    birthDate: employee?.birthDate || "",
     startDate: employee?.startDate || new Date().toISOString().split("T")[0],
   });
 
@@ -44,6 +45,7 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault();
+      console.log("Données du formulaire à soumettre:", formData);
       onSubmit(formData);
     },
     [formData, onSubmit]
@@ -76,14 +78,22 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
           type="email"
           value={formData.email}
           onChange={handleChange}
-          required
+          helpText="Facultatif"
+        />
+        <FormInput
+          label="Date de naissance"
+          name="birthDate"
+          type="date"
+          value={formData.birthDate}
+          onChange={handleChange}
+          helpText="Facultatif"
         />
         <FormSelect
           label="Département"
           name="department"
           value={formData.department}
           onChange={handleChange}
-          required
+          helpText="Facultatif"
         >
           <option value="">Sélectionner un département</option>
           {EMPLOYEE_DEPARTMENTS.map((dept) => (
@@ -97,7 +107,7 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
           name="role"
           value={formData.role}
           onChange={handleChange}
-          required
+          helpText="Facultatif"
         >
           <option value="">Sélectionner un rôle</option>
           {EMPLOYEE_ROLES.map((role) => (
@@ -125,7 +135,7 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
           type="date"
           value={formData.startDate}
           onChange={handleChange}
-          required
+          helpText="Facultatif"
         />
       </FormGrid>
 

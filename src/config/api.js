@@ -8,11 +8,20 @@ export const API_BASE_URL =
 export const API_ROUTES = {
   LOGIN: `${API_BASE_URL}/api/auth/login`,
   REGISTER: `${API_BASE_URL}/api/auth/register`,
-  EMPLOYEES: `${API_BASE_URL}/api/employees`,
+  EMPLOYEES: {
+    BASE: `${API_BASE_URL}/api/employees`,
+    DETAIL: (id) => `${API_BASE_URL}/api/employees/${id}`,
+  },
   PLANNING: `${API_BASE_URL}/api/planning`,
-  VACATIONS: `${API_BASE_URL}/api/vacations`,
+  VACATIONS: {
+    BASE: `${API_BASE_URL}/api/vacations`,
+    DETAIL: (id) => `${API_BASE_URL}/api/vacations/${id}`,
+  },
   STATS: `${API_BASE_URL}/api/stats`,
-  SHIFTS: `${API_BASE_URL}/api/shifts`,
+  SHIFTS: {
+    BASE: `${API_BASE_URL}/api/shifts`,
+    DETAIL: (id) => `${API_BASE_URL}/api/shifts/${id}`,
+  },
 };
 
 // Fonction générique pour les requêtes API

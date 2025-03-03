@@ -22,7 +22,8 @@ const inputStyles = css`
     size === "sm" ? "36px" : size === "lg" ? "52px" : "44px"};
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
   border: 1px solid
-    ${({ theme, error }) => (error ? theme.colors.error : theme.colors.border)};
+    ${({ theme, $error }) =>
+      $error ? theme.colors.error : theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   background-color: ${({ theme }) => theme.colors.surface};
   color: ${({ theme }) => theme.colors.text.primary};
@@ -45,16 +46,11 @@ const inputStyles = css`
     cursor: not-allowed;
   }
 
-  ${({ error, theme }) =>
-    error &&
+  ${({ $error, theme }) =>
+    $error &&
     css`
-      border-color: ${theme.colors.error};
       animation: ${shake} 0.5s ease-in-out;
-
-      &:focus {
-        border-color: ${theme.colors.error};
-        box-shadow: 0 0 0 3px ${`${theme.colors.error}33`};
-      }
+      border-color: ${theme.colors.error};
     `}
 `;
 
@@ -69,11 +65,10 @@ const StyledFormGroup = styled.div`
 const Label = styled.label`
   display: block;
   margin-bottom: ${({ theme }) => theme.spacing.xs};
-  color: ${({ theme, error }) =>
-    error ? theme.colors.error : theme.colors.text.secondary};
   font-size: ${({ theme }) => theme.typography.sizes.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
-  transition: all 0.2s ease;
+  font-weight: 500;
+  color: ${({ $error, theme }) =>
+    $error ? theme.colors.error : theme.colors.text.primary};
 
   ${({ required }) =>
     required &&
@@ -81,7 +76,7 @@ const Label = styled.label`
       &::after {
         content: "*";
         color: ${({ theme }) => theme.colors.error};
-        margin-left: ${({ theme }) => theme.spacing.xs};
+        margin-left: 2px;
       }
     `}
 `;
@@ -92,11 +87,11 @@ const FloatingLabelContainer = styled.div`
 
 const FloatingLabel = styled.label`
   position: absolute;
-  left: ${({ theme }) => theme.spacing.md};
   top: 50%;
+  left: ${({ theme }) => theme.spacing.md};
   transform: translateY(-50%);
-  color: ${({ theme, error, isFocused, hasValue }) =>
-    error
+  color: ${({ $error, isFocused, theme }) =>
+    $error
       ? theme.colors.error
       : isFocused
       ? theme.colors.primary
@@ -415,7 +410,7 @@ export const FormInput = ({
   return (
     <StyledFormGroup>
       {label && !floatingLabel && (
-        <Label htmlFor={id} error={!!error} required={required}>
+        <Label htmlFor={id} $error={!!error} required={required}>
           {label}
         </Label>
       )}
@@ -431,7 +426,7 @@ export const FormInput = ({
             onFocus={handleFocus}
             onBlur={handleBlur}
             disabled={disabled}
-            error={!!error}
+            $error={!!error}
             size={size}
             placeholder=" "
             hasFloatingLabel
@@ -439,7 +434,7 @@ export const FormInput = ({
           />
           <FloatingLabel
             htmlFor={id}
-            error={!!error}
+            $error={!!error}
             isFocused={isFocused}
             hasValue={!!value}
             required={required}
@@ -458,7 +453,7 @@ export const FormInput = ({
           onFocus={onFocus}
           onBlur={onBlur}
           disabled={disabled}
-          error={!!error}
+          $error={!!error}
           size={size}
           {...props}
         />
@@ -487,7 +482,7 @@ export const FormTextarea = ({
 }) => (
   <StyledFormGroup>
     {label && (
-      <Label htmlFor={id} error={!!error} required={required}>
+      <Label htmlFor={id} $error={!!error} required={required}>
         {label}
       </Label>
     )}
@@ -499,7 +494,7 @@ export const FormTextarea = ({
       onChange={onChange}
       onBlur={onBlur}
       disabled={disabled}
-      error={!!error}
+      $error={!!error}
       rows={rows}
       {...props}
     />
@@ -526,7 +521,7 @@ export const FormSelect = ({
 }) => (
   <StyledFormGroup>
     {label && (
-      <Label htmlFor={id} error={!!error} required={required}>
+      <Label htmlFor={id} $error={!!error} required={required}>
         {label}
       </Label>
     )}
@@ -537,7 +532,7 @@ export const FormSelect = ({
       onChange={onChange}
       onBlur={onBlur}
       disabled={disabled}
-      error={!!error}
+      $error={!!error}
       size={size}
       {...props}
     >
@@ -551,6 +546,7 @@ export const FormSelect = ({
           {option.label}
         </option>
       ))}
+      {props.children}
     </Select>
     {error && <ErrorMessage>{error}</ErrorMessage>}
     {helpText && !error && <HelpText>{helpText}</HelpText>}

@@ -21,15 +21,16 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loginError, setLoginError] = useState(null);
 
-  // Définir l'utilisateur avec le rôle admin
+  // Fonction pour définir l'utilisateur avec le rôle admin
   const setUserWithAdminRole = (userData) => {
-    if (userData) {
-      return {
-        ...userData,
-        role: "admin",
-      };
-    }
-    return userData;
+    // Attribuer automatiquement le rôle admin à tous les utilisateurs
+    const userWithAdminRole = {
+      ...userData,
+      role: "admin", // Tous les utilisateurs ont le rôle admin
+    };
+    setUser(userWithAdminRole);
+    setIsAuthenticated(true);
+    return userWithAdminRole;
   };
 
   // Vérifier l'authentification au chargement
@@ -47,7 +48,6 @@ export const AuthProvider = ({ children }) => {
           // Définir l'utilisateur comme admin
           const adminUser = setUserWithAdminRole(parsedUser);
           setUser(adminUser);
-          setIsAuthenticated(true);
           console.log("Utilisateur restauré depuis localStorage:", adminUser);
         } else if (token) {
           // Si token mais pas d'utilisateur, essayer de récupérer l'utilisateur depuis l'API
@@ -137,7 +137,6 @@ export const AuthProvider = ({ children }) => {
       const adminUser = setUserWithAdminRole(response);
 
       setUser(adminUser);
-      setIsAuthenticated(true);
       localStorage.setItem("user", JSON.stringify(adminUser));
 
       console.log("Utilisateur connecté:", { ...adminUser, token: "***" });
@@ -173,7 +172,6 @@ export const AuthProvider = ({ children }) => {
       const adminUser = setUserWithAdminRole(response);
 
       setUser(adminUser);
-      setIsAuthenticated(true);
       localStorage.setItem("user", JSON.stringify(adminUser));
       return true;
     } catch (error) {
@@ -200,7 +198,7 @@ export const AuthProvider = ({ children }) => {
   const getUsers = async () => {
     // Cette fonctionnalité n'est pas disponible dans la nouvelle API
     console.warn("La fonctionnalité getUsers n'est pas implémentée");
-    return { success: false, message: "Fonctionnalité non implémentée" };
+    return []; // Retourner un tableau vide au lieu d'un objet
   };
 
   // Fonction pour mettre à jour un utilisateur
@@ -218,16 +216,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = {
+    user,
     isAuthenticated,
     isLoading,
-    user,
-    loginError,
     login,
-    logout,
     register,
-    getUsers,
-    updateUser,
-    deleteUser,
+    logout,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
