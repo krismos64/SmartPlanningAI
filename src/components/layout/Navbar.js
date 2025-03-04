@@ -1,12 +1,11 @@
-import { useState } from "react";
-import React from "react";
+import Lottie from "lottie-react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import Lottie from "lottie-react";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import robotAnimation from "../../assets/animations/robot.json";
-import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../components/ThemeProvider";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   NotificationBell,
   useRealTimeNotifications,
@@ -884,6 +883,7 @@ const Navbar = () => {
     { to: "/dashboard", icon: <DashboardIcon />, label: "Tableau de bord" },
     { to: "/employees", icon: <EmployeesIcon />, label: "Employés" },
     { to: "/schedule", icon: <PlanningIcon />, label: "Planning" },
+    { to: "/weekly-schedule", icon: <PlanningIcon />, label: "Planning Hebdo" },
     { to: "/vacations", icon: <VacationsIcon />, label: "Congés" },
     { to: "/reports", icon: <ReportsIcon />, label: "Rapports" },
     { to: "/settings", icon: <SettingsIcon />, label: "Paramètres" },

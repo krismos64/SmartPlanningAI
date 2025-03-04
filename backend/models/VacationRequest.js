@@ -1,4 +1,3 @@
-const mysql = require("mysql2/promise");
 const connectDB = require("../config/db");
 
 class VacationRequest {
@@ -18,10 +17,7 @@ class VacationRequest {
 
   static async find() {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
-        "SELECT * FROM vacation_requests"
-      );
+      const [rows] = await connectDB.execute("SELECT * FROM vacation_requests");
       return rows.map((row) => new VacationRequest(row));
     } catch (error) {
       console.error(
@@ -34,8 +30,7 @@ class VacationRequest {
 
   static async findById(id) {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      const [rows] = await connectDB.execute(
         "SELECT * FROM vacation_requests WHERE id = ?",
         [id]
       );
@@ -52,10 +47,9 @@ class VacationRequest {
 
   async save() {
     try {
-      const connection = await connectDB();
       if (this.id) {
         // Mise à jour
-        await connection.execute(
+        await connectDB.execute(
           "UPDATE vacation_requests SET employee_id = ?, start_date = ?, end_date = ?, reason = ?, status = ?, approved_by = ?, approved_at = ?, rejected_by = ?, rejected_at = ? WHERE id = ?",
           [
             this.employee_id,
@@ -73,7 +67,7 @@ class VacationRequest {
         return this;
       } else {
         // Création
-        const [result] = await connection.execute(
+        const [result] = await connectDB.execute(
           "INSERT INTO vacation_requests (employee_id, start_date, end_date, reason, status) VALUES (?, ?, ?, ?, ?)",
           [
             this.employee_id,
@@ -118,8 +112,7 @@ class VacationRequest {
 
   static async delete(id) {
     try {
-      const connection = await connectDB();
-      await connection.execute("DELETE FROM vacation_requests WHERE id = ?", [
+      await connectDB.execute("DELETE FROM vacation_requests WHERE id = ?", [
         id,
       ]);
       return true;

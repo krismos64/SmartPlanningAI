@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const connectDB = require("./config/db");
+const db = require("./config/db");
 const fs = require("fs");
 const path = require("path");
 
@@ -11,11 +11,12 @@ const authRoutes = require("./routes/auth");
 const employeesRoutes = require("./routes/employees");
 const planningRoutes = require("./routes/planning");
 const vacationsRoutes = require("./routes/vacations");
+const weeklySchedulesRoutes = require("./routes/weeklySchedules");
 
 const app = express();
 
-// Connecter à la base de données
-connectDB();
+// Connecter à la base de données - db est maintenant un pool, pas une fonction
+// La connexion est testée au démarrage dans le module db.js
 
 // Configuration CORS
 const corsOptions = {
@@ -24,6 +25,7 @@ const corsOptions = {
     "http://localhost:3000",
     "http://localhost:5004",
     "http://localhost:5005",
+    "http://localhost:5007",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -119,6 +121,7 @@ app.use("/api/employees", employeesRoutes);
 app.use("/api/planning", planningRoutes);
 app.use("/api/vacations", vacationsRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/weekly-schedules", weeklySchedulesRoutes);
 
 // Route de base
 app.get("/", (req, res) => {

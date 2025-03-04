@@ -7,6 +7,7 @@ const authRouter = require("./routes/auth");
 const employeesRouter = require("./routes/employees");
 const shiftsRouter = require("./routes/shifts");
 const vacationsRouter = require("./routes/vacations");
+const weeklySchedulesRouter = require("./routes/weeklySchedules");
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/employees", employeesRouter);
 app.use("/api/shifts", shiftsRouter);
 app.use("/api/vacations", vacationsRouter);
+app.use("/api/weekly-schedules", weeklySchedulesRouter);
 
 // Gestion des erreurs
 app.use((err, req, res, next) => {

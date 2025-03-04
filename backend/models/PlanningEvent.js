@@ -1,4 +1,3 @@
-const mysql = require("mysql2/promise");
 const connectDB = require("../config/db");
 
 class PlanningEvent {
@@ -18,8 +17,7 @@ class PlanningEvent {
 
   static async find() {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute("SELECT * FROM planning_events");
+      const [rows] = await connectDB.execute("SELECT * FROM planning_events");
       return rows.map((row) => new PlanningEvent(row));
     } catch (error) {
       console.error(
@@ -32,8 +30,7 @@ class PlanningEvent {
 
   static async findById(id) {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      const [rows] = await connectDB.execute(
         "SELECT * FROM planning_events WHERE id = ?",
         [id]
       );
@@ -50,10 +47,9 @@ class PlanningEvent {
 
   async save() {
     try {
-      const connection = await connectDB();
       if (this.id) {
         // Mise à jour
-        await connection.execute(
+        await connectDB.execute(
           "UPDATE planning_events SET title = ?, description = ?, start_date = ?, end_date = ?, employee_id = ?, location = ?, event_type = ?, color = ?, created_by = ? WHERE id = ?",
           [
             this.title,
@@ -71,7 +67,7 @@ class PlanningEvent {
         return this;
       } else {
         // Création
-        const [result] = await connection.execute(
+        const [result] = await connectDB.execute(
           "INSERT INTO planning_events (title, description, start_date, end_date, employee_id, location, event_type, color, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
             this.title,
@@ -120,10 +116,7 @@ class PlanningEvent {
 
   static async delete(id) {
     try {
-      const connection = await connectDB();
-      await connection.execute("DELETE FROM planning_events WHERE id = ?", [
-        id,
-      ]);
+      await connectDB.execute("DELETE FROM planning_events WHERE id = ?", [id]);
       return true;
     } catch (error) {
       console.error(
@@ -136,8 +129,7 @@ class PlanningEvent {
 
   static async findByDateRange(startDate, endDate) {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      const [rows] = await connectDB.execute(
         "SELECT * FROM planning_events WHERE start_date >= ? AND end_date <= ?",
         [startDate, endDate]
       );
@@ -153,8 +145,7 @@ class PlanningEvent {
 
   static async findByEmployee(employeeId) {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      const [rows] = await connectDB.execute(
         "SELECT * FROM planning_events WHERE employee_id = ?",
         [employeeId]
       );

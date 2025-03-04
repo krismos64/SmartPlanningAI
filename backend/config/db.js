@@ -23,8 +23,8 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-// Fonction pour obtenir une connexion du pool
-const connectDB = async () => {
+// Fonction pour tester la connexion à la base de données
+const testConnection = async () => {
   try {
     // Vérifier si le nom de la base de données est défini
     if (!process.env.DB_NAME) {
@@ -41,19 +41,18 @@ const connectDB = async () => {
     console.log(
       `✅ Connexion à la base de données MySQL réussie (Base sélectionnée: ${selectedDB})`
     );
+    console.log(`Base de données sélectionnée: ${selectedDB}`);
 
     // Libérer la connexion pour qu'elle retourne au pool
     connection.release();
-
-    // Retourner le pool pour les requêtes futures
-    return pool;
   } catch (err) {
     console.error("❌ Erreur de connexion à MySQL:", err.message);
     console.error("Stack trace:", err.stack);
-
-    // Ne pas quitter le processus, mais propager l'erreur
-    throw err;
   }
 };
 
-module.exports = connectDB;
+// Tester la connexion au démarrage
+testConnection();
+
+// Exporter directement le pool pour les requêtes
+module.exports = pool;

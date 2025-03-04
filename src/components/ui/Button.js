@@ -236,7 +236,7 @@ const StyledButton = styled.button`
 `;
 
 // Composant Button avec ses props
-const Button = ({
+export const Button = ({
   children,
   variant = "primary",
   size = "md",
