@@ -28,6 +28,7 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
     status: employee?.status || "active",
     birthDate: employee?.birthDate || "",
     startDate: employee?.startDate || new Date().toISOString().split("T")[0],
+    contractHours: employee?.contractHours || 0,
   });
 
   const handleChange = useCallback((e) => {
@@ -97,6 +98,15 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
           value={formData.role}
           onChange={handleChange}
           helpText="Facultatif"
+        />
+        <FormInput
+          label="Heures contractuelles"
+          name="contractHours"
+          type="number"
+          min="0"
+          value={formData.contractHours}
+          onChange={handleChange}
+          helpText="Nombre d'heures hebdomadaires"
         />
         <FormSelect
           label="Statut"
