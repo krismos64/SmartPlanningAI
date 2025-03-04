@@ -22,14 +22,18 @@ const fadeIn = keyframes`
 `;
 
 const FormContainer = styled.div`
-  background-color: white;
+  background-color: ${({ theme }) => theme.colors.background.primary};
+  color: ${({ theme }) => theme.colors.text.primary};
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px
+    ${({ theme }) =>
+      theme.mode === "dark" ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"};
   padding: 1.5rem;
   margin: 1rem 0;
   animation: ${fadeIn} 0.3s ease-out;
   max-width: 100%;
   overflow-x: auto;
+  transition: background-color 0.2s ease, color 0.2s ease;
 `;
 
 const FormTitle = styled.h3`
@@ -86,14 +90,20 @@ const DaysGrid = styled.div`
 `;
 
 const DayCard = styled.div`
-  background-color: ${({ $isWeekend }) => ($isWeekend ? "#f9f9f9" : "white")};
+  background-color: ${({ $isWeekend, theme }) =>
+    $isWeekend
+      ? theme.colors.background.tertiary
+      : theme.colors.background.secondary};
+  color: ${({ theme }) => theme.colors.text.primary};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 6px;
   padding: 1rem;
   transition: all 0.2s ease;
 
   &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px
+      ${({ theme }) =>
+        theme.mode === "dark" ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.05)"};
   }
 `;
 
@@ -108,7 +118,8 @@ const DayHeader = styled.div`
 
 const DayName = styled.div`
   font-weight: 600;
-  color: ${({ $isWeekend }) => ($isWeekend ? "#666" : "inherit")};
+  color: ${({ $isWeekend, theme }) =>
+    $isWeekend ? theme.colors.text.secondary : theme.colors.text.primary};
 `;
 
 const DayDate = styled.div`
@@ -159,6 +170,18 @@ const TimeSlot = styled.div`
 const TimeInput = styled(FormInput)`
   width: 100%;
   max-width: 120px;
+  background-color: ${({ theme }) => theme.colors.background.input};
+  color: ${({ theme }) => theme.colors.text.primary};
+  border-color: ${({ theme }) => theme.colors.border};
+
+  &:focus {
+    border-color: ${({ theme }) => theme.colors.primary.main};
+    box-shadow: 0 0 0 2px
+      ${({ theme }) =>
+        theme.mode === "dark"
+          ? "rgba(59, 130, 246, 0.3)"
+          : "rgba(59, 130, 246, 0.2)"};
+  }
 `;
 
 const AddSlotButton = styled(Button)`
@@ -185,10 +208,31 @@ const RadioLabel = styled.label`
   gap: 0.5rem;
   font-size: 0.9rem;
   cursor: pointer;
+  color: ${({ theme }) => theme.colors.text.primary};
 `;
 
 const RadioInput = styled.input`
   cursor: pointer;
+  accent-color: ${({ theme }) => theme.colors.primary.main};
+`;
+
+const StyledFormInput = styled(FormInput)`
+  background-color: ${({ theme }) => theme.colors.background.input};
+  color: ${({ theme }) => theme.colors.text.primary};
+  border-color: ${({ theme }) => theme.colors.border};
+
+  &:focus {
+    border-color: ${({ theme }) => theme.colors.primary.main};
+    box-shadow: 0 0 0 2px
+      ${({ theme }) =>
+        theme.mode === "dark"
+          ? "rgba(59, 130, 246, 0.3)"
+          : "rgba(59, 130, 246, 0.2)"};
+  }
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.text.placeholder};
+  }
 `;
 
 // Fonction utilitaire pour convertir les données existantes au nouveau format
@@ -517,7 +561,7 @@ const EmployeeScheduleForm = ({
             ) : (
               <InputGroup>
                 <InputLabel>Motif d'absence</InputLabel>
-                <FormInput
+                <StyledFormInput
                   type="text"
                   value={schedule[index]?.absence || ""}
                   onChange={(e) => handleAbsenceChange(index, e.target.value)}
@@ -528,7 +572,7 @@ const EmployeeScheduleForm = ({
 
             <InputGroup>
               <InputLabel>Note (optionnelle)</InputLabel>
-              <FormInput
+              <StyledFormInput
                 type="text"
                 value={schedule[index]?.note || ""}
                 onChange={(e) => handleNoteChange(index, e.target.value)}
