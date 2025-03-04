@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { useCallback, useState } from "react";
+import { FaSave, FaTimes } from "react-icons/fa";
 import styled, { keyframes } from "styled-components";
 import {
   calculateHours,
@@ -34,6 +35,10 @@ const FormContainer = styled.div`
   max-width: 100%;
   overflow-x: auto;
   transition: background-color 0.2s ease, color 0.2s ease;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `;
 
 const FormTitle = styled.h3`
@@ -44,6 +49,12 @@ const FormTitle = styled.h3`
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 `;
 
 const EmployeeInfo = styled.div`
@@ -141,9 +152,24 @@ const InputLabel = styled.label`
 
 const ButtonGroup = styled.div`
   display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1rem;
+  gap: 0.5rem;
+
+  @media (max-width: 576px) {
+    width: 100%;
+    justify-content: flex-end;
+  }
+`;
+
+const ActionButton = styled(Button)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
 `;
 
 const TotalHours = styled.div`
@@ -294,30 +320,35 @@ const EmployeeScheduleForm = ({
   scheduleData,
   onSave,
   onCancel,
+  isSubmitting = false,
 }) => {
   // Initialiser le planning avec une fonction d'initialisation
   const [schedule, setSchedule] = useState(() => {
-    if (!employee || !scheduleData) return [];
+    // Obtenir les jours de la semaine
+    const weekDays = getDaysOfWeek(weekStart);
 
-    const employeeSchedule = scheduleData.find(
-      (item) => item.employeeId === employee.id
-    );
+    // Si nous avons des données de planning pour cet employé, les utiliser
+    if (employee && Array.isArray(scheduleData)) {
+      const employeeSchedule = scheduleData.find(
+        (item) => item.employeeId === employee.id
+      );
 
-    if (employeeSchedule) {
-      // Convertir le format existant au nouveau format
-      return employeeSchedule.days.map((day) => convertToNewFormat(day));
-    } else {
-      // Créer un planning vide avec le nouveau format
-      return Array(7)
-        .fill()
-        .map(() => ({
-          type: "work",
-          absence: "",
-          note: "",
-          hours: "0",
-          timeSlots: [],
-        }));
+      if (employeeSchedule && employeeSchedule.days) {
+        // Convertir le format existant au nouveau format
+        return employeeSchedule.days.map((day) => convertToNewFormat(day));
+      }
     }
+
+    // Sinon, créer un planning vide avec le nouveau format
+    return Array(7)
+      .fill()
+      .map(() => ({
+        type: "work",
+        absence: "",
+        note: "",
+        hours: "0",
+        timeSlots: [],
+      }));
   });
 
   const weekDays = getDaysOfWeek(weekStart);
@@ -462,14 +493,20 @@ const EmployeeScheduleForm = ({
   return (
     <FormContainer>
       <FormTitle>
-        Planning hebdomadaire
+        <div>
+          Planning du {formatDate(weekStart)} au {formatDate(weekDays[6])}
+        </div>
         <ButtonGroup>
-          <Button variant="outline" onClick={onCancel}>
-            Annuler
-          </Button>
-          <Button variant="primary" onClick={handleSave}>
-            Enregistrer
-          </Button>
+          <ActionButton variant="outline" onClick={onCancel}>
+            <FaTimes /> Annuler
+          </ActionButton>
+          <ActionButton
+            variant="primary"
+            onClick={handleSave}
+            disabled={isSubmitting}
+          >
+            <FaSave /> {isSubmitting ? "Enregistrement..." : "Enregistrer"}
+          </ActionButton>
         </ButtonGroup>
       </FormTitle>
 
@@ -597,6 +634,7 @@ EmployeeScheduleForm.propTypes = {
   scheduleData: PropTypes.array,
   onSave: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
+  isSubmitting: PropTypes.bool,
 };
 
 export default EmployeeScheduleForm;
