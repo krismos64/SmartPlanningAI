@@ -33,6 +33,7 @@ export const useEmployees = () => {
           email: employee.email,
           role: employee.role,
           department: employee.department,
+          contractHours: employee.contract_hours || 0,
           birthDate: employee.birth_date,
           startDate: employee.start_date,
           status: employee.status || "active",
@@ -72,6 +73,7 @@ export const useEmployees = () => {
           email: employeeData.email || null,
           role: employeeData.role || null,
           department: employeeData.department || null,
+          contract_hours: employeeData.contractHours || 0,
           birth_date: employeeData.birthDate || null,
           start_date: employeeData.startDate || null,
           status: employeeData.status || "active",
@@ -103,6 +105,8 @@ export const useEmployees = () => {
   const updateEmployee = useCallback(
     async (id, employeeData) => {
       try {
+        console.log("Données employé avant transformation:", employeeData);
+
         // Transformer les données pour correspondre au format attendu par le backend
         const transformedData = {
           first_name: employeeData.firstName,
@@ -110,10 +114,16 @@ export const useEmployees = () => {
           email: employeeData.email || null,
           role: employeeData.role || null,
           department: employeeData.department || null,
+          contract_hours: employeeData.contractHours || 0,
           birth_date: employeeData.birthDate || null,
           start_date: employeeData.startDate || null,
           status: employeeData.status || "active",
+          // Conserver les valeurs existantes pour ces champs
+          hours_worked: employeeData.hoursWorked || 0,
+          overtime_hours: employeeData.overtimeHours || 0,
         };
+
+        console.log("Données transformées pour le backend:", transformedData);
 
         await apiRequest(
           API_ROUTES.EMPLOYEES.DETAIL(id),

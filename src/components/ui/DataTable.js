@@ -189,6 +189,17 @@ const StatusBadge = styled.span`
   }};
 `;
 
+const HourCounter = styled.span`
+  display: inline-flex;
+  align-items: center;
+  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
+  color: ${({ theme, value }) => {
+    if (value > 0) return theme.colors.success;
+    if (value < 0) return theme.colors.error;
+    return theme.colors.text.primary;
+  }};
+`;
+
 const TableFooter = styled.div`
   display: flex;
   align-items: center;
@@ -508,6 +519,8 @@ const DataTable = ({
 
   // Formater les valeurs de cellule
   const formatCellValue = (column, value) => {
+    if (value === null || value === undefined) return "-";
+
     if (column.format) {
       return column.format(value);
     }
@@ -518,6 +531,17 @@ const DataTable = ({
 
     if (column.type === "date") {
       return new Date(value).toLocaleDateString("fr-FR");
+    }
+
+    if (column.type === "number") {
+      if (column.id === "hourCounter") {
+        return (
+          <HourCounter value={value}>
+            {value > 0 ? `+${value}` : value}
+          </HourCounter>
+        );
+      }
+      return value.toString();
     }
 
     return value;

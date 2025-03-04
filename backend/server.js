@@ -35,13 +35,56 @@ const corsOptions = {
 app.use(express.json());
 app.use(cors(corsOptions));
 
+// Créer le dossier de logs s'il n'existe pas
+const logsDir = path.join(__dirname, "logs");
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+// Fonction pour écrire dans le fichier de log
+const logToFile = (type, message) => {
+  const logFile = path.join(logsDir, "error.log");
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] [${type}] ${message}\n`;
+
+  fs.appendFile(logFile, logEntry, (err) => {
+    if (err) {
+      console.error("Erreur lors de l'écriture dans le fichier de log:", err);
+    }
+  });
+};
+
 // Middleware de journalisation des requêtes
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  console.log("Headers:", req.headers);
+  const timestamp = new Date().toISOString();
+  const logMessage = `${timestamp} - ${req.method} ${req.url}`;
+  console.log(logMessage);
+
   if (req.body && Object.keys(req.body).length > 0) {
     console.log("Body:", JSON.stringify(req.body, null, 2));
+    logToFile("REQUEST", `${logMessage} - Body: ${JSON.stringify(req.body)}`);
+  } else {
+    logToFile("REQUEST", logMessage);
   }
+
+  // Intercepter la réponse pour logger le statut
+  const originalSend = res.send;
+  res.send = function (body) {
+    const statusCode = res.statusCode;
+    const responseLogMessage = `${timestamp} - ${req.method} ${req.url} - Status: ${statusCode}`;
+
+    if (statusCode >= 400) {
+      console.error(responseLogMessage);
+      logToFile("ERROR", `${responseLogMessage} - Response: ${body}`);
+    } else {
+      console.log(responseLogMessage);
+      logToFile("RESPONSE", responseLogMessage);
+    }
+
+    originalSend.call(this, body);
+    return this;
+  };
+
   next();
 });
 
@@ -86,6 +129,10 @@ app.get("/", (req, res) => {
 app.use((err, req, res, next) => {
   console.error("Erreur serveur:", err);
   console.error("Stack trace:", err.stack);
+
+  // Logger l'erreur dans le fichier
+  logToFile("ERROR", `Erreur serveur: ${err.message}\nStack: ${err.stack}`);
+
   res.status(500).json({
     error: "Une erreur est survenue",
     message: err.message || "Erreur interne du serveur",

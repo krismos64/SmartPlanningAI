@@ -60,4 +60,16 @@ export const EMPLOYEE_TABLE_COLUMNS = [
     sortable: true,
     type: "date",
   },
+  {
+    id: "hourCounter",
+    header: "Compteur d'heures",
+    accessor: (employee) => {
+      const contractHours = employee.contractHours || 0;
+      const hoursWorked = employee.hoursWorked || 0;
+      const difference = hoursWorked - contractHours;
+      return difference;
+    },
+    sortable: true,
+    type: "number",
+  },
 ];
