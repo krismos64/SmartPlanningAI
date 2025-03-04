@@ -58,6 +58,47 @@ class Employee {
   async save() {
     try {
       const connection = await connectDB();
+
+      // Formater les dates pour MySQL si nécessaire
+      let birth_date = this.birth_date;
+      let start_date = this.start_date;
+
+      // Formater la date de naissance
+      if (
+        birth_date &&
+        typeof birth_date === "string" &&
+        birth_date.includes("T")
+      ) {
+        try {
+          const date = new Date(birth_date);
+          birth_date = date.toISOString().split("T")[0];
+          console.log(`Date de naissance formatée dans save(): ${birth_date}`);
+        } catch (error) {
+          console.error(
+            "Erreur lors du formatage de la date de naissance dans save():",
+            error
+          );
+        }
+      }
+
+      // Formater la date de début
+      if (
+        start_date &&
+        typeof start_date === "string" &&
+        start_date.includes("T")
+      ) {
+        try {
+          const date = new Date(start_date);
+          start_date = date.toISOString().split("T")[0];
+          console.log(`Date de début formatée dans save(): ${start_date}`);
+        } catch (error) {
+          console.error(
+            "Erreur lors du formatage de la date de début dans save():",
+            error
+          );
+        }
+      }
+
       console.log("Données de l'employé à sauvegarder:", {
         id: this.id,
         first_name: this.first_name,
@@ -66,8 +107,8 @@ class Employee {
         role: this.role,
         department: this.department,
         contract_hours: this.contract_hours,
-        birth_date: this.birth_date,
-        start_date: this.start_date,
+        birth_date: birth_date,
+        start_date: start_date,
         status: this.status,
         hours_worked: this.hours_worked,
         overtime_hours: this.overtime_hours,
@@ -87,8 +128,8 @@ class Employee {
             this.role,
             this.department,
             this.contract_hours !== undefined ? this.contract_hours : 0,
-            this.birth_date,
-            this.start_date,
+            birth_date,
+            start_date,
             this.status || "active",
             this.hours_worked !== undefined ? this.hours_worked : 0,
             this.overtime_hours !== undefined ? this.overtime_hours : 0,
@@ -194,14 +235,8 @@ class Employee {
           updateData.contract_hours !== undefined
             ? updateData.contract_hours
             : employee.contract_hours,
-        birth_date:
-          updateData.birth_date !== undefined
-            ? updateData.birth_date
-            : employee.birth_date,
-        start_date:
-          updateData.start_date !== undefined
-            ? updateData.start_date
-            : employee.start_date,
+        birth_date: updateData.birth_date,
+        start_date: updateData.start_date,
         status: updateData.status || employee.status || "active",
         hours_worked:
           updateData.hours_worked !== undefined
@@ -212,6 +247,43 @@ class Employee {
             ? updateData.overtime_hours
             : employee.overtime_hours,
       };
+
+      // Formater les dates correctement pour MySQL
+      if (cleanedData.birth_date) {
+        try {
+          // Vérifier si la date est au format ISO
+          if (cleanedData.birth_date.includes("T")) {
+            // Convertir la date ISO en format YYYY-MM-DD
+            const date = new Date(cleanedData.birth_date);
+            cleanedData.birth_date = date.toISOString().split("T")[0];
+          }
+          console.log(`Date de naissance formatée: ${cleanedData.birth_date}`);
+        } catch (dateError) {
+          console.error(
+            "Erreur lors du formatage de la date de naissance:",
+            dateError
+          );
+          cleanedData.birth_date = employee.birth_date; // Utiliser l'ancienne valeur en cas d'erreur
+        }
+      }
+
+      if (cleanedData.start_date) {
+        try {
+          // Vérifier si la date est au format ISO
+          if (cleanedData.start_date.includes("T")) {
+            // Convertir la date ISO en format YYYY-MM-DD
+            const date = new Date(cleanedData.start_date);
+            cleanedData.start_date = date.toISOString().split("T")[0];
+          }
+          console.log(`Date de début formatée: ${cleanedData.start_date}`);
+        } catch (dateError) {
+          console.error(
+            "Erreur lors du formatage de la date de début:",
+            dateError
+          );
+          cleanedData.start_date = employee.start_date; // Utiliser l'ancienne valeur en cas d'erreur
+        }
+      }
 
       console.log(
         `Données nettoyées pour la mise à jour:`,
