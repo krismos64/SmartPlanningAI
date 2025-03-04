@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import Lottie from "lottie-react";
 import planningAnimation from "../../assets/animations/planning-animation.json";
+import robotAnimation from "../../assets/animations/robot.json";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../components/ThemeProvider";
 import {
@@ -43,8 +44,8 @@ const Logo = styled(Link)`
 `;
 
 const LogoAnimation = styled.div`
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   margin-right: ${({ theme }) => theme.spacing.sm};
 `;
 
@@ -262,11 +263,12 @@ const MobileMenu = styled.div`
     box-shadow: ${({ theme }) => theme.shadows.medium};
     padding: ${({ isOpen }) => (isOpen ? "1.5rem" : "0")};
     z-index: 1000;
-    max-height: ${({ isOpen }) => (isOpen ? "1000px" : "0")};
+    max-height: ${({ isOpen }) => (isOpen ? "80vh" : "0")};
     opacity: ${({ isOpen }) => (isOpen ? "1" : "0")};
-    overflow: hidden;
+    overflow-y: ${({ isOpen }) => (isOpen ? "auto" : "hidden")};
     transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     transform-origin: top center;
+    -webkit-overflow-scrolling: touch; /* Pour une meilleure expérience de défilement sur iOS */
   }
 `;
 
@@ -588,6 +590,13 @@ const LogoutIcon = () => (
   </svg>
 );
 
+const RobotAnimation = styled.div`
+  width: 180px;
+  height: 180px;
+  margin: 1.5rem auto 0.5rem auto;
+  opacity: 0.9;
+`;
+
 // Composant Navbar
 const Navbar = () => {
   const location = useLocation();
@@ -895,9 +904,14 @@ const Navbar = () => {
     { label: "Déconnexion", icon: <LogoutIcon />, action: handleLogout },
   ];
 
+  // Fonction pour fermer le menu mobile
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
     <NavbarContainer>
-      <Logo to="/">
+      <Logo to="/" onClick={closeMobileMenu}>
         <LogoAnimation>
           <Lottie animationData={planningAnimation} loop={true} />
         </LogoAnimation>
@@ -995,20 +1009,27 @@ const Navbar = () => {
       <MobileMenu isOpen={mobileMenuOpen}>
         {navLinks.map((link, index) => (
           <React.Fragment key={`nav-${link.to}`}>
-            <MobileNavLink to={link.to} active={isActive(link.to)}>
+            <MobileNavLink
+              to={link.to}
+              active={isActive(link.to)}
+              onClick={closeMobileMenu}
+            >
               {link.label}
             </MobileNavLink>
             {index < navLinks.length - 1 && <MobileMenuDivider />}
           </React.Fragment>
         ))}
         <MobileMenuDivider />
-        <MobileNavLink to="/profile" active={isActive("/profile")}>
+        <MobileNavLink
+          to="/profile"
+          active={isActive("/profile")}
+          onClick={closeMobileMenu}
+        >
           Mon profil
         </MobileNavLink>
-        <MobileMenuDivider />
-        <MobileNavLink to="/settings" active={isActive("/settings")}>
-          Paramètres
-        </MobileNavLink>
+        <RobotAnimation>
+          <Lottie animationData={robotAnimation} loop={true} />
+        </RobotAnimation>
       </MobileMenu>
     </NavbarContainer>
   );
