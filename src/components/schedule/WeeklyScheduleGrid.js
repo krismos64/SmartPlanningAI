@@ -1,278 +1,172 @@
 import PropTypes from "prop-types";
-import { useRef, useState } from "react";
+import React from "react";
 import styled from "styled-components";
-import { getWeekDays } from "../../utils/dateUtils";
+import { formatDate, getDaysOfWeek } from "../../utils/dateUtils";
+import Button from "../ui/Button";
 
-// Composants stylisés
-const GridContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  overflow-x: auto;
-  margin-top: 1rem;
-`;
-
+// Styles
 const ScheduleGrid = styled.div`
   display: grid;
-  grid-template-columns: 250px repeat(7, 1fr);
+  grid-template-columns: 200px repeat(7, 1fr) 80px;
   gap: 1px;
-  background-color: #e0e0e0;
-  border: 1px solid #e0e0e0;
-`;
-
-const GridHeader = styled.div`
-  display: contents;
-`;
-
-const HeaderCell = styled.div`
-  background-color: #f5f5f5;
-  padding: 0.75rem;
-  font-weight: 600;
-  text-align: center;
-  border-bottom: 2px solid #e0e0e0;
-
-  &:first-child {
-    text-align: left;
-  }
-
-  ${(props) =>
-    props.$isWeekend &&
-    `
-    background-color: #f0f0f0;
-    color: #666;
-  `}
-`;
-
-const GridBody = styled.div`
-  display: contents;
-`;
-
-const EmployeeRow = styled.div`
-  display: contents;
-`;
-
-const EmployeeCell = styled.div`
-  background-color: white;
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  border-bottom: 1px solid #e0e0e0;
-`;
-
-const DayCell = styled.div`
-  background-color: white;
-  padding: 0.5rem;
-  text-align: center;
-  border-bottom: 1px solid #e0e0e0;
-  position: relative;
-  cursor: ${(props) => (props.$readOnly ? "default" : "pointer")};
-
-  ${(props) =>
-    props.$isWeekend &&
-    `
-    background-color: #f9f9f9;
-  `}
-
-  ${(props) =>
-    props.$isActive &&
-    `
-    background-color: #e6f7ff;
-    border: 1px solid #1890ff;
-  `}
-`;
-
-const HoursInput = styled.input`
+  background-color: ${({ theme }) => theme.colors.border.light};
+  border-radius: 0.5rem;
+  overflow-x: auto;
   width: 100%;
-  padding: 0.5rem;
-  text-align: center;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  font-size: 1rem;
 
-  &:focus {
-    outline: none;
-    border-color: #1890ff;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  @media (max-width: 1200px) {
+    grid-template-columns: 180px repeat(7, 1fr) 80px;
+  }
+
+  @media (max-width: 992px) {
+    grid-template-columns: 150px repeat(7, minmax(80px, 1fr)) 80px;
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 120px repeat(7, minmax(70px, 1fr)) 80px;
+    font-size: 0.85rem;
   }
 `;
 
-const TotalRow = styled.div`
-  display: contents;
-`;
-
-const TotalCell = styled.div`
-  background-color: #f5f5f5;
+const GridCell = styled.div`
   padding: 0.75rem;
-  font-weight: 600;
-  text-align: center;
-  border-top: 2px solid #e0e0e0;
-
-  &:first-child {
-    text-align: left;
-  }
-`;
-
-const EmployeeInfo = styled.div`
+  background-color: white;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
 `;
 
-const ContractHours = styled.div`
-  font-size: 0.85rem;
-  color: #666;
-`;
-
-const HoursDifference = styled.div`
-  font-size: 0.85rem;
-  margin-top: 0.25rem;
+const HeaderCell = styled(GridCell)`
   font-weight: 600;
-  color: ${(props) => {
-    if (props.$difference > 0) return "#52c41a";
-    if (props.$difference < 0) return "#f5222d";
-    return "#666";
-  }};
+  background-color: ${({ theme }) => theme.colors.background.light};
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 `;
 
-// Composant principal
+const EmployeeCell = styled(GridCell)`
+  justify-content: flex-start;
+  font-weight: 500;
+  background-color: ${({ theme }) => theme.colors.background.light};
+  position: sticky;
+  left: 0;
+  z-index: 5;
+`;
+
+const DayCell = styled(GridCell)`
+  ${({ isWeekend }) =>
+    isWeekend &&
+    `
+    background-color: #f9fafb;
+  `}
+
+  ${({ isAbsent }) =>
+    isAbsent &&
+    `
+    background-color: #fee2e2;
+    color: #b91c1c;
+  `}
+  
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  text-align: center;
+`;
+
+const TimeSlot = styled.div`
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  white-space: nowrap;
+`;
+
+const HoursValue = styled.div`
+  font-weight: 600;
+  font-size: 0.9rem;
+`;
+
+const ActionCell = styled(GridCell)`
+  position: sticky;
+  right: 0;
+  z-index: 5;
+  background-color: ${({ theme }) => theme.colors.background.light};
+  padding: 0.5rem;
+`;
+
+const ActionButton = styled(Button)`
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  width: 100%;
+`;
+
+// Fonction utilitaire pour convertir les données existantes au nouveau format
+const convertToNewFormat = (day) => {
+  // Si le jour a déjà le format attendu, le retourner tel quel
+  if (day.type) {
+    return { ...day };
+  }
+
+  // Sinon, convertir au nouveau format
+  return {
+    type: day.absence ? "absence" : "work",
+    hours: day.hours || "0",
+    absence: day.absence || "",
+    note: day.note || "",
+    timeSlots:
+      day.timeSlots ||
+      (day.hours && parseFloat(day.hours) > 0
+        ? [{ start: "09:00", end: "17:00" }]
+        : []),
+  };
+};
+
 const WeeklyScheduleGrid = ({
   employees,
   weekStart,
   scheduleData,
   onChange,
-  readOnly = false,
+  readOnly,
+  onEditEmployee,
 }) => {
-  const [activeCell, setActiveCell] = useState(null);
-  const [inputValue, setInputValue] = useState("");
-  const inputRef = useRef(null);
-  const weekDays = getWeekDays(weekStart);
+  // Obtenir les jours de la semaine
+  const daysOfWeek = getDaysOfWeek(weekStart);
 
-  // Gérer le clic sur une cellule
-  const handleCellClick = (employeeId, dayIndex) => {
-    if (readOnly) return;
-
-    setActiveCell({ employeeId, dayIndex });
-    setInputValue(getHoursValue(employeeId, dayIndex));
-
-    // Focus sur l'input après le rendu
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.select();
-      }
-    }, 0);
-  };
-
-  // Gérer le changement de valeur dans l'input
-  const handleInputChange = (e) => {
-    // Accepter seulement les nombres et le point décimal
-    const value = e.target.value.replace(/[^0-9.]/g, "");
-    setInputValue(value);
-  };
-
-  // Gérer la perte de focus de l'input
-  const handleInputBlur = () => {
-    if (activeCell) {
-      const { employeeId, dayIndex } = activeCell;
-      const hours = parseFloat(inputValue) || 0;
-
-      // Mettre à jour les données du planning
-      updateScheduleData(employeeId, dayIndex, hours);
-
-      // Réinitialiser l'état
-      setActiveCell(null);
-      setInputValue("");
-    }
-  };
-
-  // Gérer les touches spéciales (Enter, Escape, Tab)
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleInputBlur();
-    } else if (e.key === "Escape") {
-      setActiveCell(null);
-      setInputValue("");
-    }
-  };
-
-  // Obtenir la valeur des heures pour une cellule
-  const getHoursValue = (employeeId, dayIndex) => {
-    if (!scheduleData) return "0";
-
-    const employeeSchedule = scheduleData.find(
-      (item) => item.employeeId === employeeId
+  // Trouver le planning d'un employé
+  const findEmployeeSchedule = (employeeId) => {
+    const schedule = scheduleData.find(
+      (schedule) => schedule.employeeId === employeeId
     );
 
-    if (!employeeSchedule || !employeeSchedule.days[dayIndex]) {
-      return "0";
-    }
-
-    return employeeSchedule.days[dayIndex].hours.toString();
-  };
-
-  // Mettre à jour les données du planning
-  const updateScheduleData = (employeeId, dayIndex, hours) => {
-    if (!scheduleData) return;
-
-    const newScheduleData = [...scheduleData];
-    const employeeIndex = newScheduleData.findIndex(
-      (item) => item.employeeId === employeeId
-    );
-
-    if (employeeIndex === -1) {
-      // Créer une nouvelle entrée pour cet employé
-      const newEmployeeSchedule = {
+    if (!schedule) {
+      return {
         employeeId,
         days: Array(7)
           .fill()
-          .map((_, i) => ({
-            hours: i === dayIndex ? hours : 0,
+          .map(() => ({
+            type: "work",
+            hours: "0",
+            absence: "",
+            note: "",
+            timeSlots: [],
           })),
       };
-      newScheduleData.push(newEmployeeSchedule);
-    } else {
-      // Mettre à jour l'entrée existante
-      newScheduleData[employeeIndex].days[dayIndex].hours = hours;
     }
 
-    onChange(newScheduleData);
+    // S'assurer que les jours sont au bon format
+    const formattedDays = schedule.days.map((day) => convertToNewFormat(day));
+
+    return {
+      ...schedule,
+      days: formattedDays,
+    };
   };
 
-  // Calculer le total des heures pour un employé
-  const calculateEmployeeTotal = (employeeId) => {
-    if (!scheduleData) return 0;
-
-    const employeeSchedule = scheduleData.find(
-      (item) => item.employeeId === employeeId
-    );
-
-    if (!employeeSchedule) return 0;
-
-    return employeeSchedule.days.reduce(
-      (total, day) => total + (parseFloat(day.hours) || 0),
-      0
-    );
-  };
-
-  // Calculer le total des heures pour un jour
-  const calculateDayTotal = (dayIndex) => {
-    if (!scheduleData) return 0;
-
-    return scheduleData.reduce((total, employeeSchedule) => {
-      if (!employeeSchedule.days[dayIndex]) return total;
-      return total + (parseFloat(employeeSchedule.days[dayIndex].hours) || 0);
-    }, 0);
-  };
-
-  // Calculer la différence entre les heures travaillées et les heures contractuelles
-  const calculateHoursDifference = (employeeId) => {
-    const employee = employees.find((emp) => emp.id === employeeId);
-    if (!employee) return 0;
-
-    const contractHours = parseFloat(employee.contractHours) || 0;
-    const workedHours = calculateEmployeeTotal(employeeId);
-
-    return (workedHours - contractHours).toFixed(1);
+  // Gérer le clic sur le bouton d'édition
+  const handleEditClick = (employeeId) => {
+    if (onEditEmployee) {
+      onEditEmployee(employeeId);
+    }
   };
 
   // Vérifier si un jour est un weekend
@@ -280,98 +174,97 @@ const WeeklyScheduleGrid = ({
     return dayIndex === 5 || dayIndex === 6; // Samedi ou Dimanche
   };
 
+  // Vérifier si un employé est absent pour un jour donné
+  const isAbsent = (employeeId, dayIndex) => {
+    const schedule = findEmployeeSchedule(employeeId);
+    const day = schedule.days[dayIndex];
+    return (
+      day && day.type === "absence" && day.absence && day.absence.trim() !== ""
+    );
+  };
+
+  // Formater l'affichage d'une cellule de jour
+  const formatDayCell = (employeeId, dayIndex) => {
+    const schedule = findEmployeeSchedule(employeeId);
+    const day = schedule.days[dayIndex];
+
+    if (!day) return null;
+
+    if (day.type === "absence" && day.absence && day.absence.trim() !== "") {
+      return <HoursValue>{day.absence}</HoursValue>;
+    }
+
+    if (day.type === "work" && day.timeSlots && day.timeSlots.length > 0) {
+      return (
+        <>
+          <HoursValue>{day.hours || "0"}h</HoursValue>
+          {day.timeSlots.map((slot, index) => (
+            <TimeSlot key={index}>
+              {slot.start} - {slot.end}
+            </TimeSlot>
+          ))}
+        </>
+      );
+    }
+
+    return <HoursValue>0h</HoursValue>;
+  };
+
   return (
-    <GridContainer>
-      <ScheduleGrid>
-        <GridHeader>
-          <HeaderCell>Employé</HeaderCell>
-          {weekDays.map((day, index) => (
-            <HeaderCell key={index} $isWeekend={isWeekend(index)}>
-              {day.dayName}
-              <br />
-              {day.date}
-            </HeaderCell>
-          ))}
-        </GridHeader>
+    <ScheduleGrid>
+      {/* En-tête avec les jours de la semaine */}
+      <HeaderCell>Employé</HeaderCell>
+      {daysOfWeek.map((day, index) => (
+        <HeaderCell key={index}>{formatDate(day, "EEE dd/MM")}</HeaderCell>
+      ))}
+      <HeaderCell>Actions</HeaderCell>
 
-        <GridBody>
-          {employees.map((employee) => (
-            <EmployeeRow key={employee.id}>
-              <EmployeeCell>
-                <EmployeeInfo>
-                  <div>
-                    <strong>
-                      {employee.firstName} {employee.lastName}
-                    </strong>
-                  </div>
-                  <ContractHours>
-                    Heures contractuelles: {employee.contractHours}h
-                  </ContractHours>
-                  <HoursDifference
-                    $difference={calculateHoursDifference(employee.id)}
-                  >
-                    {calculateHoursDifference(employee.id) > 0
-                      ? `+${calculateHoursDifference(employee.id)}h`
-                      : `${calculateHoursDifference(employee.id)}h`}
-                  </HoursDifference>
-                </EmployeeInfo>
-              </EmployeeCell>
+      {/* Lignes pour chaque employé */}
+      {employees.map((employee) => (
+        <React.Fragment key={employee.id}>
+          <EmployeeCell>
+            {employee.firstName} {employee.lastName}
+          </EmployeeCell>
 
-              {Array(7)
-                .fill()
-                .map((_, dayIndex) => (
-                  <DayCell
-                    key={dayIndex}
-                    $isWeekend={isWeekend(dayIndex)}
-                    $isActive={
-                      activeCell &&
-                      activeCell.employeeId === employee.id &&
-                      activeCell.dayIndex === dayIndex
-                    }
-                    $readOnly={readOnly}
-                    onClick={() => handleCellClick(employee.id, dayIndex)}
-                  >
-                    {activeCell &&
-                    activeCell.employeeId === employee.id &&
-                    activeCell.dayIndex === dayIndex ? (
-                      <HoursInput
-                        ref={inputRef}
-                        type="text"
-                        value={inputValue}
-                        onChange={handleInputChange}
-                        onBlur={handleInputBlur}
-                        onKeyDown={handleKeyDown}
-                      />
-                    ) : (
-                      getHoursValue(employee.id, dayIndex)
-                    )}
-                  </DayCell>
-                ))}
-            </EmployeeRow>
-          ))}
+          {/* Cellules pour chaque jour */}
+          {Array(7)
+            .fill()
+            .map((_, dayIndex) => (
+              <DayCell
+                key={dayIndex}
+                isWeekend={isWeekend(dayIndex)}
+                isAbsent={isAbsent(employee.id, dayIndex)}
+              >
+                {formatDayCell(employee.id, dayIndex)}
+              </DayCell>
+            ))}
 
-          <TotalRow>
-            <TotalCell>Total</TotalCell>
-            {Array(7)
-              .fill()
-              .map((_, dayIndex) => (
-                <TotalCell key={dayIndex} $isWeekend={isWeekend(dayIndex)}>
-                  {calculateDayTotal(dayIndex)}h
-                </TotalCell>
-              ))}
-          </TotalRow>
-        </GridBody>
-      </ScheduleGrid>
-    </GridContainer>
+          {/* Cellule d'action */}
+          <ActionCell>
+            <ActionButton
+              variant="primary"
+              onClick={() => handleEditClick(employee.id)}
+            >
+              Modifier
+            </ActionButton>
+          </ActionCell>
+        </React.Fragment>
+      ))}
+    </ScheduleGrid>
   );
 };
 
 WeeklyScheduleGrid.propTypes = {
   employees: PropTypes.array.isRequired,
   weekStart: PropTypes.instanceOf(Date).isRequired,
-  scheduleData: PropTypes.array,
+  scheduleData: PropTypes.array.isRequired,
   onChange: PropTypes.func,
   readOnly: PropTypes.bool,
+  onEditEmployee: PropTypes.func,
+};
+
+WeeklyScheduleGrid.defaultProps = {
+  readOnly: false,
 };
 
 export default WeeklyScheduleGrid;

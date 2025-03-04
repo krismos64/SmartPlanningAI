@@ -254,3 +254,233 @@
 [2025-03-04T11:05:08.850Z] [RESPONSE] 2025-03-04T11:05:08.847Z - GET /?week_start=2025-03-02 - Status: 200
 [2025-03-04T11:05:08.852Z] [REQUEST] 2025-03-04T11:05:08.851Z - GET /api/weekly-schedules?week_start=2025-03-02
 [2025-03-04T11:05:08.853Z] [RESPONSE] 2025-03-04T11:05:08.851Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:10:32.240Z] [REQUEST] 2025-03-04T11:10:32.238Z - GET /api/employees
+[2025-03-04T11:10:32.265Z] [REQUEST] 2025-03-04T11:10:32.261Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:10:32.349Z] [RESPONSE] 2025-03-04T11:10:32.261Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:10:32.352Z] [RESPONSE] 2025-03-04T11:10:32.238Z - GET / - Status: 200
+[2025-03-04T11:10:32.359Z] [REQUEST] 2025-03-04T11:10:32.359Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:10:32.360Z] [REQUEST] 2025-03-04T11:10:32.360Z - GET /api/employees
+[2025-03-04T11:10:32.365Z] [RESPONSE] 2025-03-04T11:10:32.359Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:10:32.389Z] [RESPONSE] 2025-03-04T11:10:32.360Z - GET / - Status: 200
+[2025-03-04T11:12:01.343Z] [REQUEST] 2025-03-04T11:12:01.340Z - GET /api/employees
+[2025-03-04T11:12:01.371Z] [REQUEST] 2025-03-04T11:12:01.370Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:12:01.531Z] [RESPONSE] 2025-03-04T11:12:01.340Z - GET / - Status: 200
+[2025-03-04T11:12:01.540Z] [RESPONSE] 2025-03-04T11:12:01.370Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:12:01.541Z] [REQUEST] 2025-03-04T11:12:01.541Z - GET /api/employees
+[2025-03-04T11:12:01.545Z] [REQUEST] 2025-03-04T11:12:01.545Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:12:01.551Z] [RESPONSE] 2025-03-04T11:12:01.541Z - GET / - Status: 200
+[2025-03-04T11:12:01.552Z] [RESPONSE] 2025-03-04T11:12:01.545Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:13:04.620Z] [REQUEST] 2025-03-04T11:13:04.620Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:13:04.634Z] [RESPONSE] 2025-03-04T11:13:04.620Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:13:12.808Z] [REQUEST] 2025-03-04T11:13:12.808Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:13:12.819Z] [RESPONSE] 2025-03-04T11:13:12.808Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:13:12.834Z] [REQUEST] 2025-03-04T11:13:12.832Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:13:12.848Z] [RESPONSE] 2025-03-04T11:13:12.832Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:15:16.532Z] [REQUEST] 2025-03-04T11:15:16.531Z - GET /api/employees
+[2025-03-04T11:15:16.556Z] [RESPONSE] 2025-03-04T11:15:16.531Z - GET / - Status: 200
+[2025-03-04T11:15:16.557Z] [REQUEST] 2025-03-04T11:15:16.557Z - GET /api/employees
+[2025-03-04T11:15:16.565Z] [RESPONSE] 2025-03-04T11:15:16.557Z - GET / - Status: 200
+[2025-03-04T11:15:23.136Z] [REQUEST] 2025-03-04T11:15:23.136Z - GET /api/employees
+[2025-03-04T11:15:23.139Z] [RESPONSE] 2025-03-04T11:15:23.136Z - GET / - Status: 200
+[2025-03-04T11:15:23.141Z] [REQUEST] 2025-03-04T11:15:23.141Z - GET /api/employees
+[2025-03-04T11:15:23.147Z] [RESPONSE] 2025-03-04T11:15:23.141Z - GET / - Status: 200
+[2025-03-04T11:16:22.029Z] [REQUEST] 2025-03-04T11:16:22.027Z - GET /api/employees
+[2025-03-04T11:16:22.046Z] [RESPONSE] 2025-03-04T11:16:22.027Z - GET / - Status: 200
+[2025-03-04T11:16:22.049Z] [REQUEST] 2025-03-04T11:16:22.049Z - GET /api/employees
+[2025-03-04T11:16:22.051Z] [RESPONSE] 2025-03-04T11:16:22.049Z - GET / - Status: 200
+[2025-03-04T11:16:24.031Z] [REQUEST] 2025-03-04T11:16:24.030Z - GET /api/employees
+[2025-03-04T11:16:24.034Z] [REQUEST] 2025-03-04T11:16:24.034Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:16:24.046Z] [RESPONSE] 2025-03-04T11:16:24.030Z - GET / - Status: 200
+[2025-03-04T11:16:24.048Z] [REQUEST] 2025-03-04T11:16:24.048Z - GET /api/employees
+[2025-03-04T11:16:24.059Z] [RESPONSE] 2025-03-04T11:16:24.034Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:16:24.091Z] [REQUEST] 2025-03-04T11:16:24.082Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:16:24.093Z] [RESPONSE] 2025-03-04T11:16:24.048Z - GET / - Status: 200
+[2025-03-04T11:16:24.097Z] [RESPONSE] 2025-03-04T11:16:24.082Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:16:24.109Z] [REQUEST] 2025-03-04T11:16:24.108Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:16:24.116Z] [RESPONSE] 2025-03-04T11:16:24.108Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:17:55.199Z] [REQUEST] 2025-03-04T11:17:55.199Z - GET /api/employees
+[2025-03-04T11:17:55.205Z] [REQUEST] 2025-03-04T11:17:55.205Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:17:55.213Z] [RESPONSE] 2025-03-04T11:17:55.199Z - GET / - Status: 200
+[2025-03-04T11:17:55.219Z] [REQUEST] 2025-03-04T11:17:55.219Z - GET /api/employees
+[2025-03-04T11:17:55.222Z] [RESPONSE] 2025-03-04T11:17:55.205Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:17:55.227Z] [REQUEST] 2025-03-04T11:17:55.227Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:17:55.230Z] [RESPONSE] 2025-03-04T11:17:55.219Z - GET / - Status: 200
+[2025-03-04T11:17:55.233Z] [RESPONSE] 2025-03-04T11:17:55.227Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:18:40.969Z] [REQUEST] 2025-03-04T11:18:40.969Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:18:40.979Z] [RESPONSE] 2025-03-04T11:18:40.969Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:18:42.036Z] [REQUEST] 2025-03-04T11:18:42.035Z - GET /api/weekly-schedules?week_start=2025-02-23
+[2025-03-04T11:18:42.042Z] [RESPONSE] 2025-03-04T11:18:42.035Z - GET /?week_start=2025-02-23 - Status: 200
+[2025-03-04T11:18:42.050Z] [REQUEST] 2025-03-04T11:18:42.049Z - GET /api/weekly-schedules?week_start=2025-02-23
+[2025-03-04T11:18:42.066Z] [RESPONSE] 2025-03-04T11:18:42.049Z - GET /?week_start=2025-02-23 - Status: 200
+[2025-03-04T11:18:42.625Z] [REQUEST] 2025-03-04T11:18:42.625Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:18:42.636Z] [RESPONSE] 2025-03-04T11:18:42.625Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:18:42.642Z] [REQUEST] 2025-03-04T11:18:42.641Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:18:42.659Z] [RESPONSE] 2025-03-04T11:18:42.641Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:18:43.154Z] [REQUEST] 2025-03-04T11:18:43.154Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:18:43.163Z] [RESPONSE] 2025-03-04T11:18:43.154Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:18:56.203Z] [REQUEST] 2025-03-04T11:18:56.201Z - GET /api/employees
+[2025-03-04T11:18:56.276Z] [RESPONSE] 2025-03-04T11:18:56.201Z - GET / - Status: 200
+[2025-03-04T11:18:56.301Z] [REQUEST] 2025-03-04T11:18:56.300Z - GET /api/employees
+[2025-03-04T11:18:56.333Z] [RESPONSE] 2025-03-04T11:18:56.300Z - GET / - Status: 200
+[2025-03-04T11:19:05.274Z] [REQUEST] 2025-03-04T11:19:05.274Z - GET /api/employees
+[2025-03-04T11:19:05.280Z] [RESPONSE] 2025-03-04T11:19:05.274Z - GET / - Status: 200
+[2025-03-04T11:19:05.282Z] [REQUEST] 2025-03-04T11:19:05.282Z - GET /api/employees
+[2025-03-04T11:19:05.295Z] [RESPONSE] 2025-03-04T11:19:05.282Z - GET / - Status: 200
+[2025-03-04T11:19:07.146Z] [REQUEST] 2025-03-04T11:19:07.145Z - GET /api/employees
+[2025-03-04T11:19:07.166Z] [REQUEST] 2025-03-04T11:19:07.166Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:19:07.168Z] [RESPONSE] 2025-03-04T11:19:07.145Z - GET / - Status: 200
+[2025-03-04T11:19:07.176Z] [REQUEST] 2025-03-04T11:19:07.170Z - GET /api/employees
+[2025-03-04T11:19:07.187Z] [RESPONSE] 2025-03-04T11:19:07.166Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:19:07.191Z] [REQUEST] 2025-03-04T11:19:07.191Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:19:07.195Z] [RESPONSE] 2025-03-04T11:19:07.170Z - GET / - Status: 200
+[2025-03-04T11:19:07.199Z] [RESPONSE] 2025-03-04T11:19:07.191Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:19:07.209Z] [REQUEST] 2025-03-04T11:19:07.209Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:19:07.219Z] [RESPONSE] 2025-03-04T11:19:07.209Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:25:57.109Z] [REQUEST] 2025-03-04T11:25:57.109Z - GET /api/employees
+[2025-03-04T11:25:57.120Z] [REQUEST] 2025-03-04T11:25:57.120Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:25:57.135Z] [RESPONSE] 2025-03-04T11:25:57.120Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:25:57.139Z] [RESPONSE] 2025-03-04T11:25:57.109Z - GET / - Status: 200
+[2025-03-04T11:25:57.140Z] [REQUEST] 2025-03-04T11:25:57.140Z - GET /api/weekly-schedules?week_start=2025-03-02
+[2025-03-04T11:25:57.142Z] [REQUEST] 2025-03-04T11:25:57.141Z - GET /api/employees
+[2025-03-04T11:25:57.146Z] [RESPONSE] 2025-03-04T11:25:57.140Z - GET /?week_start=2025-03-02 - Status: 200
+[2025-03-04T11:25:57.150Z] [RESPONSE] 2025-03-04T11:25:57.141Z - GET / - Status: 200
+[2025-03-04T11:28:26.938Z] [REQUEST] 2025-03-04T11:28:26.938Z - GET /api/employees
+[2025-03-04T11:28:26.949Z] [REQUEST] 2025-03-04T11:28:26.949Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:28:26.998Z] [RESPONSE] 2025-03-04T11:28:26.938Z - GET / - Status: 200
+[2025-03-04T11:28:26.999Z] [RESPONSE] 2025-03-04T11:28:26.949Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:28:27.000Z] [REQUEST] 2025-03-04T11:28:27.000Z - GET /api/employees
+[2025-03-04T11:28:27.003Z] [REQUEST] 2025-03-04T11:28:27.003Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:28:27.007Z] [RESPONSE] 2025-03-04T11:28:27.003Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:28:27.015Z] [RESPONSE] 2025-03-04T11:28:27.000Z - GET / - Status: 200
+[2025-03-04T11:28:27.017Z] [REQUEST] 2025-03-04T11:28:27.016Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:28:27.020Z] [RESPONSE] 2025-03-04T11:28:27.016Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:28:50.166Z] [REQUEST] 2025-03-04T11:28:50.165Z - GET /api/weekly-schedules?week_start=2025-02-24
+[2025-03-04T11:28:50.241Z] [RESPONSE] 2025-03-04T11:28:50.165Z - GET /?week_start=2025-02-24 - Status: 200
+[2025-03-04T11:28:50.249Z] [REQUEST] 2025-03-04T11:28:50.249Z - GET /api/weekly-schedules?week_start=2025-02-24
+[2025-03-04T11:28:50.267Z] [RESPONSE] 2025-03-04T11:28:50.249Z - GET /?week_start=2025-02-24 - Status: 200
+[2025-03-04T11:28:50.861Z] [REQUEST] 2025-03-04T11:28:50.861Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:28:50.871Z] [RESPONSE] 2025-03-04T11:28:50.861Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:28:50.899Z] [REQUEST] 2025-03-04T11:28:50.899Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:28:50.916Z] [RESPONSE] 2025-03-04T11:28:50.899Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:28:51.458Z] [REQUEST] 2025-03-04T11:28:51.458Z - GET /api/weekly-schedules?week_start=2025-03-10
+[2025-03-04T11:28:51.463Z] [RESPONSE] 2025-03-04T11:28:51.458Z - GET /?week_start=2025-03-10 - Status: 200
+[2025-03-04T11:28:51.468Z] [REQUEST] 2025-03-04T11:28:51.467Z - GET /api/weekly-schedules?week_start=2025-03-10
+[2025-03-04T11:28:51.502Z] [RESPONSE] 2025-03-04T11:28:51.467Z - GET /?week_start=2025-03-10 - Status: 200
+[2025-03-04T11:28:52.142Z] [REQUEST] 2025-03-04T11:28:52.141Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:28:52.150Z] [RESPONSE] 2025-03-04T11:28:52.141Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:28:52.174Z] [REQUEST] 2025-03-04T11:28:52.174Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:28:52.179Z] [RESPONSE] 2025-03-04T11:28:52.174Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:29:59.387Z] [REQUEST] 2025-03-04T11:29:59.387Z - POST /api/weekly-schedules - Body: {"employee_id":5,"week_start":"2025-03-03","week_end":"2025-03-09","schedule_data":"[{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\"}]","total_hours":0,"status":"active"}
+[2025-03-04T11:29:59.418Z] [RESPONSE] 2025-03-04T11:29:59.387Z - POST / - Status: 201
+[2025-03-04T11:29:59.433Z] [REQUEST] 2025-03-04T11:29:59.433Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:29:59.461Z] [RESPONSE] 2025-03-04T11:29:59.433Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:37:09.591Z] [REQUEST] 2025-03-04T11:37:09.588Z - GET /api/employees
+[2025-03-04T11:37:09.610Z] [REQUEST] 2025-03-04T11:37:09.609Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:37:09.643Z] [RESPONSE] 2025-03-04T11:37:09.588Z - GET / - Status: 200
+[2025-03-04T11:37:09.646Z] [RESPONSE] 2025-03-04T11:37:09.609Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:37:53.617Z] [REQUEST] 2025-03-04T11:37:53.608Z - GET /api/employees
+[2025-03-04T11:37:53.682Z] [REQUEST] 2025-03-04T11:37:53.682Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:37:53.712Z] [RESPONSE] 2025-03-04T11:37:53.682Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:37:53.715Z] [RESPONSE] 2025-03-04T11:37:53.608Z - GET / - Status: 200
+[2025-03-04T11:37:53.715Z] [REQUEST] 2025-03-04T11:37:53.715Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:37:53.717Z] [REQUEST] 2025-03-04T11:37:53.716Z - GET /api/employees
+[2025-03-04T11:37:53.732Z] [RESPONSE] 2025-03-04T11:37:53.715Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:37:53.737Z] [RESPONSE] 2025-03-04T11:37:53.716Z - GET / - Status: 200
+[2025-03-04T11:40:04.911Z] [REQUEST] 2025-03-04T11:40:04.908Z - GET /api/employees
+[2025-03-04T11:40:05.008Z] [RESPONSE] 2025-03-04T11:40:04.908Z - GET / - Status: 200
+[2025-03-04T11:40:05.010Z] [REQUEST] 2025-03-04T11:40:05.010Z - GET /api/employees
+[2025-03-04T11:40:05.018Z] [RESPONSE] 2025-03-04T11:40:05.010Z - GET / - Status: 200
+[2025-03-04T11:40:09.174Z] [REQUEST] 2025-03-04T11:40:09.174Z - GET /api/employees
+[2025-03-04T11:40:09.186Z] [RESPONSE] 2025-03-04T11:40:09.174Z - GET / - Status: 200
+[2025-03-04T11:40:09.189Z] [REQUEST] 2025-03-04T11:40:09.189Z - GET /api/employees
+[2025-03-04T11:40:09.192Z] [RESPONSE] 2025-03-04T11:40:09.189Z - GET / - Status: 200
+[2025-03-04T11:40:12.551Z] [REQUEST] 2025-03-04T11:40:12.551Z - GET /api/employees
+[2025-03-04T11:40:12.554Z] [RESPONSE] 2025-03-04T11:40:12.551Z - GET / - Status: 200
+[2025-03-04T11:40:12.555Z] [REQUEST] 2025-03-04T11:40:12.555Z - GET /api/employees
+[2025-03-04T11:40:12.562Z] [RESPONSE] 2025-03-04T11:40:12.555Z - GET / - Status: 200
+[2025-03-04T11:40:14.109Z] [REQUEST] 2025-03-04T11:40:14.109Z - GET /api/employees
+[2025-03-04T11:40:14.147Z] [RESPONSE] 2025-03-04T11:40:14.109Z - GET / - Status: 200
+[2025-03-04T11:40:14.152Z] [REQUEST] 2025-03-04T11:40:14.151Z - GET /api/employees
+[2025-03-04T11:40:14.154Z] [REQUEST] 2025-03-04T11:40:14.154Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:40:14.158Z] [RESPONSE] 2025-03-04T11:40:14.151Z - GET / - Status: 200
+[2025-03-04T11:40:14.183Z] [RESPONSE] 2025-03-04T11:40:14.154Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:40:14.185Z] [REQUEST] 2025-03-04T11:40:14.185Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:40:14.193Z] [RESPONSE] 2025-03-04T11:40:14.185Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:40:14.194Z] [REQUEST] 2025-03-04T11:40:14.194Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:40:14.203Z] [RESPONSE] 2025-03-04T11:40:14.194Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:42:42.101Z] [REQUEST] 2025-03-04T11:42:42.101Z - GET /api/employees
+[2025-03-04T11:42:42.109Z] [REQUEST] 2025-03-04T11:42:42.109Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:42:42.123Z] [RESPONSE] 2025-03-04T11:42:42.101Z - GET / - Status: 200
+[2025-03-04T11:42:42.130Z] [RESPONSE] 2025-03-04T11:42:42.109Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:43:32.023Z] [REQUEST] 2025-03-04T11:43:32.023Z - GET /api/employees
+[2025-03-04T11:43:32.028Z] [REQUEST] 2025-03-04T11:43:32.028Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:43:32.032Z] [RESPONSE] 2025-03-04T11:43:32.023Z - GET / - Status: 200
+[2025-03-04T11:43:32.033Z] [RESPONSE] 2025-03-04T11:43:32.028Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:43:32.034Z] [REQUEST] 2025-03-04T11:43:32.034Z - GET /api/employees
+[2025-03-04T11:43:32.036Z] [REQUEST] 2025-03-04T11:43:32.036Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:43:32.037Z] [RESPONSE] 2025-03-04T11:43:32.034Z - GET / - Status: 200
+[2025-03-04T11:43:32.041Z] [RESPONSE] 2025-03-04T11:43:32.036Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:44:18.022Z] [REQUEST] 2025-03-04T11:44:18.022Z - GET /api/employees
+[2025-03-04T11:44:18.045Z] [RESPONSE] 2025-03-04T11:44:18.022Z - GET / - Status: 200
+[2025-03-04T11:44:18.050Z] [REQUEST] 2025-03-04T11:44:18.047Z - GET /api/employees
+[2025-03-04T11:44:18.059Z] [RESPONSE] 2025-03-04T11:44:18.047Z - GET / - Status: 200
+[2025-03-04T11:44:37.256Z] [REQUEST] 2025-03-04T11:44:37.255Z - GET /api/employees
+[2025-03-04T11:44:37.266Z] [REQUEST] 2025-03-04T11:44:37.266Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:44:37.272Z] [RESPONSE] 2025-03-04T11:44:37.255Z - GET / - Status: 200
+[2025-03-04T11:44:37.278Z] [REQUEST] 2025-03-04T11:44:37.278Z - GET /api/employees
+[2025-03-04T11:44:37.281Z] [RESPONSE] 2025-03-04T11:44:37.266Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:44:37.289Z] [REQUEST] 2025-03-04T11:44:37.289Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:44:37.290Z] [RESPONSE] 2025-03-04T11:44:37.278Z - GET / - Status: 200
+[2025-03-04T11:44:37.295Z] [RESPONSE] 2025-03-04T11:44:37.289Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:44:37.301Z] [REQUEST] 2025-03-04T11:44:37.301Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:44:37.307Z] [RESPONSE] 2025-03-04T11:44:37.301Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:44:42.624Z] [REQUEST] 2025-03-04T11:44:42.621Z - GET /api/employees
+[2025-03-04T11:44:42.654Z] [REQUEST] 2025-03-04T11:44:42.653Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:44:42.661Z] [RESPONSE] 2025-03-04T11:44:42.621Z - GET / - Status: 200
+[2025-03-04T11:44:42.666Z] [RESPONSE] 2025-03-04T11:44:42.653Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:44:42.685Z] [REQUEST] 2025-03-04T11:44:42.685Z - GET /api/employees
+[2025-03-04T11:44:42.692Z] [REQUEST] 2025-03-04T11:44:42.692Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:44:42.705Z] [RESPONSE] 2025-03-04T11:44:42.685Z - GET / - Status: 200
+[2025-03-04T11:44:42.708Z] [RESPONSE] 2025-03-04T11:44:42.692Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:44:42.724Z] [REQUEST] 2025-03-04T11:44:42.723Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:44:42.741Z] [RESPONSE] 2025-03-04T11:44:42.723Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:44:43.359Z] [REQUEST] 2025-03-04T11:44:43.358Z - GET /api/employees
+[2025-03-04T11:44:43.374Z] [RESPONSE] 2025-03-04T11:44:43.358Z - GET / - Status: 200
+[2025-03-04T11:44:43.378Z] [REQUEST] 2025-03-04T11:44:43.377Z - GET /api/employees
+[2025-03-04T11:44:43.391Z] [RESPONSE] 2025-03-04T11:44:43.377Z - GET / - Status: 200
+[2025-03-04T11:46:16.613Z] [REQUEST] 2025-03-04T11:46:16.613Z - GET /api/employees
+[2025-03-04T11:46:16.616Z] [REQUEST] 2025-03-04T11:46:16.616Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:46:16.622Z] [RESPONSE] 2025-03-04T11:46:16.613Z - GET / - Status: 200
+[2025-03-04T11:46:16.627Z] [RESPONSE] 2025-03-04T11:46:16.616Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:46:16.628Z] [REQUEST] 2025-03-04T11:46:16.628Z - GET /api/employees
+[2025-03-04T11:46:16.632Z] [REQUEST] 2025-03-04T11:46:16.632Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:46:16.640Z] [RESPONSE] 2025-03-04T11:46:16.628Z - GET / - Status: 200
+[2025-03-04T11:46:16.641Z] [RESPONSE] 2025-03-04T11:46:16.632Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:46:16.643Z] [REQUEST] 2025-03-04T11:46:16.643Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:46:16.655Z] [RESPONSE] 2025-03-04T11:46:16.643Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:47:25.089Z] [REQUEST] 2025-03-04T11:47:25.083Z - GET /api/employees
+[2025-03-04T11:47:25.136Z] [RESPONSE] 2025-03-04T11:47:25.083Z - GET / - Status: 200
+[2025-03-04T11:47:25.142Z] [REQUEST] 2025-03-04T11:47:25.142Z - GET /api/employees
+[2025-03-04T11:47:25.151Z] [RESPONSE] 2025-03-04T11:47:25.142Z - GET / - Status: 200
+[2025-03-04T11:47:28.664Z] [REQUEST] 2025-03-04T11:47:28.664Z - GET /api/employees
+[2025-03-04T11:47:28.675Z] [RESPONSE] 2025-03-04T11:47:28.664Z - GET / - Status: 200
+[2025-03-04T11:47:28.682Z] [REQUEST] 2025-03-04T11:47:28.681Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:47:28.690Z] [REQUEST] 2025-03-04T11:47:28.690Z - GET /api/employees
+[2025-03-04T11:47:28.729Z] [RESPONSE] 2025-03-04T11:47:28.681Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:47:28.734Z] [REQUEST] 2025-03-04T11:47:28.734Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:47:28.741Z] [RESPONSE] 2025-03-04T11:47:28.690Z - GET / - Status: 200
+[2025-03-04T11:47:28.744Z] [RESPONSE] 2025-03-04T11:47:28.734Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:47:28.747Z] [REQUEST] 2025-03-04T11:47:28.747Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:47:28.752Z] [RESPONSE] 2025-03-04T11:47:28.747Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:50:45.583Z] [REQUEST] 2025-03-04T11:50:45.583Z - PUT /api/weekly-schedules/1 - Body: {"employee_id":5,"week_start":"2025-03-03","week_end":"2025-03-09","schedule_data":"[{\"hours\":\"6.0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"12:00\"},{\"start\":\"14:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[],\"type\":\"work\"}]","total_hours":6,"status":"active"}
+[2025-03-04T11:50:45.640Z] [RESPONSE] 2025-03-04T11:50:45.583Z - PUT /1 - Status: 200
+[2025-03-04T11:50:45.664Z] [REQUEST] 2025-03-04T11:50:45.664Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:50:45.670Z] [RESPONSE] 2025-03-04T11:50:45.664Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:51:51.000Z] [REQUEST] 2025-03-04T11:51:51.000Z - PUT /api/weekly-schedules/1 - Body: {"employee_id":5,"week_start":"2025-03-03","week_end":"2025-03-09","schedule_data":"[{\"hours\":\"6.0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"12:00\"},{\"start\":\"14:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"8.0\",\"absence\":\"\",\"note\":\"essence\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"8.0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"repos\",\"note\":\"\",\"timeSlots\":[],\"type\":\"absence\"},{\"hours\":\"8.0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"repos\",\"note\":\"\",\"timeSlots\":[],\"type\":\"absence\"},{\"hours\":\"0\",\"absence\":\"repos\",\"note\":\"\",\"timeSlots\":[],\"type\":\"absence\"}]","total_hours":30,"status":"active"}
+[2025-03-04T11:51:51.012Z] [RESPONSE] 2025-03-04T11:51:51.000Z - PUT /1 - Status: 200
+[2025-03-04T11:51:51.023Z] [REQUEST] 2025-03-04T11:51:51.023Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:51:51.028Z] [RESPONSE] 2025-03-04T11:51:51.023Z - GET /?week_start=2025-03-03 - Status: 200
+[2025-03-04T11:52:05.586Z] [REQUEST] 2025-03-04T11:52:05.586Z - PUT /api/weekly-schedules/1 - Body: {"employee_id":5,"week_start":"2025-03-03","week_end":"2025-03-09","schedule_data":"[{\"hours\":\"6.0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"12:00\"},{\"start\":\"14:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"8.0\",\"absence\":\"\",\"note\":\"essence\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"8.0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"repos\",\"note\":\"\",\"timeSlots\":[],\"type\":\"absence\"},{\"hours\":\"8.0\",\"absence\":\"\",\"note\":\"\",\"timeSlots\":[{\"start\":\"09:00\",\"end\":\"17:00\"}],\"type\":\"work\"},{\"hours\":\"0\",\"absence\":\"repos\",\"note\":\"\",\"timeSlots\":[],\"type\":\"absence\"},{\"hours\":\"0\",\"absence\":\"repos\",\"note\":\"\",\"timeSlots\":[],\"type\":\"absence\"}]","total_hours":30,"status":"active"}
+[2025-03-04T11:52:05.592Z] [RESPONSE] 2025-03-04T11:52:05.586Z - PUT /1 - Status: 200
+[2025-03-04T11:52:05.599Z] [REQUEST] 2025-03-04T11:52:05.599Z - GET /api/weekly-schedules?week_start=2025-03-03
+[2025-03-04T11:52:05.603Z] [RESPONSE] 2025-03-04T11:52:05.599Z - GET /?week_start=2025-03-03 - Status: 200
