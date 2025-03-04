@@ -2,7 +2,13 @@ import DOMPurify from "dompurify";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import PropTypes from "prop-types";
-import { FaEdit, FaFilePdf } from "react-icons/fa";
+import { useState } from "react";
+import {
+  FaEdit,
+  FaFilePdf,
+  FaSortAmountDown,
+  FaSortAmountUp,
+} from "react-icons/fa";
 import styled from "styled-components";
 import { formatDate, getDayName, getDaysOfWeek } from "../../utils/dateUtils";
 import Button from "../ui/Button";
@@ -16,6 +22,37 @@ const ScheduleGrid = styled.div`
   border-radius: 0.5rem;
   overflow-x: auto;
   width: 100%;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background-image: linear-gradient(
+        to right,
+        transparent,
+        transparent 99%,
+        ${({ theme }) => theme.colors.border.light} 99%,
+        ${({ theme }) => theme.colors.border.light} 100%
+      ),
+      linear-gradient(
+        to bottom,
+        transparent,
+        transparent 99%,
+        ${({ theme }) => theme.colors.border.light} 99%,
+        ${({ theme }) => theme.colors.border.light} 100%
+      );
+    background-size: 100% 100%;
+    background-position: 0 0;
+    background-repeat: repeat;
+    z-index: 1;
+  }
 
   @media (max-width: 1200px) {
     grid-template-columns: 180px repeat(7, 1fr) 100px 80px 80px;
@@ -46,7 +83,14 @@ const GridCell = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 50px;
-  transition: background-color 0.2s ease;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+
+  &:hover {
+    transform: translateZ(0);
+    box-shadow: 0 0 0 1px ${({ theme }) => theme.colors.primary.main}40;
+  }
 
   @media (max-width: 576px) {
     padding: 0.5rem;
@@ -61,6 +105,18 @@ const HeaderCell = styled(GridCell)`
   position: sticky;
   top: 0;
   z-index: 10;
+  cursor: ${(props) => (props.sortable ? "pointer" : "default")};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+
+  &:hover {
+    background-color: ${(props) =>
+      props.sortable
+        ? ({ theme }) => theme.colors.background.tertiary
+        : "inherit"};
+  }
 
   @media (max-width: 576px) {
     display: none;
@@ -107,11 +163,10 @@ const DayCell = styled(GridCell)`
     background-color: ${theme.colors.background.tertiary};
   `}
 
-  ${({ isAbsent, theme }) =>
+  ${({ isAbsent }) =>
     isAbsent &&
     `
-    background-color: ${theme.mode === "dark" ? "#3d1a1a" : "#fee2e2"};
-    color: ${theme.mode === "dark" ? "#f87171" : "#b91c1c"};
+    color: #ef4444;
   `}
   
   flex-direction: column;
@@ -135,14 +190,21 @@ const DayCell = styled(GridCell)`
 `;
 
 const TimeSlot = styled.div`
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  font-size: 1rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
   white-space: nowrap;
 `;
 
 const HoursValue = styled.div`
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const AbsenceValue = styled.div`
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ef4444;
 `;
 
 const NoteText = styled.div`
@@ -246,8 +308,62 @@ const WeeklyScheduleGrid = ({
   readOnly,
   onEditEmployee,
 }) => {
+  // État pour le tri
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: "ascending",
+  });
+
   // Obtenir les jours de la semaine
   const daysOfWeek = getDaysOfWeek(weekStart);
+
+  // Fonction pour trier les employés
+  const sortedEmployees = [...employees].sort((a, b) => {
+    if (sortConfig.key === null) {
+      return 0;
+    }
+
+    let aValue, bValue;
+
+    if (sortConfig.key === "name") {
+      aValue = `${a.lastName} ${a.firstName}`.toLowerCase();
+      bValue = `${b.lastName} ${b.firstName}`.toLowerCase();
+    } else if (sortConfig.key === "total") {
+      aValue = parseFloat(calculateEmployeeTotal(a.id));
+      bValue = parseFloat(calculateEmployeeTotal(b.id));
+    } else {
+      return 0;
+    }
+
+    if (aValue < bValue) {
+      return sortConfig.direction === "ascending" ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortConfig.direction === "ascending" ? 1 : -1;
+    }
+    return 0;
+  });
+
+  // Fonction pour changer le tri
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Obtenir l'icône de tri
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return null;
+    }
+    return sortConfig.direction === "ascending" ? (
+      <FaSortAmountUp size={12} />
+    ) : (
+      <FaSortAmountDown size={12} />
+    );
+  };
 
   // Trouver le planning d'un employé
   const findEmployeeSchedule = (employeeId) => {
@@ -310,15 +426,15 @@ const WeeklyScheduleGrid = ({
     return (
       <>
         {day.type === "absence" && day.absence && day.absence.trim() !== "" ? (
-          <HoursValue>{day.absence}</HoursValue>
+          <AbsenceValue>{day.absence}</AbsenceValue>
         ) : day.type === "work" && day.timeSlots && day.timeSlots.length > 0 ? (
           <>
-            <HoursValue>{day.hours || "0"}h</HoursValue>
             {day.timeSlots.map((slot, index) => (
               <TimeSlot key={index}>
                 {slot.start} - {slot.end}
               </TimeSlot>
             ))}
+            <HoursValue>{day.hours || "0"}h</HoursValue>
           </>
         ) : (
           <HoursValue>0h</HoursValue>
@@ -519,16 +635,20 @@ const WeeklyScheduleGrid = ({
   return (
     <ScheduleGrid>
       {/* En-tête avec les jours de la semaine */}
-      <HeaderCell>Employé</HeaderCell>
+      <HeaderCell sortable onClick={() => requestSort("name")}>
+        Employé {getSortIcon("name")}
+      </HeaderCell>
       {daysOfWeek.map((day, index) => (
         <HeaderCell key={index}>{formatDate(day, "EEE dd/MM")}</HeaderCell>
       ))}
-      <HeaderCell>Total</HeaderCell>
+      <HeaderCell sortable onClick={() => requestSort("total")}>
+        Total {getSortIcon("total")}
+      </HeaderCell>
       <HeaderCell>Export</HeaderCell>
       <HeaderCell>Actions</HeaderCell>
 
       {/* Lignes pour chaque employé */}
-      {employees.map((employee) => (
+      {sortedEmployees.map((employee) => (
         <EmployeeRow key={employee.id}>
           <EmployeeCell>
             {employee.firstName} {employee.lastName}
@@ -565,27 +685,25 @@ const WeeklyScheduleGrid = ({
             </small>
           </TotalCell>
 
-          <ActionRow>
-            {/* Cellule d'export */}
-            <ExportCell>
-              <ActionButton
-                variant="secondary"
-                onClick={() => handleGeneratePDF(employee)}
-              >
-                <FaFilePdf /> PDF
-              </ActionButton>
-            </ExportCell>
+          {/* Cellule d'export */}
+          <ExportCell>
+            <ActionButton
+              variant="secondary"
+              onClick={() => handleGeneratePDF(employee)}
+            >
+              <FaFilePdf /> PDF
+            </ActionButton>
+          </ExportCell>
 
-            {/* Cellule d'action */}
-            <ActionCell>
-              <ActionButton
-                variant="primary"
-                onClick={() => handleEditClick(employee.id)}
-              >
-                <FaEdit /> Modifier
-              </ActionButton>
-            </ActionCell>
-          </ActionRow>
+          {/* Cellule d'action */}
+          <ActionCell>
+            <ActionButton
+              variant="primary"
+              onClick={() => handleEditClick(employee.id)}
+            >
+              <FaEdit /> Modifier
+            </ActionButton>
+          </ActionCell>
         </EmployeeRow>
       ))}
     </ScheduleGrid>
