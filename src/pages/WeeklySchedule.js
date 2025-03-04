@@ -188,9 +188,10 @@ const EmployeeSearchInput = styled(FormInput)`
 `;
 
 const NoResultsMessage = styled.div`
-  padding: 2rem;
   text-align: center;
+  padding: 2rem;
   color: ${({ theme }) => theme.colors.text.secondary};
+  font-style: italic;
 `;
 
 /* Composant styled non utilisé - commenté pour éviter les erreurs ESLint
@@ -204,6 +205,13 @@ const ResponsiveButton = styled(Button)`
   }
 `;
 */
+
+const PlanningTitle = styled.h2`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin: 0;
+`;
 
 // Fonction utilitaire pour convertir les données existantes au nouveau format
 const convertToNewFormat = (day) => {
@@ -237,7 +245,7 @@ const WeeklySchedulePage = () => {
   );
   const [scheduleData, setScheduleData] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("active");
+  const [selectedRole, setSelectedRole] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
@@ -248,9 +256,9 @@ const WeeklySchedulePage = () => {
     scheduleData: schedulesData,
     loading: schedulesLoading,
     error: schedulesError,
-    saveEmployeeSchedule,
+    saveSchedule: saveEmployeeSchedule,
     saveSchedules,
-  } = useWeeklySchedules(currentWeekStart);
+  } = useWeeklySchedules(formatDate(currentWeekStart, "yyyy-MM-dd"));
 
   // Gérer les erreurs de chargement des plannings
   useEffect(() => {
@@ -265,15 +273,18 @@ const WeeklySchedulePage = () => {
     return employees.find((emp) => emp.id === editingEmployeeId) || null;
   }, [editingEmployeeId, employees]);
 
-  // Extraire les départements uniques des employés
+  // Extraire les départements uniques
   const uniqueDepartments = useMemo(() => {
-    if (!employees || employees.length === 0) return [];
+    if (!employees) return [];
+    const departments = [...new Set(employees.map((emp) => emp.department))];
+    return departments.filter((dept) => dept && dept.trim() !== "");
+  }, [employees]);
 
-    const departments = employees
-      .map((emp) => emp.department)
-      .filter((dept, index, self) => dept && self.indexOf(dept) === index);
-
-    return departments.sort();
+  // Extraire les rôles uniques
+  const uniqueRoles = useMemo(() => {
+    if (!employees) return [];
+    const roles = [...new Set(employees.map((emp) => emp.role))];
+    return roles.filter((role) => role && role.trim() !== "");
   }, [employees]);
 
   // Mettre à jour l'URL lorsque la semaine change
@@ -282,34 +293,40 @@ const WeeklySchedulePage = () => {
     navigate(`/weekly-schedule/${formattedDate}`, { replace: true });
   }, [currentWeekStart, navigate]);
 
-  // Filtrer les employés en fonction du département, du statut et de la recherche
+  // Filtrer les employés en fonction des critères
   useEffect(() => {
-    if (employees.length > 0) {
-      let filtered = [...employees];
-
-      if (selectedDepartment) {
-        filtered = filtered.filter(
-          (emp) => emp.department === selectedDepartment
-        );
-      }
-
-      if (selectedStatus) {
-        filtered = filtered.filter((emp) => emp.status === selectedStatus);
-      }
-
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filtered = filtered.filter(
-          (emp) =>
-            emp.firstName.toLowerCase().includes(query) ||
-            emp.lastName.toLowerCase().includes(query) ||
-            (emp.email && emp.email.toLowerCase().includes(query))
-        );
-      }
-
-      setFilteredEmployees(filtered);
+    if (!employees) {
+      setFilteredEmployees([]);
+      return;
     }
-  }, [employees, selectedDepartment, selectedStatus, searchQuery]);
+
+    let filtered = [...employees];
+
+    // Filtrer par département si sélectionné
+    if (selectedDepartment) {
+      filtered = filtered.filter(
+        (emp) => emp.department === selectedDepartment
+      );
+    }
+
+    // Filtrer par rôle si sélectionné
+    if (selectedRole) {
+      filtered = filtered.filter((emp) => emp.role === selectedRole);
+    }
+
+    // Filtrer par recherche
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (emp) =>
+          emp.firstName.toLowerCase().includes(query) ||
+          emp.lastName.toLowerCase().includes(query) ||
+          emp.email.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredEmployees(filtered);
+  }, [employees, selectedDepartment, selectedRole, searchQuery]);
 
   // Préparer les données du planning pour l'affichage
   useEffect(() => {
@@ -376,9 +393,9 @@ const WeeklySchedulePage = () => {
     setSelectedDepartment(e.target.value);
   };
 
-  // Gestion du changement de statut
-  const handleStatusChange = (e) => {
-    setSelectedStatus(e.target.value);
+  // Gestion du changement de rôle
+  const handleRoleChange = (e) => {
+    setSelectedRole(e.target.value);
   };
 
   // Gestion de la recherche d'employé
@@ -651,7 +668,7 @@ const WeeklySchedulePage = () => {
                 variant="secondary"
                 onClick={generateAllEmployeesPDF}
               >
-                <FaFilePdf /> Exporter tous les plannings
+                <FaFilePdf /> Exporter planning global
               </ExportAllButton>
             </WeekActions>
           </WeekNavigation>
@@ -686,21 +703,28 @@ const WeeklySchedulePage = () => {
 
               <FilterContainer>
                 <FilterSelect
-                  value={selectedStatus}
-                  onChange={handleStatusChange}
-                  placeholder="Tous les statuts"
+                  value={selectedRole}
+                  onChange={handleRoleChange}
+                  placeholder="Tous les rôles"
                 >
-                  <option value="">Tous les statuts</option>
-                  <option value="active">Actif</option>
-                  <option value="inactive">Inactif</option>
-                  <option value="vacation">En congé</option>
-                  <option value="sick">Malade</option>
+                  <option value="">Tous les rôles</option>
+                  {uniqueRoles.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
                 </FilterSelect>
               </FilterContainer>
             </ScheduleFilters>
 
             <Card>
-              <CardHeader>Planning hebdomadaire</CardHeader>
+              <CardHeader>
+                <PlanningTitle>
+                  {filteredEmployees.length > 1
+                    ? `Plannings hebdomadaires (${filteredEmployees.length})`
+                    : "Planning hebdomadaire"}
+                </PlanningTitle>
+              </CardHeader>
               <CardContent>
                 {filteredEmployees.length === 0 ? (
                   <NoResultsMessage>
