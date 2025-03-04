@@ -18,10 +18,6 @@ export const API_ROUTES = {
     BASE: "/api/employees",
     DETAIL: (id) => `/api/employees/${id}`,
   },
-  PLANNING: {
-    BASE: "/api/planning",
-    DETAIL: (id) => `/api/planning/${id}`,
-  },
   VACATIONS: {
     BASE: "/api/vacations",
     DETAIL: (id) => `/api/vacations/${id}`,
