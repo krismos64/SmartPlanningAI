@@ -2,11 +2,7 @@ import { useState, useCallback, memo } from "react";
 import styled from "styled-components";
 import { Button } from "../ui";
 import { FormInput, FormSelect } from "../ui/Form";
-import {
-  EMPLOYEE_DEPARTMENTS,
-  EMPLOYEE_ROLES,
-  EMPLOYEE_STATUSES,
-} from "../../config/constants";
+import { EMPLOYEE_STATUSES } from "../../config/constants";
 
 const FormGrid = styled.div`
   display: grid;
@@ -88,34 +84,20 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
           onChange={handleChange}
           helpText="Facultatif"
         />
-        <FormSelect
+        <FormInput
           label="Département"
           name="department"
           value={formData.department}
           onChange={handleChange}
           helpText="Facultatif"
-        >
-          <option value="">Sélectionner un département</option>
-          {EMPLOYEE_DEPARTMENTS.map((dept) => (
-            <option key={dept.value} value={dept.value}>
-              {dept.label}
-            </option>
-          ))}
-        </FormSelect>
-        <FormSelect
+        />
+        <FormInput
           label="Rôle"
           name="role"
           value={formData.role}
           onChange={handleChange}
           helpText="Facultatif"
-        >
-          <option value="">Sélectionner un rôle</option>
-          {EMPLOYEE_ROLES.map((role) => (
-            <option key={role.value} value={role.value}>
-              {role.label}
-            </option>
-          ))}
-        </FormSelect>
+        />
         <FormSelect
           label="Statut"
           name="status"

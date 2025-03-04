@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import DashboardCharts from "../components/dashboard/DashboardCharts";
 import { useState, useEffect } from "react";
 import SearchBar from "../components/ui/SearchBar";
+import { useEmployees } from "../hooks/useEmployees";
 
 // Composants stylisés
 const DashboardContainer = styled.div`
@@ -256,6 +257,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState([]);
   const [activities, setActivities] = useState([]);
   const [searchResults, setSearchResults] = useState(null);
+  const { employees } = useEmployees();
 
   // Fonction pour obtenir le prénom et le nom de l'utilisateur
   const getUserFullName = () => {
@@ -266,19 +268,28 @@ const Dashboard = () => {
     return user.username || "Utilisateur";
   };
 
-  // Simuler le chargement des données
+  // Mettre à jour les statistiques en fonction des données
   useEffect(() => {
-    const timer = setTimeout(() => {
-      // Vérifier si l'utilisateur a des données
-      const hasData = false; // À remplacer par une vérification réelle des données
+    const fetchStats = async () => {
+      try {
+        // Vous pouvez également faire une requête API pour obtenir des statistiques plus complètes
+        // const statsData = await apiRequest(API_ROUTES.STATS);
 
-      if (hasData) {
+        // Calculer les statistiques à partir des données des employés
+        const activeEmployees = employees.filter(
+          (emp) => emp.status === "active"
+        ).length;
+        const pendingEmployees = employees.filter(
+          (emp) => emp.status === "pending"
+        ).length;
+
+        // Mettre à jour les statistiques
         setStats([
           {
             id: 1,
             title: "Employés actifs",
-            value: 128,
-            change: "+12%",
+            value: activeEmployees,
+            change: "+12%", // Idéalement, calculer ce pourcentage en fonction des données historiques
             positive: true,
             icon: "👥",
             color: "#4F46E5",
@@ -286,7 +297,7 @@ const Dashboard = () => {
           {
             id: 2,
             title: "Demandes en attente",
-            value: 8,
+            value: pendingEmployees,
             change: "-3%",
             positive: true,
             icon: "📝",
@@ -295,7 +306,7 @@ const Dashboard = () => {
           {
             id: 3,
             title: "Congés approuvés",
-            value: 24,
+            value: 24, // À remplacer par des données réelles
             change: "+18%",
             positive: true,
             icon: "✅",
@@ -304,7 +315,7 @@ const Dashboard = () => {
           {
             id: 4,
             title: "Heures travaillées",
-            value: 1842,
+            value: 1842, // À remplacer par des données réelles
             change: "+5%",
             positive: true,
             icon: "⏱️",
@@ -312,89 +323,15 @@ const Dashboard = () => {
           },
         ]);
 
-        setActivities([
-          {
-            id: 1,
-            title: "Demande de congés approuvée",
-            time: "Il y a 2 heures",
-            user: "Sophie Martin",
-            icon: "✅",
-            color: "#10B981",
-          },
-          {
-            id: 2,
-            title: "Nouvelle demande de congés",
-            time: "Il y a 4 heures",
-            user: "Thomas Dubois",
-            icon: "📝",
-            color: "#F59E0B",
-          },
-          {
-            id: 3,
-            title: "Réunion d'équipe planifiée",
-            time: "Il y a 6 heures",
-            user: "Julie Lefebvre",
-            icon: "📅",
-            color: "#4F46E5",
-          },
-          {
-            id: 4,
-            title: "Rapport mensuel généré",
-            time: "Il y a 1 jour",
-            user: "Nicolas Moreau",
-            icon: "📊",
-            color: "#6366F1",
-          },
-        ]);
-      } else {
-        // Données vides pour un nouvel utilisateur
-        setStats([
-          {
-            id: 1,
-            title: "Employés actifs",
-            value: 0,
-            change: "0%",
-            positive: true,
-            icon: "👥",
-            color: "#4F46E5",
-          },
-          {
-            id: 2,
-            title: "Demandes en attente",
-            value: 0,
-            change: "0%",
-            positive: true,
-            icon: "📝",
-            color: "#F59E0B",
-          },
-          {
-            id: 3,
-            title: "Congés approuvés",
-            value: 0,
-            change: "0%",
-            positive: true,
-            icon: "✅",
-            color: "#10B981",
-          },
-          {
-            id: 4,
-            title: "Heures travaillées",
-            value: 0,
-            change: "0%",
-            positive: true,
-            icon: "⏱️",
-            color: "#6366F1",
-          },
-        ]);
-
-        setActivities([]);
+        setLoading(false);
+      } catch (error) {
+        console.error("Erreur lors du chargement des statistiques:", error);
+        setLoading(false);
       }
+    };
 
-      setLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
+    fetchStats();
+  }, [employees]); // Dépendance aux employés pour mettre à jour les statistiques
 
   const handleSearch = (result) => {
     setSearchResults(result);

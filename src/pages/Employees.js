@@ -1,21 +1,10 @@
 import { useState, useMemo, useCallback } from "react";
 import styled from "styled-components";
-import {
-  DataTable,
-  Button,
-  Modal,
-  PlusIcon,
-  ExportIcon,
-} from "../components/ui";
+import { DataTable, Button, Modal, PlusIcon } from "../components/ui";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import { useEmployees } from "../hooks/useEmployees";
 import { FormSelect } from "../components/ui/Form";
-import {
-  EMPLOYEE_TABLE_COLUMNS,
-  EMPLOYEE_DEPARTMENTS,
-  EMPLOYEE_ROLES,
-  EMPLOYEE_STATUSES,
-} from "../config/constants";
+import { EMPLOYEE_TABLE_COLUMNS, EMPLOYEE_STATUSES } from "../config/constants";
 
 // Composants stylisés
 const PageContainer = styled.div`
@@ -175,6 +164,21 @@ const Employees = () => {
     });
   }, [employees, activeTab, filters]);
 
+  // Récupérer les départements et rôles uniques des employés
+  const uniqueDepartments = useMemo(() => {
+    const departments = employees
+      .map((emp) => emp.department)
+      .filter((dept, index, self) => dept && self.indexOf(dept) === index);
+    return departments;
+  }, [employees]);
+
+  const uniqueRoles = useMemo(() => {
+    const roles = employees
+      .map((emp) => emp.role)
+      .filter((role, index, self) => role && self.indexOf(role) === index);
+    return roles;
+  }, [employees]);
+
   const handleSubmit = useCallback(
     async (data) => {
       const success = editingEmployee
@@ -231,10 +235,6 @@ const Employees = () => {
           </PageDescription>
         </HeaderLeft>
         <HeaderRight>
-          <Button onClick={() => window.print()}>
-            <ExportIcon />
-            Exporter
-          </Button>
           <Button primary onClick={handleAddEmployee}>
             <PlusIcon />
             Ajouter un employé
@@ -315,9 +315,9 @@ const Employees = () => {
               onChange={handleFilterChange}
             >
               <option value="">Tous les départements</option>
-              {EMPLOYEE_DEPARTMENTS.map((dept) => (
-                <option key={dept.value} value={dept.value}>
-                  {dept.label}
+              {uniqueDepartments.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
                 </option>
               ))}
             </FormSelect>
@@ -328,9 +328,9 @@ const Employees = () => {
               onChange={handleFilterChange}
             >
               <option value="">Tous les rôles</option>
-              {EMPLOYEE_ROLES.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
+              {uniqueRoles.map((role) => (
+                <option key={role} value={role}>
+                  {role}
                 </option>
               ))}
             </FormSelect>

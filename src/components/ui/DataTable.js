@@ -612,10 +612,6 @@ const DataTable = ({
               onChange={handleSearch}
             />
           </SearchInput>
-          <FilterButton active={showFilters} onClick={toggleFilters}>
-            <FilterIcon />
-            Filtres
-          </FilterButton>
         </TableActions>
       </TableHeader>
 

@@ -77,10 +77,7 @@ export const useEmployees = () => {
           status: employeeData.status || "active",
         };
 
-        await apiRequest(API_ROUTES.EMPLOYEES.BASE, {
-          method: "POST",
-          body: JSON.stringify(transformedData),
-        });
+        await apiRequest(API_ROUTES.EMPLOYEES.BASE, "POST", transformedData);
 
         showNotification({
           type: "success",
@@ -118,10 +115,11 @@ export const useEmployees = () => {
           status: employeeData.status || "active",
         };
 
-        await apiRequest(API_ROUTES.EMPLOYEES.DETAIL(id), {
-          method: "PUT",
-          body: JSON.stringify(transformedData),
-        });
+        await apiRequest(
+          API_ROUTES.EMPLOYEES.DETAIL(id),
+          "PUT",
+          transformedData
+        );
 
         showNotification({
           type: "success",
@@ -151,9 +149,7 @@ export const useEmployees = () => {
       }
 
       try {
-        await apiRequest(API_ROUTES.EMPLOYEES.DETAIL(id), {
-          method: "DELETE",
-        });
+        await apiRequest(API_ROUTES.EMPLOYEES.DETAIL(id), "DELETE");
 
         showNotification({
           type: "success",

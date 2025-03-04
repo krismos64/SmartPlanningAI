@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import Lottie from "lottie-react";
@@ -18,9 +19,13 @@ const NavbarContainer = styled.nav`
   padding: ${({ theme }) => `${theme.spacing.md} ${theme.spacing.xl}`};
   background-color: ${({ theme }) => theme.colors.surface};
   box-shadow: ${({ theme }) => theme.shadows.small};
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
+  transition: all 0.3s ease;
+  height: 64px;
 `;
 
 const Logo = styled(Link)`
@@ -30,6 +35,11 @@ const Logo = styled(Link)`
   font-size: ${({ theme }) => theme.typography.sizes.xl};
   font-weight: ${({ theme }) => theme.typography.fontWeights.bold};
   color: ${({ theme }) => theme.colors.primary};
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
 `;
 
 const LogoAnimation = styled.div`
@@ -49,6 +59,7 @@ const NavLinks = styled.div`
 `;
 
 const NavLink = styled(Link)`
+  position: relative;
   text-decoration: none;
   color: ${({ theme, active }) =>
     active ? theme.colors.primary : theme.colors.text.secondary};
@@ -58,11 +69,26 @@ const NavLink = styled(Link)`
       : theme.typography.fontWeights.medium};
   padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.sm}`};
   border-radius: ${({ theme }) => theme.borderRadius.small};
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 
   &:hover {
     color: ${({ theme }) => theme.colors.primary};
     background-color: ${({ theme }) => `${theme.colors.primary}11`};
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: ${({ active }) => (active ? "100%" : "0")};
+    height: 2px;
+    background-color: ${({ theme }) => theme.colors.primary};
+    transition: width 0.3s ease;
+  }
+
+  &:hover::after {
+    width: 100%;
   }
 `;
 
@@ -83,11 +109,12 @@ const ThemeToggle = styled.button`
   height: 40px;
   border-radius: ${({ theme }) => theme.borderRadius.round};
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 
   &:hover {
     background-color: ${({ theme }) => `${theme.colors.primary}11`};
     color: ${({ theme }) => theme.colors.primary};
+    transform: rotate(15deg);
   }
 `;
 
@@ -98,11 +125,12 @@ const UserProfile = styled.div`
   cursor: pointer;
   padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.sm}`};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   position: relative;
 
   &:hover {
     background-color: ${({ theme }) => `${theme.colors.primary}11`};
+    transform: translateY(-2px);
   }
 
   .avatar {
@@ -115,6 +143,11 @@ const UserProfile = styled.div`
     justify-content: center;
     color: white;
     font-weight: ${({ theme }) => theme.typography.fontWeights.bold};
+    transition: all 0.3s ease;
+  }
+
+  &:hover .avatar {
+    transform: scale(1.1);
   }
 
   .user-info {
@@ -203,6 +236,12 @@ const MobileMenuButton = styled.button`
   color: ${({ theme }) => theme.colors.text.secondary};
   font-size: 24px;
   cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+    transform: rotate(90deg);
+  }
 
   @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
     display: block;
@@ -213,7 +252,7 @@ const MobileMenu = styled.div`
   display: none;
 
   @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-    display: ${({ isOpen }) => (isOpen ? "flex" : "none")};
+    display: flex;
     flex-direction: column;
     position: absolute;
     top: 100%;
@@ -221,9 +260,44 @@ const MobileMenu = styled.div`
     right: 0;
     background-color: ${({ theme }) => theme.colors.surface};
     box-shadow: ${({ theme }) => theme.shadows.medium};
-    padding: ${({ theme }) => theme.spacing.lg};
+    padding: ${({ isOpen }) => (isOpen ? "1.5rem" : "0")};
     z-index: 1000;
+    max-height: ${({ isOpen }) => (isOpen ? "1000px" : "0")};
+    opacity: ${({ isOpen }) => (isOpen ? "1" : "0")};
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform-origin: top center;
   }
+`;
+
+const MobileNavLink = styled(NavLink)`
+  text-align: center;
+  font-size: 1.2rem;
+  font-family: "Poppins", sans-serif;
+  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
+  margin: 0.8rem 0;
+  padding: 1rem;
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  letter-spacing: 0.5px;
+
+  &::after {
+    bottom: -2px;
+    height: 3px;
+  }
+
+  &:hover {
+    transform: scale(1.05);
+    background-color: ${({ theme }) => `${theme.colors.primary}22`};
+  }
+`;
+
+const MobileMenuDivider = styled.div`
+  height: 1px;
+  background-color: ${({ theme }) => `${theme.colors.border}`};
+  margin: 0.5rem 0;
+  width: 80%;
+  align-self: center;
+  opacity: 0.5;
 `;
 
 const NotificationsPanel = styled.div`
@@ -919,17 +993,22 @@ const Navbar = () => {
       </NavActions>
 
       <MobileMenu isOpen={mobileMenuOpen}>
-        {navLinks.map((link) => (
-          <NavLink key={link.to} to={link.to} active={isActive(link.to)}>
-            {link.label}
-          </NavLink>
+        {navLinks.map((link, index) => (
+          <React.Fragment key={`nav-${link.to}`}>
+            <MobileNavLink to={link.to} active={isActive(link.to)}>
+              {link.label}
+            </MobileNavLink>
+            {index < navLinks.length - 1 && <MobileMenuDivider />}
+          </React.Fragment>
         ))}
-        <NavLink to="/profile" active={isActive("/profile")}>
+        <MobileMenuDivider />
+        <MobileNavLink to="/profile" active={isActive("/profile")}>
           Mon profil
-        </NavLink>
-        <NavLink to="/settings" active={isActive("/settings")}>
+        </MobileNavLink>
+        <MobileMenuDivider />
+        <MobileNavLink to="/settings" active={isActive("/settings")}>
           Paramètres
-        </NavLink>
+        </MobileNavLink>
       </MobileMenu>
     </NavbarContainer>
   );
