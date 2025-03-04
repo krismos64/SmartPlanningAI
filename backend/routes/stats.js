@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const Employee = require("../models/Employee.js");
-const Planning = require("../models/Planning.js");
 const VacationRequest = require("../models/VacationRequest.js");
 
 router.get("/dashboard", async (req, res) => {
@@ -28,27 +27,12 @@ router.get("/dashboard", async (req, res) => {
 router.get("/employee/:id", async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id);
-    const plannings = await Planning.find({
-      "schedules.shifts.employee": req.params.id,
-    });
 
     // Calcul des statistiques de l'employé
     const stats = {
       totalHours: employee.workedHours,
       overtime: Math.max(0, employee.workedHours - employee.contractHours),
-      shiftsCount: plannings.reduce(
-        (acc, planning) =>
-          acc +
-          planning.schedules.reduce(
-            (acc2, schedule) =>
-              acc2 +
-              schedule.shifts.filter(
-                (shift) => shift.employee.toString() === req.params.id
-              ).length,
-            0
-          ),
-        0
-      ),
+      shiftsCount: 0, // Cette valeur sera calculée différemment avec WeeklySchedules
     };
 
     res.json(stats);
@@ -62,9 +46,7 @@ router.get("/employee/:id", async (req, res) => {
 router.get("/workload", async (req, res) => {
   try {
     // Logique pour calculer la charge de travail
-    const workloadData = await Planning.aggregate([
-      // ... agrégation MongoDB ...
-    ]);
+    const workloadData = []; // Cette valeur sera calculée différemment avec WeeklySchedules
     res.json(workloadData);
   } catch (error) {
     res

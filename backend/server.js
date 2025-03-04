@@ -7,10 +7,9 @@ const fs = require("fs");
 const path = require("path");
 
 // Import des routes
-const authRoutes = require("./routes/auth");
 const employeesRoutes = require("./routes/employees");
-const planningRoutes = require("./routes/planning");
 const vacationsRoutes = require("./routes/vacations");
+const authRoutes = require("./routes/auth");
 const weeklySchedulesRoutes = require("./routes/weeklySchedules");
 
 const app = express();
@@ -118,7 +117,6 @@ app.use((req, res, next) => {
 
 // Routes API
 app.use("/api/employees", employeesRoutes);
-app.use("/api/planning", planningRoutes);
 app.use("/api/vacations", vacationsRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/weekly-schedules", weeklySchedulesRoutes);
