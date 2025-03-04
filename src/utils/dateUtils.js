@@ -2,132 +2,124 @@
  * Utilitaires pour la gestion des dates dans l'application
  */
 
+import {
+  addDays,
+  addWeeks as addWeeksDate,
+  endOfWeek,
+  format,
+  startOfWeek,
+} from "date-fns";
+import { fr } from "date-fns/locale";
+
 /**
- * Formate une date pour l'affichage
- * @param {string|Date} date - La date à formater
- * @param {string} format - Le format souhaité (par défaut: 'DD/MM/YYYY')
+ * Formate une date selon le format spécifié
+ * @param {Date} date - La date à formater
+ * @param {string} formatStr - Le format à utiliser (par défaut: 'dd/MM/yyyy')
  * @returns {string} La date formatée
  */
-export const formatDate = (date, format = "DD/MM/YYYY") => {
+export const formatDate = (date, formatStr = "dd/MM/yyyy") => {
   if (!date) return "";
-
-  try {
-    const dateObj = new Date(date);
-
-    if (isNaN(dateObj.getTime())) {
-      return "";
-    }
-
-    const day = String(dateObj.getDate()).padStart(2, "0");
-    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-    const year = dateObj.getFullYear();
-
-    switch (format) {
-      case "DD/MM/YYYY":
-        return `${day}/${month}/${year}`;
-      case "YYYY-MM-DD":
-        return `${year}-${month}-${day}`;
-      case "DD MMMM YYYY":
-        const monthNames = [
-          "janvier",
-          "février",
-          "mars",
-          "avril",
-          "mai",
-          "juin",
-          "juillet",
-          "août",
-          "septembre",
-          "octobre",
-          "novembre",
-          "décembre",
-        ];
-        return `${day} ${monthNames[dateObj.getMonth()]} ${year}`;
-      default:
-        return `${day}/${month}/${year}`;
-    }
-  } catch (error) {
-    console.error("Erreur lors du formatage de la date:", error);
-    return "";
-  }
+  return format(date, formatStr, { locale: fr });
 };
 
 /**
- * Formate une date pour les champs input de type date
- * @param {string|Date} date - La date à formater
+ * Formate une date pour un input HTML (YYYY-MM-DD)
+ * @param {Date} date - La date à formater
  * @returns {string} La date au format YYYY-MM-DD
  */
 export const formatDateForInput = (date) => {
   if (!date) return "";
-
-  // Si la date est déjà au format YYYY-MM-DD, la retourner telle quelle
-  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return date;
-  }
-
-  try {
-    const dateObj = new Date(date);
-
-    if (isNaN(dateObj.getTime())) {
-      return "";
-    }
-
-    return dateObj.toISOString().split("T")[0];
-  } catch (error) {
-    console.error("Erreur lors du formatage de la date pour input:", error);
-    return "";
-  }
+  return format(date, "yyyy-MM-dd");
 };
 
 /**
- * Obtient la date de début de la semaine pour une date donnée
- * @param {string|Date} date - La date de référence
- * @param {number} startDay - Le jour de début de la semaine (0 = dimanche, 1 = lundi, etc.)
- * @returns {Date} La date de début de la semaine
+ * Obtient le premier jour de la semaine pour une date donnée
+ * @param {Date} date - La date de référence
+ * @returns {Date} Le premier jour de la semaine (lundi)
  */
-export const getWeekStart = (date, startDay = 1) => {
-  const dateObj = date ? new Date(date) : new Date();
-  const day = dateObj.getDay();
-  const diff = (day < startDay ? 7 : 0) + day - startDay;
-
-  dateObj.setDate(dateObj.getDate() - diff);
-  dateObj.setHours(0, 0, 0, 0);
-
-  return dateObj;
+export const getWeekStart = (date) => {
+  return startOfWeek(date, { weekStartsOn: 1 });
 };
 
 /**
- * Obtient la date de fin de la semaine pour une date donnée
- * @param {string|Date} date - La date de référence
- * @param {number} startDay - Le jour de début de la semaine (0 = dimanche, 1 = lundi, etc.)
- * @returns {Date} La date de fin de la semaine
+ * Obtient le dernier jour de la semaine pour une date donnée
+ * @param {Date} date - La date de référence
+ * @returns {Date} Le dernier jour de la semaine (dimanche)
  */
-export const getWeekEnd = (date, startDay = 1) => {
-  const weekStart = getWeekStart(date, startDay);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
+export const getWeekEnd = (date) => {
+  return endOfWeek(date, { weekStartsOn: 1 });
+};
 
-  return weekEnd;
+/**
+ * Ajoute ou soustrait un nombre de semaines à une date
+ * @param {Date} date - La date de référence
+ * @param {number} amount - Le nombre de semaines à ajouter (négatif pour soustraire)
+ * @returns {Date} La nouvelle date
+ */
+export const addWeeks = (date, amount) => {
+  return addWeeksDate(date, amount);
 };
 
 /**
  * Obtient un tableau des jours de la semaine pour une date donnée
- * @param {string|Date} date - La date de référence
- * @param {number} startDay - Le jour de début de la semaine (0 = dimanche, 1 = lundi, etc.)
- * @returns {Array<Date>} Un tableau des 7 jours de la semaine
+ * @param {Date} date - La date de référence
+ * @returns {Date[]} Un tableau des 7 jours de la semaine
  */
-export const getWeekDays = (date, startDay = 1) => {
-  const weekStart = getWeekStart(date, startDay);
+export const getDaysOfWeek = (date) => {
+  const weekStart = getWeekStart(date);
   const days = [];
 
   for (let i = 0; i < 7; i++) {
-    const day = new Date(weekStart);
-    day.setDate(day.getDate() + i);
-    days.push(day);
+    days.push(addDays(weekStart, i));
   }
 
   return days;
+};
+
+/**
+ * Vérifie si une date est un jour de weekend (samedi ou dimanche)
+ * @param {Date} date - La date à vérifier
+ * @returns {boolean} Vrai si c'est un weekend, faux sinon
+ */
+export const isWeekend = (date) => {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 = dimanche, 6 = samedi
+};
+
+/**
+ * Calcule le nombre d'heures entre deux dates
+ * @param {Date} startDate - Date de début
+ * @param {Date} endDate - Date de fin
+ * @returns {number} Nombre d'heures
+ */
+export const calculateHours = (startDate, endDate) => {
+  if (!startDate || !endDate) return 0;
+
+  const diffMs = endDate.getTime() - startDate.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  return Math.round(diffHours * 10) / 10; // Arrondi à 1 décimale
+};
+
+/**
+ * Formate une durée en heures et minutes
+ * @param {number} hours - Nombre d'heures (peut inclure des décimales)
+ * @returns {string} Durée formatée (ex: "7h30")
+ */
+export const formatHours = (hours) => {
+  if (hours === undefined || hours === null) return "0h";
+
+  const totalHours = parseFloat(hours);
+  if (isNaN(totalHours)) return "0h";
+
+  const wholeHours = Math.floor(totalHours);
+  const minutes = Math.round((totalHours - wholeHours) * 60);
+
+  if (minutes === 0) {
+    return `${wholeHours}h`;
+  } else {
+    return `${wholeHours}h${minutes.toString().padStart(2, "0")}`;
+  }
 };
 
 /**
@@ -184,61 +176,6 @@ export const getMonthName = (date, short = false) => {
       ];
 
   return monthNames[dateObj.getMonth()];
-};
-
-/**
- * Ajoute des jours à une date
- * @param {string|Date} date - La date de départ
- * @param {number} days - Le nombre de jours à ajouter (peut être négatif)
- * @returns {Date} La nouvelle date
- */
-export const addDays = (date, days) => {
-  const dateObj = new Date(date);
-  dateObj.setDate(dateObj.getDate() + days);
-  return dateObj;
-};
-
-/**
- * Ajoute des semaines à une date
- * @param {string|Date} date - La date de départ
- * @param {number} weeks - Le nombre de semaines à ajouter (peut être négatif)
- * @returns {Date} La nouvelle date
- */
-export const addWeeks = (date, weeks) => {
-  return addDays(date, weeks * 7);
-};
-
-/**
- * Formate une durée en heures et minutes
- * @param {number} hours - Le nombre d'heures (peut inclure des décimales)
- * @returns {string} La durée formatée (ex: "7h30")
- */
-export const formatHours = (hours) => {
-  if (hours === null || hours === undefined || isNaN(hours)) {
-    return "0h00";
-  }
-
-  const totalHours = Math.floor(hours);
-  const minutes = Math.round((hours - totalHours) * 60);
-
-  return `${totalHours}h${String(minutes).padStart(2, "0")}`;
-};
-
-/**
- * Convertit une durée au format "7h30" en nombre d'heures décimal
- * @param {string} timeString - La durée au format "7h30"
- * @returns {number} Le nombre d'heures décimal (ex: 7.5)
- */
-export const parseHours = (timeString) => {
-  if (!timeString) return 0;
-
-  const match = timeString.match(/^(\d+)h(\d+)$/);
-  if (!match) return 0;
-
-  const hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-
-  return hours + minutes / 60;
 };
 
 /**

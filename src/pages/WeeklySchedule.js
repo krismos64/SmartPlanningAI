@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import styled from "styled-components";
+import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
 import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
 import Button from "../components/ui/Button";
 import Card, { CardContent, CardHeader } from "../components/ui/Card";
-import { FormSelect } from "../components/ui/Form";
+import { FormInput, FormSelect } from "../components/ui/Form";
 import PageHeader from "../components/ui/PageHeader";
 import Spinner from "../components/ui/Spinner";
 import useEmployees from "../hooks/useEmployees";
@@ -20,34 +21,61 @@ import {
 
 // Styles
 const ScheduleContainer = styled.div`
-  padding: 2rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
+
+  @media (min-width: 768px) {
+    padding: 2rem;
+    gap: 2rem;
+  }
 `;
 
 const ScheduleHeader = styled.div`
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
 `;
 
 const ScheduleFilters = styled.div`
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
 `;
 
 const WeekNavigation = styled.div`
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
 `;
 
 const WeekActions = styled.div`
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 `;
 
@@ -55,7 +83,12 @@ const FilterContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 200px;
+  width: 100%;
+
+  @media (min-width: 768px) {
+    min-width: 200px;
+    width: auto;
+  }
 `;
 
 const SummaryContainer = styled.div`
@@ -91,13 +124,70 @@ const SummaryValue = styled.span`
 `;
 
 const FilterSelect = styled(FormSelect)`
-  min-width: 200px;
+  width: 100%;
+
+  @media (min-width: 768px) {
+    min-width: 200px;
+    width: auto;
+  }
 `;
 
 const CurrentWeek = styled.div`
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
+  text-align: center;
+
+  @media (min-width: 768px) {
+    font-size: 1.25rem;
+    text-align: left;
+  }
 `;
+
+const SearchContainer = styled.div`
+  margin-bottom: 1rem;
+  width: 100%;
+`;
+
+const EmployeeSearchInput = styled(FormInput)`
+  width: 100%;
+`;
+
+const NoResultsMessage = styled.div`
+  padding: 2rem;
+  text-align: center;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const ResponsiveButton = styled(Button)`
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+
+  @media (min-width: 768px) {
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+  }
+`;
+
+// Fonction utilitaire pour convertir les données existantes au nouveau format
+const convertToNewFormat = (day) => {
+  // Si le jour a déjà le format attendu, le retourner tel quel
+  if (day.type) {
+    return { ...day };
+  }
+
+  // Sinon, convertir au nouveau format
+  return {
+    type: day.absence ? "absence" : "work",
+    hours: day.hours || "0",
+    absence: day.absence || "",
+    note: day.note || "",
+    timeSlots:
+      day.timeSlots ||
+      (day.hours && parseFloat(day.hours) > 0
+        ? [{ start: "09:00", end: "17:00" }]
+        : []),
+  };
+};
 
 /**
  * Page de gestion des plannings hebdomadaires
@@ -111,7 +201,8 @@ const WeeklySchedulePage = () => {
   const [scheduleData, setScheduleData] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("active");
-  const [isEditing, setIsEditing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
 
   const { employees, loading: loadingEmployees } = useEmployees();
@@ -122,6 +213,23 @@ const WeeklySchedulePage = () => {
     updateWeeklySchedule,
     createWeeklySchedule,
   } = useWeeklySchedules();
+
+  // Obtenir l'employé en cours d'édition
+  const editingEmployee = useMemo(() => {
+    if (!editingEmployeeId) return null;
+    return employees.find((emp) => emp.id === editingEmployeeId) || null;
+  }, [editingEmployeeId, employees]);
+
+  // Extraire les départements uniques des employés
+  const uniqueDepartments = useMemo(() => {
+    if (!employees || employees.length === 0) return [];
+
+    const departments = employees
+      .map((emp) => emp.department)
+      .filter((dept, index, self) => dept && self.indexOf(dept) === index);
+
+    return departments.sort();
+  }, [employees]);
 
   // Charger les données au montage et lors du changement de semaine
   useEffect(() => {
@@ -144,7 +252,7 @@ const WeeklySchedulePage = () => {
     fetchData();
   }, [currentWeekStart, fetchWeeklySchedules, navigate]);
 
-  // Filtrer les employés en fonction du département et du statut
+  // Filtrer les employés en fonction du département, du statut et de la recherche
   useEffect(() => {
     if (employees.length > 0) {
       let filtered = [...employees];
@@ -159,9 +267,64 @@ const WeeklySchedulePage = () => {
         filtered = filtered.filter((emp) => emp.status === selectedStatus);
       }
 
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(
+          (emp) =>
+            emp.firstName.toLowerCase().includes(query) ||
+            emp.lastName.toLowerCase().includes(query) ||
+            (emp.email && emp.email.toLowerCase().includes(query))
+        );
+      }
+
       setFilteredEmployees(filtered);
     }
-  }, [employees, selectedDepartment, selectedStatus]);
+  }, [employees, selectedDepartment, selectedStatus, searchQuery]);
+
+  // Préparer les données du planning pour l'affichage
+  useEffect(() => {
+    if (weeklySchedules.length > 0 && filteredEmployees.length > 0) {
+      // Transformer les données pour le composant de grille
+      const formattedData = [];
+
+      // Pour chaque employé filtré, chercher son planning ou en créer un vide
+      for (const employee of filteredEmployees) {
+        const existingSchedule = weeklySchedules.find(
+          (schedule) => schedule.employee_id === employee.id
+        );
+
+        if (existingSchedule) {
+          // Convertir les données au nouveau format si nécessaire
+          const days = existingSchedule.schedule_data.map((day) =>
+            convertToNewFormat(day)
+          );
+
+          formattedData.push({
+            employeeId: existingSchedule.employee_id,
+            days: days,
+          });
+        } else {
+          // Créer un planning vide pour cet employé avec le nouveau format
+          formattedData.push({
+            employeeId: employee.id,
+            days: Array(7)
+              .fill()
+              .map(() => ({
+                type: "work",
+                hours: "0",
+                absence: "",
+                note: "",
+                timeSlots: [],
+              })),
+          });
+        }
+      }
+
+      setScheduleData(formattedData);
+    } else {
+      setScheduleData([]);
+    }
+  }, [weeklySchedules, filteredEmployees]);
 
   // Navigation vers la semaine précédente
   const goToPreviousWeek = () => {
@@ -191,77 +354,60 @@ const WeeklySchedulePage = () => {
     setSelectedStatus(e.target.value);
   };
 
-  // Activer le mode édition
-  const handleEditClick = () => {
-    setIsEditing(true);
+  // Gestion de la recherche d'employé
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // Activer le mode édition pour un employé spécifique
+  const handleEditEmployee = (employeeId) => {
+    setEditingEmployeeId(employeeId);
   };
 
   // Annuler l'édition
-  const handleCancelClick = () => {
-    setIsEditing(false);
+  const handleCancelEdit = () => {
+    setEditingEmployeeId(null);
   };
 
-  // Préparer les données du planning pour l'affichage
-  useEffect(() => {
-    const fetchSchedules = async () => {
-      if (weeklySchedules.length > 0 && filteredEmployees.length > 0) {
-        // Transformer les données pour le composant de grille
-        const formattedData = weeklySchedules.map((schedule) => ({
-          employeeId: schedule.employee_id,
-          days: schedule.schedule_data,
-        }));
-
-        setScheduleData(formattedData);
-      } else {
-        setScheduleData([]);
-      }
-    };
-
-    fetchSchedules();
-  }, [weeklySchedules, filteredEmployees]);
-
-  // Enregistrer les modifications
-  const handleSaveClick = async () => {
+  // Enregistrer les modifications pour un employé spécifique
+  const handleSaveEmployeeSchedule = async (updatedSchedule) => {
     try {
-      // Pour chaque employé dans le planning
-      for (const employeeSchedule of scheduleData) {
-        const employeeId = employeeSchedule.employeeId;
-        const days = employeeSchedule.days;
+      const employeeId = updatedSchedule.employeeId;
+      const days = updatedSchedule.days;
 
-        // Calculer le total des heures
-        const totalHours = days.reduce(
-          (sum, day) => sum + (parseFloat(day.hours) || 0),
-          0
-        );
+      // Calculer le total des heures
+      const totalHours = days.reduce(
+        (sum, day) => sum + (parseFloat(day.hours) || 0),
+        0
+      );
 
-        // Vérifier si un planning existe déjà pour cet employé cette semaine
-        const existingSchedule = weeklySchedules.find(
-          (schedule) =>
-            schedule.employee_id === employeeId &&
-            formatDateForInput(new Date(schedule.week_start)) ===
-              formatDateForInput(currentWeekStart)
-        );
+      // Vérifier si un planning existe déjà pour cet employé cette semaine
+      const existingSchedule = weeklySchedules.find(
+        (schedule) =>
+          schedule.employee_id === employeeId &&
+          formatDateForInput(new Date(schedule.week_start)) ===
+            formatDateForInput(currentWeekStart)
+      );
 
-        const scheduleData = {
-          employee_id: employeeId,
-          week_start: formatDateForInput(currentWeekStart),
-          week_end: formatDateForInput(getWeekEnd(currentWeekStart)),
-          schedule_data: days,
-          total_hours: totalHours,
-          status: "active",
-        };
+      const scheduleData = {
+        employee_id: employeeId,
+        week_start: formatDateForInput(currentWeekStart),
+        week_end: formatDateForInput(getWeekEnd(currentWeekStart)),
+        schedule_data: days,
+        total_hours: totalHours,
+        status: "active",
+      };
 
-        if (existingSchedule) {
-          // Mettre à jour le planning existant
-          await updateWeeklySchedule(existingSchedule.id, scheduleData);
-        } else {
-          // Créer un nouveau planning
-          await createWeeklySchedule(scheduleData);
-        }
+      if (existingSchedule) {
+        // Mettre à jour le planning existant
+        await updateWeeklySchedule(existingSchedule.id, scheduleData);
+      } else {
+        // Créer un nouveau planning
+        await createWeeklySchedule(scheduleData);
       }
 
       toast.success("Planning enregistré avec succès");
-      setIsEditing(false);
+      setEditingEmployeeId(null);
 
       // Recharger les données
       const formattedDate = formatDateForInput(currentWeekStart);
@@ -297,75 +443,94 @@ const WeeklySchedulePage = () => {
 
           <WeekNavigation>
             <WeekActions>
-              <Button onClick={goToPreviousWeek} variant="outline">
+              <ResponsiveButton onClick={goToPreviousWeek} variant="outline">
                 Semaine précédente
-              </Button>
-              <Button onClick={goToCurrentWeek} variant="outline">
+              </ResponsiveButton>
+              <ResponsiveButton onClick={goToCurrentWeek} variant="outline">
                 Semaine actuelle
-              </Button>
-              <Button onClick={goToNextWeek} variant="outline">
+              </ResponsiveButton>
+              <ResponsiveButton onClick={goToNextWeek} variant="outline">
                 Semaine suivante
-              </Button>
+              </ResponsiveButton>
             </WeekActions>
-
-            {isEditing ? (
-              <div>
-                <Button onClick={handleSaveClick} variant="primary">
-                  Enregistrer
-                </Button>
-                <Button onClick={handleCancelClick} variant="outline">
-                  Annuler
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={handleEditClick} variant="primary">
-                Modifier
-              </Button>
-            )}
           </WeekNavigation>
         </ScheduleHeader>
 
-        <FilterContainer>
-          <FilterSelect
-            value={selectedDepartment}
-            onChange={handleDepartmentChange}
-            placeholder="Tous les départements"
-          >
-            <option value="">Tous les départements</option>
-            <option value="IT">IT</option>
-            <option value="RH">RH</option>
-            <option value="Finance">Finance</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Ventes">Ventes</option>
-          </FilterSelect>
-
-          <FilterSelect
-            value={selectedStatus}
-            onChange={handleStatusChange}
-            placeholder="Tous les statuts"
-          >
-            <option value="">Tous les statuts</option>
-            <option value="active">Actif</option>
-            <option value="inactive">Inactif</option>
-          </FilterSelect>
-        </FilterContainer>
-
-        <Card>
-          <CardHeader>Planning hebdomadaire</CardHeader>
-          <CardContent>
-            {filteredEmployees.length === 0 ? (
-              <div>Aucun employé trouvé avec les filtres sélectionnés.</div>
-            ) : (
-              <WeeklyScheduleGrid
-                employees={filteredEmployees}
-                weekStart={currentWeekStart}
-                scheduleData={scheduleData}
-                onChange={handleScheduleChange}
-                readOnly={!isEditing}
+        {!editingEmployee && (
+          <>
+            <SearchContainer>
+              <EmployeeSearchInput
+                type="text"
+                placeholder="Rechercher un employé par nom, prénom ou email..."
+                value={searchQuery}
+                onChange={handleSearchChange}
               />
-            )}
-          </CardContent>
-        </Card>
+            </SearchContainer>
+
+            <ScheduleFilters>
+              <FilterContainer>
+                <FilterSelect
+                  value={selectedDepartment}
+                  onChange={handleDepartmentChange}
+                  placeholder="Tous les départements"
+                >
+                  <option value="">Tous les départements</option>
+                  {uniqueDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </FilterContainer>
+
+              <FilterContainer>
+                <FilterSelect
+                  value={selectedStatus}
+                  onChange={handleStatusChange}
+                  placeholder="Tous les statuts"
+                >
+                  <option value="">Tous les statuts</option>
+                  <option value="active">Actif</option>
+                  <option value="inactive">Inactif</option>
+                  <option value="vacation">En congé</option>
+                  <option value="sick">Malade</option>
+                </FilterSelect>
+              </FilterContainer>
+            </ScheduleFilters>
+
+            <Card>
+              <CardHeader>Planning hebdomadaire</CardHeader>
+              <CardContent>
+                {filteredEmployees.length === 0 ? (
+                  <NoResultsMessage>
+                    {searchQuery
+                      ? "Aucun employé trouvé avec cette recherche."
+                      : "Aucun employé trouvé avec les filtres sélectionnés."}
+                  </NoResultsMessage>
+                ) : (
+                  <WeeklyScheduleGrid
+                    employees={filteredEmployees}
+                    weekStart={currentWeekStart}
+                    scheduleData={scheduleData}
+                    onChange={handleScheduleChange}
+                    readOnly={true}
+                    onEditEmployee={handleEditEmployee}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {editingEmployee && (
+          <EmployeeScheduleForm
+            employee={editingEmployee}
+            weekStart={currentWeekStart}
+            scheduleData={scheduleData}
+            onSave={handleSaveEmployeeSchedule}
+            onCancel={handleCancelEdit}
+          />
+        )}
       </ScheduleContainer>
     </div>
   );
