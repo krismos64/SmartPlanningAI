@@ -77,12 +77,12 @@ export const getDaysOfWeek = (date) => {
 };
 
 /**
- * Vérifie si une date est un jour de weekend (samedi ou dimanche)
+ * Vérifie si une date est un weekend (samedi ou dimanche)
  * @param {Date} date - La date à vérifier
- * @returns {boolean} Vrai si c'est un weekend, faux sinon
+ * @returns {boolean} True si c'est un weekend
  */
 export const isWeekend = (date) => {
-  const day = date.getDay();
+  const day = new Date(date).getDay();
   return day === 0 || day === 6; // 0 = dimanche, 6 = samedi
 };
 
@@ -124,17 +124,24 @@ export const formatHours = (hours) => {
 
 /**
  * Obtient le nom du jour de la semaine
- * @param {string|Date} date - La date
- * @param {boolean} short - Indique si le nom doit être court (3 lettres) ou complet
+ * @param {Date} date - La date
+ * @param {boolean} short - Si true, retourne le nom court (3 lettres)
  * @returns {string} Le nom du jour
  */
 export const getDayName = (date, short = false) => {
-  const dateObj = new Date(date);
-  const dayNames = short
-    ? ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"]
-    : ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const days = [
+    "Dimanche",
+    "Lundi",
+    "Mardi",
+    "Mercredi",
+    "Jeudi",
+    "Vendredi",
+    "Samedi",
+  ];
+  const shortDays = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
-  return dayNames[dateObj.getDay()];
+  const dayIndex = new Date(date).getDay();
+  return short ? shortDays[dayIndex] : days[dayIndex];
 };
 
 /**
@@ -203,4 +210,18 @@ export const formatDateForMySQL = (date) => {
     console.error("Erreur lors du formatage de la date pour MySQL:", error);
     return null;
   }
+};
+
+/**
+ * Formate une date pour l'API (format YYYY-MM-DD)
+ * @param {Date} date - La date à formater
+ * @returns {string} La date formatée
+ */
+export const formatDateForAPI = (date) => {
+  if (!date) return "";
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(d.getDate()).padStart(2, "0")}`;
 };
