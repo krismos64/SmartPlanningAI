@@ -12,6 +12,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import styled from "styled-components";
+import thinkingAnimation from "../assets/animations/thinking.json";
 import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
 import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
 import Button from "../components/ui/Button";
@@ -31,6 +32,9 @@ import {
   getWeekStart,
   isWeekend,
 } from "../utils/dateUtils";
+
+// Importer react-lottie avec require pour éviter les problèmes de compatibilité
+const Lottie = require("react-lottie").default;
 
 // Styles
 const ScheduleContainer = styled.div`
@@ -211,6 +215,34 @@ const PlanningTitle = styled.h2`
   font-weight: 700;
   color: ${({ theme }) => theme.colors.text.primary};
   margin: 0;
+`;
+
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+`;
+
+const AnimationContainer = styled.div`
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+`;
+
+const TitleContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const PageTitle = styled.h1`
+  font-size: 2rem;
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: 0.5rem;
+`;
+
+const PageDescription = styled.p`
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-size: 1.1rem;
 `;
 
 // Fonction utilitaire pour convertir les données existantes au nouveau format
@@ -647,31 +679,55 @@ const WeeklySchedulePage = () => {
 
       <ScheduleContainer>
         <ScheduleHeader>
-          <WeekNavigation>
-            <div>
-              <h3>
-                Semaine du {formatDate(currentWeekStart)} au{" "}
-                {formatDate(getWeekEnd(currentWeekStart))}
-              </h3>
-            </div>
-            <WeekActions>
-              <ActionButton variant="outline" onClick={goToPreviousWeek}>
-                <FaArrowLeft /> Semaine précédente
-              </ActionButton>
-              <ActionButton variant="outline" onClick={goToCurrentWeek}>
-                <FaCalendarDay /> Semaine actuelle
-              </ActionButton>
-              <ActionButton variant="outline" onClick={goToNextWeek}>
-                Semaine suivante <FaArrowRight />
-              </ActionButton>
-              <ExportAllButton
-                variant="secondary"
-                onClick={generateAllEmployeesPDF}
-              >
-                <FaFilePdf /> Exporter planning global
-              </ExportAllButton>
-            </WeekActions>
-          </WeekNavigation>
+          <HeaderLeft>
+            <AnimationContainer>
+              <Lottie
+                options={{
+                  loop: true,
+                  autoplay: true,
+                  animationData: thinkingAnimation,
+                  rendererSettings: {
+                    preserveAspectRatio: "xMidYMid slice",
+                  },
+                }}
+                height={80}
+                width={80}
+              />
+            </AnimationContainer>
+            <TitleContainer>
+              <PageTitle>Planning Hebdomadaire</PageTitle>
+              <PageDescription>
+                Gérez les horaires de travail de vos employés
+              </PageDescription>
+            </TitleContainer>
+          </HeaderLeft>
+          <div>
+            <WeekNavigation>
+              <div>
+                <h3>
+                  Semaine du {formatDate(currentWeekStart)} au{" "}
+                  {formatDate(getWeekEnd(currentWeekStart))}
+                </h3>
+              </div>
+              <WeekActions>
+                <ActionButton variant="outline" onClick={goToPreviousWeek}>
+                  <FaArrowLeft /> Semaine précédente
+                </ActionButton>
+                <ActionButton variant="outline" onClick={goToCurrentWeek}>
+                  <FaCalendarDay /> Semaine actuelle
+                </ActionButton>
+                <ActionButton variant="outline" onClick={goToNextWeek}>
+                  Semaine suivante <FaArrowRight />
+                </ActionButton>
+                <ExportAllButton
+                  variant="secondary"
+                  onClick={generateAllEmployeesPDF}
+                >
+                  <FaFilePdf /> Exporter planning global
+                </ExportAllButton>
+              </WeekActions>
+            </WeekNavigation>
+          </div>
         </ScheduleHeader>
 
         {!editingEmployee && (

@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
+// Remplacer l'importation de react-lottie
+import robotAnimation from "../assets/animations/robot.json";
 import DashboardCharts from "../components/dashboard/DashboardCharts";
 import SearchBar from "../components/ui/SearchBar";
 import { useAuth } from "../contexts/AuthContext";
 import useEmployees from "../hooks/useEmployees";
+
+// Importer react-lottie avec require pour éviter les problèmes de compatibilité
+const Lottie = require("react-lottie").default;
 
 // Composants stylisés
 const DashboardContainer = styled.div`
@@ -15,14 +20,43 @@ const DashboardContainer = styled.div`
 
 const DashboardHeader = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
 
-  @media (min-width: 768px) {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
   }
+`;
+
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+`;
+
+const AnimationContainer = styled.div`
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+`;
+
+const TitleContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const PageTitle = styled.h1`
+  font-size: 2rem;
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: 0.5rem;
+`;
+
+const PageDescription = styled.p`
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-size: 1.1rem;
 `;
 
 const WelcomeSection = styled.div`
@@ -332,22 +366,45 @@ const Dashboard = () => {
   return (
     <DashboardContainer>
       <DashboardHeader>
-        <WelcomeSection>
-          <WelcomeCard>
-            <h1>Bonjour, {getUserFullName()}!</h1>
-            <p>
-              Bienvenue sur votre tableau de bord. Voici un aperçu de votre
-              activité récente.
-            </p>
-          </WelcomeCard>
-        </WelcomeSection>
-        <SearchSection>
-          <SearchBar
-            placeholder="Rechercher un employé, un événement..."
-            onSearch={handleSearch}
-          />
-        </SearchSection>
+        <HeaderLeft>
+          <AnimationContainer>
+            <Lottie
+              options={{
+                loop: true,
+                autoplay: true,
+                animationData: robotAnimation,
+                rendererSettings: {
+                  preserveAspectRatio: "xMidYMid slice",
+                },
+              }}
+              height={80}
+              width={80}
+            />
+          </AnimationContainer>
+          <TitleContainer>
+            <PageTitle>Tableau de bord</PageTitle>
+            <PageDescription>
+              Bienvenue sur votre assistant de planification intelligent
+            </PageDescription>
+          </TitleContainer>
+        </HeaderLeft>
       </DashboardHeader>
+
+      <WelcomeSection>
+        <WelcomeCard>
+          <h1>Bonjour, {getUserFullName()}!</h1>
+          <p>
+            Bienvenue sur votre tableau de bord. Voici un aperçu de votre
+            activité récente.
+          </p>
+        </WelcomeCard>
+      </WelcomeSection>
+      <SearchSection>
+        <SearchBar
+          placeholder="Rechercher un employé, un événement..."
+          onSearch={handleSearch}
+        />
+      </SearchSection>
 
       {loading ? (
         <LoadingIndicator>Chargement des données...</LoadingIndicator>

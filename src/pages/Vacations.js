@@ -1,5 +1,10 @@
 import { useState } from "react";
+// Remplacer l'importation de react-lottie
 import styled from "styled-components";
+import holidaysAnimation from "../assets/animations/holidays.json";
+
+// Importer react-lottie avec require pour éviter les problèmes de compatibilité
+const Lottie = require("react-lottie").default;
 
 // Composants stylisés
 const VacationsContainer = styled.div`
@@ -19,6 +24,23 @@ const PageHeader = styled.div`
     align-items: flex-start;
     gap: 1rem;
   }
+`;
+
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+`;
+
+const AnimationContainer = styled.div`
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+`;
+
+const TitleContainer = styled.div`
+  display: flex;
+  flex-direction: column;
 `;
 
 const PageTitle = styled.h1`
@@ -337,12 +359,28 @@ const Vacations = () => {
   return (
     <VacationsContainer>
       <PageHeader>
-        <div>
-          <PageTitle>Congés</PageTitle>
-          <PageDescription>
-            Gérez les demandes de congés de vos employés.
-          </PageDescription>
-        </div>
+        <HeaderLeft>
+          <AnimationContainer>
+            <Lottie
+              options={{
+                loop: true,
+                autoplay: true,
+                animationData: holidaysAnimation,
+                rendererSettings: {
+                  preserveAspectRatio: "xMidYMid slice",
+                },
+              }}
+              height={80}
+              width={80}
+            />
+          </AnimationContainer>
+          <TitleContainer>
+            <PageTitle>Gestion des congés</PageTitle>
+            <PageDescription>
+              Gérez les demandes de congés de vos employés
+            </PageDescription>
+          </TitleContainer>
+        </HeaderLeft>
 
         <Button variant="primary" onClick={() => setShowModal(true)}>
           <span>+</span> Nouvelle demande
