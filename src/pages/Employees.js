@@ -1,10 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
+// Remplacer l'importation de react-lottie
 import styled from "styled-components";
+import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
 import { FormSelect } from "../components/ui/Form";
 import { EMPLOYEE_STATUSES, EMPLOYEE_TABLE_COLUMNS } from "../config/constants";
 import useEmployees from "../hooks/useEmployees";
+
+// Importer react-lottie avec require pour éviter les problèmes de compatibilité
+const Lottie = require("react-lottie").default;
 
 // Composants stylisés
 const PageContainer = styled.div`
@@ -26,6 +31,15 @@ const PageHeader = styled.div`
 
 const HeaderLeft = styled.div`
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+`;
+
+const AnimationContainer = styled.div`
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
 `;
 
 const HeaderRight = styled.div`
@@ -229,15 +243,30 @@ const Employees = () => {
     <PageContainer>
       <PageHeader>
         <HeaderLeft>
-          <PageTitle>Employés</PageTitle>
-          <PageDescription>
-            Gérez les employés de votre entreprise
-          </PageDescription>
+          <AnimationContainer>
+            <Lottie
+              options={{
+                loop: true,
+                autoplay: true,
+                animationData: employeesAnimation,
+                rendererSettings: {
+                  preserveAspectRatio: "xMidYMid slice",
+                },
+              }}
+              height={80}
+              width={80}
+            />
+          </AnimationContainer>
+          <div>
+            <PageTitle>Gestion des employés</PageTitle>
+            <PageDescription>
+              Gérez les informations de vos employés
+            </PageDescription>
+          </div>
         </HeaderLeft>
         <HeaderRight>
-          <Button primary onClick={handleAddEmployee}>
-            <PlusIcon />
-            Ajouter un employé
+          <Button variant="primary" onClick={() => setShowModal(true)}>
+            <PlusIcon /> Ajouter un employé
           </Button>
         </HeaderRight>
       </PageHeader>

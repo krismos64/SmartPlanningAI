@@ -206,7 +206,10 @@ const useEmployees = () => {
         birth_date: employeeData.birthDate,
         start_date: employeeData.startDate,
         status: employeeData.status || "active",
+        hours_worked: employeeData.hoursWorked,
       };
+
+      console.log("Données envoyées pour mise à jour:", transformedData);
 
       // Récupérer le token d'authentification
       const token = localStorage.getItem("token");
