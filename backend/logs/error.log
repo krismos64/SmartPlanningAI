@@ -1,2 +1,21 @@
 // Fichier de log pour les erreurs
-// Format: [Date] [Type] [Message] 
+// Format: [Date] [Type] [Message] [2025-03-04T08:48:55.595Z] [REQUEST] 2025-03-04T08:48:55.595Z - GET /api/employees
+[2025-03-04T08:48:55.661Z] [RESPONSE] 2025-03-04T08:48:55.595Z - GET / - Status: 200
+[2025-03-04T08:48:55.675Z] [REQUEST] 2025-03-04T08:48:55.675Z - GET /api/employees
+[2025-03-04T08:48:55.691Z] [RESPONSE] 2025-03-04T08:48:55.675Z - GET / - Status: 200
+[2025-03-04T08:49:04.578Z] [REQUEST] 2025-03-04T08:49:04.578Z - GET /api/employees
+[2025-03-04T08:49:04.592Z] [RESPONSE] 2025-03-04T08:49:04.578Z - GET / - Status: 200
+[2025-03-04T08:49:04.594Z] [REQUEST] 2025-03-04T08:49:04.594Z - GET /api/employees
+[2025-03-04T08:49:04.598Z] [RESPONSE] 2025-03-04T08:49:04.594Z - GET / - Status: 200
+[2025-03-04T08:49:59.964Z] [REQUEST] 2025-03-04T08:49:59.963Z - PUT /api/employees/5 - Body: {"first_name":"Chris","last_name":"Moss","email":"c.mos@yahoo.fr","role":"Vendeur","department":"EPCS","contract_hours":"10","birth_date":"1987-10-23T23:00:00.000Z","start_date":"2012-10-23T22:00:00.000Z","status":"active","hours_worked":0,"overtime_hours":0}
+[2025-03-04T08:49:59.992Z] [ERROR] 2025-03-04T08:49:59.963Z - PUT /5 - Status: 500 - Response: {"message":"Erreur lors de la mise à jour de l'employé"}
+[2025-03-04T08:50:00.080Z] [REQUEST] 2025-03-04T08:50:00.045Z - GET /api/employees
+[2025-03-04T08:50:00.111Z] [RESPONSE] 2025-03-04T08:50:00.045Z - GET / - Status: 200
+[2025-03-04T08:56:30.969Z] [REQUEST] 2025-03-04T08:56:30.969Z - PUT /api/employees/5 - Body: {"first_name":"Chris","last_name":"Moss","email":"c.mos@yahoo.fr","role":"Vendeur","department":"EPCS","contract_hours":"20","birth_date":"1987-10-23","start_date":"2012-10-23","status":"active","hours_worked":0,"overtime_hours":0}
+[2025-03-04T08:56:31.091Z] [RESPONSE] 2025-03-04T08:56:30.969Z - PUT /5 - Status: 200
+[2025-03-04T08:56:31.109Z] [REQUEST] 2025-03-04T08:56:31.109Z - GET /api/employees
+[2025-03-04T08:56:31.121Z] [RESPONSE] 2025-03-04T08:56:31.109Z - GET / - Status: 200
+[2025-03-04T08:56:58.561Z] [REQUEST] 2025-03-04T08:56:58.561Z - PUT /api/employees/5 - Body: {"first_name":"Chris","last_name":"Moss","email":"c.mos@yahoo.fr","role":"Vendeur","department":"EPCS","contract_hours":20,"birth_date":"1987-10-22","start_date":"2012-10-22","status":"active","hours_worked":0,"overtime_hours":0}
+[2025-03-04T08:56:58.580Z] [RESPONSE] 2025-03-04T08:56:58.561Z - PUT /5 - Status: 200
+[2025-03-04T08:56:58.686Z] [REQUEST] 2025-03-04T08:56:58.686Z - GET /api/employees
+[2025-03-04T08:56:58.752Z] [RESPONSE] 2025-03-04T08:56:58.686Z - GET / - Status: 200

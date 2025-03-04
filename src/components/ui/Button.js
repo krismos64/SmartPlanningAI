@@ -144,10 +144,10 @@ const StyledButton = styled.button`
   ${buttonAnimation}
 
   // Appliquer la variante
-  ${({ variant }) => variants[variant] || variants.primary}
+  ${({ $variant }) => variants[$variant] || variants.primary}
   
   // Appliquer la taille
-  ${({ size }) => sizes[size] || sizes.md}
+  ${({ $size }) => sizes[$size] || sizes.md}
   
   // Style pour le bouton désactivé
   ${({ disabled }) =>
@@ -162,23 +162,23 @@ const StyledButton = styled.button`
     `}
     
   // Style pour le bouton pleine largeur
-  ${({ fullWidth }) =>
-    fullWidth &&
+  ${({ $fullWidth }) =>
+    $fullWidth &&
     css`
       width: 100%;
     `}
     
   // Style pour le bouton avec icône seulement
-  ${({ iconOnly, size }) =>
-    iconOnly &&
+  ${({ $iconOnly, $size }) =>
+    $iconOnly &&
     css`
-      width: ${size === "xs"
+      width: ${$size === "xs"
         ? "28px"
-        : size === "sm"
+        : $size === "sm"
         ? "36px"
-        : size === "md"
+        : $size === "md"
         ? "44px"
-        : size === "lg"
+        : $size === "lg"
         ? "52px"
         : "60px"};
       padding: 0;
@@ -186,8 +186,8 @@ const StyledButton = styled.button`
     `}
     
   // Animation de chargement
-  ${({ loading }) =>
-    loading &&
+  ${({ $loading }) =>
+    $loading &&
     css`
       position: relative;
       color: transparent !important;
@@ -204,21 +204,21 @@ const StyledButton = styled.button`
         margin-left: -10px;
         border-radius: 50%;
         border: 2px solid
-          ${({ theme, variant }) => {
+          ${({ theme, $variant }) => {
             if (
-              variant === "ghost" ||
-              variant === "outline" ||
-              variant === "link"
+              $variant === "ghost" ||
+              $variant === "outline" ||
+              $variant === "link"
             ) {
               return theme?.colors?.primary || "#3a86ff";
             }
             return "rgba(255, 255, 255, 0.5)";
           }};
-        border-top-color: ${({ theme, variant }) => {
+        border-top-color: ${({ theme, $variant }) => {
           if (
-            variant === "ghost" ||
-            variant === "outline" ||
-            variant === "link"
+            $variant === "ghost" ||
+            $variant === "outline" ||
+            $variant === "link"
           ) {
             return theme?.colors?.primary || "#3a86ff";
           }
@@ -250,12 +250,12 @@ const Button = ({
 }) => {
   return (
     <StyledButton
-      variant={variant}
-      size={size}
+      $variant={variant}
+      $size={size}
       disabled={disabled || loading}
-      fullWidth={fullWidth}
-      iconOnly={iconOnly}
-      loading={loading}
+      $fullWidth={fullWidth}
+      $iconOnly={iconOnly}
+      $loading={loading}
       {...props}
     >
       {leftIcon && !loading && leftIcon}

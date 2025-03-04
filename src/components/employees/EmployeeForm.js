@@ -1,8 +1,8 @@
-import { useState, useCallback, memo } from "react";
+import { memo, useCallback, useState } from "react";
 import styled from "styled-components";
+import { EMPLOYEE_STATUSES } from "../../config/constants";
 import { Button } from "../ui";
 import { FormInput, FormSelect } from "../ui/Form";
-import { EMPLOYEE_STATUSES } from "../../config/constants";
 
 const FormGrid = styled.div`
   display: grid;
@@ -19,6 +19,23 @@ const FormActions = styled.div`
 `;
 
 const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
+  // Fonction pour formater les dates ISO en format YYYY-MM-DD
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return "";
+    try {
+      // Si la date est déjà au format YYYY-MM-DD, la retourner telle quelle
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      // Sinon, convertir la date ISO en format YYYY-MM-DD
+      const date = new Date(dateString);
+      return date.toISOString().split("T")[0];
+    } catch (error) {
+      console.error("Erreur lors du formatage de la date:", error);
+      return "";
+    }
+  };
+
   const [formData, setFormData] = useState({
     firstName: employee?.firstName || "",
     lastName: employee?.lastName || "",
@@ -26,8 +43,10 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
     department: employee?.department || "",
     role: employee?.role || "",
     status: employee?.status || "active",
-    birthDate: employee?.birthDate || "",
-    startDate: employee?.startDate || new Date().toISOString().split("T")[0],
+    birthDate: formatDateForInput(employee?.birthDate) || "",
+    startDate:
+      formatDateForInput(employee?.startDate) ||
+      formatDateForInput(new Date().toISOString()),
     contractHours: employee?.contractHours || 0,
   });
 
@@ -133,11 +152,11 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
 
       <FormActions>
         {onDelete && (
-          <Button type="button" onClick={handleDelete} danger>
+          <Button type="button" onClick={handleDelete} variant="error">
             Supprimer
           </Button>
         )}
-        <Button type="submit" primary>
+        <Button type="submit" variant="primary">
           {employee ? "Enregistrer" : "Ajouter"}
         </Button>
       </FormActions>

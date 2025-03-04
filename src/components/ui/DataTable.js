@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 
 // Composants stylisés
@@ -112,13 +112,13 @@ const Th = styled.th`
   color: ${({ theme }) => theme.colors.text.secondary};
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  cursor: ${({ sortable }) => (sortable ? "pointer" : "default")};
+  cursor: ${({ $sortable }) => ($sortable ? "pointer" : "default")};
   user-select: none;
   white-space: nowrap;
 
   &:hover {
-    color: ${({ theme, sortable }) =>
-      sortable ? theme.colors.primary : theme.colors.text.secondary};
+    color: ${({ theme, $sortable }) =>
+      $sortable ? theme.colors.primary : theme.colors.text.secondary};
   }
 `;
 
@@ -126,9 +126,9 @@ const SortIcon = styled.span`
   display: inline-flex;
   margin-left: 0.5rem;
   transition: transform 0.2s ease;
-  transform: ${({ direction }) =>
-    direction === "desc" ? "rotate(180deg)" : "rotate(0deg)"};
-  opacity: ${({ active }) => (active ? 1 : 0.3)};
+  transform: ${({ $direction }) =>
+    $direction === "desc" ? "rotate(180deg)" : "rotate(0deg)"};
+  opacity: ${({ $active }) => ($active ? 1 : 0.3)};
 `;
 
 const TBody = styled.tbody`
@@ -653,15 +653,15 @@ const DataTable = ({
                 {columns.map((column) => (
                   <Th
                     key={column.id}
-                    sortable={column.sortable}
+                    $sortable={column.sortable}
                     onClick={() => column.sortable && handleSort(column.id)}
                     style={{ width: column.width }}
                   >
                     {column.header}
                     {column.sortable && (
                       <SortIcon
-                        active={sortConfig.key === column.id}
-                        direction={
+                        $active={sortConfig.key === column.id}
+                        $direction={
                           sortConfig.key === column.id
                             ? sortConfig.direction
                             : "asc"
