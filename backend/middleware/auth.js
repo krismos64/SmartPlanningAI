@@ -73,9 +73,34 @@ const generateToken = (userId) => {
   );
 };
 
+// Middleware pour vérifier le token JWT (version simplifiée pour le développement)
+const authenticateToken = (req, res, next) => {
+  try {
+    // Pour le développement, on passe l'authentification
+    // En production, on utiliserait le code commenté ci-dessous
+    /*
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Accès non autorisé. Token manquant." });
+    }
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = { id: decoded.userId, role: "admin" };
+    */
+
+    // Pour le développement, on simule un utilisateur authentifié
+    req.user = { id: 1, role: "admin" };
+    next();
+  } catch (error) {
+    console.error("Erreur d'authentification:", error);
+    res.status(401).json({ message: "Token invalide ou expiré." });
+  }
+};
+
 module.exports = {
   auth,
   checkRole,
   generateToken,
   JWT_SECRET,
+  authenticateToken,
 };

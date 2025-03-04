@@ -1,9 +1,9 @@
+import { useEffect, useState } from "react";
 import styled from "styled-components";
-import { useAuth } from "../contexts/AuthContext";
 import DashboardCharts from "../components/dashboard/DashboardCharts";
-import { useState, useEffect } from "react";
 import SearchBar from "../components/ui/SearchBar";
-import { useEmployees } from "../hooks/useEmployees";
+import { useAuth } from "../contexts/AuthContext";
+import useEmployees from "../hooks/useEmployees";
 
 // Composants stylisés
 const DashboardContainer = styled.div`
@@ -253,11 +253,37 @@ const UserIcon = () => (
 // Composant Dashboard
 const Dashboard = () => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [searchResults, setSearchResults] = useState(null);
-  const { employees } = useEmployees();
+  const { employees, loading } = useEmployees();
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    activeEmployees: 0,
+    departments: {},
+    hoursWorked: 0,
+    overtimeHours: 0,
+  });
+  const [activities] = useState([
+    {
+      id: 1,
+      type: "employee_added",
+      user: "Admin",
+      timestamp: new Date(Date.now() - 3600000 * 2),
+      details: "Nouvel employé ajouté: Jean Dupont",
+    },
+    {
+      id: 2,
+      type: "schedule_updated",
+      user: "Admin",
+      timestamp: new Date(Date.now() - 3600000 * 5),
+      details: "Planning mis à jour pour la semaine du 10/04/2023",
+    },
+    {
+      id: 3,
+      type: "vacation_approved",
+      user: "Admin",
+      timestamp: new Date(Date.now() - 3600000 * 8),
+      details: "Congé approuvé pour Marie Martin (15/05/2023 - 22/05/2023)",
+    },
+  ]);
 
   // Fonction pour obtenir le prénom et le nom de l'utilisateur
   const getUserFullName = () => {
@@ -272,71 +298,35 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Vous pouvez également faire une requête API pour obtenir des statistiques plus complètes
-        // const statsData = await apiRequest(API_ROUTES.STATS);
-
         // Calculer les statistiques à partir des données des employés
         const activeEmployees = employees.filter(
-          (emp) => emp.status === "active"
-        ).length;
-        const pendingEmployees = employees.filter(
-          (emp) => emp.status === "pending"
+          (employee) => employee.status === "active"
         ).length;
 
         // Mettre à jour les statistiques
-        setStats([
-          {
-            id: 1,
-            title: "Employés actifs",
-            value: activeEmployees,
-            change: "+12%", // Idéalement, calculer ce pourcentage en fonction des données historiques
-            positive: true,
-            icon: "👥",
-            color: "#4F46E5",
-          },
-          {
-            id: 2,
-            title: "Demandes en attente",
-            value: pendingEmployees,
-            change: "-3%",
-            positive: true,
-            icon: "📝",
-            color: "#F59E0B",
-          },
-          {
-            id: 3,
-            title: "Congés approuvés",
-            value: 24, // À remplacer par des données réelles
-            change: "+18%",
-            positive: true,
-            icon: "✅",
-            color: "#10B981",
-          },
-          {
-            id: 4,
-            title: "Heures travaillées",
-            value: 1842, // À remplacer par des données réelles
-            change: "+5%",
-            positive: true,
-            icon: "⏱️",
-            color: "#6366F1",
-          },
-        ]);
-
-        setLoading(false);
+        setStats({
+          totalEmployees: employees.length,
+          activeEmployees: activeEmployees,
+          departments: {},
+          hoursWorked: 1842, // À remplacer par des données réelles
+          overtimeHours: 24, // À remplacer par des données réelles
+        });
       } catch (error) {
-        console.error("Erreur lors du chargement des statistiques:", error);
-        setLoading(false);
+        console.error(
+          "Erreur lors de la récupération des statistiques:",
+          error
+        );
       }
     };
 
-    fetchStats();
-  }, [employees]); // Dépendance aux employés pour mettre à jour les statistiques
+    if (!loading) {
+      fetchStats();
+    }
+  }, [employees, loading]); // Dépendance aux employés pour mettre à jour les statistiques
 
-  const handleSearch = (result) => {
-    setSearchResults(result);
-    // Ici, vous pourriez naviguer vers une page de détails ou afficher un modal
-    console.log("Résultat de recherche sélectionné:", result);
+  const handleSearch = (query) => {
+    // Implémentation de la recherche à ajouter
+    console.log("Recherche:", query);
   };
 
   return (
@@ -364,16 +354,36 @@ const Dashboard = () => {
       ) : (
         <>
           <StatsGrid>
-            {stats.map((stat) => (
-              <StatCard key={stat.id}>
-                <StatHeader>
-                  <StatTitle>{stat.title}</StatTitle>
-                  <StatIcon color={stat.color}>{stat.icon}</StatIcon>
-                </StatHeader>
-                <StatValue>{stat.value}</StatValue>
-                <StatChange positive={stat.positive}>{stat.change}</StatChange>
-              </StatCard>
-            ))}
+            <StatCard>
+              <StatHeader>
+                <StatTitle>Total des employés</StatTitle>
+                <StatIcon color="#4F46E5">👥</StatIcon>
+              </StatHeader>
+              <StatValue>{stats.totalEmployees}</StatValue>
+              <StatChange positive={stats.activeEmployees > 0}>
+                {stats.activeEmployees > 0 ? "+12%" : "-3%"}
+              </StatChange>
+            </StatCard>
+            <StatCard>
+              <StatHeader>
+                <StatTitle>Heures travaillées</StatTitle>
+                <StatIcon color="#6366F1">⏱️</StatIcon>
+              </StatHeader>
+              <StatValue>{stats.hoursWorked}</StatValue>
+              <StatChange positive={stats.hoursWorked > 0}>
+                {stats.hoursWorked > 0 ? "+5%" : "-3%"}
+              </StatChange>
+            </StatCard>
+            <StatCard>
+              <StatHeader>
+                <StatTitle>Congés approuvés</StatTitle>
+                <StatIcon color="#10B981">✅</StatIcon>
+              </StatHeader>
+              <StatValue>{stats.overtimeHours}</StatValue>
+              <StatChange positive={stats.overtimeHours > 0}>
+                {stats.overtimeHours > 0 ? "+18%" : "-3%"}
+              </StatChange>
+            </StatCard>
           </StatsGrid>
 
           <DashboardCharts />

@@ -1,4 +1,3 @@
-const mysql = require("mysql2/promise");
 const connectDB = require("../config/db");
 
 class Planning {
@@ -9,8 +8,7 @@ class Planning {
   }
 
   static async findByWeekStart(weekStart) {
-    const connection = await connectDB();
-    const [rows] = await connection.execute(
+    const [rows] = await connectDB.execute(
       "SELECT * FROM plannings WHERE weekStart = ?",
       [weekStart]
     );
@@ -20,8 +18,7 @@ class Planning {
   }
 
   static async create(weekStart, schedules) {
-    const connection = await connectDB();
-    const [result] = await connection.execute(
+    const [result] = await connectDB.execute(
       "INSERT INTO plannings (weekStart, schedules) VALUES (?, ?)",
       [weekStart, JSON.stringify(schedules)]
     );
@@ -29,16 +26,14 @@ class Planning {
   }
 
   static async update(id, schedules) {
-    const connection = await connectDB();
-    await connection.execute(
-      "UPDATE plannings SET schedules = ? WHERE id = ?",
-      [JSON.stringify(schedules), id]
-    );
+    await connectDB.execute("UPDATE plannings SET schedules = ? WHERE id = ?", [
+      JSON.stringify(schedules),
+      id,
+    ]);
   }
 
   static async delete(id) {
-    const connection = await connectDB();
-    await connection.execute("DELETE FROM plannings WHERE id = ?", [id]);
+    await connectDB.execute("DELETE FROM plannings WHERE id = ?", [id]);
   }
 }
 

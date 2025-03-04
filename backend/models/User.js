@@ -1,6 +1,6 @@
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
-const connectDB = require("../config/db");
+const pool = require("../config/db");
 
 class User {
   constructor(data) {
@@ -15,9 +15,7 @@ class User {
   }
 
   static async find() {
-    let pool = null;
     try {
-      pool = await connectDB();
       const [rows] = await pool.execute(
         "SELECT id, username, email, role, firstName, lastName, created_at FROM users"
       );
@@ -29,9 +27,7 @@ class User {
   }
 
   static async findById(id) {
-    let pool = null;
     try {
-      pool = await connectDB();
       const [rows] = await pool.execute(
         "SELECT id, username, email, role, firstName, lastName, created_at FROM users WHERE id = ?",
         [id]
@@ -48,10 +44,8 @@ class User {
   }
 
   static async findByEmail(email) {
-    let pool = null;
     try {
       console.log(`Recherche de l'utilisateur avec l'email: ${email}`);
-      pool = await connectDB();
 
       // Vérifier que la base de données est bien sélectionnée
       const [dbCheck] = await pool.query("SELECT DATABASE() as db");
@@ -77,9 +71,7 @@ class User {
   }
 
   static async findByUsername(username) {
-    let pool = null;
     try {
-      pool = await connectDB();
       const [rows] = await pool.execute(
         "SELECT * FROM users WHERE username = ?",
         [username]
@@ -96,10 +88,7 @@ class User {
   }
 
   async save() {
-    let pool = null;
     try {
-      pool = await connectDB();
-
       // Si le mot de passe est en texte brut, le hacher
       if (
         this.password &&
@@ -185,9 +174,7 @@ class User {
   }
 
   static async delete(id) {
-    let pool = null;
     try {
-      pool = await connectDB();
       await pool.execute("DELETE FROM users WHERE id = ?", [id]);
       return true;
     } catch (error) {

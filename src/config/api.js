@@ -1,148 +1,129 @@
-import { toast } from "react-toastify";
+/**
+ * Configuration et utilitaires pour les appels API
+ */
 
-// Configuration de l'API
+// URL de base de l'API
 export const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:5001";
 
 // Routes de l'API
 export const API_ROUTES = {
-  LOGIN: `${API_BASE_URL}/api/auth/login`,
-  REGISTER: `${API_BASE_URL}/api/auth/register`,
+  AUTH: {
+    LOGIN: "/api/auth/login",
+    REGISTER: "/api/auth/register",
+    VERIFY: "/api/auth/verify",
+    REFRESH: "/api/auth/refresh",
+  },
   EMPLOYEES: {
-    BASE: `${API_BASE_URL}/api/employees`,
-    DETAIL: (id) => `${API_BASE_URL}/api/employees/${id}`,
+    BASE: "/api/employees",
+    DETAIL: (id) => `/api/employees/${id}`,
   },
-  PLANNING: `${API_BASE_URL}/api/planning`,
+  PLANNING: {
+    BASE: "/api/planning",
+    DETAIL: (id) => `/api/planning/${id}`,
+  },
   VACATIONS: {
-    BASE: `${API_BASE_URL}/api/vacations`,
-    DETAIL: (id) => `${API_BASE_URL}/api/vacations/${id}`,
+    BASE: "/api/vacations",
+    DETAIL: (id) => `/api/vacations/${id}`,
+    APPROVE: (id) => `/api/vacations/${id}/approve`,
+    REJECT: (id) => `/api/vacations/${id}/reject`,
   },
-  STATS: `${API_BASE_URL}/api/stats`,
-  SHIFTS: {
-    BASE: `${API_BASE_URL}/api/shifts`,
-    DETAIL: (id) => `${API_BASE_URL}/api/shifts/${id}`,
+  WEEKLY_SCHEDULES: {
+    BASE: "/api/weekly-schedules",
+    DETAIL: (id) => `/api/weekly-schedules/${id}`,
+    BY_WEEK: (weekStart) => `/api/weekly-schedules/week/${weekStart}`,
+    BY_EMPLOYEE: (employeeId) => `/api/weekly-schedules/employee/${employeeId}`,
   },
 };
 
-// Fonction générique pour les requêtes API
+/**
+ * Fonction pour effectuer des requêtes API
+ * @param {string} url - URL de la requête
+ * @param {string} method - Méthode HTTP (GET, POST, PUT, DELETE)
+ * @param {Object} data - Données à envoyer (pour POST, PUT)
+ * @param {Object} headers - En-têtes HTTP supplémentaires
+ * @returns {Promise} - Promesse avec les données de la réponse
+ */
 export const apiRequest = async (
   url,
   method = "GET",
   data = null,
-  customHeaders = {}
+  headers = {}
 ) => {
   try {
-    console.log(`🔍 Requête API: ${method} ${url}`);
-
-    // Récupérer le token d'authentification
+    // Récupérer le token d'authentification du localStorage
     const token = localStorage.getItem("token");
-    console.log(`🔑 Token utilisé: ${token ? "Présent" : "Absent"}`);
 
-    // Vérifier si un token est nécessaire (sauf pour login et register)
-    if (
-      !token &&
-      !url.includes("/auth/login") &&
-      !url.includes("/auth/register")
-    ) {
-      console.warn("⚠️ Tentative d'accès à une route protégée sans token");
+    // Afficher le token utilisé (pour le débogage)
+    console.log("🔑 Token utilisé:", token ? "Présent" : "Absent");
 
-      // Rediriger vers la page de connexion
-      window.location.href = "/login";
-      return { error: "Authentification requise" };
-    }
-
-    // Préparer les headers
-    const headers = {
+    // Préparer les en-têtes de la requête
+    const requestHeaders = {
       "Content-Type": "application/json",
-      ...customHeaders,
+      ...headers,
     };
 
     // Ajouter le token d'authentification si disponible
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      requestHeaders.Authorization = `Bearer ${token}`;
     }
 
-    // Configurer la requête
-    const config = {
+    // Préparer les options de la requête
+    const options = {
       method,
-      headers,
+      headers: requestHeaders,
       credentials: "include",
     };
 
-    // Ajouter le corps de la requête si nécessaire
-    if (data) {
-      config.body = JSON.stringify(data);
+    // Ajouter le corps de la requête pour les méthodes POST et PUT
+    if (data && (method === "POST" || method === "PUT")) {
+      options.body = JSON.stringify(data);
     }
 
-    // Ajouter un timeout pour éviter les requêtes bloquées
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes
-    config.signal = controller.signal;
+    // Construire l'URL complète
+    const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
 
-    console.log(`📤 Envoi de la requête: ${method} ${url}`);
+    // Afficher les détails de la requête (pour le débogage)
+    console.log(`📤 Envoi de la requête: ${method} ${fullUrl}`);
 
     // Effectuer la requête
-    const response = await fetch(url, config);
+    const response = await fetch(fullUrl, options);
 
-    // Annuler le timeout
-    clearTimeout(timeoutId);
+    // Vérifier si la réponse est OK
+    if (!response.ok) {
+      // Si la réponse contient du JSON, l'extraire pour l'erreur
+      const errorData = await response.json().catch(() => ({}));
+      // eslint-disable-next-line no-throw-literal
+      throw {
+        status: response.status,
+        message: errorData.message || response.statusText,
+        data: errorData,
+      };
+    }
 
-    console.log(`📥 Réponse reçue: ${response.status} ${response.statusText}`);
-
-    // Vérifier si la réponse est au format JSON
+    // Vérifier si la réponse est vide
     const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      const responseData = await response.json();
-
-      // Gérer les erreurs d'authentification
-      if (response.status === 401) {
-        console.error("🔒 Erreur d'authentification:", responseData);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
-        return { error: responseData.message || "Erreur d'authentification" };
-      }
-
-      // Gérer les erreurs serveur
-      if (response.status >= 500) {
-        console.error("🔥 Erreur serveur:", responseData);
-        toast.error("Erreur serveur. Veuillez réessayer plus tard.");
-        return { error: responseData.message || "Erreur serveur" };
-      }
-
-      // Gérer les autres erreurs
-      if (!response.ok) {
-        console.error("❌ Erreur API:", responseData);
-        return { error: responseData.message || "Une erreur est survenue" };
-      }
-
-      console.log("✅ Requête réussie");
-      return responseData;
-    } else {
-      // Gérer les réponses non-JSON
-      console.warn("⚠️ Réponse non-JSON reçue");
-      const text = await response.text();
-      console.log("📄 Contenu de la réponse:", text);
-
-      if (!response.ok) {
-        return { error: "Erreur de communication avec le serveur" };
-      }
-
-      return { message: text };
+    if (!contentType || !contentType.includes("application/json")) {
+      return { success: true };
     }
+
+    // Extraire les données JSON de la réponse
+    const responseData = await response.json();
+    return responseData;
   } catch (error) {
-    // Gérer les erreurs de timeout
-    if (error.name === "AbortError") {
-      console.error("⏱️ Timeout de la requête:", error);
-      toast.error("La requête a pris trop de temps. Veuillez réessayer.");
-      return { error: "Timeout de la requête" };
+    // Gérer les erreurs réseau
+    if (error.name === "TypeError" && error.message === "Failed to fetch") {
+      console.error("🌐 Erreur réseau:", error);
+      // eslint-disable-next-line no-throw-literal
+      throw {
+        status: 0,
+        message: "Erreur de connexion au serveur",
+        originalError: error,
+      };
     }
 
-    // Gérer les erreurs réseau
-    console.error("🌐 Erreur réseau:", error);
-    toast.error(
-      "Erreur de connexion au serveur. Veuillez vérifier votre connexion internet."
-    );
-    return { error: "Erreur de connexion au serveur" };
+    // Propager l'erreur
+    console.error("❌ Erreur API:", error);
+    throw error;
   }
 };

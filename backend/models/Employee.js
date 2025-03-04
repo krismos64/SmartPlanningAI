@@ -28,8 +28,7 @@ class Employee {
 
   static async find() {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute("SELECT * FROM employees");
+      const [rows] = await connectDB.execute("SELECT * FROM employees");
       return rows.map((row) => new Employee(row));
     } catch (error) {
       console.error("Erreur lors de la récupération des employés:", error);
@@ -39,8 +38,7 @@ class Employee {
 
   static async findById(id) {
     try {
-      const connection = await connectDB();
-      const [rows] = await connection.execute(
+      const [rows] = await connectDB.execute(
         "SELECT * FROM employees WHERE id = ?",
         [id]
       );
@@ -57,8 +55,6 @@ class Employee {
 
   async save() {
     try {
-      const connection = await connectDB();
-
       // Formater les dates pour MySQL si nécessaire
       let birth_date = this.birth_date;
       let start_date = this.start_date;
@@ -138,7 +134,7 @@ class Employee {
 
           console.log("Paramètres de la requête UPDATE:", params);
 
-          await connection.execute(
+          await connectDB.execute(
             "UPDATE employees SET first_name = ?, last_name = ?, email = ?, role = ?, department = ?, contract_hours = ?, birth_date = ?, start_date = ?, status = ?, hours_worked = ?, overtime_hours = ? WHERE id = ?",
             params
           );
@@ -154,7 +150,7 @@ class Employee {
       } else {
         // Création
         console.log("Tentative d'insertion d'un nouvel employé");
-        const [result] = await connection.execute(
+        const [result] = await connectDB.execute(
           "INSERT INTO employees (first_name, last_name, email, role, department, contract_hours, birth_date, start_date, status, hours_worked, overtime_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
             this.first_name,
@@ -310,8 +306,7 @@ class Employee {
 
   static async delete(id) {
     try {
-      const connection = await connectDB();
-      await connection.execute("DELETE FROM employees WHERE id = ?", [id]);
+      await connectDB.execute("DELETE FROM employees WHERE id = ?", [id]);
       return true;
     } catch (error) {
       console.error(`Erreur lors de la suppression de l'employé ${id}:`, error);

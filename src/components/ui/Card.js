@@ -45,7 +45,7 @@ const StyledCard = styled.div`
 `;
 
 // Composant d'en-tête de carte
-const CardHeader = styled.div`
+export const CardHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -62,13 +62,21 @@ const CardHeader = styled.div`
   }
 `;
 
+// Composant de titre de carte
+export const CardTitle = styled.h3`
+  margin: 0;
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-weight: ${({ theme }) => theme.typography.fontWeights.semiBold};
+  font-size: ${({ theme }) => theme.typography.fontSizes.lg};
+`;
+
 // Composant de contenu de carte
-const CardContent = styled.div`
+export const CardContent = styled.div`
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
 
 // Composant de pied de carte
-const CardFooter = styled.div`
+export const CardFooter = styled.div`
   display: flex;
   align-items: center;
   justify-content: ${({ align }) => align || "flex-end"};
@@ -79,7 +87,7 @@ const CardFooter = styled.div`
 `;
 
 // Composant Card avec toutes les props
-const Card = ({
+export const Card = ({
   children,
   variant = "default",
   padding,

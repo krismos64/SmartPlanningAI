@@ -1,10 +1,10 @@
-import { useState, useMemo, useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import styled from "styled-components";
-import { DataTable, Button, Modal, PlusIcon } from "../components/ui";
 import EmployeeForm from "../components/employees/EmployeeForm";
-import { useEmployees } from "../hooks/useEmployees";
+import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
 import { FormSelect } from "../components/ui/Form";
-import { EMPLOYEE_TABLE_COLUMNS, EMPLOYEE_STATUSES } from "../config/constants";
+import { EMPLOYEE_STATUSES, EMPLOYEE_TABLE_COLUMNS } from "../config/constants";
+import useEmployees from "../hooks/useEmployees";
 
 // Composants stylisés
 const PageContainer = styled.div`

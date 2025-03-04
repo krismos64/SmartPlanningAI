@@ -1,20 +1,20 @@
+import frLocale from "@fullcalendar/core/locales/fr";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import {
-  useState,
-  useEffect,
-  useCallback,
   startTransition,
   Suspense,
+  useCallback,
+  useEffect,
+  useState,
 } from "react";
 import styled from "styled-components";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
-import frLocale from "@fullcalendar/core/locales/fr";
-import { useShifts } from "../hooks/useShifts";
-import { useEmployees } from "../hooks/useEmployees";
-import { Button } from "../components/ui";
 import ShiftForm from "../components/schedule/ShiftForm";
+import { Button } from "../components/ui";
+import useEmployees from "../hooks/useEmployees";
+import { useShifts } from "../hooks/useShifts";
 
 // Composants stylisés
 const PageContainer = styled.div`

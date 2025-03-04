@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { API_ROUTES, apiRequest } from "../config/api";
+import { createContext, useContext, useEffect, useState } from "react";
+import { API_BASE_URL } from "../config/api";
 
 const AuthContext = createContext({
   isAuthenticated: false,
@@ -8,9 +8,7 @@ const AuthContext = createContext({
   login: async () => {},
   logout: async () => {},
   register: async () => {},
-  getUsers: async () => {},
-  updateUser: async () => {},
-  deleteUser: async () => {},
+  loginError: null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -99,51 +97,47 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log("Tentative de connexion avec:", { email, password: "***" });
 
-      if (!email || !password) {
-        setLoginError("Email et mot de passe requis");
-        setIsLoading(false);
-        return false;
-      }
-
-      const response = await apiRequest(API_ROUTES.LOGIN, "POST", {
-        email,
-        password,
+      const response = await fetch(`http://localhost:5001/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
       });
 
-      if (response.error) {
-        console.error("Erreur de connexion:", response.error);
-        setLoginError(response.error);
-        setIsLoading(false);
-        return false;
+      console.log(
+        "Réponse de connexion:",
+        response.status,
+        response.statusText
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Erreur de connexion (${response.status})`
+        );
       }
 
-      console.log("Réponse de login:", {
-        ...response,
-        token: response.token ? "***" : null,
+      const data = await response.json();
+      console.log("Données de connexion reçues:", {
+        ...data,
+        token: data.token ? "***" : null,
       });
 
-      // Stocker le token si présent dans la réponse
-      if (response.token) {
-        localStorage.setItem("token", response.token);
-        console.log("Token stocké avec succès");
-      } else {
-        console.error("Pas de token dans la réponse");
-        setLoginError("Pas de token dans la réponse");
-        setIsLoading(false);
-        return false;
-      }
+      // Stocker le token et les informations utilisateur
+      localStorage.setItem("token", data.token);
 
       // Définir l'utilisateur comme admin
-      const adminUser = setUserWithAdminRole(response);
+      const adminUser = setUserWithAdminRole(data);
 
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
 
-      console.log("Utilisateur connecté:", { ...adminUser, token: "***" });
       return true;
-    } catch (error) {
-      console.error("Erreur de connexion:", error);
-      setLoginError(error.message || "Erreur de connexion");
+    } catch (err) {
+      console.error("Erreur de connexion:", err);
+      setLoginError(err.message || "Erreur de connexion au serveur");
       return false;
     } finally {
       setIsLoading(false);
@@ -153,26 +147,34 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     setIsLoading(true);
     try {
-      const response = await apiRequest(API_ROUTES.REGISTER, "POST", userData);
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+        credentials: "include",
+      });
 
-      if (response.error) {
-        console.error("Erreur d'inscription:", response.error);
-        return false;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Erreur d'inscription (${response.status})`
+        );
       }
 
+      const data = await response.json();
+
       // Stocker le token si présent dans la réponse
-      if (response.token) {
-        localStorage.setItem("token", response.token);
-        console.log("Token stocké après inscription:", response.token);
-      } else {
-        console.error("Pas de token dans la réponse d'inscription");
+      if (data.token) {
+        localStorage.setItem("token", data.token);
       }
 
       // Définir l'utilisateur comme admin
-      const adminUser = setUserWithAdminRole(response);
-
+      const adminUser = setUserWithAdminRole(data);
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
+
       return true;
     } catch (error) {
       console.error("Erreur d'inscription:", error);
@@ -194,27 +196,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Fonction pour récupérer tous les utilisateurs
-  const getUsers = async () => {
-    // Cette fonctionnalité n'est pas disponible dans la nouvelle API
-    console.warn("La fonctionnalité getUsers n'est pas implémentée");
-    return []; // Retourner un tableau vide au lieu d'un objet
-  };
-
-  // Fonction pour mettre à jour un utilisateur
-  const updateUser = async (userId, userData) => {
-    // Cette fonctionnalité n'est pas disponible dans la nouvelle API
-    console.warn("La fonctionnalité updateUser n'est pas implémentée");
-    return { success: false, message: "Fonctionnalité non implémentée" };
-  };
-
-  // Fonction pour supprimer un utilisateur
-  const deleteUser = async (userId) => {
-    // Cette fonctionnalité n'est pas disponible dans la nouvelle API
-    console.warn("La fonctionnalité deleteUser n'est pas implémentée");
-    return { success: false, message: "Fonctionnalité non implémentée" };
-  };
-
   const value = {
     user,
     isAuthenticated,
@@ -222,6 +203,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    loginError,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
