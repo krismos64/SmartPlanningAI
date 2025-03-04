@@ -7,7 +7,7 @@ import Button from "../ui/Button";
 // Styles
 const ScheduleGrid = styled.div`
   display: grid;
-  grid-template-columns: 200px repeat(7, 1fr) 80px;
+  grid-template-columns: 200px repeat(7, 1fr) 100px 80px;
   gap: 1px;
   background-color: ${({ theme }) => theme.colors.border.light};
   border-radius: 0.5rem;
@@ -15,31 +15,33 @@ const ScheduleGrid = styled.div`
   width: 100%;
 
   @media (max-width: 1200px) {
-    grid-template-columns: 180px repeat(7, 1fr) 80px;
+    grid-template-columns: 180px repeat(7, 1fr) 100px 80px;
   }
 
   @media (max-width: 992px) {
-    grid-template-columns: 150px repeat(7, minmax(80px, 1fr)) 80px;
+    grid-template-columns: 150px repeat(7, minmax(80px, 1fr)) 100px 80px;
   }
 
   @media (max-width: 768px) {
-    grid-template-columns: 120px repeat(7, minmax(70px, 1fr)) 80px;
+    grid-template-columns: 120px repeat(7, minmax(70px, 1fr)) 100px 80px;
     font-size: 0.85rem;
   }
 `;
 
 const GridCell = styled.div`
   padding: 0.75rem;
-  background-color: white;
+  background-color: ${({ theme }) => theme.colors.background.primary};
+  color: ${({ theme }) => theme.colors.text.primary};
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 50px;
+  transition: background-color 0.2s ease;
 `;
 
 const HeaderCell = styled(GridCell)`
   font-weight: 600;
-  background-color: ${({ theme }) => theme.colors.background.light};
+  background-color: ${({ theme }) => theme.colors.background.secondary};
   text-align: center;
   position: sticky;
   top: 0;
@@ -49,24 +51,32 @@ const HeaderCell = styled(GridCell)`
 const EmployeeCell = styled(GridCell)`
   justify-content: flex-start;
   font-weight: 500;
-  background-color: ${({ theme }) => theme.colors.background.light};
+  background-color: ${({ theme }) => theme.colors.background.secondary};
   position: sticky;
   left: 0;
   z-index: 5;
 `;
 
+const TotalCell = styled(GridCell)`
+  font-weight: 600;
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  position: sticky;
+  right: 80px;
+  z-index: 5;
+`;
+
 const DayCell = styled(GridCell)`
-  ${({ isWeekend }) =>
+  ${({ isWeekend, theme }) =>
     isWeekend &&
     `
-    background-color: #f9fafb;
+    background-color: ${theme.colors.background.tertiary};
   `}
 
-  ${({ isAbsent }) =>
+  ${({ isAbsent, theme }) =>
     isAbsent &&
     `
-    background-color: #fee2e2;
-    color: #b91c1c;
+    background-color: ${theme.mode === "dark" ? "#3d1a1a" : "#fee2e2"};
+    color: ${theme.mode === "dark" ? "#f87171" : "#b91c1c"};
   `}
   
   flex-direction: column;
@@ -86,11 +96,22 @@ const HoursValue = styled.div`
   font-size: 0.9rem;
 `;
 
+const NoteText = styled.div`
+  font-style: italic;
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-top: 0.25rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
 const ActionCell = styled(GridCell)`
   position: sticky;
   right: 0;
   z-index: 5;
-  background-color: ${({ theme }) => theme.colors.background.light};
+  background-color: ${({ theme }) => theme.colors.background.secondary};
   padding: 0.5rem;
 `;
 
@@ -190,24 +211,54 @@ const WeeklyScheduleGrid = ({
 
     if (!day) return null;
 
-    if (day.type === "absence" && day.absence && day.absence.trim() !== "") {
-      return <HoursValue>{day.absence}</HoursValue>;
-    }
+    return (
+      <>
+        {day.type === "absence" && day.absence && day.absence.trim() !== "" ? (
+          <HoursValue>{day.absence}</HoursValue>
+        ) : day.type === "work" && day.timeSlots && day.timeSlots.length > 0 ? (
+          <>
+            <HoursValue>{day.hours || "0"}h</HoursValue>
+            {day.timeSlots.map((slot, index) => (
+              <TimeSlot key={index}>
+                {slot.start} - {slot.end}
+              </TimeSlot>
+            ))}
+          </>
+        ) : (
+          <HoursValue>0h</HoursValue>
+        )}
 
-    if (day.type === "work" && day.timeSlots && day.timeSlots.length > 0) {
-      return (
-        <>
-          <HoursValue>{day.hours || "0"}h</HoursValue>
-          {day.timeSlots.map((slot, index) => (
-            <TimeSlot key={index}>
-              {slot.start} - {slot.end}
-            </TimeSlot>
-          ))}
-        </>
-      );
-    }
+        {day.note && day.note.trim() !== "" && (
+          <NoteText title={day.note}>{day.note}</NoteText>
+        )}
+      </>
+    );
+  };
 
-    return <HoursValue>0h</HoursValue>;
+  // Calculer le total des heures pour un employé
+  const calculateEmployeeTotal = (employeeId) => {
+    const schedule = findEmployeeSchedule(employeeId);
+    return schedule.days
+      .reduce((total, day) => total + (parseFloat(day.hours) || 0), 0)
+      .toFixed(1);
+  };
+
+  // Obtenir le compteur horaire d'un employé (heures contractuelles vs heures travaillées)
+  const getEmployeeHoursCounter = (employeeId) => {
+    const employee = employees.find((emp) => emp.id === employeeId);
+    if (!employee || !employee.contractHours) return "N/A";
+
+    const contractHours = parseFloat(employee.contractHours);
+    const workedHours = parseFloat(calculateEmployeeTotal(employeeId));
+    const difference = (workedHours - contractHours).toFixed(1);
+
+    if (difference > 0) {
+      return `+${difference}h`;
+    } else if (difference < 0) {
+      return `${difference}h`;
+    } else {
+      return "0h";
+    }
   };
 
   return (
@@ -217,6 +268,7 @@ const WeeklyScheduleGrid = ({
       {daysOfWeek.map((day, index) => (
         <HeaderCell key={index}>{formatDate(day, "EEE dd/MM")}</HeaderCell>
       ))}
+      <HeaderCell>Total</HeaderCell>
       <HeaderCell>Actions</HeaderCell>
 
       {/* Lignes pour chaque employé */}
@@ -238,6 +290,23 @@ const WeeklyScheduleGrid = ({
                 {formatDayCell(employee.id, dayIndex)}
               </DayCell>
             ))}
+
+          {/* Cellule de total */}
+          <TotalCell>
+            {calculateEmployeeTotal(employee.id)}h
+            <br />
+            <small
+              style={{
+                color: getEmployeeHoursCounter(employee.id).startsWith("+")
+                  ? "#10b981"
+                  : getEmployeeHoursCounter(employee.id).startsWith("-")
+                  ? "#ef4444"
+                  : "inherit",
+              }}
+            >
+              {getEmployeeHoursCounter(employee.id)}
+            </small>
+          </TotalCell>
 
           {/* Cellule d'action */}
           <ActionCell>
