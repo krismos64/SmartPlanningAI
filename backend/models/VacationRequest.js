@@ -4,6 +4,8 @@ class VacationRequest {
   constructor(data) {
     this.id = data.id;
     this.employee_id = data.employee_id;
+    this.employee_name = data.employee_name;
+    this.type = data.type || "paid"; // Type de congé (paid, rtt, unpaid, sick, exceptional, recovery)
     this.start_date = data.start_date;
     this.end_date = data.end_date;
     this.reason = data.reason;
@@ -12,12 +14,21 @@ class VacationRequest {
     this.approved_at = data.approved_at;
     this.rejected_by = data.rejected_by;
     this.rejected_at = data.rejected_at;
+    this.rejection_reason = data.rejection_reason;
+    this.attachment = data.attachment;
+    this.quota_exceeded = data.quota_exceeded || false;
     this.created_at = data.created_at;
   }
 
   static async find() {
     try {
-      const [rows] = await connectDB.execute("SELECT * FROM vacation_requests");
+      const [rows] = await connectDB.execute(`
+        SELECT vr.*, 
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name
+        FROM vacation_requests vr
+        LEFT JOIN employees e ON vr.employee_id = e.id
+        ORDER BY vr.created_at DESC
+      `);
       return rows.map((row) => new VacationRequest(row));
     } catch (error) {
       console.error(
@@ -31,7 +42,13 @@ class VacationRequest {
   static async findById(id) {
     try {
       const [rows] = await connectDB.execute(
-        "SELECT * FROM vacation_requests WHERE id = ?",
+        `
+        SELECT vr.*, 
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name
+        FROM vacation_requests vr
+        LEFT JOIN employees e ON vr.employee_id = e.id
+        WHERE vr.id = ?
+      `,
         [id]
       );
       if (rows.length === 0) return null;
@@ -45,14 +62,38 @@ class VacationRequest {
     }
   }
 
+  static async findByEmployeeId(employeeId) {
+    try {
+      const [rows] = await connectDB.execute(
+        `
+        SELECT vr.*, 
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name
+        FROM vacation_requests vr
+        LEFT JOIN employees e ON vr.employee_id = e.id
+        WHERE vr.employee_id = ?
+        ORDER BY vr.created_at DESC
+      `,
+        [employeeId]
+      );
+      return rows.map((row) => new VacationRequest(row));
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des demandes de congé pour l'employé ${employeeId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
   async save() {
     try {
       if (this.id) {
         // Mise à jour
         await connectDB.execute(
-          "UPDATE vacation_requests SET employee_id = ?, start_date = ?, end_date = ?, reason = ?, status = ?, approved_by = ?, approved_at = ?, rejected_by = ?, rejected_at = ? WHERE id = ?",
+          "UPDATE vacation_requests SET employee_id = ?, type = ?, start_date = ?, end_date = ?, reason = ?, status = ?, approved_by = ?, approved_at = ?, rejected_by = ?, rejected_at = ?, rejection_reason = ?, attachment = ?, quota_exceeded = ? WHERE id = ?",
           [
             this.employee_id,
+            this.type,
             this.start_date,
             this.end_date,
             this.reason,
@@ -61,6 +102,9 @@ class VacationRequest {
             this.approved_at,
             this.rejected_by,
             this.rejected_at,
+            this.rejection_reason,
+            this.attachment,
+            this.quota_exceeded ? 1 : 0,
             this.id,
           ]
         );
@@ -68,13 +112,16 @@ class VacationRequest {
       } else {
         // Création
         const [result] = await connectDB.execute(
-          "INSERT INTO vacation_requests (employee_id, start_date, end_date, reason, status) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO vacation_requests (employee_id, type, start_date, end_date, reason, status, attachment, quota_exceeded) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           [
             this.employee_id,
+            this.type,
             this.start_date,
             this.end_date,
             this.reason,
             this.status || "pending",
+            this.attachment,
+            this.quota_exceeded ? 1 : 0,
           ]
         );
         this.id = result.insertId;
@@ -99,7 +146,6 @@ class VacationRequest {
 
       // Enregistrer les modifications
       await vacationRequest.save();
-
       return vacationRequest;
     } catch (error) {
       console.error(

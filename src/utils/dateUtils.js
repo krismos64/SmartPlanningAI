@@ -10,6 +10,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { fr } from "date-fns/locale";
+import { FRENCH_HOLIDAYS_2024 } from "../config/constants";
 
 /**
  * Formate une date selon le format spécifié
@@ -224,4 +225,113 @@ export const formatDateForAPI = (date) => {
     2,
     "0"
   )}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/**
+ * Vérifie si une date est un jour férié
+ * @param {string|Date} date - La date à vérifier
+ * @param {Array} holidays - Liste des jours fériés (par défaut: jours fériés français 2024)
+ * @returns {boolean} True si c'est un jour férié, false sinon
+ */
+export const isHoliday = (date, holidays = FRENCH_HOLIDAYS_2024) => {
+  if (!date) return false;
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return false;
+
+  const formattedDate = formatDateForAPI(d);
+  return holidays.some((holiday) => holiday.date === formattedDate);
+};
+
+/**
+ * Vérifie si une date est un jour ouvré (ni week-end, ni jour férié)
+ * @param {string|Date} date - La date à vérifier
+ * @param {Array} holidays - Liste des jours fériés
+ * @returns {boolean} True si c'est un jour ouvré, false sinon
+ */
+export const isWorkingDay = (date, holidays = FRENCH_HOLIDAYS_2024) => {
+  return !isWeekend(date) && !isHoliday(date, holidays);
+};
+
+/**
+ * Calcule le nombre de jours ouvrés entre deux dates
+ * @param {string|Date} startDate - Date de début
+ * @param {string|Date} endDate - Date de fin
+ * @param {Array} holidays - Liste des jours fériés
+ * @returns {number} Nombre de jours ouvrés
+ */
+export const getWorkingDaysCount = (
+  startDate,
+  endDate,
+  holidays = FRENCH_HOLIDAYS_2024
+) => {
+  if (!startDate || !endDate) return 0;
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+  if (end < start) return 0;
+
+  let count = 0;
+  const currentDate = new Date(start);
+
+  while (currentDate <= end) {
+    if (isWorkingDay(currentDate, holidays)) {
+      count++;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return count;
+};
+
+/**
+ * Vérifie si deux dates sont le même jour
+ * @param {string|Date} date1 - Première date
+ * @param {string|Date} date2 - Deuxième date
+ * @returns {boolean} True si c'est le même jour, false sinon
+ */
+export const isSameDay = (date1, date2) => {
+  if (!date1 || !date2) return false;
+
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+};
+
+/**
+ * Vérifie si une date est aujourd'hui
+ * @param {string|Date} date - La date à vérifier
+ * @returns {boolean} True si c'est aujourd'hui, false sinon
+ */
+export const isToday = (date) => {
+  return isSameDay(date, new Date());
+};
+
+/**
+ * Vérifie si une date est entre deux autres dates (inclusivement)
+ * @param {string|Date} date - La date à vérifier
+ * @param {string|Date} start - Date de début
+ * @param {string|Date} end - Date de fin
+ * @returns {boolean} True si la date est entre start et end, false sinon
+ */
+export const isDateBetween = (date, start, end) => {
+  if (!date || !start || !end) return false;
+
+  const d = new Date(date);
+  const s = new Date(start);
+  const e = new Date(end);
+
+  // Réinitialiser les heures pour comparer uniquement les dates
+  d.setHours(0, 0, 0, 0);
+  s.setHours(0, 0, 0, 0);
+  e.setHours(0, 0, 0, 0);
+
+  return d >= s && d <= e;
 };
