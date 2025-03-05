@@ -31,6 +31,15 @@ const auth = async (req, res, next) => {
     // Définir le rôle de l'utilisateur comme admin
     user.role = "admin";
 
+    // Ajouter le nom complet de l'utilisateur
+    user.fullName =
+      `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+      user.username ||
+      "Administrateur";
+
+    // Ajouter l'ID comme chaîne de caractères pour éviter les problèmes de conversion
+    user.id = user.id.toString();
+
     // Ajouter l'utilisateur à l'objet req pour une utilisation ultérieure
     req.user = user;
 
@@ -89,7 +98,13 @@ const authenticateToken = (req, res, next) => {
     */
 
     // Pour le développement, on simule un utilisateur authentifié
-    req.user = { id: 1, role: "admin" };
+    req.user = {
+      id: "1", // ID comme chaîne de caractères
+      role: "admin",
+      firstName: "Admin",
+      lastName: "Système",
+      fullName: "Admin Système",
+    };
     next();
   } catch (error) {
     console.error("Erreur d'authentification:", error);

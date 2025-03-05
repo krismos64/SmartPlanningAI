@@ -1,10 +1,13 @@
-import { useState } from "react";
-// Remplacer l'importation de react-lottie
+import Lottie from "lottie-react";
+import { useCallback, useState } from "react";
+import { FaCalendarAlt, FaList, FaPlus } from "react-icons/fa";
 import styled from "styled-components";
 import holidaysAnimation from "../assets/animations/holidays.json";
-
-// Importer react-lottie avec require pour éviter les problèmes de compatibilité
-const Lottie = require("react-lottie").default;
+import VacationCalendar from "../components/vacations/VacationCalendar";
+import VacationExport from "../components/vacations/VacationExport";
+import VacationForm from "../components/vacations/VacationForm";
+import { useAuth } from "../contexts/AuthContext";
+import useVacations from "../hooks/useVacations";
 
 // Composants stylisés
 const VacationsContainer = styled.div`
@@ -19,7 +22,7 @@ const PageHeader = styled.div`
   align-items: center;
   margin-bottom: 2rem;
 
-  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+  @media (max-width: ${({ theme }) => theme.breakpoints?.md || "768px"}) {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
@@ -45,24 +48,26 @@ const TitleContainer = styled.div`
 
 const PageTitle = styled.h1`
   font-size: 2rem;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
   margin-bottom: 0.5rem;
 `;
 
 const PageDescription = styled.p`
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
   font-size: 1.1rem;
 `;
 
 const Button = styled.button`
   padding: 0.75rem 1.5rem;
   background-color: ${({ theme, variant }) =>
-    variant === "primary" ? theme.colors.primary : "transparent"};
+    variant === "primary" ? theme.colors?.primary || "#4F46E5" : "transparent"};
   color: ${({ theme, variant }) =>
-    variant === "primary" ? "white" : theme.colors.text.primary};
+    variant === "primary" ? "white" : theme.colors?.text?.primary || "#111827"};
   border: ${({ theme, variant }) =>
-    variant === "outline" ? `1px solid ${theme.colors.border}` : "none"};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
+    variant === "outline"
+      ? `1px solid ${theme.colors?.border || "#E5E7EB"}`
+      : "none"};
+  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
@@ -74,14 +79,14 @@ const Button = styled.button`
   &:hover {
     background-color: ${({ theme, variant }) =>
       variant === "primary"
-        ? `${theme.colors.primary}dd`
-        : `${theme.colors.border}33`};
+        ? `${theme.colors?.primary || "#4F46E5"}dd`
+        : `${theme.colors?.border || "#E5E7EB"}33`};
   }
 `;
 
 const TabsContainer = styled.div`
   display: flex;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  border-bottom: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
   margin-bottom: 1.5rem;
 `;
 
@@ -90,31 +95,81 @@ const Tab = styled.button`
   background: none;
   border: none;
   border-bottom: 2px solid
-    ${({ active, theme }) => (active ? theme.colors.primary : "transparent")};
+    ${({ active, theme }) =>
+      active ? theme.colors?.primary || "#4F46E5" : "transparent"};
   color: ${({ active, theme }) =>
-    active ? theme.colors.primary : theme.colors.text.secondary};
+    active
+      ? theme.colors?.primary || "#4F46E5"
+      : theme.colors?.text?.secondary || "#6B7280"};
   font-weight: ${({ active }) => (active ? 500 : 400)};
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 
   &:hover {
-    color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }) => theme.colors?.primary || "#4F46E5"};
+  }
+`;
+
+const ViewToggle = styled.div`
+  display: flex;
+  margin-bottom: 1.5rem;
+`;
+
+const ViewToggleButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: ${({ active, theme }) =>
+    active
+      ? theme.colors?.primary || "#4F46E5"
+      : theme.colors?.background || "#F9FAFB"};
+  color: ${({ active, theme }) =>
+    active ? "white" : theme.colors?.text?.primary || "#111827"};
+  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &:first-child {
+    border-top-left-radius: ${({ theme }) =>
+      theme.borderRadius?.small || "0.25rem"};
+    border-bottom-left-radius: ${({ theme }) =>
+      theme.borderRadius?.small || "0.25rem"};
+  }
+
+  &:last-child {
+    border-top-right-radius: ${({ theme }) =>
+      theme.borderRadius?.small || "0.25rem"};
+    border-bottom-right-radius: ${({ theme }) =>
+      theme.borderRadius?.small || "0.25rem"};
+  }
+
+  &:hover {
+    background-color: ${({ active, theme }) =>
+      active
+        ? theme.colors?.primary || "#4F46E5"
+        : theme.colors?.background || "#F9FAFB"};
   }
 `;
 
 const VacationCard = styled.div`
-  background-color: ${({ theme }) => theme.colors.surface};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  background-color: ${({ theme }) => theme.colors?.surface || "#FFFFFF"};
+  border-radius: ${({ theme }) => theme.borderRadius?.medium || "0.375rem"};
   padding: 1.5rem;
-  box-shadow: ${({ theme }) => theme.shadows.small};
+  box-shadow: ${({ theme }) =>
+    theme.shadows?.small || "0 1px 2px 0 rgba(0, 0, 0, 0.05)"};
   margin-bottom: 1rem;
   border-left: 4px solid
     ${({ status, theme }) =>
       status === "approved"
-        ? theme.colors.success
+        ? theme.colors?.success || "#10B981"
         : status === "rejected"
-        ? theme.colors.error
-        : theme.colors.warning};
+        ? theme.colors?.danger || "#EF4444"
+        : theme.colors?.warning || "#F59E0B"};
 `;
 
 const VacationHeader = styled.div`
@@ -123,7 +178,7 @@ const VacationHeader = styled.div`
   align-items: center;
   margin-bottom: 1rem;
 
-  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "640px"}) {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
@@ -132,28 +187,28 @@ const VacationHeader = styled.div`
 
 const VacationTitle = styled.h3`
   font-size: 1.25rem;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
   margin: 0;
 `;
 
 const VacationStatus = styled.span`
   display: inline-block;
   padding: 0.25rem 0.75rem;
-  border-radius: ${({ theme }) => theme.borderRadius.small};
+  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
   font-size: 0.875rem;
   font-weight: 500;
   background-color: ${({ status, theme }) =>
     status === "approved"
-      ? `${theme.colors.success}22`
+      ? `${theme.colors?.success || "#10B981"}22`
       : status === "rejected"
-      ? `${theme.colors.error}22`
-      : `${theme.colors.warning}22`};
+      ? `${theme.colors?.danger || "#EF4444"}22`
+      : `${theme.colors?.warning || "#F59E0B"}22`};
   color: ${({ status, theme }) =>
     status === "approved"
-      ? theme.colors.success
+      ? theme.colors?.success || "#10B981"
       : status === "rejected"
-      ? theme.colors.error
-      : theme.colors.warning};
+      ? theme.colors?.danger || "#EF4444"
+      : theme.colors?.warning || "#F59E0B"};
 `;
 
 const VacationDetails = styled.div`
@@ -170,13 +225,13 @@ const VacationDetail = styled.div`
 
 const DetailLabel = styled.div`
   font-size: 0.875rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
   margin-bottom: 0.25rem;
 `;
 
 const DetailValue = styled.div`
   font-weight: 500;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
 `;
 
 const VacationActions = styled.div`
@@ -189,7 +244,7 @@ const VacationActions = styled.div`
 const EmptyState = styled.div`
   text-align: center;
   padding: 3rem 1rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
 `;
 
 const Modal = styled.div`
@@ -207,12 +262,15 @@ const Modal = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background-color: ${({ theme }) => theme.colors.surface};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  background-color: ${({ theme }) => theme.colors?.surface || "#FFFFFF"};
+  border-radius: ${({ theme }) => theme.borderRadius?.medium || "0.375rem"};
   padding: 1.5rem;
   width: 100%;
-  max-width: 500px;
-  box-shadow: ${({ theme }) => theme.shadows.large};
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: ${({ theme }) =>
+    theme.shadows?.large || "0 10px 15px -3px rgba(0, 0, 0, 0.1)"};
 `;
 
 const ModalHeader = styled.div`
@@ -224,68 +282,45 @@ const ModalHeader = styled.div`
 
 const ModalTitle = styled.h2`
   font-size: 1.5rem;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
   margin: 0;
 `;
 
 const CloseButton = styled.button`
   background: none;
   border: none;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
   font-size: 1.5rem;
   cursor: pointer;
 
   &:hover {
-    color: ${({ theme }) => theme.colors.text.primary};
+    color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
   }
 `;
 
-const Form = styled.form`
+const RejectModal = styled(Modal)``;
+
+const RejectModalContent = styled(ModalContent)`
+  max-width: 400px;
+`;
+
+const RejectForm = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 `;
 
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const Label = styled.label`
-  font-weight: 500;
-  color: ${({ theme }) => theme.colors.text.primary};
-`;
-
-const Input = styled.input`
+const RejectTextarea = styled.textarea`
   padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
+  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
+  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
   font-size: 1rem;
-  background-color: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text.primary};
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px ${({ theme }) => `${theme.colors.primary}33`};
-  }
-`;
-
-const Textarea = styled.textarea`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  font-size: 1rem;
-  background-color: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text.primary};
   min-height: 100px;
   resize: vertical;
 
   &:focus {
     outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px ${({ theme }) => `${theme.colors.primary}33`};
+    border-color: ${({ theme }) => theme.colors?.primary || "#4F46E5"};
   }
 `;
 
@@ -298,56 +333,34 @@ const ButtonGroup = styled.div`
 
 // Composant Vacations
 const Vacations = () => {
-  const [activeTab, setActiveTab] = useState("all");
-  const [showModal, setShowModal] = useState(false);
+  const { user } = useAuth();
+  const {
+    vacations,
+    loading,
+    error,
+    createVacation,
+    updateVacation,
+    approveVacation,
+    rejectVacation,
+    deleteVacation,
+    getVacationsByStatus,
+  } = useVacations();
 
-  // Données fictives pour les demandes de congés
-  const vacationRequests = [
-    {
-      id: 1,
-      employee: "Sophie Martin",
-      type: "Congés payés",
-      startDate: "2023-10-15",
-      endDate: "2023-10-22",
-      duration: "8 jours",
-      status: "approved",
-      reason: "Vacances familiales",
-      approvedBy: "Admin",
-      approvedAt: "2023-09-20",
-    },
-    {
-      id: 2,
-      employee: "Thomas Dubois",
-      type: "Congés sans solde",
-      startDate: "2023-11-05",
-      endDate: "2023-11-10",
-      duration: "6 jours",
-      status: "pending",
-      reason: "Raisons personnelles",
-    },
-    {
-      id: 3,
-      employee: "Julie Leroy",
-      type: "Congés maladie",
-      startDate: "2023-09-28",
-      endDate: "2023-10-02",
-      duration: "5 jours",
-      status: "rejected",
-      reason: "Maladie",
-      rejectedBy: "Admin",
-      rejectedAt: "2023-09-27",
-      rejectionReason: "Documentation insuffisante",
-    },
-  ];
+  const [activeTab, setActiveTab] = useState("all");
+  const [viewMode, setViewMode] = useState("list");
+  const [showModal, setShowModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedVacation, setSelectedVacation] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   // Filtrer les demandes en fonction de l'onglet actif
-  const filteredRequests = vacationRequests.filter((request) => {
-    if (activeTab === "all") return true;
-    return request.status === activeTab;
-  });
+  const filteredVacations = getVacationsByStatus(
+    activeTab === "all" ? null : activeTab
+  );
 
   // Formater la date
   const formatDate = (dateString) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
     return date.toLocaleDateString("fr-FR", {
       day: "2-digit",
@@ -356,22 +369,114 @@ const Vacations = () => {
     });
   };
 
+  // Traduire le type de congé
+  const translateType = (type) => {
+    const types = {
+      paid: "Congés payés",
+      rtt: "RTT",
+      unpaid: "Congés sans solde",
+      sick: "Maladie",
+      exceptional: "Absence exceptionnelle",
+      recovery: "Récupération",
+    };
+    return types[type] || type;
+  };
+
+  // Gérer la soumission du formulaire
+  const handleSubmit = useCallback(
+    async (formData) => {
+      let success;
+      if (selectedVacation) {
+        success = await updateVacation(selectedVacation.id, formData);
+      } else {
+        success = await createVacation(formData);
+      }
+
+      if (success) {
+        setShowModal(false);
+        setSelectedVacation(null);
+      }
+    },
+    [selectedVacation, createVacation, updateVacation]
+  );
+
+  // Gérer l'approbation d'une demande
+  const handleApprove = useCallback(
+    async (id) => {
+      const success = await approveVacation(id);
+      if (success) {
+        setSelectedVacation(null);
+      }
+    },
+    [approveVacation]
+  );
+
+  // Gérer le rejet d'une demande
+  const handleReject = useCallback(
+    async (e) => {
+      e.preventDefault();
+      if (!selectedVacation) return;
+
+      const success = await rejectVacation(
+        selectedVacation.id,
+        rejectionReason
+      );
+      if (success) {
+        setShowRejectModal(false);
+        setSelectedVacation(null);
+        setRejectionReason("");
+      }
+    },
+    [selectedVacation, rejectionReason, rejectVacation]
+  );
+
+  // Ouvrir le modal de rejet
+  const openRejectModal = useCallback((vacation) => {
+    setSelectedVacation(vacation);
+    setShowRejectModal(true);
+  }, []);
+
+  // Gérer la suppression d'une demande
+  const handleDelete = useCallback(
+    async (id) => {
+      if (
+        window.confirm(
+          "Êtes-vous sûr de vouloir supprimer cette demande de congé ?"
+        )
+      ) {
+        const success = await deleteVacation(id);
+        if (success) {
+          setSelectedVacation(null);
+        }
+      }
+    },
+    [deleteVacation]
+  );
+
+  // Ouvrir le modal d'édition
+  const handleEdit = useCallback((vacation) => {
+    setSelectedVacation(vacation);
+    setShowModal(true);
+  }, []);
+
+  // Gérer le clic sur un jour du calendrier
+  const handleDayClick = useCallback((date) => {
+    // Créer une nouvelle demande de congé avec la date sélectionnée
+    setSelectedVacation(null);
+    setShowModal(true);
+    // Le formulaire sera pré-rempli avec cette date
+  }, []);
+
   return (
     <VacationsContainer>
       <PageHeader>
         <HeaderLeft>
           <AnimationContainer>
             <Lottie
-              options={{
-                loop: true,
-                autoplay: true,
-                animationData: holidaysAnimation,
-                rendererSettings: {
-                  preserveAspectRatio: "xMidYMid slice",
-                },
-              }}
-              height={80}
-              width={80}
+              animationData={holidaysAnimation}
+              loop={true}
+              autoplay={true}
+              style={{ height: 80, width: 80 }}
             />
           </AnimationContainer>
           <TitleContainer>
@@ -383,7 +488,7 @@ const Vacations = () => {
         </HeaderLeft>
 
         <Button variant="primary" onClick={() => setShowModal(true)}>
-          <span>+</span> Nouvelle demande
+          <FaPlus /> Nouvelle demande
         </Button>
       </PageHeader>
 
@@ -411,147 +516,308 @@ const Vacations = () => {
         </Tab>
       </TabsContainer>
 
-      {filteredRequests.length > 0 ? (
-        filteredRequests.map((request) => (
-          <VacationCard key={request.id} status={request.status}>
-            <VacationHeader>
-              <VacationTitle>{request.employee}</VacationTitle>
-              <VacationStatus status={request.status}>
-                {request.status === "approved"
-                  ? "Approuvé"
-                  : request.status === "rejected"
-                  ? "Refusé"
-                  : "En attente"}
-              </VacationStatus>
-            </VacationHeader>
+      <ViewToggle>
+        <ViewToggleButton
+          active={viewMode === "list"}
+          onClick={() => setViewMode("list")}
+        >
+          <FaList /> Liste
+        </ViewToggleButton>
+        <ViewToggleButton
+          active={viewMode === "calendar"}
+          onClick={() => setViewMode("calendar")}
+        >
+          <FaCalendarAlt /> Calendrier
+        </ViewToggleButton>
+      </ViewToggle>
 
-            <VacationDetails>
-              <VacationDetail>
-                <DetailLabel>Type</DetailLabel>
-                <DetailValue>{request.type}</DetailValue>
-              </VacationDetail>
-
-              <VacationDetail>
-                <DetailLabel>Date de début</DetailLabel>
-                <DetailValue>{formatDate(request.startDate)}</DetailValue>
-              </VacationDetail>
-
-              <VacationDetail>
-                <DetailLabel>Date de fin</DetailLabel>
-                <DetailValue>{formatDate(request.endDate)}</DetailValue>
-              </VacationDetail>
-
-              <VacationDetail>
-                <DetailLabel>Durée</DetailLabel>
-                <DetailValue>{request.duration}</DetailValue>
-              </VacationDetail>
-            </VacationDetails>
-
-            <VacationDetail>
-              <DetailLabel>Motif</DetailLabel>
-              <DetailValue>{request.reason}</DetailValue>
-            </VacationDetail>
-
-            {request.status === "approved" && (
-              <VacationDetail>
-                <DetailLabel>Approuvé par</DetailLabel>
-                <DetailValue>
-                  {request.approvedBy} le {formatDate(request.approvedAt)}
-                </DetailValue>
-              </VacationDetail>
-            )}
-
-            {request.status === "rejected" && (
-              <VacationDetail>
-                <DetailLabel>Motif du refus</DetailLabel>
-                <DetailValue>{request.rejectionReason}</DetailValue>
-              </VacationDetail>
-            )}
-
-            {request.status === "pending" && (
-              <VacationActions>
-                <Button variant="outline">Refuser</Button>
-                <Button variant="primary">Approuver</Button>
-              </VacationActions>
-            )}
-          </VacationCard>
-        ))
-      ) : (
-        <EmptyState>
-          Aucune demande de congés{" "}
-          {activeTab !== "all"
-            ? `${
-                activeTab === "pending"
-                  ? "en attente"
-                  : activeTab === "approved"
-                  ? "approuvée"
-                  : "refusée"
-              }`
-            : ""}{" "}
-          trouvée.
-        </EmptyState>
+      {/* Bouton d'export PDF */}
+      {filteredVacations.length > 0 && (
+        <VacationExport vacations={filteredVacations} isGlobal={true} />
       )}
 
+      {/* Vue calendrier */}
+      {viewMode === "calendar" && (
+        <VacationCalendar
+          vacations={filteredVacations}
+          onDayClick={handleDayClick}
+        />
+      )}
+
+      {/* Vue liste */}
+      {viewMode === "list" && (
+        <>
+          {filteredVacations.length > 0 ? (
+            filteredVacations.map((vacation) => (
+              <VacationCard key={vacation.id} status={vacation.status}>
+                <VacationHeader>
+                  <VacationTitle>
+                    {vacation.employeeName || "Employé inconnu"}
+                  </VacationTitle>
+                  <VacationStatus status={vacation.status}>
+                    {vacation.status === "approved"
+                      ? "Approuvé"
+                      : vacation.status === "rejected"
+                      ? "Refusé"
+                      : "En attente"}
+                  </VacationStatus>
+                </VacationHeader>
+
+                <VacationDetails>
+                  <VacationDetail>
+                    <DetailLabel>Type</DetailLabel>
+                    <DetailValue>{translateType(vacation.type)}</DetailValue>
+                  </VacationDetail>
+
+                  <VacationDetail>
+                    <DetailLabel>Date de début</DetailLabel>
+                    <DetailValue>{formatDate(vacation.startDate)}</DetailValue>
+                  </VacationDetail>
+
+                  <VacationDetail>
+                    <DetailLabel>Date de fin</DetailLabel>
+                    <DetailValue>{formatDate(vacation.endDate)}</DetailValue>
+                  </VacationDetail>
+
+                  <VacationDetail>
+                    <DetailLabel>Durée</DetailLabel>
+                    <DetailValue>{vacation.duration}</DetailValue>
+                  </VacationDetail>
+                </VacationDetails>
+
+                <VacationDetail>
+                  <DetailLabel>Motif</DetailLabel>
+                  <DetailValue>{vacation.reason || "-"}</DetailValue>
+                </VacationDetail>
+
+                {vacation.status === "approved" && (
+                  <VacationDetail>
+                    <DetailLabel>Approuvé le</DetailLabel>
+                    <DetailValue>
+                      {formatDate(vacation.approvedAt)}{" "}
+                      {vacation.approvedAt
+                        ? new Date(vacation.approvedAt).toLocaleTimeString(
+                            "fr-FR",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )
+                        : ""}
+                    </DetailValue>
+                  </VacationDetail>
+                )}
+
+                {vacation.status === "rejected" && (
+                  <VacationDetail>
+                    <DetailLabel>Refusé le</DetailLabel>
+                    <DetailValue>
+                      {formatDate(vacation.rejectedAt)}{" "}
+                      {vacation.rejectedAt
+                        ? new Date(vacation.rejectedAt).toLocaleTimeString(
+                            "fr-FR",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )
+                        : ""}
+                    </DetailValue>
+                  </VacationDetail>
+                )}
+
+                {vacation.status === "rejected" && vacation.rejectionReason && (
+                  <VacationDetail>
+                    <DetailLabel>Motif du refus</DetailLabel>
+                    <DetailValue>{vacation.rejectionReason}</DetailValue>
+                  </VacationDetail>
+                )}
+
+                {/* Actions selon le statut et le rôle de l'utilisateur */}
+                <VacationActions>
+                  {/* Actions pour les employés sur leurs propres demandes en attente */}
+                  {vacation.employeeId === user.id &&
+                    vacation.status === "pending" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDelete(vacation.id)}
+                        >
+                          Supprimer
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleEdit(vacation)}
+                        >
+                          Modifier
+                        </Button>
+                      </>
+                    )}
+
+                  {/* Actions pour les admins et managers sur les demandes en attente */}
+                  {(user.role === "admin" || user.role === "manager") &&
+                    vacation.status === "pending" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => openRejectModal(vacation)}
+                        >
+                          Refuser
+                        </Button>
+                        <Button
+                          variant="primary"
+                          onClick={() => handleApprove(vacation.id)}
+                        >
+                          Approuver
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDelete(vacation.id)}
+                        >
+                          Supprimer
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleEdit(vacation)}
+                        >
+                          Modifier
+                        </Button>
+                      </>
+                    )}
+
+                  {/* Actions pour les admins et managers sur les demandes approuvées */}
+                  {(user.role === "admin" || user.role === "manager") &&
+                    vacation.status === "approved" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            // Mettre la demande en attente
+                            updateVacation(vacation.id, { status: "pending" });
+                          }}
+                        >
+                          Remettre en attente
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDelete(vacation.id)}
+                        >
+                          Supprimer
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleEdit(vacation)}
+                        >
+                          Modifier
+                        </Button>
+                      </>
+                    )}
+
+                  {/* Actions pour les admins et managers sur les demandes rejetées */}
+                  {(user.role === "admin" || user.role === "manager") &&
+                    vacation.status === "rejected" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            // Mettre la demande en attente
+                            updateVacation(vacation.id, { status: "pending" });
+                          }}
+                        >
+                          Remettre en attente
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDelete(vacation.id)}
+                        >
+                          Supprimer
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleEdit(vacation)}
+                        >
+                          Modifier
+                        </Button>
+                      </>
+                    )}
+                </VacationActions>
+              </VacationCard>
+            ))
+          ) : (
+            <EmptyState>
+              Aucune demande de congés{" "}
+              {activeTab !== "all"
+                ? `${
+                    activeTab === "pending"
+                      ? "en attente"
+                      : activeTab === "approved"
+                      ? "approuvée"
+                      : "refusée"
+                  }`
+                : ""}{" "}
+              trouvée.
+            </EmptyState>
+          )}
+        </>
+      )}
+
+      {/* Modal de création/édition de demande */}
       {showModal && (
         <Modal onClick={() => setShowModal(false)}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
-              <ModalTitle>Nouvelle demande de congés</ModalTitle>
+              <ModalTitle>
+                {selectedVacation
+                  ? "Modifier la demande"
+                  : "Nouvelle demande de congés"}
+              </ModalTitle>
               <CloseButton onClick={() => setShowModal(false)}>×</CloseButton>
             </ModalHeader>
 
-            <Form>
-              <FormGroup>
-                <Label htmlFor="employee">Employé</Label>
-                <Input
-                  id="employee"
-                  type="text"
-                  placeholder="Sélectionner un employé"
-                />
-              </FormGroup>
+            <VacationForm
+              vacation={selectedVacation}
+              onSubmit={handleSubmit}
+              onCancel={() => setShowModal(false)}
+              currentUser={user}
+            />
+          </ModalContent>
+        </Modal>
+      )}
 
-              <FormGroup>
-                <Label htmlFor="type">Type de congés</Label>
-                <Input
-                  id="type"
-                  type="text"
-                  placeholder="Sélectionner un type"
-                />
-              </FormGroup>
+      {/* Modal de rejet */}
+      {showRejectModal && (
+        <RejectModal onClick={() => setShowRejectModal(false)}>
+          <RejectModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>Motif du refus</ModalTitle>
+              <CloseButton onClick={() => setShowRejectModal(false)}>
+                ×
+              </CloseButton>
+            </ModalHeader>
 
-              <FormGroup>
-                <Label htmlFor="startDate">Date de début</Label>
-                <Input id="startDate" type="date" />
-              </FormGroup>
-
-              <FormGroup>
-                <Label htmlFor="endDate">Date de fin</Label>
-                <Input id="endDate" type="date" />
-              </FormGroup>
-
-              <FormGroup>
-                <Label htmlFor="reason">Motif</Label>
-                <Textarea
-                  id="reason"
-                  placeholder="Entrez le motif de la demande"
-                />
-              </FormGroup>
+            <RejectForm onSubmit={handleReject}>
+              <RejectTextarea
+                placeholder="Veuillez indiquer le motif du refus..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                required
+              />
 
               <ButtonGroup>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => setShowRejectModal(false)}
                 >
                   Annuler
                 </Button>
                 <Button type="submit" variant="primary">
-                  Soumettre
+                  Confirmer le refus
                 </Button>
               </ButtonGroup>
-            </Form>
-          </ModalContent>
-        </Modal>
+            </RejectForm>
+          </RejectModalContent>
+        </RejectModal>
       )}
     </VacationsContainer>
   );
