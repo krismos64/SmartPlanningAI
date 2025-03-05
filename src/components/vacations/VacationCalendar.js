@@ -4,8 +4,13 @@ import styled from "styled-components";
 import { FRENCH_HOLIDAYS_2024, VACATION_TYPES } from "../../config/constants";
 import { isHoliday, isWeekend } from "../../utils/dateUtils";
 
-// Fonction pour détecter le mode sombre du système
+// Fonction pour détecter le mode sombre du système ou du thème
 const isDarkMode = () => {
+  // Vérifier d'abord le thème de l'application si disponible
+  if (document.documentElement.getAttribute("data-theme") === "dark") {
+    return true;
+  }
+  // Sinon, vérifier les préférences du système
   return (
     window.matchMedia &&
     window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -13,13 +18,22 @@ const isDarkMode = () => {
 };
 
 const CalendarContainer = styled.div`
-  background-color: ${() => (isDarkMode() ? "#1F2937" : "white")};
+  background-color: ${({ theme }) =>
+    isDarkMode() ? "#1F2937" : theme.colors?.surface || "white"};
   border-radius: ${({ theme }) => theme.borderRadius?.medium || "0.375rem"};
   box-shadow: ${({ theme }) =>
     theme.shadows?.medium || "0 4px 6px -1px rgba(0, 0, 0, 0.1)"};
   padding: 1.5rem;
   margin-bottom: 2rem;
-  color: ${() => (isDarkMode() ? "#F3F4F6" : "#111827")};
+  color: ${({ theme }) =>
+    isDarkMode() ? "#F3F4F6" : theme.colors?.text?.primary || "#111827"};
+  width: 100%;
+  overflow-x: auto;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.md || "768px"}) {
+    padding: 1rem 0.5rem;
+    border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
+  }
 `;
 
 const CalendarHeader = styled.div`
@@ -27,17 +41,29 @@ const CalendarHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  padding: 0 0.5rem;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    flex-direction: column;
+    gap: 1rem;
+  }
 `;
 
 const MonthTitle = styled.h2`
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
-  color: ${() => (isDarkMode() ? "#F3F4F6" : "#111827")};
+  color: ${({ theme }) =>
+    isDarkMode() ? "#F3F4F6" : theme.colors?.text?.primary || "#111827"};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    font-size: 1.25rem;
+  }
 `;
 
 const NavigationButton = styled.button`
-  background-color: ${() => (isDarkMode() ? "#6B7280" : "transparent")};
+  background-color: ${({ theme }) =>
+    isDarkMode() ? "#6B7280" : theme.colors?.background || "#f8f9fa"};
   border: 1px solid
     ${({ theme }) =>
       isDarkMode() ? "#6B7280" : theme.colors?.border || "#E5E7EB"};
@@ -48,11 +74,14 @@ const NavigationButton = styled.button`
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  color: ${() => (isDarkMode() ? "#F3F4F6" : "#111827")};
+  color: ${({ theme }) =>
+    isDarkMode() ? "#F3F4F6" : theme.colors?.text?.primary || "#111827"};
 
   &:hover {
-    background-color: ${() => (isDarkMode() ? "#4F46E5" : "#f5f5f5")};
-    color: ${() => (isDarkMode() ? "white" : "#111827")};
+    background-color: ${({ theme }) =>
+      isDarkMode() ? "#4F46E5" : theme.colors?.primary + "22" || "#f5f5f5"};
+    color: ${({ theme }) =>
+      isDarkMode() ? "white" : theme.colors?.primary || "#111827"};
   }
 `;
 
@@ -65,22 +94,46 @@ const CalendarGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 0.5rem;
+  min-width: min-content;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    gap: 0.25rem;
+  }
 `;
 
 const DayHeader = styled.div`
   text-align: center;
   font-weight: 600;
   padding: 0.5rem;
-  color: ${() => (isDarkMode() ? "#F3F4F6" : "#111827")};
+  color: ${({ theme }) =>
+    isDarkMode() ? "#F3F4F6" : theme.colors?.text?.primary || "#111827"};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.xs || "400px"}) {
+    font-size: 0.7rem;
+  }
 `;
 
 const DayCell = styled.div`
   position: relative;
   min-height: 80px;
+  min-width: 80px;
   padding: 0.5rem;
-  border: 1px solid ${() => (isDarkMode() ? "#6B7280" : "#E5E7EB")};
+  border: 1px solid
+    ${({ theme }) =>
+      isDarkMode() ? "#6B7280" : theme.colors?.border || "#E5E7EB"};
   border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  background-color: ${({ isCurrentMonth, isToday, isWeekend, isHoliday }) => {
+  background-color: ${({
+    isCurrentMonth,
+    isToday,
+    isWeekend,
+    isHoliday,
+    theme,
+  }) => {
     if (isDarkMode()) {
       if (isHoliday) return "#3D1A1A"; // Rouge foncé pour les jours fériés
       if (isWeekend) return "#2D3748"; // Gris foncé pour les weekends
@@ -88,23 +141,38 @@ const DayCell = styled.div`
       return isCurrentMonth ? "#2D3748" : "#1F2937"; // Gris foncé pour le mois courant, plus foncé pour les autres mois
     } else {
       if (isHoliday) return "#ffeeee"; // Rouge clair pour les jours fériés
-      if (isWeekend) return "#f5f5f5"; // Gris clair pour les weekends
-      if (isToday) return "#e6f7ff"; // Bleu clair pour aujourd'hui
-      return isCurrentMonth ? "white" : "#f9f9f9"; // Blanc pour le mois courant, gris clair pour les autres mois
+      if (isWeekend) return theme.colors?.background || "#f5f5f5"; // Gris clair pour les weekends
+      if (isToday) return theme.colors?.primary + "11" || "#e6f7ff"; // Bleu clair pour aujourd'hui
+      return isCurrentMonth
+        ? theme.colors?.surface || "white"
+        : theme.colors?.background || "#f9f9f9"; // Blanc pour le mois courant, gris clair pour les autres mois
     }
   }};
-  color: ${({ isCurrentMonth, isToday, isWeekend, isHoliday }) => {
+  color: ${({ isCurrentMonth, isToday, isWeekend, isHoliday, theme }) => {
     if (isDarkMode()) {
       if (isHoliday) return "#F56565"; // Rouge clair pour le texte des jours fériés
       if (isWeekend) return "#CBD5E0"; // Gris clair pour le texte des weekends
       return isCurrentMonth ? "#F3F4F6" : "#A0AEC0"; // Blanc pour le mois courant, gris pour les autres
     } else {
-      if (isHoliday) return "#d32f2f"; // Rouge pour le texte des jours fériés
-      if (isWeekend) return "#757575"; // Gris pour le texte des weekends
-      return isCurrentMonth ? "#111827" : "#aaa"; // Noir pour le mois courant, gris pour les autres
+      if (isHoliday) return theme.colors?.error || "#d32f2f"; // Rouge pour le texte des jours fériés
+      if (isWeekend) return theme.colors?.text?.secondary || "#757575"; // Gris pour le texte des weekends
+      return isCurrentMonth
+        ? theme.colors?.text?.primary || "#111827"
+        : theme.colors?.text?.disabled || "#aaa"; // Noir pour le mois courant, gris pour les autres
     }
   }};
   font-weight: ${({ isToday }) => (isToday ? "600" : "normal")};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    min-height: 60px;
+    min-width: 60px;
+    padding: 0.25rem;
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.xs || "400px"}) {
+    min-height: 50px;
+    min-width: 40px;
+  }
 `;
 
 const DayNumber = styled.div`
@@ -112,14 +180,24 @@ const DayNumber = styled.div`
   top: 0.25rem;
   right: 0.25rem;
   font-size: 0.875rem;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    font-size: 0.75rem;
+  }
 `;
 
 const HolidayName = styled.div`
   font-size: 0.75rem;
-  color: ${() => (isDarkMode() ? "#F56565" : "#d32f2f")};
+  color: ${({ theme }) =>
+    isDarkMode() ? "#F56565" : theme.colors?.error || "#d32f2f"};
   font-weight: 500;
   margin-top: 1.5rem;
   text-align: center;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    font-size: 0.65rem;
+    margin-top: 1rem;
+  }
 `;
 
 const VacationList = styled.div`
@@ -136,11 +214,18 @@ const VacationList = styled.div`
   }
 
   &::-webkit-scrollbar-track {
-    background: ${() => (isDarkMode() ? "#2D3748" : "#f1f1f1")};
+    background: ${({ theme }) =>
+      isDarkMode() ? "#2D3748" : theme.colors?.background || "#f1f1f1"};
   }
 
   &::-webkit-scrollbar-thumb {
-    background: ${() => (isDarkMode() ? "#4A5568" : "#888")};
+    background: ${({ theme }) =>
+      isDarkMode() ? "#4A5568" : theme.colors?.border || "#888"};
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    margin-top: 1rem;
+    max-height: 40px;
   }
 `;
 
@@ -170,6 +255,11 @@ const VacationItem = styled.div`
   }};
   color: white;
   cursor: pointer;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    font-size: 0.6rem;
+    padding: 0.1rem 0.2rem;
+  }
 `;
 
 const Legend = styled.div`
@@ -177,7 +267,15 @@ const Legend = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  color: ${() => (isDarkMode() ? "#F3F4F6" : "#111827")};
+  color: ${({ theme }) =>
+    isDarkMode() ? "#F3F4F6" : theme.colors?.text?.primary || "#111827"};
+  padding: 0 0.5rem;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
 `;
 
 const LegendItem = styled.div`
@@ -185,14 +283,28 @@ const LegendItem = styled.div`
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    font-size: 0.75rem;
+    gap: 0.25rem;
+  }
 `;
 
 const LegendColor = styled.div`
   width: 1rem;
   height: 1rem;
   border-radius: 2px;
-  background-color: ${({ color }) =>
-    typeof color === "function" ? color() : color};
+  background-color: ${({ color, theme }) => {
+    if (typeof color === "function") {
+      return color(theme);
+    }
+    return color;
+  }};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "576px"}) {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
 `;
 
 const VacationCalendar = ({ vacations, onDayClick }) => {
@@ -332,6 +444,13 @@ const VacationCalendar = ({ vacations, onDayClick }) => {
   // Jours de la semaine
   const weekDays = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
+  // Modifier les fonctions de couleur pour prendre en compte le thème
+  const getTodayColor = (theme) =>
+    isDarkMode() ? "#1A365D" : theme.colors?.primary + "11" || "#e6f7ff";
+  const getWeekendColor = (theme) =>
+    isDarkMode() ? "#2D3748" : theme.colors?.background || "#f5f5f5";
+  const getHolidayColor = (theme) => (isDarkMode() ? "#3D1A1A" : "#ffeeee");
+
   return (
     <CalendarContainer>
       <CalendarHeader>
@@ -398,15 +517,15 @@ const VacationCalendar = ({ vacations, onDayClick }) => {
 
         {/* Légende pour les jours spéciaux */}
         <LegendItem>
-          <LegendColor color={() => (isDarkMode() ? "#1A365D" : "#e6f7ff")} />
+          <LegendColor color={getTodayColor} />
           Aujourd'hui
         </LegendItem>
         <LegendItem>
-          <LegendColor color={() => (isDarkMode() ? "#2D3748" : "#f5f5f5")} />
+          <LegendColor color={getWeekendColor} />
           Weekend
         </LegendItem>
         <LegendItem>
-          <LegendColor color={() => (isDarkMode() ? "#3D1A1A" : "#ffeeee")} />
+          <LegendColor color={getHolidayColor} />
           Jour férié
         </LegendItem>
       </Legend>
