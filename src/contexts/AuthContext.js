@@ -25,6 +25,10 @@ export const AuthProvider = ({ children }) => {
     const userWithAdminRole = {
       ...userData,
       role: "admin", // Tous les utilisateurs ont le rôle admin
+      profileImage: userData.profileImage || null,
+      company: userData.company || "",
+      phone: userData.phone || "",
+      jobTitle: userData.jobTitle || "",
     };
     setUser(userWithAdminRole);
     setIsAuthenticated(true);
@@ -129,7 +133,13 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("token", data.token);
 
       // Définir l'utilisateur comme admin
-      const adminUser = setUserWithAdminRole(data);
+      const adminUser = setUserWithAdminRole({
+        ...data,
+        profileImage: data.profileImage || null,
+        company: data.company || "",
+        phone: data.phone || "",
+        jobTitle: data.jobTitle || "",
+      });
 
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
