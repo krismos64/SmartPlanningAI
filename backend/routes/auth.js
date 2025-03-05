@@ -128,6 +128,10 @@ router.get("/profile", auth, async (req, res) => {
       role: req.user.role,
       firstName: req.user.firstName,
       lastName: req.user.lastName,
+      profileImage: req.user.profileImage,
+      company: req.user.company,
+      phone: req.user.phone,
+      jobTitle: req.user.jobTitle,
     });
   } catch (error) {
     console.error("Erreur lors de la récupération du profil:", error);
@@ -140,7 +144,15 @@ router.get("/profile", auth, async (req, res) => {
 // Route pour mettre à jour le profil de l'utilisateur
 router.put("/profile", auth, async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const {
+      email,
+      firstName,
+      lastName,
+      profileImage,
+      company,
+      phone,
+      jobTitle,
+    } = req.body;
     const userId = req.user.id;
 
     // Vérifier si le nouvel email est déjà utilisé par un autre utilisateur
@@ -153,21 +165,15 @@ router.put("/profile", auth, async (req, res) => {
       }
     }
 
-    // Vérifier si le nouveau nom d'utilisateur est déjà utilisé
-    if (username && username !== req.user.username) {
-      const existingUser = await User.findByUsername(username);
-      if (existingUser && existingUser.id !== userId) {
-        return res
-          .status(400)
-          .json({ message: "Ce nom d'utilisateur est déjà pris." });
-      }
-    }
-
     // Mettre à jour l'utilisateur
     const updatedUser = await User.findByIdAndUpdate(userId, {
-      username: username || req.user.username,
       email: email || req.user.email,
-      password: password || req.user.password,
+      firstName: firstName || req.user.firstName,
+      lastName: lastName || req.user.lastName,
+      profileImage: profileImage || req.user.profileImage,
+      company: company || req.user.company,
+      phone: phone || req.user.phone,
+      jobTitle: jobTitle || req.user.jobTitle,
     });
 
     // Retourner les informations mises à jour
@@ -176,6 +182,12 @@ router.put("/profile", auth, async (req, res) => {
       username: updatedUser.username,
       email: updatedUser.email,
       role: updatedUser.role,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      profileImage: updatedUser.profileImage,
+      company: updatedUser.company,
+      phone: updatedUser.phone,
+      jobTitle: updatedUser.jobTitle,
     });
   } catch (error) {
     console.error("Erreur lors de la mise à jour du profil:", error);

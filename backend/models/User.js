@@ -12,12 +12,16 @@ class User {
     this.firstName = data.firstName;
     this.lastName = data.lastName;
     this.created_at = data.created_at;
+    this.profileImage = data.profileImage;
+    this.company = data.company;
+    this.phone = data.phone;
+    this.jobTitle = data.jobTitle;
   }
 
   static async find() {
     try {
       const [rows] = await pool.execute(
-        "SELECT id, username, email, role, firstName, lastName, created_at FROM users"
+        "SELECT id, username, email, role, firstName, lastName, created_at, company, phone, jobTitle FROM users"
       );
       return rows.map((row) => new User(row));
     } catch (error) {
@@ -29,7 +33,7 @@ class User {
   static async findById(id) {
     try {
       const [rows] = await pool.execute(
-        "SELECT id, username, email, role, firstName, lastName, created_at FROM users WHERE id = ?",
+        "SELECT id, username, email, role, firstName, lastName, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?",
         [id]
       );
       if (rows.length === 0) return null;
@@ -105,7 +109,7 @@ class User {
       if (this.id) {
         // Mise à jour
         await pool.execute(
-          "UPDATE users SET username = ?, email = ?, password = ?, role = ?, firstName = ?, lastName = ? WHERE id = ?",
+          "UPDATE users SET username = ?, email = ?, password = ?, role = ?, firstName = ?, lastName = ?, profileImage = ?, company = ?, phone = ?, jobTitle = ? WHERE id = ?",
           [
             this.username,
             this.email,
@@ -113,6 +117,10 @@ class User {
             this.role,
             this.firstName,
             this.lastName,
+            this.profileImage,
+            this.company,
+            this.phone,
+            this.jobTitle,
             this.id,
           ]
         );
@@ -120,7 +128,7 @@ class User {
       } else {
         // Création
         const [result] = await pool.execute(
-          "INSERT INTO users (username, email, password, role, firstName, lastName) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO users (username, email, password, role, firstName, lastName, profileImage, company, phone, jobTitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
             this.username,
             this.email,
@@ -128,6 +136,10 @@ class User {
             this.role,
             this.firstName,
             this.lastName,
+            this.profileImage,
+            this.company,
+            this.phone,
+            this.jobTitle,
           ]
         );
         this.id = result.insertId;

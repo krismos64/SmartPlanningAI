@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { useAuth } from "../contexts/AuthContext";
 import { useNotification } from "../components/ui/Notification";
+import { useAuth } from "../contexts/AuthContext";
 
 // Composants stylisés
 const ProfileContainer = styled.div`
@@ -45,6 +45,12 @@ const ProfileHeader = styled.div`
   }
 `;
 
+const AvatarContainer = styled.div`
+  position: relative;
+  width: 100px;
+  height: 100px;
+`;
+
 const Avatar = styled.div`
   width: 100px;
   height: 100px;
@@ -56,6 +62,39 @@ const Avatar = styled.div`
   color: white;
   font-size: 2.5rem;
   font-weight: bold;
+  overflow: hidden;
+`;
+
+const AvatarImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const AvatarUploadButton = styled.button`
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: ${({ theme }) => theme.colors.primary};
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  box-shadow: ${({ theme }) => theme.shadows.small};
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.primaryDark};
+  }
+`;
+
+const HiddenFileInput = styled.input`
+  display: none;
 `;
 
 const ProfileInfo = styled.div`
@@ -187,16 +226,19 @@ const SecondaryButton = styled(Button)`
 const Profile = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
     email: user?.email || "",
-    username: user?.username || "",
     phone: user?.phone || "",
     company: user?.company || "",
+    jobTitle: user?.jobTitle || "",
+    profileImage: user?.profileImage || null,
   });
 
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -207,10 +249,15 @@ const Profile = () => {
         firstName: user.firstName || "",
         lastName: user.lastName || "",
         email: user.email || "",
-        username: user.username || "",
         phone: user.phone || "",
         company: user.company || "",
+        jobTitle: user.jobTitle || "",
+        profileImage: user.profileImage || null,
       });
+
+      if (user.profileImage) {
+        setProfileImagePreview(`data:image/jpeg;base64,${user.profileImage}`);
+      }
     }
   }, [user]);
 
@@ -244,6 +291,31 @@ const Profile = () => {
         return "Employé";
       default:
         return "Utilisateur";
+    }
+  };
+
+  // Gérer le clic sur le bouton d'upload
+  const handleAvatarUploadClick = () => {
+    fileInputRef.current.click();
+  };
+
+  // Gérer le changement de fichier
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Prévisualisation de l'image
+        setProfileImagePreview(reader.result);
+
+        // Stocker l'image en base64 (sans le préfixe data:image/jpeg;base64,)
+        const base64String = reader.result.split(",")[1];
+        setFormData((prev) => ({
+          ...prev,
+          profileImage: base64String,
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -289,8 +361,26 @@ const Profile = () => {
     setIsLoading(true);
 
     try {
-      // Simuler une requête API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Appel à l'API pour mettre à jour le profil
+      const response = await fetch(`http://localhost:5001/api/auth/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur lors de la mise à jour du profil");
+      }
+
+      const updatedUser = await response.json();
+
+      // Mettre à jour les données utilisateur dans le localStorage
+      const currentUser = JSON.parse(localStorage.getItem("user"));
+      const newUserData = { ...currentUser, ...updatedUser };
+      localStorage.setItem("user", JSON.stringify(newUserData));
 
       showNotification({
         type: "success",
@@ -298,6 +388,7 @@ const Profile = () => {
         message: "Vos informations ont été mises à jour avec succès",
       });
     } catch (error) {
+      console.error("Erreur:", error);
       showNotification({
         type: "error",
         title: "Erreur",
@@ -319,7 +410,27 @@ const Profile = () => {
 
       <ProfileCard>
         <ProfileHeader>
-          <Avatar>{getInitials()}</Avatar>
+          <AvatarContainer>
+            <Avatar>
+              {profileImagePreview ? (
+                <AvatarImage src={profileImagePreview} alt="Photo de profil" />
+              ) : (
+                getInitials()
+              )}
+            </Avatar>
+            <AvatarUploadButton
+              onClick={handleAvatarUploadClick}
+              title="Changer la photo de profil"
+            >
+              <i className="fas fa-camera"></i>
+            </AvatarUploadButton>
+            <HiddenFileInput
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+            />
+          </AvatarContainer>
           <ProfileInfo>
             <ProfileName>{getFullName()}</ProfileName>
             <ProfileRole>{getUserRole()}</ProfileRole>
@@ -375,14 +486,13 @@ const Profile = () => {
             </FormGroup>
 
             <FormGroup>
-              <FormLabel htmlFor="username">Nom d'utilisateur</FormLabel>
+              <FormLabel htmlFor="jobTitle">Fonction</FormLabel>
               <FormInput
-                id="username"
-                name="username"
-                value={formData.username}
+                id="jobTitle"
+                name="jobTitle"
+                value={formData.jobTitle}
                 onChange={handleChange}
-                placeholder="Votre nom d'utilisateur"
-                disabled
+                placeholder="Votre fonction"
               />
             </FormGroup>
           </FormSection>
