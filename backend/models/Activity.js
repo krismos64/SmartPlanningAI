@@ -369,6 +369,32 @@ class Activity {
 
       console.log(`Activité enregistrée avec l'ID: ${activityId}`);
 
+      // Vérifier explicitement que la diffusion WebSocket fonctionne
+      if (global.wss) {
+        const clientCount = Array.from(global.wss.clients).filter(
+          (client) => client.readyState === WebSocket.OPEN
+        ).length;
+
+        console.log(`État WebSocket: ${clientCount} clients connectés`);
+
+        // Forcer une diffusion supplémentaire des activités récentes
+        try {
+          await this.broadcastRecentActivities(10);
+          console.log(
+            "Diffusion supplémentaire des activités récentes effectuée"
+          );
+        } catch (wsError) {
+          console.error(
+            "Erreur lors de la diffusion supplémentaire des activités:",
+            wsError
+          );
+        }
+      } else {
+        console.warn(
+          "WebSocket non disponible pour la diffusion des activités"
+        );
+      }
+
       return activityId;
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de l'activité:", error);
