@@ -8,7 +8,6 @@ import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
 import { FormSelect } from "../components/ui/Form";
 import { useNotification } from "../components/ui/Notification";
 import { EMPLOYEE_STATUSES, EMPLOYEE_TABLE_COLUMNS } from "../config/constants";
-import { useAuth } from "../contexts/AuthContext";
 import useEmployees from "../hooks/useEmployees";
 
 // Composants stylisés
@@ -147,7 +146,6 @@ const EmptyStateDescription = styled.p`
 
 // Composant principal
 const Employees = () => {
-  const { user } = useAuth();
   const { showNotification } = useNotification();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
@@ -161,14 +159,12 @@ const Employees = () => {
 
   const {
     employees,
-    setEmployees,
     loading,
     error,
     createEmployee,
     updateEmployee,
     deleteEmployee,
     fetchEmployees,
-    apiRequest,
     getEmployeesByStatus,
   } = useEmployees();
 
@@ -208,88 +204,95 @@ const Employees = () => {
     return roles;
   }, [employees]);
 
-  const handleUpdateEmployee = async (employeeData) => {
-    try {
-      if (!editingEmployee?.id) {
-        throw new Error("Aucun employé sélectionné pour la mise à jour");
+  const handleUpdateEmployee = useCallback(
+    async (employeeData) => {
+      try {
+        if (!editingEmployee?.id) {
+          throw new Error("Aucun employé sélectionné pour la mise à jour");
+        }
+
+        setIsLoading(true);
+        console.log("ID de l'employé à mettre à jour:", editingEmployee.id);
+        console.log("Données à envoyer:", employeeData);
+
+        // Pas besoin de convertir les valeurs numériques ici, c'est fait dans le hook
+        const result = await updateEmployee(editingEmployee.id, employeeData);
+
+        console.log("Résultat de la mise à jour:", result);
+
+        if (!result || !result.success) {
+          throw new Error(result?.error || "La mise à jour a échoué");
+        }
+
+        // Rafraîchir la liste des employés
+        await fetchEmployees();
+
+        showNotification({
+          type: "success",
+          message: `Mise à jour des informations de l'employé ${employeeData.first_name} ${employeeData.last_name}`,
+        });
+
+        // Fermer le modal et réinitialiser l'état
+        setShowModal(false);
+        // Réinitialiser editingEmployee après la fermeture du modal
+        setTimeout(() => setEditingEmployee(null), 0);
+      } catch (error) {
+        console.error("Erreur détaillée:", error);
+        showNotification({
+          type: "error",
+          message:
+            error.message || "Erreur lors de la mise à jour de l'employé",
+        });
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [editingEmployee, updateEmployee, fetchEmployees, showNotification]
+  );
 
-      setIsLoading(true);
-      console.log("ID de l'employé à mettre à jour:", editingEmployee.id);
-      console.log("Données à envoyer:", employeeData);
+  const handleCreateEmployee = useCallback(
+    async (employeeData) => {
+      try {
+        setIsLoading(true);
 
-      // Pas besoin de convertir les valeurs numériques ici, c'est fait dans le hook
-      const result = await updateEmployee(editingEmployee.id, employeeData);
+        console.log("Données pour création d'employé:", employeeData);
 
-      console.log("Résultat de la mise à jour:", result);
+        // Pas besoin de convertir les valeurs numériques ici, c'est fait dans le hook
+        const result = await createEmployee(employeeData);
 
-      if (!result || !result.success) {
-        throw new Error(result?.error || "La mise à jour a échoué");
+        console.log("Résultat de la création:", result);
+
+        if (!result || !result.success) {
+          throw new Error(result?.error || "La création a échoué");
+        }
+
+        // Rafraîchir la liste des employés
+        await fetchEmployees();
+
+        showNotification({
+          type: "success",
+          message: `Création d'un nouvel employé: ${employeeData.first_name} ${employeeData.last_name}`,
+        });
+
+        // Fermer le modal et rediriger vers la page des employés
+        setShowModal(false);
+
+        // Rediriger vers la page des employés
+        navigate("/employees");
+      } catch (error) {
+        console.error("Erreur détaillée:", error);
+        showNotification({
+          type: "error",
+          message: error.message || "Erreur lors de la création de l'employé",
+        });
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [createEmployee, fetchEmployees, showNotification, navigate]
+  );
 
-      // Rafraîchir la liste des employés
-      await fetchEmployees();
-
-      showNotification({
-        type: "success",
-        message: `Mise à jour des informations de l'employé ${employeeData.first_name} ${employeeData.last_name}`,
-      });
-
-      // Fermer le modal et réinitialiser l'état
-      setShowModal(false);
-      // Réinitialiser editingEmployee après la fermeture du modal
-      setTimeout(() => setEditingEmployee(null), 0);
-    } catch (error) {
-      console.error("Erreur détaillée:", error);
-      showNotification({
-        type: "error",
-        message: error.message || "Erreur lors de la mise à jour de l'employé",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateEmployee = async (employeeData) => {
-    try {
-      setIsLoading(true);
-
-      console.log("Données pour création d'employé:", employeeData);
-
-      // Pas besoin de convertir les valeurs numériques ici, c'est fait dans le hook
-      const result = await createEmployee(employeeData);
-
-      console.log("Résultat de la création:", result);
-
-      if (!result || !result.success) {
-        throw new Error(result?.error || "La création a échoué");
-      }
-
-      // Rafraîchir la liste des employés
-      await fetchEmployees();
-
-      showNotification({
-        type: "success",
-        message: `Création d'un nouvel employé: ${employeeData.first_name} ${employeeData.last_name}`,
-      });
-
-      // Fermer le modal et rediriger vers la page des employés
-      setShowModal(false);
-
-      // Rediriger vers la page des employés
-      navigate("/employees");
-    } catch (error) {
-      console.error("Erreur détaillée:", error);
-      showNotification({
-        type: "error",
-        message: error.message || "Erreur lors de la création de l'employé",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteEmployee = async () => {
+  const handleDeleteEmployee = useCallback(async () => {
     try {
       if (!editingEmployee?.id) {
         throw new Error("Aucun employé sélectionné pour la suppression");
@@ -326,7 +329,7 @@ const Employees = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [editingEmployee, deleteEmployee, fetchEmployees, showNotification]);
 
   const handleAddEmployee = useCallback(() => {
     setEditingEmployee(null);
