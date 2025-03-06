@@ -1,10 +1,10 @@
-import { useState } from "react";
+import Lottie from "lottie-react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import Lottie from "lottie-react";
 import planningAnimation from "../../assets/animations/planning-animation.json";
-import { useAuth } from "../../contexts/AuthContext";
 import { useNotification } from "../../components/ui/Notification";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Animations
 const fadeInUp = keyframes`
@@ -139,9 +139,15 @@ const Register = () => {
     password: "",
     confirmPassword: "",
     role: "employee", // Valeur par défaut
+    profileImage: null,
+    company: "",
+    phone: "",
+    jobTitle: "",
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
 
   const { register } = useAuth();
   const { showNotification } = useNotification();
@@ -154,6 +160,54 @@ const Register = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  // Gérer le clic sur le bouton d'upload
+  const handleAvatarUploadClick = () => {
+    fileInputRef.current.click();
+  };
+
+  // Gérer le changement de fichier
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Vérifier la taille du fichier (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showNotification({
+          type: "error",
+          title: "Fichier trop volumineux",
+          message: "La taille de l'image ne doit pas dépasser 5MB",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Prévisualisation de l'image
+        setProfileImagePreview(reader.result);
+
+        // Stocker l'image en base64 (sans le préfixe data:image/jpeg;base64,)
+        const base64String = reader.result.split(",")[1];
+
+        // Vérifier la taille de la chaîne base64
+        if (base64String.length > 2 * 1024 * 1024) {
+          // ~2MB en base64
+          showNotification({
+            type: "error",
+            title: "Image trop volumineuse",
+            message:
+              "Veuillez choisir une image de plus petite taille ou de qualité inférieure",
+          });
+          return;
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          profileImage: base64String,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Validation du formulaire
@@ -200,13 +254,32 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      await register({
+      // Préparer les données à envoyer
+      const dataToSend = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
         role: formData.role,
+        // Envoyer explicitement null si la valeur est vide
+        phone: formData.phone || null,
+        company: formData.company || null,
+        jobTitle: formData.jobTitle || null,
+        // Ne pas envoyer profileImage si aucune modification n'a été faite
+        ...(formData.profileImage
+          ? { profileImage: formData.profileImage }
+          : {}),
+      };
+
+      console.log("Envoi des données d'inscription:", {
+        ...dataToSend,
+        password: "***",
+        profileImageLength: dataToSend.profileImage
+          ? dataToSend.profileImage.length
+          : 0,
       });
+
+      await register(dataToSend);
 
       showNotification({
         type: "success",
@@ -247,7 +320,7 @@ const Register = () => {
 
         <Form onSubmit={handleSubmit}>
           <FormGroup>
-            <Label htmlFor="firstName">Prénom</Label>
+            <Label htmlFor="firstName">Prénom *</Label>
             <Input
               id="firstName"
               name="firstName"
@@ -263,7 +336,7 @@ const Register = () => {
           </FormGroup>
 
           <FormGroup>
-            <Label htmlFor="lastName">Nom</Label>
+            <Label htmlFor="lastName">Nom *</Label>
             <Input
               id="lastName"
               name="lastName"
@@ -277,7 +350,7 @@ const Register = () => {
           </FormGroup>
 
           <FormGroup>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Email *</Label>
             <Input
               id="email"
               name="email"
@@ -291,7 +364,7 @@ const Register = () => {
           </FormGroup>
 
           <FormGroup>
-            <Label htmlFor="password">Mot de passe</Label>
+            <Label htmlFor="password">Mot de passe *</Label>
             <Input
               id="password"
               name="password"
@@ -305,7 +378,7 @@ const Register = () => {
           </FormGroup>
 
           <FormGroup>
-            <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+            <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
             <Input
               id="confirmPassword"
               name="confirmPassword"
@@ -319,6 +392,100 @@ const Register = () => {
               <ErrorMessage>{errors.confirmPassword}</ErrorMessage>
             )}
           </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="jobTitle">Fonction</Label>
+            <Input
+              id="jobTitle"
+              name="jobTitle"
+              type="text"
+              value={formData.jobTitle}
+              onChange={handleChange}
+              placeholder="Votre fonction (optionnel)"
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="company">Entreprise</Label>
+            <Input
+              id="company"
+              name="company"
+              type="text"
+              value={formData.company}
+              onChange={handleChange}
+              placeholder="Votre entreprise (optionnel)"
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="phone">Téléphone</Label>
+            <Input
+              id="phone"
+              name="phone"
+              type="text"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="Votre numéro de téléphone (optionnel)"
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Label>Photo de profil (optionnel)</Label>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
+                marginTop: "0.5rem",
+              }}
+            >
+              {profileImagePreview && (
+                <div
+                  style={{
+                    width: "60px",
+                    height: "60px",
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    border: "1px solid #ddd",
+                  }}
+                >
+                  <img
+                    src={profileImagePreview}
+                    alt="Aperçu"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              )}
+              <Button
+                type="button"
+                onClick={handleAvatarUploadClick}
+                style={{
+                  backgroundColor: "#f0f0f0",
+                  color: "#333",
+                  padding: "0.5rem 1rem",
+                }}
+              >
+                Choisir une image
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                style={{ display: "none" }}
+              />
+            </div>
+          </FormGroup>
+
+          <div
+            style={{ fontSize: "0.8rem", color: "#666", marginBottom: "1rem" }}
+          >
+            * Champs obligatoires
+          </div>
 
           <Button type="submit" disabled={isLoading}>
             {isLoading ? "Inscription en cours..." : "S'inscrire"}

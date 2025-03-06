@@ -7,24 +7,35 @@ const JWT_SECRET = process.env.JWT_SECRET || "smartplanningai_secret_key";
 // Middleware pour vérifier le token JWT
 const auth = async (req, res, next) => {
   try {
+    console.log("Middleware d'authentification appelé pour", req.path);
+
     // Récupérer le token depuis l'en-tête Authorization
     const authHeader = req.headers.authorization;
+    console.log("En-tête Authorization:", authHeader ? "Présent" : "Absent");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Token manquant ou format incorrect");
       return res
         .status(401)
         .json({ message: "Accès non autorisé. Token manquant." });
     }
 
     const token = authHeader.split(" ")[1];
+    console.log(
+      "Token extrait:",
+      token ? token.substring(0, 10) + "..." : "Absent"
+    );
 
     // Vérifier et décoder le token
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log("Token décodé:", decoded);
 
     // Trouver l'utilisateur correspondant
     const user = await User.findById(decoded.userId);
+    console.log("Utilisateur trouvé:", user ? "Oui" : "Non");
 
     if (!user) {
+      console.log("Utilisateur non trouvé pour l'ID:", decoded.userId);
       return res.status(401).json({ message: "Utilisateur non trouvé." });
     }
 

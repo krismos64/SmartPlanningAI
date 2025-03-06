@@ -144,6 +144,13 @@ const UserProfile = styled.div`
     color: white;
     font-weight: ${({ theme }) => theme.typography.fontWeights.bold};
     transition: all 0.3s ease;
+    overflow: hidden;
+  }
+
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   &:hover .avatar {
@@ -165,6 +172,12 @@ const UserProfile = styled.div`
     .role {
       font-size: ${({ theme }) => theme.typography.sizes.xs};
       color: ${({ theme }) => theme.colors.text.secondary};
+    }
+
+    .company {
+      font-size: ${({ theme }) => theme.typography.sizes.xs};
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-style: italic;
     }
   }
 `;
@@ -596,6 +609,53 @@ const RobotAnimation = styled.div`
   opacity: 0.9;
 `;
 
+const MobileUserProfile = styled.div`
+  display: flex;
+  align-items: center;
+  padding: ${({ theme }) => theme.spacing.md};
+  background-color: ${({ theme }) => `${theme.colors.primary}11`};
+  margin: ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+
+  .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: ${({ theme }) => theme.colors.primary};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: ${({ theme }) => theme.typography.fontWeights.bold};
+    margin-right: ${({ theme }) => theme.spacing.md};
+    overflow: hidden;
+  }
+
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .user-info {
+    .name {
+      font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
+      color: ${({ theme }) => theme.colors.text.primary};
+    }
+
+    .role {
+      font-size: ${({ theme }) => theme.typography.sizes.xs};
+      color: ${({ theme }) => theme.colors.text.secondary};
+    }
+
+    .company {
+      font-size: ${({ theme }) => theme.typography.sizes.xs};
+      color: ${({ theme }) => theme.colors.text.secondary};
+      font-style: italic;
+    }
+  }
+`;
+
 // Composant Navbar
 const Navbar = () => {
   const location = useLocation();
@@ -635,6 +695,19 @@ const Navbar = () => {
       return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
     }
     return getInitials(user.username || "Utilisateur");
+  };
+
+  const getUserRole = () => {
+    if (!user) return "Utilisateur";
+    return (
+      user.jobTitle ||
+      (user.role === "admin" ? "Administrateur" : "Utilisateur")
+    );
+  };
+
+  const getUserCompany = () => {
+    if (!user) return "";
+    return user.company || "";
   };
 
   const handleNotificationClick = (id) => {
@@ -975,12 +1048,22 @@ const Navbar = () => {
         </ThemeToggle>
 
         <UserProfile onClick={toggleUserMenu}>
-          <div className="avatar">{getUserInitials()}</div>
+          <div className="avatar">
+            {user?.profileImage ? (
+              <img
+                src={`data:image/jpeg;base64,${user.profileImage}`}
+                alt={getUserFullName()}
+              />
+            ) : (
+              getUserInitials()
+            )}
+          </div>
           <div className="user-info">
             <div className="name">{getUserFullName()}</div>
-            <div className="role">
-              {user?.role === "admin" ? "Administrateur" : "Utilisateur"}
-            </div>
+            <div className="role">{getUserRole()}</div>
+            {getUserCompany() && (
+              <div className="company">{getUserCompany()}</div>
+            )}
           </div>
 
           <UserMenu isOpen={userMenuOpen}>
@@ -1006,6 +1089,30 @@ const Navbar = () => {
       </NavActions>
 
       <MobileMenu isOpen={mobileMenuOpen}>
+        {user && (
+          <>
+            <MobileUserProfile>
+              <div className="avatar">
+                {user?.profileImage ? (
+                  <img
+                    src={`data:image/jpeg;base64,${user.profileImage}`}
+                    alt={getUserFullName()}
+                  />
+                ) : (
+                  getUserInitials()
+                )}
+              </div>
+              <div className="user-info">
+                <div className="name">{getUserFullName()}</div>
+                <div className="role">{getUserRole()}</div>
+                {getUserCompany() && (
+                  <div className="company">{getUserCompany()}</div>
+                )}
+              </div>
+            </MobileUserProfile>
+            <MobileMenuDivider />
+          </>
+        )}
         {navLinks.map((link, index) => (
           <React.Fragment key={`nav-${link.to}`}>
             <MobileNavLink

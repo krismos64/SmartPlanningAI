@@ -7665,3 +7665,94 @@
 [2025-03-05T08:55:27.644Z] [RESPONSE] 2025-03-05T08:55:27.554Z - GET / - Status: 200
 [2025-03-05T08:55:27.646Z] [REQUEST] 2025-03-05T08:55:27.645Z - GET /api/employees
 [2025-03-05T08:55:27.652Z] [RESPONSE] 2025-03-05T08:55:27.645Z - GET / - Status: 200
+[2025-03-05T09:16:26.472Z] [REQUEST] 2025-03-05T09:16:26.471Z - GET /favicon.ico
+[2025-03-05T09:16:50.459Z] [REQUEST] 2025-03-05T09:16:50.459Z - GET /api/employees
+[2025-03-05T09:16:50.504Z] [RESPONSE] 2025-03-05T09:16:50.459Z - GET / - Status: 200
+[2025-03-05T09:16:50.507Z] [REQUEST] 2025-03-05T09:16:50.507Z - GET /api/employees
+[2025-03-05T09:16:50.515Z] [RESPONSE] 2025-03-05T09:16:50.507Z - GET / - Status: 200
+[2025-03-05T09:17:03.326Z] [REQUEST] 2025-03-05T09:17:03.325Z - PUT /api/auth/profile - Body: {"firstName":"Christophe","lastName":"Mostefaoui","email":"c.mostefaoui@yahoo.fr","phone":"","company":"","jobTitle":"Responsable","profileImage":null}
+[2025-03-05T09:17:03.342Z] [ERROR] 2025-03-05T09:17:03.325Z - PUT /profile - Status: 500 - Response: {"message":"Erreur lors de la mise à jour du profil."}
+[2025-03-05T09:17:10.319Z] [REQUEST] 2025-03-05T09:17:10.318Z - PUT /api/auth/profile - Body: {"firstName":"Christophe","lastName":"Mostefaoui","email":"c.mostefaoui@yahoo.fr","phone":"0679088845","company":"LECLERC","jobTitle":"Responsable","profileImage":null}
+[2025-03-05T09:17:10.325Z] [ERROR] 2025-03-05T09:17:10.318Z - PUT /profile - Status: 500 - Response: {"message":"Erreur lors de la mise à jour du profil."}
+[2025-03-05T09:17:24.305Z] [ERROR] Erreur serveur: request entity too large
+Stack: PayloadTooLargeError: request entity too large
+    at readStream (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:163:17)
+    at getRawBody (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:116:12)
+    at read (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/read.js:79:3)
+    at jsonParser (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/types/json.js:138:5)
+    at Layer.handle [as handle_request] (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:328:13)
+    at /Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:286:9
+    at Function.process_params (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:280:10)
+    at expressInit (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/middleware/init.js:40:5)
+[2025-03-05T09:23:15.024Z] [ERROR] Erreur serveur: request entity too large
+Stack: PayloadTooLargeError: request entity too large
+    at readStream (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:163:17)
+    at getRawBody (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:116:12)
+    at read (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/read.js:79:3)
+    at jsonParser (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/types/json.js:138:5)
+    at Layer.handle [as handle_request] (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:328:13)
+    at /Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:286:9
+    at Function.process_params (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:280:10)
+    at expressInit (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/middleware/init.js:40:5)
+[2025-03-05T09:24:47.301Z] [ERROR] Erreur serveur: request entity too large
+Stack: PayloadTooLargeError: request entity too large
+    at readStream (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:163:17)
+    at getRawBody (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:116:12)
+    at read (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/read.js:79:3)
+    at jsonParser (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/types/json.js:138:5)
+    at Layer.handle [as handle_request] (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:328:13)
+    at /Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:286:9
+    at Function.process_params (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:280:10)
+    at expressInit (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/middleware/init.js:40:5)
+[2025-03-05T09:29:55.284Z] [REQUEST] 2025-03-05T09:29:55.283Z - PUT /api/auth/profile - Body: {"firstName":"Christophe","lastName":"Mostefaoui","email":"c.mostefaoui@yahoo.fr","phone":"0679088845","company":"leclerc","jobTitle":"responsable"}
+[2025-03-05T09:29:55.344Z] [ERROR] 2025-03-05T09:29:55.283Z - PUT /profile - Status: 500 - Response: {"message":"Erreur lors de la mise à jour du profil."}
+[2025-03-05T09:30:04.361Z] [ERROR] Erreur serveur: request entity too large
+Stack: PayloadTooLargeError: request entity too large
+    at readStream (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:163:17)
+    at getRawBody (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:116:12)
+    at read (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/read.js:79:3)
+    at jsonParser (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/types/json.js:138:5)
+    at Layer.handle [as handle_request] (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:328:13)
+    at /Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:286:9
+    at Function.process_params (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:280:10)
+    at expressInit (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/middleware/init.js:40:5)
+[2025-03-05T09:33:13.653Z] [REQUEST] 2025-03-05T09:33:13.652Z - PUT /api/auth/profile - Body: {"firstName":"Christophe","lastName":"Mostefaoui","email":"c.mostefaoui@yahoo.fr","phone":"06799088845","company":"leclerc","jobTitle":"responsable","profileImage":null}
+[2025-03-05T09:33:13.676Z] [ERROR] 2025-03-05T09:33:13.652Z - PUT /profile - Status: 500 - Response: {"message":"Erreur lors de la mise à jour du profil."}
+[2025-03-05T09:34:41.611Z] [REQUEST] 2025-03-05T09:34:41.611Z - GET /api/employees
+[2025-03-05T09:34:41.658Z] [RESPONSE] 2025-03-05T09:34:41.611Z - GET / - Status: 200
+[2025-03-05T09:34:41.660Z] [REQUEST] 2025-03-05T09:34:41.660Z - GET /api/employees
+[2025-03-05T09:34:41.669Z] [RESPONSE] 2025-03-05T09:34:41.660Z - GET / - Status: 200
+[2025-03-05T09:34:46.049Z] [REQUEST] 2025-03-05T09:34:46.049Z - GET /api/vacations
+[2025-03-05T09:34:46.086Z] [RESPONSE] 2025-03-05T09:34:46.049Z - GET / - Status: 200
+[2025-03-05T09:34:46.088Z] [REQUEST] 2025-03-05T09:34:46.088Z - GET /api/vacations
+[2025-03-05T09:34:46.094Z] [RESPONSE] 2025-03-05T09:34:46.088Z - GET / - Status: 200
+[2025-03-05T09:34:46.162Z] [REQUEST] 2025-03-05T09:34:46.162Z - GET /api/employees
+[2025-03-05T09:34:46.167Z] [RESPONSE] 2025-03-05T09:34:46.162Z - GET / - Status: 200
+[2025-03-05T09:34:46.170Z] [REQUEST] 2025-03-05T09:34:46.170Z - GET /api/employees
+[2025-03-05T09:34:46.181Z] [RESPONSE] 2025-03-05T09:34:46.170Z - GET / - Status: 200
+[2025-03-05T09:34:46.186Z] [REQUEST] 2025-03-05T09:34:46.186Z - GET /api/employees
+[2025-03-05T09:34:46.198Z] [RESPONSE] 2025-03-05T09:34:46.186Z - GET / - Status: 200
+[2025-03-05T09:34:46.205Z] [REQUEST] 2025-03-05T09:34:46.203Z - GET /api/employees
+[2025-03-05T09:34:46.209Z] [RESPONSE] 2025-03-05T09:34:46.203Z - GET / - Status: 200
+[2025-03-05T09:35:14.828Z] [ERROR] Erreur serveur: request entity too large
+Stack: PayloadTooLargeError: request entity too large
+    at readStream (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:163:17)
+    at getRawBody (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/raw-body/index.js:116:12)
+    at read (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/read.js:79:3)
+    at jsonParser (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/body-parser/lib/types/json.js:138:5)
+    at Layer.handle [as handle_request] (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:328:13)
+    at /Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:286:9
+    at Function.process_params (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/router/index.js:280:10)
+    at expressInit (/Applications/XAMPP/xamppfiles/htdocs/SmartPlanningAI4/backend/node_modules/express/lib/middleware/init.js:40:5)
+[2025-03-05T09:36:16.085Z] [REQUEST] 2025-03-05T09:36:16.085Z - GET /api/auth/profile
+[2025-03-05T09:36:16.089Z] [ERROR] 2025-03-05T09:36:16.085Z - GET /profile - Status: 401 - Response: {"message":"Token invalide."}

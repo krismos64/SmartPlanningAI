@@ -6,7 +6,16 @@ const { generateToken, auth, checkRole } = require("../middleware/auth");
 // Route d'inscription
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      profileImage,
+      company,
+      phone,
+      jobTitle,
+    } = req.body;
 
     // Vérifier si l'utilisateur existe déjà
     const existingUser = await User.findByEmail(email);
@@ -27,6 +36,10 @@ router.post("/register", async (req, res) => {
       role: "admin",
       firstName,
       lastName,
+      profileImage,
+      company,
+      phone,
+      jobTitle,
     });
 
     // Générer un token JWT
@@ -40,6 +53,10 @@ router.post("/register", async (req, res) => {
       role: user.role,
       firstName: user.firstName,
       lastName: user.lastName,
+      profileImage: user.profileImage,
+      company: user.company,
+      phone: user.phone,
+      jobTitle: user.jobTitle,
       token,
     });
   } catch (error) {
@@ -108,6 +125,10 @@ router.post("/login", async (req, res) => {
       role: user.role,
       firstName: user.firstName,
       lastName: user.lastName,
+      profileImage: user.profileImage,
+      company: user.company,
+      phone: user.phone,
+      jobTitle: user.jobTitle,
       token,
     });
   } catch (error) {
@@ -144,6 +165,15 @@ router.get("/profile", auth, async (req, res) => {
 // Route pour mettre à jour le profil de l'utilisateur
 router.put("/profile", auth, async (req, res) => {
   try {
+    const userId = req.user.id;
+    console.log("Données reçues pour la mise à jour du profil:", {
+      ...req.body,
+      profileImageLength: req.body.profileImage
+        ? req.body.profileImage.length
+        : 0,
+    });
+
+    // Extraire les données du corps de la requête
     const {
       email,
       firstName,
@@ -153,28 +183,41 @@ router.put("/profile", auth, async (req, res) => {
       phone,
       jobTitle,
     } = req.body;
-    const userId = req.user.id;
 
-    // Vérifier si le nouvel email est déjà utilisé par un autre utilisateur
-    if (email && email !== req.user.email) {
-      const existingUser = await User.findByEmail(email);
-      if (existingUser && existingUser.id !== userId) {
-        return res.status(400).json({
-          message: "Cet email est déjà utilisé par un autre utilisateur.",
-        });
+    // Préparer les données pour la mise à jour
+    // Utiliser les valeurs existantes si les nouvelles valeurs sont undefined
+    const updateData = {
+      email: email === undefined ? req.user.email : email,
+      firstName: firstName === undefined ? req.user.firstName : firstName,
+      lastName: lastName === undefined ? req.user.lastName : lastName,
+      // Pour profileImage, on garde l'ancienne valeur si undefined ou null est fourni
+      profileImage:
+        profileImage === undefined ? req.user.profileImage : profileImage,
+      company: company === undefined ? req.user.company : company,
+      phone: phone === undefined ? req.user.phone : phone,
+      jobTitle: jobTitle === undefined ? req.user.jobTitle : jobTitle,
+    };
+
+    // S'assurer qu'aucune valeur n'est undefined (remplacer par null si nécessaire)
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined) {
+        updateData[key] = null;
       }
-    }
+    });
+
+    // Exclure explicitement le mot de passe des données de mise à jour
+    // Le mot de passe ne doit être mis à jour que via une route dédiée
+    updateData.password = undefined;
+
+    console.log("Données préparées pour la mise à jour:", {
+      ...updateData,
+      profileImageLength: updateData.profileImage
+        ? updateData.profileImage.length
+        : 0,
+    });
 
     // Mettre à jour l'utilisateur
-    const updatedUser = await User.findByIdAndUpdate(userId, {
-      email: email || req.user.email,
-      firstName: firstName || req.user.firstName,
-      lastName: lastName || req.user.lastName,
-      profileImage: profileImage || req.user.profileImage,
-      company: company || req.user.company,
-      phone: phone || req.user.phone,
-      jobTitle: jobTitle || req.user.jobTitle,
-    });
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData);
 
     // Retourner les informations mises à jour
     res.json({
@@ -191,6 +234,7 @@ router.put("/profile", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de la mise à jour du profil:", error);
+    console.error("Stack trace:", error.stack);
     res
       .status(500)
       .json({ message: "Erreur lors de la mise à jour du profil." });

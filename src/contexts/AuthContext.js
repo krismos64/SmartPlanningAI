@@ -9,6 +9,7 @@ const AuthContext = createContext({
   logout: async () => {},
   register: async () => {},
   loginError: null,
+  updateUser: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -26,13 +27,29 @@ export const AuthProvider = ({ children }) => {
       ...userData,
       role: "admin", // Tous les utilisateurs ont le rôle admin
       profileImage: userData.profileImage || null,
-      company: userData.company || "",
-      phone: userData.phone || "",
-      jobTitle: userData.jobTitle || "",
+      company: userData.company || null,
+      phone: userData.phone || null,
+      jobTitle: userData.jobTitle || null,
     };
     setUser(userWithAdminRole);
     setIsAuthenticated(true);
     return userWithAdminRole;
+  };
+
+  // Fonction pour mettre à jour les données utilisateur
+  const updateUser = (userData) => {
+    console.log("Mise à jour des données utilisateur:", userData);
+    const updatedUser = {
+      ...user,
+      ...userData,
+      profileImage: userData.profileImage || user?.profileImage || null,
+      company: userData.company || user?.company || "",
+      phone: userData.phone || user?.phone || "",
+      jobTitle: userData.jobTitle || user?.jobTitle || "",
+    };
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    return updatedUser;
   };
 
   // Vérifier l'authentification au chargement
@@ -101,7 +118,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log("Tentative de connexion avec:", { email, password: "***" });
 
-      const response = await fetch(`http://localhost:5001/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -132,14 +149,17 @@ export const AuthProvider = ({ children }) => {
       // Stocker le token et les informations utilisateur
       localStorage.setItem("token", data.token);
 
-      // Définir l'utilisateur comme admin
-      const adminUser = setUserWithAdminRole({
+      // S'assurer que les champs optionnels sont définis
+      const sanitizedUserData = {
         ...data,
         profileImage: data.profileImage || null,
-        company: data.company || "",
-        phone: data.phone || "",
-        jobTitle: data.jobTitle || "",
-      });
+        company: data.company || null,
+        phone: data.phone || null,
+        jobTitle: data.jobTitle || null,
+      };
+
+      // Définir l'utilisateur comme admin
+      const adminUser = setUserWithAdminRole(sanitizedUserData);
 
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
@@ -157,12 +177,29 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     setIsLoading(true);
     try {
+      // S'assurer que les champs optionnels sont null et non undefined
+      const sanitizedUserData = {
+        ...userData,
+        profileImage: userData.profileImage || null,
+        company: userData.company || null,
+        phone: userData.phone || null,
+        jobTitle: userData.jobTitle || null,
+      };
+
+      console.log("Tentative d'inscription avec:", {
+        ...sanitizedUserData,
+        password: sanitizedUserData.password ? "***" : null,
+        profileImageLength: sanitizedUserData.profileImage
+          ? sanitizedUserData.profileImage.length
+          : 0,
+      });
+
       const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(userData),
+        body: JSON.stringify(sanitizedUserData),
         credentials: "include",
       });
 
@@ -174,6 +211,11 @@ export const AuthProvider = ({ children }) => {
       }
 
       const data = await response.json();
+      console.log("Données d'inscription reçues:", {
+        ...data,
+        token: data.token ? "***" : null,
+        profileImageLength: data.profileImage ? data.profileImage.length : 0,
+      });
 
       // Stocker le token si présent dans la réponse
       if (data.token) {
@@ -181,14 +223,21 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Définir l'utilisateur comme admin
-      const adminUser = setUserWithAdminRole(data);
+      const adminUser = setUserWithAdminRole({
+        ...data,
+        profileImage: data.profileImage || null,
+        company: data.company || null,
+        phone: data.phone || null,
+        jobTitle: data.jobTitle || null,
+      });
+
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
 
       return true;
     } catch (error) {
       console.error("Erreur d'inscription:", error);
-      return false;
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -214,6 +263,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     loginError,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { useNotification } from "../components/ui/Notification";
+import { API_BASE_URL } from "../config/api";
 import { useAuth } from "../contexts/AuthContext";
 
 // Composants stylisés
@@ -224,25 +225,24 @@ const SecondaryButton = styled(Button)`
 
 // Composant Profile
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { showNotification } = useNotification();
   const fileInputRef = useRef(null);
-
-  const [formData, setFormData] = useState({
-    firstName: user?.firstName || "",
-    lastName: user?.lastName || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    company: user?.company || "",
-    jobTitle: user?.jobTitle || "",
-    profileImage: user?.profileImage || null,
-  });
-
-  const [profileImagePreview, setProfileImagePreview] = useState(null);
-  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    company: "",
+    jobTitle: "",
+    profileImage: null,
+  });
+  const [errors, setErrors] = useState({});
 
-  // Mettre à jour les données du formulaire lorsque l'utilisateur change
+  // Initialiser les données du formulaire avec les données de l'utilisateur
   useEffect(() => {
     if (user) {
       setFormData({
@@ -254,10 +254,6 @@ const Profile = () => {
         jobTitle: user.jobTitle || "",
         profileImage: user.profileImage || null,
       });
-
-      if (user.profileImage) {
-        setProfileImagePreview(`data:image/jpeg;base64,${user.profileImage}`);
-      }
     }
   }, [user]);
 
@@ -303,6 +299,16 @@ const Profile = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Vérifier la taille du fichier (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showNotification({
+          type: "error",
+          title: "Fichier trop volumineux",
+          message: "La taille de l'image ne doit pas dépasser 5MB",
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         // Prévisualisation de l'image
@@ -310,6 +316,19 @@ const Profile = () => {
 
         // Stocker l'image en base64 (sans le préfixe data:image/jpeg;base64,)
         const base64String = reader.result.split(",")[1];
+
+        // Vérifier la taille de la chaîne base64
+        if (base64String.length > 2 * 1024 * 1024) {
+          // ~2MB en base64
+          showNotification({
+            type: "error",
+            title: "Image trop volumineuse",
+            message:
+              "Veuillez choisir une image de plus petite taille ou de qualité inférieure",
+          });
+          return;
+        }
+
         setFormData((prev) => ({
           ...prev,
           profileImage: base64String,
@@ -358,24 +377,79 @@ const Profile = () => {
       return;
     }
 
+    // Demander confirmation avant d'enregistrer les modifications
+    if (!window.confirm("Êtes-vous sûr de vouloir modifier votre profil ?")) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      // Récupérer le token du localStorage
+      const token = localStorage.getItem("token");
+      console.log(
+        "Token utilisé pour la requête:",
+        token ? "Présent" : "Absent"
+      );
+
+      if (!token) {
+        setIsLoading(false);
+        throw new Error("Vous n'êtes pas connecté. Veuillez vous reconnecter.");
+      }
+
+      // Préparer les données à envoyer
+      const dataToSend = {
+        firstName: formData.firstName || null,
+        lastName: formData.lastName || null,
+        email: formData.email || null,
+        // Envoyer explicitement null si la valeur est vide
+        phone: formData.phone || null,
+        company: formData.company || null,
+        jobTitle: formData.jobTitle || null,
+        // Ne pas envoyer profileImage si aucune modification n'a été faite
+        ...(profileImagePreview ? { profileImage: formData.profileImage } : {}),
+      };
+
+      console.log("Envoi des données de profil:", {
+        ...dataToSend,
+        profileImageLength: dataToSend.profileImage
+          ? dataToSend.profileImage.length
+          : 0,
+      });
+
+      console.log("URL de l'API:", `${API_BASE_URL}/api/auth/profile`);
+
       // Appel à l'API pour mettre à jour le profil
-      const response = await fetch(`http://localhost:5001/api/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
+        credentials: "include",
       });
 
+      console.log("Réponse reçue:", response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error("Erreur lors de la mise à jour du profil");
+        let errorMessage = "Erreur lors de la mise à jour du profil";
+
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          console.error(
+            "Erreur lors de la lecture de la réponse JSON:",
+            jsonError
+          );
+        }
+
+        throw new Error(errorMessage);
       }
 
       const updatedUser = await response.json();
+      console.log("Données utilisateur mises à jour:", updatedUser);
 
       // Mettre à jour les données utilisateur dans le localStorage
       const currentUser = JSON.parse(localStorage.getItem("user"));
@@ -385,27 +459,56 @@ const Profile = () => {
       showNotification({
         type: "success",
         title: "Profil mis à jour",
-        message: "Vos informations ont été mises à jour avec succès",
+        message: "Votre profil a été mis à jour avec succès.",
       });
+
+      // Mettre à jour le contexte d'authentification
+      updateUser(newUserData);
+
+      // Réinitialiser l'état de prévisualisation
+      setProfileImagePreview(null);
     } catch (error) {
-      console.error("Erreur:", error);
+      console.error("Erreur lors de la mise à jour du profil:", error);
+
       showNotification({
         type: "error",
         title: "Erreur",
-        message: "Une erreur est survenue lors de la mise à jour du profil",
+        message:
+          error.message ||
+          "Une erreur est survenue lors de la mise à jour du profil.",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Annuler les modifications
+  const handleCancel = () => {
+    // Réinitialiser les données du formulaire
+    if (user) {
+      setFormData({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        company: user.company || "",
+        jobTitle: user.jobTitle || "",
+        profileImage: user.profileImage || null,
+      });
+    }
+    // Réinitialiser l'état de prévisualisation
+    setProfileImagePreview(null);
+    // Réinitialiser les erreurs
+    setErrors({});
+    // Désactiver le mode édition
+    setIsEditing(false);
+  };
+
   return (
     <ProfileContainer>
       <PageHeader>
         <PageTitle>Mon profil</PageTitle>
-        <PageDescription>
-          Gérez vos informations personnelles et vos préférences.
-        </PageDescription>
+        <PageDescription>Gérez vos informations personnelles.</PageDescription>
       </PageHeader>
 
       <ProfileCard>
@@ -414,22 +517,31 @@ const Profile = () => {
             <Avatar>
               {profileImagePreview ? (
                 <AvatarImage src={profileImagePreview} alt="Photo de profil" />
+              ) : user?.profileImage ? (
+                <AvatarImage
+                  src={`data:image/jpeg;base64,${user.profileImage}`}
+                  alt="Photo de profil"
+                />
               ) : (
                 getInitials()
               )}
             </Avatar>
-            <AvatarUploadButton
-              onClick={handleAvatarUploadClick}
-              title="Changer la photo de profil"
-            >
-              <i className="fas fa-camera"></i>
-            </AvatarUploadButton>
-            <HiddenFileInput
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-            />
+            {isEditing && (
+              <>
+                <AvatarUploadButton
+                  onClick={handleAvatarUploadClick}
+                  title="Changer la photo de profil"
+                >
+                  <i className="fas fa-camera"></i>
+                </AvatarUploadButton>
+                <HiddenFileInput
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                />
+              </>
+            )}
           </AvatarContainer>
           <ProfileInfo>
             <ProfileName>{getFullName()}</ProfileName>
@@ -438,99 +550,109 @@ const Profile = () => {
           </ProfileInfo>
         </ProfileHeader>
 
-        <ProfileForm onSubmit={handleSubmit}>
-          <FormSection>
-            <SectionTitle>Informations personnelles</SectionTitle>
-            <FormGroup>
-              <FormLabel htmlFor="firstName">Prénom</FormLabel>
-              <FormInput
-                id="firstName"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                placeholder="Votre prénom"
-                error={errors.firstName}
-              />
-              {errors.firstName && (
-                <ErrorMessage>{errors.firstName}</ErrorMessage>
-              )}
-            </FormGroup>
-
-            <FormGroup>
-              <FormLabel htmlFor="lastName">Nom</FormLabel>
-              <FormInput
-                id="lastName"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                placeholder="Votre nom"
-                error={errors.lastName}
-              />
-              {errors.lastName && (
-                <ErrorMessage>{errors.lastName}</ErrorMessage>
-              )}
-            </FormGroup>
-
-            <FormGroup>
-              <FormLabel htmlFor="email">Email</FormLabel>
-              <FormInput
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Votre email"
-                error={errors.email}
-              />
-              {errors.email && <ErrorMessage>{errors.email}</ErrorMessage>}
-            </FormGroup>
-
-            <FormGroup>
-              <FormLabel htmlFor="jobTitle">Fonction</FormLabel>
-              <FormInput
-                id="jobTitle"
-                name="jobTitle"
-                value={formData.jobTitle}
-                onChange={handleChange}
-                placeholder="Votre fonction"
-              />
-            </FormGroup>
-          </FormSection>
-
-          <FormSection>
-            <SectionTitle>Coordonnées</SectionTitle>
-            <FormGroup>
-              <FormLabel htmlFor="phone">Téléphone</FormLabel>
-              <FormInput
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Votre numéro de téléphone"
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <FormLabel htmlFor="company">Entreprise</FormLabel>
-              <FormInput
-                id="company"
-                name="company"
-                value={formData.company}
-                onChange={handleChange}
-                placeholder="Votre entreprise"
-              />
-            </FormGroup>
-          </FormSection>
-
+        {!isEditing ? (
           <FormActions>
-            <SecondaryButton type="button">Annuler</SecondaryButton>
-            <PrimaryButton type="submit" disabled={isLoading}>
-              {isLoading
-                ? "Enregistrement..."
-                : "Enregistrer les modifications"}
+            <PrimaryButton onClick={() => setIsEditing(true)}>
+              Modifier mon profil
             </PrimaryButton>
           </FormActions>
-        </ProfileForm>
+        ) : (
+          <ProfileForm onSubmit={handleSubmit}>
+            <FormSection>
+              <SectionTitle>Informations personnelles</SectionTitle>
+              <FormGroup>
+                <FormLabel htmlFor="firstName">Prénom</FormLabel>
+                <FormInput
+                  id="firstName"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  placeholder="Votre prénom"
+                  error={errors.firstName}
+                />
+                {errors.firstName && (
+                  <ErrorMessage>{errors.firstName}</ErrorMessage>
+                )}
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="lastName">Nom</FormLabel>
+                <FormInput
+                  id="lastName"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  placeholder="Votre nom"
+                  error={errors.lastName}
+                />
+                {errors.lastName && (
+                  <ErrorMessage>{errors.lastName}</ErrorMessage>
+                )}
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="email">Email</FormLabel>
+                <FormInput
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="Votre email"
+                  error={errors.email}
+                />
+                {errors.email && <ErrorMessage>{errors.email}</ErrorMessage>}
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="jobTitle">Fonction</FormLabel>
+                <FormInput
+                  id="jobTitle"
+                  name="jobTitle"
+                  value={formData.jobTitle}
+                  onChange={handleChange}
+                  placeholder="Votre fonction"
+                />
+              </FormGroup>
+            </FormSection>
+
+            <FormSection>
+              <SectionTitle>Coordonnées</SectionTitle>
+              <FormGroup>
+                <FormLabel htmlFor="phone">Téléphone</FormLabel>
+                <FormInput
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="Votre numéro de téléphone"
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="company">Entreprise</FormLabel>
+                <FormInput
+                  id="company"
+                  name="company"
+                  value={formData.company}
+                  onChange={handleChange}
+                  placeholder="Votre entreprise"
+                />
+              </FormGroup>
+            </FormSection>
+
+            <FormActions>
+              <SecondaryButton type="button" onClick={handleCancel}>
+                Annuler
+              </SecondaryButton>
+              <PrimaryButton type="submit" disabled={isLoading}>
+                {isLoading
+                  ? "Enregistrement..."
+                  : "Enregistrer les modifications"}
+              </PrimaryButton>
+            </FormActions>
+          </ProfileForm>
+        )}
       </ProfileCard>
     </ProfileContainer>
   );
