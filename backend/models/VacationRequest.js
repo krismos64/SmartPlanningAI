@@ -5,11 +5,11 @@ class VacationRequest {
     this.id = data.id;
     this.employee_id = data.employee_id;
     this.employee_name = data.employee_name;
-    this.type = data.type || "paid"; // Type de congé (paid, rtt, unpaid, sick, exceptional, recovery)
+    this.type = data.type || "paid"; // Type de congé (paid, unpaid, sick, rtt, exceptional, recovery)
     this.start_date = data.start_date;
     this.end_date = data.end_date;
     this.reason = data.reason;
-    this.status = data.status;
+    this.status = data.status || "pending";
     this.approved_by = data.approved_by;
     this.approved_at = data.approved_at;
     this.rejected_by = data.rejected_by;
@@ -87,24 +87,42 @@ class VacationRequest {
 
   async save() {
     try {
+      // Formater les dates pour MySQL
+      const start_date = this.start_date
+        ? new Date(this.start_date).toISOString().split("T")[0]
+        : null;
+      const end_date = this.end_date
+        ? new Date(this.end_date).toISOString().split("T")[0]
+        : null;
+
+      console.log("Données de la demande de congé à sauvegarder:", {
+        id: this.id,
+        employee_id: this.employee_id,
+        type: this.type,
+        start_date,
+        end_date,
+        reason: this.reason,
+        status: this.status,
+      });
+
       if (this.id) {
         // Mise à jour
-        await connectDB.execute(
-          "UPDATE vacation_requests SET employee_id = ?, type = ?, start_date = ?, end_date = ?, reason = ?, status = ?, approved_by = ?, approved_at = ?, rejected_by = ?, rejected_at = ?, rejection_reason = ?, attachment = ?, quota_exceeded = ? WHERE id = ?",
+        const [result] = await connectDB.execute(
+          `UPDATE vacation_requests 
+           SET employee_id = ?, 
+               type = ?, 
+               start_date = ?, 
+               end_date = ?, 
+               reason = ?, 
+               status = ?
+           WHERE id = ?`,
           [
             this.employee_id,
             this.type,
-            this.start_date,
-            this.end_date,
+            start_date,
+            end_date,
             this.reason,
             this.status,
-            this.approved_by,
-            this.approved_at,
-            this.rejected_by,
-            this.rejected_at,
-            this.rejection_reason,
-            this.attachment,
-            this.quota_exceeded ? 1 : 0,
             this.id,
           ]
         );
@@ -112,16 +130,16 @@ class VacationRequest {
       } else {
         // Création
         const [result] = await connectDB.execute(
-          "INSERT INTO vacation_requests (employee_id, type, start_date, end_date, reason, status, attachment, quota_exceeded) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          `INSERT INTO vacation_requests 
+           (employee_id, type, start_date, end_date, reason, status)
+           VALUES (?, ?, ?, ?, ?, ?)`,
           [
             this.employee_id,
             this.type,
-            this.start_date,
-            this.end_date,
+            start_date,
+            end_date,
             this.reason,
             this.status || "pending",
-            this.attachment,
-            this.quota_exceeded ? 1 : 0,
           ]
         );
         this.id = result.insertId;

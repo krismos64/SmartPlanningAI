@@ -9,8 +9,8 @@ router.post("/register", async (req, res) => {
     const {
       email,
       password,
-      firstName,
-      lastName,
+      first_name,
+      last_name,
       profileImage,
       company,
       phone,
@@ -25,17 +25,13 @@ router.post("/register", async (req, res) => {
         .json({ message: "Un utilisateur avec cet email existe déjà." });
     }
 
-    // Générer un nom d'utilisateur à partir du prénom et du nom
-    const username = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`;
-
     // Créer un nouvel utilisateur (toujours avec le rôle admin)
     const user = await User.create({
-      username,
       email,
       password,
       role: "admin",
-      firstName,
-      lastName,
+      first_name,
+      last_name,
       profileImage,
       company,
       phone,
@@ -48,11 +44,10 @@ router.post("/register", async (req, res) => {
     // Retourner les informations de l'utilisateur sans le mot de passe
     res.status(201).json({
       id: user.id,
-      username: user.username,
       email: user.email,
       role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      first_name: user.first_name,
+      last_name: user.last_name,
       profileImage: user.profileImage,
       company: user.company,
       phone: user.phone,
@@ -120,11 +115,10 @@ router.post("/login", async (req, res) => {
     // Retourner les informations de l'utilisateur sans le mot de passe
     res.json({
       id: user.id,
-      username: user.username,
       email: user.email,
       role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      first_name: user.first_name,
+      last_name: user.last_name,
       profileImage: user.profileImage,
       company: user.company,
       phone: user.phone,
@@ -144,11 +138,10 @@ router.get("/profile", auth, async (req, res) => {
     // req.user est défini par le middleware auth
     res.json({
       id: req.user.id,
-      username: req.user.username,
       email: req.user.email,
       role: req.user.role,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
+      first_name: req.user.first_name,
+      last_name: req.user.last_name,
       profileImage: req.user.profileImage,
       company: req.user.company,
       phone: req.user.phone,
@@ -176,8 +169,8 @@ router.put("/profile", auth, async (req, res) => {
     // Extraire les données du corps de la requête
     const {
       email,
-      firstName,
-      lastName,
+      first_name,
+      last_name,
       profileImage,
       company,
       phone,
@@ -188,8 +181,8 @@ router.put("/profile", auth, async (req, res) => {
     // Utiliser les valeurs existantes si les nouvelles valeurs sont undefined
     const updateData = {
       email: email === undefined ? req.user.email : email,
-      firstName: firstName === undefined ? req.user.firstName : firstName,
-      lastName: lastName === undefined ? req.user.lastName : lastName,
+      first_name: first_name === undefined ? req.user.first_name : first_name,
+      last_name: last_name === undefined ? req.user.last_name : last_name,
       // Pour profileImage, on garde l'ancienne valeur si undefined ou null est fourni
       profileImage:
         profileImage === undefined ? req.user.profileImage : profileImage,
@@ -222,11 +215,10 @@ router.put("/profile", auth, async (req, res) => {
     // Retourner les informations mises à jour
     res.json({
       id: updatedUser.id,
-      username: updatedUser.username,
       email: updatedUser.email,
       role: updatedUser.role,
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
+      first_name: updatedUser.first_name,
+      last_name: updatedUser.last_name,
       profileImage: updatedUser.profileImage,
       company: updatedUser.company,
       phone: updatedUser.phone,
@@ -248,7 +240,6 @@ router.get("/check", auth, async (req, res) => {
       isAuthenticated: true,
       user: {
         id: req.user.id,
-        username: req.user.username,
         email: req.user.email,
         role: req.user.role,
       },
@@ -264,16 +255,17 @@ router.get("/check", auth, async (req, res) => {
   }
 });
 
-// Route pour récupérer tous les utilisateurs (accessible à tous les utilisateurs)
+// Route pour récupérer tous les utilisateurs
 router.get("/users", auth, async (req, res) => {
   try {
     const users = await User.find();
     // Ne pas renvoyer les mots de passe
     const safeUsers = users.map((user) => ({
       id: user.id,
-      username: user.username,
       email: user.email,
       role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
       created_at: user.created_at,
     }));
     res.json(safeUsers);
@@ -285,10 +277,10 @@ router.get("/users", auth, async (req, res) => {
   }
 });
 
-// Route pour mettre à jour un utilisateur (accessible à tous les utilisateurs)
+// Route pour mettre à jour un utilisateur
 router.put("/users/:id", auth, async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { email, password } = req.body;
     const userId = req.params.id;
 
     // Vérifier si l'utilisateur existe
@@ -307,19 +299,8 @@ router.put("/users/:id", auth, async (req, res) => {
       }
     }
 
-    // Vérifier si le nouveau nom d'utilisateur est déjà utilisé
-    if (username && username !== user.username) {
-      const existingUser = await User.findByUsername(username);
-      if (existingUser && existingUser.id !== parseInt(userId)) {
-        return res
-          .status(400)
-          .json({ message: "Ce nom d'utilisateur est déjà pris." });
-      }
-    }
-
     // Mettre à jour l'utilisateur
     const updateData = {
-      username: username || user.username,
       email: email || user.email,
       role: "admin", // Toujours définir le rôle comme admin
     };
@@ -334,9 +315,10 @@ router.put("/users/:id", auth, async (req, res) => {
     // Retourner les informations mises à jour
     res.json({
       id: updatedUser.id,
-      username: updatedUser.username,
       email: updatedUser.email,
       role: updatedUser.role,
+      first_name: updatedUser.first_name,
+      last_name: updatedUser.last_name,
     });
   } catch (error) {
     console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
@@ -373,6 +355,37 @@ router.delete("/users/:id", auth, checkRole(["admin"]), async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la suppression de l'utilisateur." });
+  }
+});
+
+// Route de test pour l'authentification
+router.post("/test-login", async (req, res) => {
+  try {
+    // Créer un utilisateur de test
+    const testUser = {
+      id: 1,
+      email: "test@example.com",
+      role: "admin",
+      first_name: "Test",
+      last_name: "User",
+    };
+
+    // Générer un token JWT
+    const token = generateToken(testUser.id);
+    console.log("Token de test généré:", token);
+
+    // Retourner les informations de l'utilisateur avec le token
+    res.json({
+      success: true,
+      user: testUser,
+      token,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la génération du token de test:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la génération du token de test.",
+    });
   }
 });
 

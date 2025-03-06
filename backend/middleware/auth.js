@@ -44,8 +44,7 @@ const auth = async (req, res, next) => {
 
     // Ajouter le nom complet de l'utilisateur
     user.fullName =
-      `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
-      user.username ||
+      `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
       "Administrateur";
 
     // Ajouter l'ID comme chaîne de caractères pour éviter les problèmes de conversion
@@ -96,24 +95,12 @@ const generateToken = (userId) => {
 // Middleware pour vérifier le token JWT (version simplifiée pour le développement)
 const authenticateToken = (req, res, next) => {
   try {
-    // Pour le développement, on passe l'authentification
-    // En production, on utiliserait le code commenté ci-dessous
-    /*
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Accès non autorisé. Token manquant." });
-    }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = { id: decoded.userId, role: "admin" };
-    */
-
     // Pour le développement, on simule un utilisateur authentifié
     req.user = {
       id: "1", // ID comme chaîne de caractères
       role: "admin",
-      firstName: "Admin",
-      lastName: "Système",
+      first_name: "Admin",
+      last_name: "Système",
       fullName: "Admin Système",
     };
     next();

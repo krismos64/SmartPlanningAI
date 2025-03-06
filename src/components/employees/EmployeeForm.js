@@ -171,20 +171,23 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
     }
   };
 
-  const [formData, setFormData] = useState({
-    firstName: employee?.firstName || "",
-    lastName: employee?.lastName || "",
+  const initialFormData = {
+    first_name: employee?.first_name || "",
+    last_name: employee?.last_name || "",
     email: employee?.email || "",
     department: employee?.department || "",
     role: employee?.role || "",
     status: employee?.status || "active",
-    birthDate: formatDateForInput(employee?.birthDate) || "",
-    startDate:
-      formatDateForInput(employee?.startDate) ||
+    birthdate: formatDateForInput(employee?.birthdate) || "",
+    hire_date:
+      formatDateForInput(employee?.hire_date) ||
       formatDateForInput(new Date().toISOString()),
-    contractHours: employee?.contractHours || 0,
-    hoursWorked: employee?.hoursWorked || 0,
-  });
+    contractHours: employee?.contractHours ?? 35,
+    hoursWorked: employee?.hoursWorked ?? 0,
+    hourlyRate: employee?.hourlyRate ?? 0,
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
 
   const [animateHours, setAnimateHours] = useState(false);
 
@@ -196,6 +199,27 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
       return () => clearTimeout(timer);
     }
   }, [animateHours]);
+
+  useEffect(() => {
+    // Mettre à jour le formulaire quand l'employé change
+    if (employee) {
+      setFormData({
+        first_name: employee.first_name || "",
+        last_name: employee.last_name || "",
+        email: employee.email || "",
+        department: employee.department || "",
+        role: employee.role || "",
+        status: employee.status || "active",
+        birthdate: formatDateForInput(employee.birthdate) || "",
+        hire_date:
+          formatDateForInput(employee.hire_date) ||
+          formatDateForInput(new Date().toISOString()),
+        contractHours: employee.contractHours ?? 35,
+        hoursWorked: employee.hoursWorked ?? 0,
+        hourlyRate: employee.hourlyRate ?? 0,
+      });
+    }
+  }, [employee]);
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -243,15 +267,15 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
       <FormGrid>
         <FormInput
           label="Prénom"
-          name="firstName"
-          value={formData.firstName}
+          name="first_name"
+          value={formData.first_name}
           onChange={handleChange}
           required
         />
         <FormInput
           label="Nom"
-          name="lastName"
-          value={formData.lastName}
+          name="last_name"
+          value={formData.last_name}
           onChange={handleChange}
           required
         />
@@ -265,9 +289,9 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
         />
         <FormInput
           label="Date de naissance"
-          name="birthDate"
+          name="birthdate"
           type="date"
-          value={formData.birthDate}
+          value={formData.birthdate}
           onChange={handleChange}
           helpText="Facultatif"
         />
@@ -310,9 +334,9 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
         </FormSelect>
         <FormInput
           label="Date d'embauche"
-          name="startDate"
+          name="hire_date"
           type="date"
-          value={formData.startDate}
+          value={formData.hire_date}
           onChange={handleChange}
           helpText="Facultatif"
         />

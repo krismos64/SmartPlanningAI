@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React from "react";
 import styled, { keyframes } from "styled-components";
 
@@ -87,26 +88,34 @@ const ModalContent = styled.div`
 
 const CloseIcon = () => (
   <svg
+    width="24"
+    height="24"
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
   >
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
+    <path
+      d="M18 6L6 18"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6 6L18 18"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
-const Modal = ({ title, children, onClose }) => {
-  // Empêcher la propagation du clic depuis le contenu du modal vers l'overlay
-  const handleContentClick = (e) => {
-    e.stopPropagation();
-  };
-
+const Modal = ({ isOpen = true, title, children, onClose }) => {
   // Gérer la touche Echap
   React.useEffect(() => {
+    if (isOpen === false) return;
+
     const handleEscape = (e) => {
       if (e.key === "Escape") {
         onClose();
@@ -115,7 +124,14 @@ const Modal = ({ title, children, onClose }) => {
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
+  }, [onClose, isOpen]);
+
+  if (isOpen === false) return null;
+
+  // Empêcher la propagation du clic depuis le contenu du modal vers l'overlay
+  const handleContentClick = (e) => {
+    e.stopPropagation();
+  };
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -130,6 +146,13 @@ const Modal = ({ title, children, onClose }) => {
       </ModalContainer>
     </ModalOverlay>
   );
+};
+
+Modal.propTypes = {
+  isOpen: PropTypes.bool,
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 export default Modal;

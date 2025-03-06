@@ -1,199 +1,403 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "react-toastify";
-import { formatDateForAPI } from "../utils/dateUtils";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
+import { API_ENDPOINTS } from "../config/api";
+import {
+  parseScheduleFromApi,
+  prepareScheduleForApi,
+  standardizeScheduleData,
+} from "../utils/scheduleUtils";
 import useApi from "./useApi";
+import useWebSocket from "./useWebSocket";
 
 /**
  * Hook personnalisé pour gérer les plannings hebdomadaires
  */
-const useWeeklySchedules = (weekStart) => {
-  const [scheduleData, setScheduleData] = useState([]);
+const useWeeklySchedules = () => {
+  const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const api = useApi();
 
-  // Référence pour suivre si une requête est déjà en cours
-  const isFetchingRef = useRef(false);
-  // Cache pour stocker les données par semaine
-  const cacheRef = useRef({});
+  // Intégration WebSocket pour les mises à jour en temps réel
+  const { socket, isConnected, sendMessage, notifyDataChange, fallbackMode } =
+    useWebSocket();
 
-  // Formater la date de début de semaine pour l'API
-  const formattedWeekStart = formatDateForAPI(weekStart);
+  // Écouter les mises à jour WebSocket
+  useEffect(() => {
+    if (socket && isConnected) {
+      // Fonction pour traiter les messages WebSocket
+      const handleWebSocketMessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
 
-  // Clé de cache basée sur la date de début de semaine
-  const cacheKey = formattedWeekStart;
+          // Si le message concerne une mise à jour de planning
+          if (data.type === "SCHEDULE_UPDATED" && data.schedule) {
+            setSchedules((prevSchedules) => {
+              // Vérifier si le planning existe déjà
+              const exists = prevSchedules.some(
+                (schedule) => schedule.id === data.schedule.id
+              );
 
-  // Charger les plannings pour la semaine spécifiée
-  const fetchSchedules = useCallback(
-    async (forceRefresh = false) => {
-      // Si une requête est déjà en cours, ne pas en lancer une autre
-      if (isFetchingRef.current) {
-        console.log("Requête déjà en cours, ignorée");
-        return;
-      }
-
-      // Vérifier si les données sont déjà en cache et non forcées à rafraîchir
-      if (!forceRefresh && cacheRef.current[cacheKey]) {
-        console.log("Utilisation des données en cache pour", cacheKey);
-        setScheduleData(cacheRef.current[cacheKey]);
-        setLoading(false);
-        return;
-      }
-
-      // Marquer qu'une requête est en cours
-      isFetchingRef.current = true;
-      setLoading(true);
-
-      try {
-        console.log("Chargement des plannings pour", cacheKey);
-
-        // Utiliser le nouvel endpoint API qui filtre correctement par semaine
-        const response = await api.get(
-          `/api/weekly-schedules/week/${formattedWeekStart}`
-        );
-
-        // Vérifier si response.data existe et est un tableau
-        if (response && response.data && Array.isArray(response.data)) {
-          // Transformer les données au nouveau format
-          const transformedData = response.data.map((schedule) => {
-            // S'assurer que schedule_data est un tableau
-            let scheduleData;
-            if (typeof schedule.schedule_data === "string") {
-              try {
-                scheduleData = JSON.parse(schedule.schedule_data);
-              } catch (e) {
-                console.error(
-                  "Erreur lors du parsing des données du planning:",
-                  e
+              if (exists) {
+                // Mettre à jour le planning existant
+                return prevSchedules.map((schedule) =>
+                  schedule.id === data.schedule.id
+                    ? parseScheduleFromApi(data.schedule)
+                    : schedule
                 );
-                scheduleData = [];
+              } else {
+                // Ajouter le nouveau planning
+                return [...prevSchedules, parseScheduleFromApi(data.schedule)];
               }
-            } else {
-              scheduleData = schedule.schedule_data || [];
-            }
+            });
 
-            return {
-              id: schedule.id,
-              employeeId: schedule.employee_id,
-              weekStart: schedule.week_start,
-              days: scheduleData,
-              totalHours: schedule.total_hours,
-            };
-          });
+            toast.info("Planning mis à jour en temps réel");
+          }
 
-          // Mettre à jour le cache et l'état
-          cacheRef.current[cacheKey] = transformedData;
-          setScheduleData(transformedData);
-          console.log("Données transformées:", transformedData);
-        } else {
-          // Si les données ne sont pas au format attendu, définir un tableau vide
-          console.warn("Format de données inattendu:", response);
-          cacheRef.current[cacheKey] = [];
-          setScheduleData([]);
+          // Si le message concerne une suppression de planning
+          if (data.type === "SCHEDULE_DELETED" && data.scheduleId) {
+            setSchedules((prevSchedules) =>
+              prevSchedules.filter(
+                (schedule) => schedule.id !== data.scheduleId
+              )
+            );
+
+            toast.info("Planning supprimé en temps réel");
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors du traitement du message WebSocket:",
+            error
+          );
         }
+      };
 
-        setError(null);
-      } catch (err) {
-        console.error("Erreur lors du chargement des plannings:", err);
-        setError("Impossible de charger les plannings");
-        toast.error("Erreur lors du chargement des plannings");
+      // Ajouter l'écouteur d'événements
+      socket.addEventListener("message", handleWebSocketMessage);
 
-        // En cas d'erreur, définir un tableau vide pour éviter les erreurs d'affichage
-        setScheduleData([]);
-      } finally {
-        setLoading(false);
-        // Marquer que la requête est terminée
-        isFetchingRef.current = false;
+      // Nettoyer l'écouteur lors du démontage
+      return () => {
+        socket.removeEventListener("message", handleWebSocketMessage);
+      };
+    }
+  }, [socket, isConnected]);
+
+  /**
+   * Fonction utilitaire pour réessayer une requête API
+   * @param {Function} apiCall - Fonction d'appel API à réessayer
+   * @param {number} maxRetries - Nombre maximum de tentatives
+   * @param {number} delay - Délai entre les tentatives (en ms)
+   * @returns {Promise} - Résultat de l'appel API
+   */
+  const retryApiCall = useCallback(
+    async (apiCall, maxRetries = 3, delay = 1000) => {
+      let lastError = null;
+      let retryCount = 0;
+
+      while (retryCount < maxRetries) {
+        try {
+          return await apiCall();
+        } catch (err) {
+          lastError = err;
+          retryCount++;
+
+          // Si c'est la dernière tentative, ne pas attendre
+          if (retryCount < maxRetries) {
+            // Utiliser un délai exponentiel
+            const retryDelay = delay * Math.pow(2, retryCount - 1);
+            console.log(
+              `Tentative ${retryCount}/${maxRetries} échouée, nouvelle tentative dans ${retryDelay}ms`
+            );
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          }
+        }
       }
+
+      // Si toutes les tentatives ont échoué, lancer l'erreur
+      throw lastError;
     },
-    [api, formattedWeekStart, cacheKey]
+    []
   );
 
-  // Sauvegarder un planning pour un employé spécifique
-  const saveEmployeeSchedule = useCallback(
-    async (scheduleData) => {
+  /**
+   * Récupère les plannings pour une semaine spécifique
+   * @param {string} weekStart - Date de début de semaine (format YYYY-MM-DD)
+   * @returns {Promise<Array>} - Liste des plannings
+   */
+  const fetchSchedules = useCallback(
+    async (weekStart) => {
       try {
-        console.log("Sauvegarde du planning:", scheduleData);
+        setLoading(true);
+        setError(null);
 
-        // Calculer le total des heures
-        const totalHours = scheduleData.days.reduce(
-          (sum, day) => sum + (parseFloat(day.hours) || 0),
-          0
-        );
+        const apiCall = async () => {
+          const response = await api.get(
+            `${API_ENDPOINTS.WEEKLY_SCHEDULES}?weekStart=${weekStart}`
+          );
 
-        // Transformer les données au format attendu par l'API
-        const apiData = {
-          employee_id: scheduleData.employeeId,
-          week_start: formattedWeekStart,
-          schedule_data: scheduleData.days,
-          total_hours: totalHours.toFixed(2),
-          status: "active",
+          if (!response.ok) {
+            throw new Error(
+              response.data?.message || "Erreur lors du chargement des horaires"
+            );
+          }
+
+          return response.data;
         };
 
-        let response;
-        if (scheduleData.id) {
-          console.log("Mise à jour du planning existant ID:", scheduleData.id);
-          // Mettre à jour le planning existant
-          response = await api.put(
-            `/api/weekly-schedules/${scheduleData.id}`,
+        // Utiliser la fonction de retry
+        const data = await retryApiCall(apiCall);
+
+        // Standardiser les données
+        const standardizedSchedules = data.map((schedule) =>
+          parseScheduleFromApi(schedule)
+        );
+
+        setSchedules(standardizedSchedules);
+        return standardizedSchedules;
+      } catch (err) {
+        console.error("Erreur lors du chargement des horaires:", err);
+        setError(
+          "Erreur lors du chargement des horaires: " +
+            (err.message || "Erreur inconnue")
+        );
+        toast.error("Erreur lors du chargement des horaires");
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [api, retryApiCall]
+  );
+
+  /**
+   * Crée un nouveau planning
+   * @param {Object} scheduleData - Données du planning
+   * @returns {Promise<Object>} - Résultat de la création
+   */
+  const createSchedule = useCallback(
+    async (scheduleData) => {
+      try {
+        // Standardiser et préparer les données pour l'API
+        const apiData = prepareScheduleForApi(
+          standardizeScheduleData(scheduleData)
+        );
+
+        console.log("Données envoyées à l'API:", apiData);
+
+        const apiCall = async () => {
+          const response = await api.post(
+            API_ENDPOINTS.WEEKLY_SCHEDULES,
             apiData
           );
-        } else {
-          console.log("Création d'un nouveau planning");
-          // Créer un nouveau planning
-          response = await api.post("/api/weekly-schedules", apiData);
+
+          if (!response.ok) {
+            throw new Error(
+              response.data?.message ||
+                "Erreur lors de la création de l'horaire"
+            );
+          }
+
+          return response.data;
+        };
+
+        // Utiliser la fonction de retry
+        const data = await retryApiCall(apiCall);
+
+        // Standardiser les données reçues
+        const standardizedSchedule = parseScheduleFromApi(data);
+
+        setSchedules((prev) => [...prev, standardizedSchedule]);
+
+        // Notifier les autres clients via WebSocket
+        if (!fallbackMode && isConnected) {
+          notifyDataChange("schedule", "create", standardizedSchedule.id);
         }
 
-        // Forcer le rafraîchissement du cache après une sauvegarde
-        await fetchSchedules(true);
-        return response.data;
+        toast.success("Horaire créé avec succès");
+        return { success: true, schedule: standardizedSchedule };
       } catch (err) {
-        console.error("Erreur lors de la sauvegarde du planning:", err);
-        toast.error("Erreur lors de la sauvegarde du planning");
-        throw err;
+        console.error("Erreur lors de la création de l'horaire:", err);
+        const errorMessage = err.message || "Erreur inconnue";
+        toast.error(`Erreur lors de la création de l'horaire: ${errorMessage}`);
+        return { success: false, error: errorMessage };
       }
     },
-    [api, fetchSchedules, formattedWeekStart]
+    [api, retryApiCall, fallbackMode, isConnected, notifyDataChange]
   );
 
-  // Sauvegarder plusieurs plannings à la fois
-  const saveSchedules = useCallback(
-    async (schedulesData) => {
+  /**
+   * Met à jour un planning existant
+   * @param {number} id - ID du planning
+   * @param {Object} scheduleData - Données du planning
+   * @returns {Promise<Object>} - Résultat de la mise à jour
+   */
+  const updateSchedule = useCallback(
+    async (id, scheduleData) => {
       try {
-        // Pour l'instant, sauvegarder les plannings un par un
-        // car l'API ne supporte pas les opérations par lot
-        for (const schedule of schedulesData) {
-          await saveEmployeeSchedule(schedule);
+        // Standardiser et préparer les données pour l'API
+        const apiData = prepareScheduleForApi(
+          standardizeScheduleData(scheduleData)
+        );
+
+        const apiCall = async () => {
+          const response = await api.put(
+            `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
+            apiData
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              response.data?.message ||
+                "Erreur lors de la mise à jour de l'horaire"
+            );
+          }
+
+          return response.data;
+        };
+
+        // Utiliser la fonction de retry
+        const data = await retryApiCall(apiCall);
+
+        // Standardiser les données reçues
+        const standardizedSchedule = parseScheduleFromApi(data);
+
+        setSchedules((prev) =>
+          prev.map((schedule) =>
+            schedule.id === id ? standardizedSchedule : schedule
+          )
+        );
+
+        // Notifier les autres clients via WebSocket
+        if (!fallbackMode && isConnected) {
+          notifyDataChange("schedule", "update", id);
         }
 
+        toast.success("Horaire mis à jour avec succès");
+        return { success: true, schedule: standardizedSchedule };
+      } catch (err) {
+        console.error("Erreur lors de la mise à jour de l'horaire:", err);
+        const errorMessage = err.message || "Erreur inconnue";
+        toast.error(
+          `Erreur lors de la mise à jour de l'horaire: ${errorMessage}`
+        );
+        return { success: false, error: errorMessage };
+      }
+    },
+    [api, retryApiCall, fallbackMode, isConnected, notifyDataChange]
+  );
+
+  /**
+   * Supprime un planning
+   * @param {number} id - ID du planning
+   * @returns {Promise<Object>} - Résultat de la suppression
+   */
+  const deleteSchedule = useCallback(
+    async (id) => {
+      try {
+        const apiCall = async () => {
+          const response = await api.delete(
+            `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              response.data?.message ||
+                "Erreur lors de la suppression de l'horaire"
+            );
+          }
+
+          return response.data;
+        };
+
+        // Utiliser la fonction de retry
+        await retryApiCall(apiCall);
+
+        setSchedules((prev) => prev.filter((schedule) => schedule.id !== id));
+
+        // Notifier les autres clients via WebSocket
+        if (!fallbackMode && isConnected) {
+          notifyDataChange("schedule", "delete", id);
+        }
+
+        toast.success("Horaire supprimé avec succès");
         return { success: true };
       } catch (err) {
-        console.error("Erreur lors de la sauvegarde des plannings:", err);
-        toast.error("Erreur lors de la sauvegarde des plannings");
-        throw err;
+        console.error("Erreur lors de la suppression de l'horaire:", err);
+        const errorMessage = err.message || "Erreur inconnue";
+        toast.error(
+          `Erreur lors de la suppression de l'horaire: ${errorMessage}`
+        );
+        return { success: false, error: errorMessage };
       }
     },
-    [saveEmployeeSchedule]
+    [api, retryApiCall, fallbackMode, isConnected, notifyDataChange]
   );
 
-  // Charger les plannings au chargement du composant ou lorsque la semaine change
-  useEffect(() => {
-    // Invalider le cache si la semaine change
-    fetchSchedules(false);
+  // Fonction pour charger les plannings hebdomadaires
+  const fetchWeeklySchedules = useCallback(async () => {
+    let retryCount = 0;
+    const maxRetries = 3;
 
-    // Nettoyage : annuler les requêtes en cours si le composant est démonté
-    return () => {
-      isFetchingRef.current = false;
+    const loadWeeklySchedules = async () => {
+      if (retryCount >= maxRetries) {
+        setError(
+          "Erreur lors du chargement des plannings après plusieurs tentatives"
+        );
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log("Chargement des plannings hebdomadaires...");
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          console.error("Token d'authentification manquant");
+          setError("Vous devez être connecté pour accéder à ces données");
+          setLoading(false);
+          return;
+        }
+
+        const data = await api.get(API_ENDPOINTS.WEEKLY_SCHEDULES);
+        console.log("Données des plannings reçues:", data);
+
+        if (Array.isArray(data)) {
+          setSchedules(data);
+          setError(null);
+        } else {
+          console.error("Format de données invalide:", data);
+          setError("Format de données invalide");
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error("Erreur lors du chargement des plannings:", err);
+        setError(err.message || "Erreur lors du chargement des plannings");
+
+        // Réessayer avec un délai exponentiel
+        retryCount++;
+        setTimeout(loadWeeklySchedules, 1000 * Math.pow(2, retryCount));
+      }
     };
-  }, [fetchSchedules]);
+
+    setLoading(true);
+    setError(null);
+    await loadWeeklySchedules();
+  }, [api]);
+
+  // Charger les plannings au montage du composant
+  useEffect(() => {
+    fetchWeeklySchedules();
+  }, [fetchWeeklySchedules]);
 
   return {
-    scheduleData,
+    schedules,
     loading,
     error,
     fetchSchedules,
-    saveEmployeeSchedule,
-    saveSchedules,
+    fetchWeeklySchedules,
+    createSchedule,
+    updateSchedule,
+    deleteSchedule,
   };
 };
 

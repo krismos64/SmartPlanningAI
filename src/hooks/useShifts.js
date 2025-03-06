@@ -1,117 +1,121 @@
-import { useState, useEffect, useCallback, useTransition } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { API_ROUTES, apiRequest } from "../config/api";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
+import { API_ENDPOINTS } from "../config/api";
+import useApi from "./useApi";
 
-export const useShifts = () => {
-  const [loading, setLoading] = useState(true);
+const useShifts = () => {
   const [shifts, setShifts] = useState([]);
-  const { isAuthenticated } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isPending, startTransition] = useTransition();
+  const api = useApi();
 
   const fetchShifts = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
-      const response = await apiRequest(API_ROUTES.SHIFTS.BASE, "GET");
-      if (response.error) {
-        setError(response.error);
-        return;
-      }
-      startTransition(() => {
-        setShifts(response);
-      });
-    } catch (err) {
-      setError(err.message || "Erreur lors du chargement des shifts");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const response = await api.get(API_ENDPOINTS.SHIFTS.BASE);
 
-  const createShift = async (shiftData) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiRequest(
-        API_ROUTES.SHIFTS.BASE,
-        "POST",
-        shiftData
-      );
-      if (response.error) {
-        setError(response.error);
-        throw new Error(response.error);
-      }
-      startTransition(() => {
-        setShifts((prev) => [...prev, response]);
-      });
-      return response;
-    } catch (err) {
-      setError(err.message || "Erreur lors de la création du shift");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateShift = async (id, shiftData) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiRequest(
-        API_ROUTES.SHIFTS.DETAIL(id),
-        "PUT",
-        shiftData
-      );
-      if (response.error) {
-        setError(response.error);
-        throw new Error(response.error);
-      }
-      startTransition(() => {
-        setShifts((prev) =>
-          prev.map((shift) => (shift.id === id ? response : shift))
+      if (response.ok) {
+        setShifts(response.data);
+        setError(null);
+      } else {
+        throw new Error(
+          response.data?.message || "Erreur lors du chargement des horaires"
         );
-      });
-      return response;
-    } catch (err) {
-      setError(err.message || "Erreur lors de la mise à jour du shift");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteShift = async (id) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiRequest(API_ROUTES.SHIFTS.DETAIL(id), "DELETE");
-      if (response.error) {
-        setError(response.error);
-        throw new Error(response.error);
       }
-      startTransition(() => {
-        setShifts((prev) => prev.filter((shift) => shift.id !== id));
-      });
-      return true;
     } catch (err) {
-      setError(err.message || "Erreur lors de la suppression du shift");
-      throw err;
+      console.error("Erreur lors du chargement des horaires:", err);
+      setError("Erreur lors du chargement des horaires");
+      toast.error("Erreur lors du chargement des horaires");
     } finally {
       setLoading(false);
     }
-  };
+  }, [api]);
+
+  const createShift = useCallback(
+    async (shiftData) => {
+      try {
+        const response = await api.post(API_ENDPOINTS.SHIFTS.BASE, shiftData);
+
+        if (response.ok) {
+          setShifts((prev) => [...prev, response.data]);
+          toast.success("Horaire créé avec succès");
+          return { success: true, shift: response.data };
+        } else {
+          throw new Error(
+            response.data?.message || "Erreur lors de la création de l'horaire"
+          );
+        }
+      } catch (err) {
+        console.error("Erreur lors de la création de l'horaire:", err);
+        toast.error("Erreur lors de la création de l'horaire");
+        return { success: false, error: err.message };
+      }
+    },
+    [api]
+  );
+
+  const updateShift = useCallback(
+    async (id, shiftData) => {
+      try {
+        const response = await api.put(
+          API_ENDPOINTS.SHIFTS.BY_ID(id),
+          shiftData
+        );
+
+        if (response.ok) {
+          setShifts((prev) =>
+            prev.map((shift) =>
+              shift.id === id ? { ...shift, ...response.data } : shift
+            )
+          );
+          toast.success("Horaire mis à jour avec succès");
+          return { success: true, shift: response.data };
+        } else {
+          throw new Error(
+            response.data?.message ||
+              "Erreur lors de la mise à jour de l'horaire"
+          );
+        }
+      } catch (err) {
+        console.error("Erreur lors de la mise à jour de l'horaire:", err);
+        toast.error("Erreur lors de la mise à jour de l'horaire");
+        return { success: false, error: err.message };
+      }
+    },
+    [api]
+  );
+
+  const deleteShift = useCallback(
+    async (id) => {
+      try {
+        const response = await api.delete(API_ENDPOINTS.SHIFTS.BY_ID(id));
+
+        if (response.ok) {
+          setShifts((prev) => prev.filter((shift) => shift.id !== id));
+          toast.success("Horaire supprimé avec succès");
+          return { success: true };
+        } else {
+          throw new Error(
+            response.data?.message ||
+              "Erreur lors de la suppression de l'horaire"
+          );
+        }
+      } catch (err) {
+        console.error("Erreur lors de la suppression de l'horaire:", err);
+        toast.error("Erreur lors de la suppression de l'horaire");
+        return { success: false, error: err.message };
+      }
+    },
+    [api]
+  );
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchShifts();
-    } else {
-      setLoading(false);
-    }
-  }, [fetchShifts, isAuthenticated]);
+    fetchShifts();
+  }, [fetchShifts]);
 
   return {
-    loading: loading || isPending,
     shifts,
+    loading,
     error,
     fetchShifts,
     createShift,
@@ -119,3 +123,5 @@ export const useShifts = () => {
     deleteShift,
   };
 };
+
+export default useShifts;

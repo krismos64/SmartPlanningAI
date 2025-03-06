@@ -4,12 +4,11 @@ const pool = require("../config/db");
 class User {
   constructor(data) {
     this.id = data.id;
-    this.username = data.username;
     this.email = data.email;
     this.password = data.password;
     this.role = data.role || "admin"; // Tous les utilisateurs sont admin par défaut
-    this.firstName = data.firstName;
-    this.lastName = data.lastName;
+    this.first_name = data.first_name;
+    this.last_name = data.last_name;
     this.created_at = data.created_at;
     this.profileImage = data.profileImage;
     this.company = data.company;
@@ -20,7 +19,7 @@ class User {
   static async find() {
     try {
       const [rows] = await pool.execute(
-        "SELECT id, username, email, role, firstName, lastName, created_at, company, phone, jobTitle FROM users"
+        "SELECT id, email, role, first_name, last_name, created_at, company, phone, jobTitle FROM users"
       );
       return rows.map((row) => new User(row));
     } catch (error) {
@@ -32,7 +31,7 @@ class User {
   static async findById(id) {
     try {
       const [rows] = await pool.execute(
-        "SELECT id, username, email, password, role, firstName, lastName, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?",
+        "SELECT id, email, password, role, first_name, last_name, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?",
         [id]
       );
       if (rows.length === 0) return null;
@@ -112,19 +111,17 @@ class User {
       const company = this.company === undefined ? null : this.company;
       const phone = this.phone === undefined ? null : this.phone;
       const jobTitle = this.jobTitle === undefined ? null : this.jobTitle;
-      const firstName = this.firstName === undefined ? null : this.firstName;
-      const lastName = this.lastName === undefined ? null : this.lastName;
-      const username = this.username === undefined ? null : this.username;
+      const first_name = this.first_name === undefined ? null : this.first_name;
+      const last_name = this.last_name === undefined ? null : this.last_name;
       const email = this.email === undefined ? null : this.email;
       const role = this.role === undefined ? "admin" : this.role;
 
       console.log("Sauvegarde de l'utilisateur avec les données:", {
         id: this.id,
-        username,
         email,
         role,
-        firstName,
-        lastName,
+        first_name,
+        last_name,
         profileImageLength: profileImage ? profileImage.length : 0,
         company,
         phone,
@@ -154,14 +151,13 @@ class User {
 
         // Mise à jour
         await pool.execute(
-          "UPDATE users SET username = ?, email = ?, password = ?, role = ?, firstName = ?, lastName = ?, profileImage = ?, company = ?, phone = ?, jobTitle = ? WHERE id = ?",
+          "UPDATE users SET email = ?, password = ?, role = ?, first_name = ?, last_name = ?, profileImage = ?, company = ?, phone = ?, jobTitle = ? WHERE id = ?",
           [
-            username,
             email,
             password,
             role,
-            firstName,
-            lastName,
+            first_name,
+            last_name,
             profileImage,
             company,
             phone,
@@ -180,14 +176,13 @@ class User {
 
         // Création
         const [result] = await pool.execute(
-          "INSERT INTO users (username, email, password, role, firstName, lastName, profileImage, company, phone, jobTitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO users (email, password, role, first_name, last_name, profileImage, company, phone, jobTitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
-            username,
             email,
             this.password,
             role,
-            firstName,
-            lastName,
+            first_name,
+            last_name,
             profileImage,
             company,
             phone,

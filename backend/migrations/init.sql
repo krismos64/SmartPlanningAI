@@ -1,3 +1,6 @@
+-- Désactiver temporairement les vérifications de clé étrangère
+SET FOREIGN_KEY_CHECKS=0;
+
 -- Création de la base de données
 CREATE DATABASE IF NOT EXISTS SmartPlanningAI;
 USE SmartPlanningAI;
@@ -14,6 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   role ENUM('admin', 'manager', 'employee') NOT NULL DEFAULT 'employee',
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -22,8 +27,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS employees (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT,
-  firstName VARCHAR(100) NOT NULL,
-  lastName VARCHAR(100) NOT NULL,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   phone VARCHAR(20),
   address TEXT,
@@ -73,18 +78,20 @@ INSERT INTO users (email, password, role) VALUES
 ('employee@example.com', '$2b$10$3euPcmQFCiblsZeEu5s7p.9MQXFJdjsWUCTwHzk5JMfqDdW2PzZmO', 'employee');
 
 -- Insertion d'employés de test
-INSERT INTO employees (user_id, firstName, lastName, email, phone, department, role, contractHours, hourlyRate, status) VALUES
+INSERT INTO employees (user_id, first_name, last_name, email, phone, department, role, contractHours, hourlyRate, status) VALUES
 (1, 'Admin', 'User', 'admin@example.com', '123-456-7890', 'Administration', 'Administrateur', 35.0, 25.0, 'active'),
 (2, 'Manager', 'User', 'manager@example.com', '123-456-7891', 'Ventes', 'Manager', 35.0, 22.0, 'active'),
 (3, 'Employee', 'User', 'employee@example.com', '123-456-7892', 'Support', 'Agent', 35.0, 18.0, 'active');
 
 -- Insertion d'un utilisateur admin par défaut
-INSERT INTO users (username, email, password, firstName, lastName, role)
+INSERT INTO users (email, password, first_name, last_name, role)
 VALUES (
-    'admin',
     'admin@smartplanning.ai',
     '$2b$10$1234567890123456789012', -- À remplacer par un vrai hash de mot de passe
     'Admin',
     'System',
     'admin'
-) ON DUPLICATE KEY UPDATE id=id; 
+) ON DUPLICATE KEY UPDATE id=id;
+
+-- Réactiver les vérifications de clé étrangère
+SET FOREIGN_KEY_CHECKS=1; 

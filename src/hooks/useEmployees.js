@@ -1,336 +1,281 @@
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "react-toastify";
-import { API_BASE_URL } from "../config/api";
+import { toast } from "react-hot-toast";
+import { API_ENDPOINTS } from "../config/api";
+import useApi from "./useApi";
 
 /**
  * Hook personnalisé pour gérer les employés
  */
 const useEmployees = () => {
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const api = useApi();
 
   /**
    * Récupère tous les employés
    */
   const fetchEmployees = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
+    if (!loading) setLoading(true);
     try {
-      // Récupérer le token d'authentification
-      const token = localStorage.getItem("token");
+      const response = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
 
-      const response = await fetch(`${API_BASE_URL}/api/employees`, {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+      if (response.ok) {
+        // S'assurer que les données sont un tableau
+        const employeesData = Array.isArray(response.data) ? response.data : [];
+        setEmployees(employeesData);
+        setError(null);
+      } else {
+        throw new Error(
+          response.data?.message || "Erreur lors du chargement des employés"
+        );
       }
-
-      const data = await response.json();
-
-      // Transformer les données pour correspondre au format attendu par le frontend
-      const transformedData = data.map((employee) => ({
-        id: employee.id,
-        firstName: employee.first_name,
-        lastName: employee.last_name,
-        email: employee.email,
-        role: employee.role,
-        department: employee.department,
-        contractHours: employee.contract_hours || 0,
-        birthDate: employee.birth_date,
-        startDate: employee.start_date,
-        status: employee.status || "active",
-        hoursWorked: employee.hours_worked,
-        overtimeHours: employee.overtime_hours,
-        createdAt: employee.created_at,
-      }));
-
-      setEmployees(transformedData);
-      return transformedData;
     } catch (err) {
-      console.error("Erreur lors de la récupération des employés:", err);
-      setError(err.message || "Erreur lors de la récupération des employés");
-      toast.error("Erreur lors de la récupération des employés");
-      return [];
+      console.error("Erreur lors du chargement des employés:", err);
+      setError("Erreur lors du chargement des employés");
+      toast.error("Erreur lors du chargement des employés");
+      // En cas d'erreur, s'assurer que employees reste un tableau vide
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api, loading]);
 
   /**
    * Récupère un employé par son ID
    */
-  const fetchEmployeeById = useCallback(async (id) => {
-    setLoading(true);
-    setError(null);
+  const fetchEmployeeById = useCallback(
+    async (id) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      // Récupérer le token d'authentification
-      const token = localStorage.getItem("token");
+      try {
+        const response = await api.get(API_ENDPOINTS.EMPLOYEES.BY_ID(id));
 
-      const response = await fetch(`${API_BASE_URL}/api/employees/${id}`, {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        if (response.ok) {
+          return response.data;
+        } else {
+          throw new Error(
+            response.data?.message ||
+              "Erreur lors de la récupération de l'employé"
+          );
+        }
+      } catch (err) {
+        console.error(
+          `Erreur lors de la récupération de l'employé #${id}:`,
+          err
+        );
+        setError(err.message || "Erreur lors de la récupération de l'employé");
+        toast.error("Erreur lors de la récupération de l'employé");
+        return null;
+      } finally {
+        setLoading(false);
       }
-
-      const data = await response.json();
-
-      // Transformer les données
-      const transformedData = {
-        id: data.id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        email: data.email,
-        role: data.role,
-        department: data.department,
-        contractHours: data.contract_hours || 0,
-        birthDate: data.birth_date,
-        startDate: data.start_date,
-        status: data.status || "active",
-        hoursWorked: data.hours_worked,
-        overtimeHours: data.overtime_hours,
-        createdAt: data.created_at,
-      };
-
-      return transformedData;
-    } catch (err) {
-      console.error(`Erreur lors de la récupération de l'employé #${id}:`, err);
-      setError(err.message || "Erreur lors de la récupération de l'employé");
-      toast.error("Erreur lors de la récupération de l'employé");
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [api]
+  );
 
   /**
    * Crée un nouvel employé
    */
-  const createEmployee = useCallback(async (employeeData) => {
-    setLoading(true);
-    setError(null);
+  const createEmployee = useCallback(
+    async (employeeData) => {
+      try {
+        console.log("Données envoyées à l'API pour création:", employeeData);
 
-    try {
-      // Transformer les données pour le backend
-      const transformedData = {
-        first_name: employeeData.firstName,
-        last_name: employeeData.lastName,
-        email: employeeData.email,
-        role: employeeData.role,
-        department: employeeData.department,
-        contract_hours: employeeData.contractHours,
-        birth_date: employeeData.birthDate,
-        start_date: employeeData.startDate,
-        status: employeeData.status || "active",
-      };
+        // Convertir les valeurs numériques
+        const formattedData = {
+          ...employeeData,
+          contractHours: parseFloat(employeeData.contractHours) || 35,
+          hourlyRate: parseFloat(employeeData.hourlyRate) || 0,
+        };
 
-      // Récupérer le token d'authentification
-      const token = localStorage.getItem("token");
+        const response = await api.post(
+          API_ENDPOINTS.EMPLOYEES.BASE,
+          formattedData
+        );
 
-      const response = await fetch(`${API_BASE_URL}/api/employees`, {
-        method: "POST",
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(transformedData),
-        credentials: "include",
-      });
+        console.log("Réponse de l'API pour création:", response);
 
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        if (!response.ok) {
+          const errorMessage =
+            response.data?.message || "Erreur lors de la création de l'employé";
+          console.error("Erreur API:", errorMessage);
+          return { success: false, error: errorMessage };
+        }
+
+        // Mettre à jour l'état local
+        setEmployees((prev) => [...prev, response.data]);
+
+        return { success: true, employee: response.data };
+      } catch (err) {
+        console.error("Erreur lors de la création de l'employé:", err);
+        return { success: false, error: err.message || "Erreur inconnue" };
       }
-
-      const data = await response.json();
-
-      // Transformer les données reçues
-      const newEmployee = {
-        id: data.id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        email: data.email,
-        role: data.role,
-        department: data.department,
-        contractHours: data.contract_hours || 0,
-        birthDate: data.birth_date,
-        startDate: data.start_date,
-        status: data.status || "active",
-        hoursWorked: data.hours_worked,
-        overtimeHours: data.overtime_hours,
-        createdAt: data.created_at,
-      };
-
-      setEmployees((prevEmployees) => [...prevEmployees, newEmployee]);
-      toast.success("Employé créé avec succès");
-      return newEmployee;
-    } catch (err) {
-      console.error("Erreur lors de la création de l'employé:", err);
-      setError(err.message || "Erreur lors de la création de l'employé");
-      toast.error("Erreur lors de la création de l'employé");
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [api]
+  );
 
   /**
    * Met à jour un employé existant
    */
-  const updateEmployee = useCallback(async (id, employeeData) => {
-    setLoading(true);
-    setError(null);
+  const updateEmployee = useCallback(
+    async (id, employeeData) => {
+      try {
+        if (!id) {
+          console.error("ID d'employé non valide:", id);
+          return { success: false, error: "ID d'employé non valide" };
+        }
 
-    try {
-      // Transformer les données pour le backend
-      const transformedData = {
-        first_name: employeeData.firstName,
-        last_name: employeeData.lastName,
-        email: employeeData.email,
-        role: employeeData.role,
-        department: employeeData.department,
-        contract_hours: employeeData.contractHours,
-        birth_date: employeeData.birthDate,
-        start_date: employeeData.startDate,
-        status: employeeData.status || "active",
-        hours_worked: employeeData.hoursWorked,
-      };
+        console.log("Données envoyées à l'API pour mise à jour:", employeeData);
 
-      console.log("Données envoyées pour mise à jour:", transformedData);
+        // Convertir les valeurs numériques
+        const formattedData = {
+          ...employeeData,
+          contractHours: parseFloat(employeeData.contractHours) || 35,
+          hourlyRate: parseFloat(employeeData.hourlyRate) || 0,
+        };
 
-      // Récupérer le token d'authentification
-      const token = localStorage.getItem("token");
+        const response = await api.put(
+          API_ENDPOINTS.EMPLOYEES.BY_ID(id),
+          formattedData
+        );
 
-      const response = await fetch(`${API_BASE_URL}/api/employees/${id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(transformedData),
-        credentials: "include",
-      });
+        console.log("Réponse de l'API pour mise à jour:", response);
 
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        if (!response.ok) {
+          const errorMessage =
+            response.data?.message ||
+            "Erreur lors de la mise à jour de l'employé";
+          console.error("Erreur API:", errorMessage);
+          return { success: false, error: errorMessage };
+        }
+
+        // Mettre à jour l'état local
+        setEmployees((prev) =>
+          prev.map((emp) =>
+            emp.id === id ? { ...emp, ...response.data } : emp
+          )
+        );
+
+        return { success: true, employee: response.data };
+      } catch (err) {
+        console.error("Erreur lors de la mise à jour de l'employé:", err);
+        return { success: false, error: err.message || "Erreur inconnue" };
       }
-
-      const data = await response.json();
-
-      // Transformer les données reçues
-      const updatedEmployee = {
-        id: data.id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        email: data.email,
-        role: data.role,
-        department: data.department,
-        contractHours: data.contract_hours || 0,
-        birthDate: data.birth_date,
-        startDate: data.start_date,
-        status: data.status || "active",
-        hoursWorked: data.hours_worked,
-        overtimeHours: data.overtime_hours,
-        createdAt: data.created_at,
-      };
-
-      setEmployees((prevEmployees) =>
-        prevEmployees.map((employee) =>
-          employee.id === id ? updatedEmployee : employee
-        )
-      );
-
-      toast.success("Employé mis à jour avec succès");
-      return updatedEmployee;
-    } catch (err) {
-      console.error(`Erreur lors de la mise à jour de l'employé #${id}:`, err);
-      setError(err.message || "Erreur lors de la mise à jour de l'employé");
-      toast.error("Erreur lors de la mise à jour de l'employé");
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [api]
+  );
 
   /**
    * Supprime un employé
    */
-  const deleteEmployee = useCallback(async (id) => {
-    setLoading(true);
-    setError(null);
+  const deleteEmployee = useCallback(
+    async (id) => {
+      try {
+        if (!id) {
+          console.error("ID d'employé non valide pour suppression:", id);
+          return { success: false, error: "ID d'employé non valide" };
+        }
 
-    try {
-      // Récupérer le token d'authentification
-      const token = localStorage.getItem("token");
+        console.log("Tentative de suppression de l'employé avec ID:", id);
 
-      const response = await fetch(`${API_BASE_URL}/api/employees/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
+        const response = await api.delete(API_ENDPOINTS.EMPLOYEES.BY_ID(id));
 
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        console.log("Réponse de l'API pour suppression:", response);
+
+        if (!response.ok) {
+          const errorMessage =
+            response.data?.message ||
+            "Erreur lors de la suppression de l'employé";
+          console.error("Erreur API:", errorMessage);
+          return { success: false, error: errorMessage };
+        }
+
+        // Mettre à jour l'état local
+        setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+
+        return { success: true };
+      } catch (err) {
+        console.error("Erreur lors de la suppression de l'employé:", err);
+        return { success: false, error: err.message || "Erreur inconnue" };
       }
-
-      setEmployees((prevEmployees) =>
-        prevEmployees.filter((employee) => employee.id !== id)
-      );
-
-      toast.success("Employé supprimé avec succès");
-      return true;
-    } catch (err) {
-      console.error(`Erreur lors de la suppression de l'employé #${id}:`, err);
-      setError(err.message || "Erreur lors de la suppression de l'employé");
-      toast.error("Erreur lors de la suppression de l'employé");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [api]
+  );
 
   /**
-   * Compte le nombre d'employés par statut
-   * @returns {Object} Un objet avec le nombre d'employés par statut
+   * Filtre les employés par statut
+   * @param {string|null} status - Le statut à filtrer (active, inactive, vacation, sick) ou null pour tous
+   * @returns {Array} - Les employés filtrés
    */
-  const getEmployeesByStatus = useCallback(() => {
-    const statusCounts = {
-      all: employees.length,
-      active: 0,
-      inactive: 0,
-      vacation: 0,
-      sick: 0,
-    };
-
-    employees.forEach((employee) => {
-      if (statusCounts[employee.status] !== undefined) {
-        statusCounts[employee.status]++;
-      }
-    });
-
-    return statusCounts;
-  }, [employees]);
+  const getEmployeesByStatus = useCallback(
+    (status) => {
+      if (!status || status === "all") return employees;
+      return employees.filter((employee) => employee.status === status);
+    },
+    [employees]
+  );
 
   // Charger les employés au montage du composant
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
+    let mounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const loadEmployees = async () => {
+      if (retryCount >= maxRetries) {
+        if (mounted) {
+          setError(
+            "Erreur lors du chargement des employés après plusieurs tentatives"
+          );
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        console.log("Chargement des employés...");
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          console.error("Token d'authentification manquant");
+          setError("Vous devez être connecté pour accéder à ces données");
+          setLoading(false);
+          return;
+        }
+
+        const data = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
+        console.log("Données des employés reçues:", data);
+
+        if (mounted) {
+          if (Array.isArray(data)) {
+            setEmployees(data);
+            setError(null);
+          } else {
+            console.error("Format de données invalide:", data);
+            setError("Format de données invalide");
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        if (mounted) {
+          console.error("Erreur lors du chargement des employés:", err);
+          setError(err.message || "Erreur lors du chargement des employés");
+
+          // Réessayer avec un délai exponentiel
+          retryCount++;
+          setTimeout(loadEmployees, 1000 * Math.pow(2, retryCount));
+        }
+      }
+    };
+
+    loadEmployees();
+
+    return () => {
+      mounted = false;
+    };
+  }, [api]);
 
   return {
     employees,

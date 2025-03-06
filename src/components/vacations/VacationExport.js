@@ -1,8 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useCallback, useState } from "react";
+import { toast } from "react-hot-toast";
 import { FaFilePdf, FaFilter } from "react-icons/fa";
-import { toast } from "react-toastify";
 import styled from "styled-components";
 import { VACATION_TYPES } from "../../config/constants";
 import useDepartments from "../../hooks/useDepartments";
@@ -288,7 +288,7 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
           );
           if (employee) {
             filterParts.push(
-              `Employé: ${employee.firstName} ${employee.lastName}`
+              `Employé: ${employee.first_name} ${employee.last_name}`
             );
           }
         }
@@ -416,7 +416,6 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
       toast.error("Erreur lors de l'export PDF: " + error.message);
     }
   }, [
-    vacations,
     isGlobal,
     employeeName,
     filterVacations,
@@ -455,7 +454,7 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
                   <option value="">Tous les employés</option>
                   {employees.map((employee) => (
                     <option key={employee.id} value={employee.id}>
-                      {employee.firstName} {employee.lastName}
+                      {employee.first_name} {employee.last_name}
                     </option>
                   ))}
                 </FilterSelect>

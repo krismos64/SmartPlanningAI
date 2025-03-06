@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from "react-hot-toast";
 import styled from "styled-components";
 import { VACATION_TYPES } from "../../config/constants";
 import { useAuth } from "../../contexts/AuthContext";
@@ -262,72 +262,102 @@ const VacationForm = ({ vacation, onSubmit, onCancel, currentUser }) => {
     }
   }, []);
 
-  const validateForm = useCallback(() => {
+  // Valider le formulaire avant soumission
+  const validateForm = () => {
     const newErrors = {};
 
+    // Vérifier l'employé
     if (!formData.employeeId) {
       newErrors.employeeId = "Veuillez sélectionner un employé";
     }
 
+    // Vérifier le type de congé
     if (!formData.type) {
       newErrors.type = "Veuillez sélectionner un type de congé";
     }
 
+    // Vérifier les dates
     if (!formData.startDate) {
-      newErrors.startDate = "Veuillez sélectionner une date de début";
+      newErrors.startDate = "La date de début est requise";
+    } else {
+      // Vérifier que la date est valide
+      const startDate = new Date(formData.startDate);
+      if (isNaN(startDate.getTime())) {
+        newErrors.startDate = "Date de début invalide";
+      }
     }
 
     if (!formData.endDate) {
-      newErrors.endDate = "Veuillez sélectionner une date de fin";
-    } else if (
-      formData.startDate &&
-      new Date(formData.endDate) < new Date(formData.startDate)
-    ) {
-      newErrors.endDate = "La date de fin doit être après la date de début";
+      newErrors.endDate = "La date de fin est requise";
+    } else {
+      // Vérifier que la date est valide
+      const endDate = new Date(formData.endDate);
+      if (isNaN(endDate.getTime())) {
+        newErrors.endDate = "Date de fin invalide";
+      }
     }
 
-    // Pour les congés maladie, une pièce jointe est obligatoire
-    if (
-      formData.type === "sick" &&
-      !formData.attachment &&
-      !vacation?.attachment
-    ) {
-      newErrors.attachment =
-        "Un certificat médical est requis pour les congés maladie";
+    // Vérifier que la date de fin est après la date de début
+    if (formData.startDate && formData.endDate) {
+      const startDate = new Date(formData.startDate);
+      const endDate = new Date(formData.endDate);
+
+      if (
+        !isNaN(startDate.getTime()) &&
+        !isNaN(endDate.getTime()) &&
+        endDate < startDate
+      ) {
+        newErrors.endDate = "La date de fin doit être après la date de début";
+      }
+    }
+
+    // Vérifier la raison si c'est un congé sans solde
+    if (formData.type === "unpaid" && !formData.reason) {
+      newErrors.reason = "Une raison est requise pour les congés sans solde";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, vacation]);
+  };
 
-  const handleSubmit = useCallback(
-    (e) => {
-      e.preventDefault();
+  // Gérer la soumission du formulaire
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log(
+      "Tentative de soumission du formulaire avec les données:",
+      formData
+    );
 
-      if (!validateForm()) {
-        return;
-      }
+    // Valider le formulaire
+    if (!validateForm()) {
+      console.error("Validation du formulaire échouée:", errors);
+      return;
+    }
 
-      // Si le quota est dépassé, demander confirmation
-      if (quotaExceeded) {
-        const confirmed = window.confirm(
-          "Cette demande dépasse votre quota de congés disponibles. Voulez-vous continuer quand même ?"
-        );
-        if (!confirmed) {
-          return;
-        }
-      }
+    // Vérifier que l'utilisateur est authentifié
+    if (!currentUser) {
+      console.error("Erreur: utilisateur non authentifié");
+      toast.error("Vous devez être connecté pour soumettre ce formulaire");
+      return;
+    }
 
-      // Préparer les données à envoyer
-      const dataToSubmit = {
-        ...formData,
-        quotaExceeded,
-      };
+    // Formater les données pour l'API
+    const formattedData = {
+      ...formData,
+      // Convertir l'ID en nombre si nécessaire
+      employeeId: formData.employeeId ? String(formData.employeeId) : "",
+      // S'assurer que les dates sont au format YYYY-MM-DD
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      // S'assurer que le type est une chaîne valide
+      type: formData.type || "paid",
+      // S'assurer que la raison est une chaîne
+      reason: formData.reason || "",
+    };
 
-      onSubmit(dataToSubmit);
-    },
-    [formData, onSubmit, validateForm, quotaExceeded]
-  );
+    console.log("Données soumises:", formattedData);
+    onSubmit(formattedData);
+  };
 
   return (
     <FormContainer onSubmit={handleSubmit}>
@@ -344,7 +374,7 @@ const VacationForm = ({ vacation, onSubmit, onCancel, currentUser }) => {
             <option value="">Sélectionner un employé</option>
             {employees.map((employee) => (
               <option key={employee.id} value={employee.id}>
-                {employee.firstName} {employee.lastName}
+                {employee.first_name} {employee.last_name}
               </option>
             ))}
           </Select>

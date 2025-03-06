@@ -20,7 +20,22 @@ import { FRENCH_HOLIDAYS_2024 } from "../config/constants";
  */
 export const formatDate = (date, formatStr = "dd/MM/yyyy") => {
   if (!date) return "";
-  return format(date, formatStr, { locale: fr });
+
+  try {
+    // S'assurer que date est un objet Date valide
+    const dateObj = date instanceof Date ? date : new Date(date);
+
+    // Vérifier si la date est valide
+    if (isNaN(dateObj.getTime())) {
+      console.error("Date invalide dans formatDate:", date);
+      return "";
+    }
+
+    return format(dateObj, formatStr, { locale: fr });
+  } catch (error) {
+    console.error("Erreur lors du formatage de la date:", error, date);
+    return "";
+  }
 };
 
 /**

@@ -667,34 +667,26 @@ const Navbar = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { notifications, markAsRead, markAllAsRead } =
     useRealTimeNotifications();
+  const { first_name, last_name } = user || {};
 
   const isActive = (path) => {
     return location.pathname === path;
   };
 
-  const getInitials = (name) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
-
   const getUserFullName = () => {
-    if (!user) return "Utilisateur";
-    if (user.firstName && user.lastName) {
-      return `${user.firstName} ${user.lastName}`;
-    }
-    return user.username || "Utilisateur";
+    if (!user) return "";
+    return (
+      `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Utilisateur"
+    );
   };
 
   const getUserInitials = () => {
-    if (!user) return "U";
-    if (user.firstName && user.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-    }
-    return getInitials(user.username || "Utilisateur");
+    if (!user) return "";
+    return (
+      `${(user.first_name || "")[0] || ""}${
+        (user.last_name || "")[0] || ""
+      }`.trim() || "U"
+    );
   };
 
   const getUserRole = () => {
@@ -951,13 +943,12 @@ const Navbar = () => {
     </svg>
   );
 
-  // Supprimer les vérifications de rôles dans les liens de navigation
+  // Définir les liens de navigation
   const navLinks = [
     { to: "/dashboard", icon: <DashboardIcon />, label: "Tableau de bord" },
     { to: "/employees", icon: <EmployeesIcon />, label: "Employés" },
     { to: "/weekly-schedule", icon: <PlanningIcon />, label: "Planning Hebdo" },
     { to: "/vacations", icon: <VacationsIcon />, label: "Congés" },
-    { to: "/reports", icon: <ReportsIcon />, label: "Rapports" },
     { to: "/settings", icon: <SettingsIcon />, label: "Paramètres" },
   ];
 

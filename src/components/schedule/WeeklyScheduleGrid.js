@@ -2,15 +2,21 @@ import DOMPurify from "dompurify";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "react-hot-toast";
 import {
   FaEdit,
   FaFilePdf,
   FaSortAmountDown,
   FaSortAmountUp,
 } from "react-icons/fa";
-import styled from "styled-components";
+import styled, { useTheme } from "styled-components";
 import { formatDate, getDayName, getDaysOfWeek } from "../../utils/dateUtils";
+import {
+  calculateTotalHours,
+  isAbsent as isEmployeeAbsent,
+  standardizeScheduleData,
+} from "../../utils/scheduleUtils";
 import Button from "../ui/Button";
 
 // Styles
@@ -194,6 +200,21 @@ const TimeSlot = styled.div`
   font-weight: 600;
   color: ${({ theme }) => theme.colors.text.primary};
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const TimeSlotDetails = styled.div`
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-top: 0.25rem;
+`;
+
+const BreakInfo = styled.div`
+  font-size: 0.7rem;
+  color: ${({ theme }) => theme.colors.text.tertiary};
+  font-style: italic;
 `;
 
 const HoursValue = styled.div`
@@ -279,27 +300,6 @@ const ActionRow = styled.div`
   }
 `;
 
-// Fonction utilitaire pour convertir les données existantes au nouveau format
-const convertToNewFormat = (day) => {
-  // Si le jour a déjà le format attendu, le retourner tel quel
-  if (day.type) {
-    return { ...day };
-  }
-
-  // Sinon, convertir au nouveau format
-  return {
-    type: day.absence ? "absence" : "work",
-    hours: day.hours || "0",
-    absence: day.absence || "",
-    note: day.note || "",
-    timeSlots:
-      day.timeSlots ||
-      (day.hours && parseFloat(day.hours) > 0
-        ? [{ start: "09:00", end: "17:00" }]
-        : []),
-  };
-};
-
 const WeeklyScheduleGrid = ({
   employees,
   weekStart,
@@ -308,6 +308,25 @@ const WeeklyScheduleGrid = ({
   readOnly,
   onEditEmployee,
 }) => {
+  const theme = useTheme();
+
+  // S'assurer que employees est un tableau
+  const employeesArray = Array.isArray(employees) ? employees : [];
+
+  // S'assurer que scheduleData est un tableau
+  const scheduleDataArray = Array.isArray(scheduleData) ? scheduleData : [];
+
+  // S'assurer que weekStart est une date valide
+  const validWeekStart = useMemo(() => {
+    try {
+      const date = weekStart instanceof Date ? weekStart : new Date(weekStart);
+      return !isNaN(date.getTime()) ? date : new Date();
+    } catch (error) {
+      console.error("Date de début de semaine invalide:", weekStart);
+      return new Date();
+    }
+  }, [weekStart]);
+
   // État pour le tri
   const [sortConfig, setSortConfig] = useState({
     key: null,
@@ -315,10 +334,10 @@ const WeeklyScheduleGrid = ({
   });
 
   // Obtenir les jours de la semaine
-  const daysOfWeek = getDaysOfWeek(weekStart);
+  const daysOfWeek = getDaysOfWeek(validWeekStart);
 
   // Fonction pour trier les employés
-  const sortedEmployees = [...employees].sort((a, b) => {
+  const sortedEmployees = [...employeesArray].sort((a, b) => {
     if (sortConfig.key === null) {
       return 0;
     }
@@ -332,7 +351,8 @@ const WeeklyScheduleGrid = ({
       aValue = parseFloat(calculateEmployeeTotal(a.id));
       bValue = parseFloat(calculateEmployeeTotal(b.id));
     } else {
-      return 0;
+      aValue = a[sortConfig.key];
+      bValue = b[sortConfig.key];
     }
 
     if (aValue < bValue) {
@@ -345,136 +365,161 @@ const WeeklyScheduleGrid = ({
   });
 
   // Fonction pour changer le tri
-  const requestSort = (key) => {
-    let direction = "ascending";
-    if (sortConfig.key === key && sortConfig.direction === "ascending") {
-      direction = "descending";
-    }
-    setSortConfig({ key, direction });
-  };
+  const requestSort = useCallback(
+    (key) => {
+      let direction = "ascending";
+      if (sortConfig.key === key && sortConfig.direction === "ascending") {
+        direction = "descending";
+      }
+      setSortConfig({ key, direction });
+    },
+    [sortConfig]
+  );
 
   // Obtenir l'icône de tri
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) {
-      return null;
-    }
-    return sortConfig.direction === "ascending" ? (
-      <FaSortAmountUp size={12} />
-    ) : (
-      <FaSortAmountDown size={12} />
-    );
-  };
+  const getSortIcon = useCallback(
+    (key) => {
+      if (sortConfig.key !== key) {
+        return null;
+      }
+      return sortConfig.direction === "ascending" ? (
+        <FaSortAmountUp size={12} />
+      ) : (
+        <FaSortAmountDown size={12} />
+      );
+    },
+    [sortConfig]
+  );
 
   // Trouver le planning d'un employé
-  const findEmployeeSchedule = (employeeId) => {
-    const schedule = scheduleData.find(
-      (schedule) => schedule.employeeId === employeeId
-    );
+  const findEmployeeSchedule = useCallback(
+    (employeeId) => {
+      const schedule = scheduleDataArray.find(
+        (schedule) => schedule.employeeId === employeeId
+      );
 
-    if (!schedule) {
-      return {
-        employeeId,
-        days: Array(7)
-          .fill()
-          .map(() => ({
-            type: "work",
-            hours: "0",
-            absence: "",
-            note: "",
-            timeSlots: [],
-          })),
-      };
-    }
+      if (!schedule) {
+        return {
+          employeeId,
+          days: Array(7)
+            .fill()
+            .map(() => ({
+              type: "work",
+              hours: "0",
+              absence: "",
+              note: "",
+              timeSlots: [],
+            })),
+        };
+      }
 
-    // S'assurer que les jours sont au bon format
-    const formattedDays = schedule.days.map((day) => convertToNewFormat(day));
-
-    return {
-      ...schedule,
-      days: formattedDays,
-    };
-  };
+      // Standardiser les données
+      return standardizeScheduleData(schedule);
+    },
+    [scheduleDataArray]
+  );
 
   // Gérer le clic sur le bouton d'édition
-  const handleEditClick = (employeeId) => {
-    if (onEditEmployee) {
-      onEditEmployee(employeeId);
-    }
-  };
+  const handleEditClick = useCallback(
+    (employeeId) => {
+      if (onEditEmployee) {
+        onEditEmployee(employeeId);
+      }
+    },
+    [onEditEmployee]
+  );
 
   // Vérifier si un jour est un weekend
-  const isWeekend = (dayIndex) => {
+  const isWeekend = useCallback((dayIndex) => {
     return dayIndex === 5 || dayIndex === 6; // Samedi ou Dimanche
-  };
+  }, []);
 
   // Vérifier si un employé est absent pour un jour donné
-  const isAbsent = (employeeId, dayIndex) => {
-    const schedule = findEmployeeSchedule(employeeId);
-    const day = schedule.days[dayIndex];
-    return (
-      day && day.type === "absence" && day.absence && day.absence.trim() !== ""
-    );
-  };
+  const isAbsent = useCallback(
+    (employeeId, dayIndex) => {
+      const schedule = findEmployeeSchedule(employeeId);
+      const day = schedule.days[dayIndex];
+      return isEmployeeAbsent(day);
+    },
+    [findEmployeeSchedule]
+  );
 
   // Formater l'affichage d'une cellule de jour
-  const formatDayCell = (employeeId, dayIndex) => {
-    const schedule = findEmployeeSchedule(employeeId);
-    const day = schedule.days[dayIndex];
+  const formatDayCell = useCallback(
+    (employeeId, dayIndex) => {
+      const schedule = findEmployeeSchedule(employeeId);
+      const day = schedule.days[dayIndex];
 
-    if (!day) return null;
+      if (!day) return null;
 
-    return (
-      <>
-        {day.type === "absence" && day.absence && day.absence.trim() !== "" ? (
-          <AbsenceValue>{day.absence}</AbsenceValue>
-        ) : day.type === "work" && day.timeSlots && day.timeSlots.length > 0 ? (
-          <>
-            {day.timeSlots.map((slot, index) => (
+      const hasTimeSlots = day.timeSlots && day.timeSlots.length > 0;
+
+      return (
+        <>
+          {day.type === "absence" &&
+          day.absence &&
+          day.absence.trim() !== "" ? (
+            <AbsenceValue>{day.absence}</AbsenceValue>
+          ) : hasTimeSlots ? (
+            day.timeSlots.map((slot, index) => (
               <TimeSlot key={index}>
                 {slot.start} - {slot.end}
+                {slot.break && <BreakInfo>Pause: {slot.break}h</BreakInfo>}
               </TimeSlot>
-            ))}
-            <HoursValue>{day.hours || "0"}h</HoursValue>
-          </>
-        ) : (
-          <HoursValue>0h</HoursValue>
-        )}
-
-        {day.note && day.note.trim() !== "" && (
-          <NoteText title={day.note}>{day.note}</NoteText>
-        )}
-      </>
-    );
-  };
+            ))
+          ) : (
+            <TimeSlot>-</TimeSlot>
+          )}
+          <HoursValue>{day.hours || "0"}h</HoursValue>
+          {day.note && day.note.trim() !== "" && (
+            <NoteText title={day.note}>{day.note}</NoteText>
+          )}
+        </>
+      );
+    },
+    [findEmployeeSchedule]
+  );
 
   // Calculer le total des heures pour un employé
-  const calculateEmployeeTotal = (employeeId) => {
-    const schedule = findEmployeeSchedule(employeeId);
-    return schedule.days
-      .reduce((total, day) => total + (parseFloat(day.hours) || 0), 0)
-      .toFixed(1);
-  };
+  const calculateEmployeeTotal = useCallback(
+    (employeeId) => {
+      const schedule = findEmployeeSchedule(employeeId);
+      return calculateTotalHours(schedule).toFixed(1);
+    },
+    [findEmployeeSchedule]
+  );
 
   // Obtenir le compteur horaire d'un employé (heures contractuelles vs heures travaillées)
-  const getEmployeeHoursCounter = (employeeId) => {
-    const employee = employees.find((emp) => emp.id === employeeId);
-    if (!employee || !employee.contractHours) return "N/A";
+  const getEmployeeHoursCounter = useCallback(
+    (employeeId) => {
+      const employee = employees.find((emp) => emp.id === employeeId);
+      if (!employee || !employee.contractHours) return "N/A";
 
-    const contractHours = parseFloat(employee.contractHours);
-    const workedHours = parseFloat(calculateEmployeeTotal(employeeId));
-    const difference = (workedHours - contractHours).toFixed(1);
+      const contractHours = parseFloat(employee.contractHours);
+      const workedHours = parseFloat(calculateEmployeeTotal(employeeId));
+      const diff = workedHours - contractHours;
 
-    if (difference > 0) {
-      return `+${difference}h`;
-    } else if (difference < 0) {
-      return `${difference}h`;
-    } else {
-      return "0h";
-    }
-  };
+      return diff === 0
+        ? "0"
+        : diff > 0
+        ? `+${diff.toFixed(1)}`
+        : diff.toFixed(1);
+    },
+    [employees, calculateEmployeeTotal]
+  );
 
   // Fonction pour générer un PDF du planning d'un employé
   const generatePDF = (employee, days, weekStart) => {
+    // Vérifier si weekStart est valide
+    if (!weekStart || isNaN(new Date(weekStart).getTime())) {
+      console.error(
+        "Date de début de semaine invalide pour le PDF:",
+        weekStart
+      );
+      toast.error("Impossible de générer le PDF: date invalide");
+      return;
+    }
+
     // Créer un élément temporaire pour le rendu
     const tempElement = document.createElement("div");
     tempElement.style.position = "absolute";
@@ -528,6 +573,11 @@ const WeeklyScheduleGrid = ({
             ${days
               .map((day, index) => {
                 const dayDate = new Date(weekStart);
+                if (isNaN(dayDate.getTime())) {
+                  console.error("Date invalide:", weekStart);
+                  return ""; // Ignorer cette ligne en cas de date invalide
+                }
+
                 dayDate.setDate(dayDate.getDate() + index);
                 const isWeekendDay = isWeekend(dayDate);
 
@@ -599,7 +649,14 @@ const WeeklyScheduleGrid = ({
   };
 
   const handleGeneratePDF = (employee) => {
-    const employeeSchedule = scheduleData.find(
+    // Vérifier si weekStart est une date valide
+    if (!validWeekStart) {
+      console.error("Date de début de semaine invalide");
+      toast.error("Impossible de générer le PDF : date invalide");
+      return;
+    }
+
+    const employeeSchedule = scheduleDataArray.find(
       (schedule) => schedule.employeeId === employee.id
     );
 
@@ -616,7 +673,7 @@ const WeeklyScheduleGrid = ({
         };
       });
 
-      generatePDF(employee, formattedDays, weekStart);
+      generatePDF(employee, formattedDays, validWeekStart);
     } else {
       // Créer un planning vide si aucun n'existe
       const emptyDays = Array(7)
@@ -628,7 +685,7 @@ const WeeklyScheduleGrid = ({
           timeSlots: [],
           notes: "",
         }));
-      generatePDF(employee, emptyDays, weekStart);
+      generatePDF(employee, emptyDays, validWeekStart);
     }
   };
 
@@ -648,79 +705,89 @@ const WeeklyScheduleGrid = ({
       <HeaderCell>Actions</HeaderCell>
 
       {/* Lignes pour chaque employé */}
-      {sortedEmployees.map((employee) => (
-        <EmployeeRow key={employee.id}>
-          <EmployeeCell>
-            {employee.firstName} {employee.lastName}
-          </EmployeeCell>
+      {sortedEmployees.map((employee) => {
+        const schedule = scheduleDataArray.find(
+          (s) => s.employeeId === employee.id
+        );
+        return (
+          <EmployeeRow key={employee.id}>
+            <EmployeeCell>
+              {employee.firstName} {employee.lastName}
+            </EmployeeCell>
 
-          {/* Cellules pour chaque jour */}
-          {Array(7)
-            .fill()
-            .map((_, dayIndex) => (
-              <DayCell
-                key={dayIndex}
-                isWeekend={isWeekend(dayIndex)}
-                isAbsent={isAbsent(employee.id, dayIndex)}
-                data-day={formatDate(daysOfWeek[dayIndex], "EEEE")}
+            {/* Cellules pour chaque jour */}
+            {Array(7)
+              .fill()
+              .map((_, dayIndex) => (
+                <DayCell
+                  key={dayIndex}
+                  isWeekend={isWeekend(dayIndex)}
+                  isAbsent={isAbsent(employee.id, dayIndex)}
+                  data-day={formatDate(daysOfWeek[dayIndex], "EEEE")}
+                  onClick={() => !readOnly && onEditEmployee(employee.id)}
+                >
+                  {formatDayCell(employee.id, dayIndex)}
+                </DayCell>
+              ))}
+
+            {/* Cellule de total */}
+            <TotalCell>
+              {calculateEmployeeTotal(employee.id)}h
+              <br />
+              <small
+                style={{
+                  color: getEmployeeHoursCounter(employee.id).startsWith("+")
+                    ? theme.colors.success.main
+                    : getEmployeeHoursCounter(employee.id).startsWith("-")
+                    ? theme.colors.error.main
+                    : "inherit",
+                }}
               >
-                {formatDayCell(employee.id, dayIndex)}
-              </DayCell>
-            ))}
+                {getEmployeeHoursCounter(employee.id)}
+              </small>
+            </TotalCell>
 
-          {/* Cellule de total */}
-          <TotalCell>
-            {calculateEmployeeTotal(employee.id)}h
-            <br />
-            <small
-              style={{
-                color: getEmployeeHoursCounter(employee.id).startsWith("+")
-                  ? "#10b981"
-                  : getEmployeeHoursCounter(employee.id).startsWith("-")
-                  ? "#ef4444"
-                  : "inherit",
-              }}
-            >
-              {getEmployeeHoursCounter(employee.id)}
-            </small>
-          </TotalCell>
+            {/* Cellule d'export */}
+            <ExportCell>
+              <ActionButton
+                variant="secondary"
+                onClick={() => handleGeneratePDF(employee)}
+              >
+                <FaFilePdf /> PDF
+              </ActionButton>
+            </ExportCell>
 
-          {/* Cellule d'export */}
-          <ExportCell>
-            <ActionButton
-              variant="secondary"
-              onClick={() => handleGeneratePDF(employee)}
-            >
-              <FaFilePdf /> PDF
-            </ActionButton>
-          </ExportCell>
-
-          {/* Cellule d'action */}
-          <ActionCell>
-            <ActionButton
-              variant="primary"
-              onClick={() => handleEditClick(employee.id)}
-            >
-              <FaEdit /> Modifier
-            </ActionButton>
-          </ActionCell>
-        </EmployeeRow>
-      ))}
+            {/* Cellule d'action */}
+            <ActionCell>
+              <ActionButton
+                variant="primary"
+                onClick={() => handleEditClick(employee.id)}
+              >
+                <FaEdit /> Modifier
+              </ActionButton>
+            </ActionCell>
+          </EmployeeRow>
+        );
+      })}
     </ScheduleGrid>
   );
 };
 
 WeeklyScheduleGrid.propTypes = {
-  employees: PropTypes.array.isRequired,
+  employees: PropTypes.array,
   weekStart: PropTypes.instanceOf(Date).isRequired,
-  scheduleData: PropTypes.array.isRequired,
+  scheduleData: PropTypes.array,
   onChange: PropTypes.func,
   readOnly: PropTypes.bool,
   onEditEmployee: PropTypes.func,
 };
 
 WeeklyScheduleGrid.defaultProps = {
+  employees: [],
+  scheduleData: [],
+  onChange: () => {},
   readOnly: false,
+  onEditEmployee: null,
 };
 
 export default WeeklyScheduleGrid;

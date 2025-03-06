@@ -25,8 +25,8 @@ router.get("/", auth, async (req, res) => {
     }
 
     const shifts = await Shift.find(query)
-      .populate("employee", "firstName lastName")
-      .populate("createdBy", "firstName lastName")
+      .populate("employee", "first_name last_name")
+      .populate("createdBy", "first_name last_name")
       .sort({ startTime: 1 });
 
     res.json(shifts);
@@ -64,8 +64,8 @@ router.post("/", auth, async (req, res) => {
 
     await newShift.save();
     const populatedShift = await Shift.findById(newShift._id)
-      .populate("employee", "firstName lastName")
-      .populate("createdBy", "firstName lastName");
+      .populate("employee", "first_name last_name")
+      .populate("createdBy", "first_name last_name");
 
     res.status(201).json(populatedShift);
   } catch (error) {
@@ -101,8 +101,8 @@ router.put("/:id", auth, async (req, res) => {
 
     await shift.save();
     const updatedShift = await Shift.findById(shift._id)
-      .populate("employee", "firstName lastName")
-      .populate("createdBy", "firstName lastName");
+      .populate("employee", "first_name last_name")
+      .populate("createdBy", "first_name last_name");
 
     res.json(updatedShift);
   } catch (error) {
