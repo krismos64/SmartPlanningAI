@@ -202,6 +202,73 @@ class VacationRequest {
       throw error;
     }
   }
+
+  /**
+   * Récupère les statistiques des demandes de congés
+   * @returns {Object} Statistiques des demandes de congés
+   */
+  static async getStatistics() {
+    try {
+      // Statistiques par statut
+      const [statusStats] = await connectDB.execute(`
+        SELECT status, COUNT(*) as count
+        FROM vacation_requests
+        GROUP BY status
+      `);
+
+      // Statistiques par type de congé
+      const [typeStats] = await connectDB.execute(`
+        SELECT type, COUNT(*) as count
+        FROM vacation_requests
+        GROUP BY type
+      `);
+
+      // Statistiques par mois (pour l'année en cours)
+      const [monthlyStats] = await connectDB.execute(`
+        SELECT 
+          MONTH(start_date) as month, 
+          COUNT(*) as count
+        FROM vacation_requests
+        WHERE YEAR(start_date) = YEAR(CURDATE())
+        GROUP BY MONTH(start_date)
+        ORDER BY month
+      `);
+
+      // Nombre total de jours de congés pris
+      const [totalDaysResult] = await connectDB.execute(`
+        SELECT 
+          SUM(DATEDIFF(end_date, start_date) + 1) as total_days
+        FROM vacation_requests
+        WHERE status = 'approved'
+      `);
+
+      const totalDays = totalDaysResult[0].total_days || 0;
+
+      // Demandes récentes (10 dernières)
+      const [recentRequests] = await connectDB.execute(`
+        SELECT vr.id, vr.type, vr.status, vr.start_date, vr.end_date,
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name
+        FROM vacation_requests vr
+        LEFT JOIN employees e ON vr.employee_id = e.id
+        ORDER BY vr.created_at DESC
+        LIMIT 10
+      `);
+
+      return {
+        byStatus: statusStats,
+        byType: typeStats,
+        byMonth: monthlyStats,
+        totalDays: totalDays,
+        recentRequests: recentRequests,
+      };
+    } catch (error) {
+      console.error(
+        "Erreur lors de la récupération des statistiques de congés:",
+        error
+      );
+      throw error;
+    }
+  }
 }
 
 module.exports = VacationRequest;

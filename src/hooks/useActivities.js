@@ -34,16 +34,20 @@ const useActivities = () => {
         setLoading(true);
         const response = await api.get(API_ENDPOINTS.ACTIVITIES.BASE);
 
-        if (response.ok) {
+        // Vérifier si la réponse est un tableau ou contient des données valides
+        if (response && (Array.isArray(response) || response.data)) {
           // S'assurer que les données sont un tableau
-          const activitiesData = Array.isArray(response.data)
+          const activitiesData = Array.isArray(response)
+            ? response
+            : Array.isArray(response.data)
             ? response.data
             : [];
+
           setActivities(activitiesData);
           setError(null);
         } else {
           throw new Error(
-            response.data?.message || "Erreur lors du chargement des activités"
+            "Erreur lors du chargement des activités: format de réponse invalide"
           );
         }
       } catch (err) {

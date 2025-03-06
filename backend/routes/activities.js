@@ -46,46 +46,31 @@ router.get("/test", async (req, res) => {
 /**
  * @route GET /api/activities
  * @desc Récupérer toutes les activités récentes avec pagination et filtrage
- * @access Private
+ * @access Public
  */
-router.get("/", auth, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const options = {
       page: parseInt(req.query.page) || 1,
       limit: parseInt(req.query.limit) || 50,
-      type: req.query.type,
-      entity_type: req.query.entity_type,
-      entity_id: req.query.entity_id,
-      user_id: req.query.user_id,
-      startDate: req.query.startDate,
-      endDate: req.query.endDate,
       sortBy: req.query.sortBy || "timestamp",
       sortOrder: req.query.sortOrder || "DESC",
+      excludeSystemActivities: req.query.excludeSystemActivities !== "false", // Par défaut à true sauf si explicitement mis à false
     };
 
     console.log("Récupération des activités avec options:", options);
     const result = await Activity.getAll(options);
 
+    // Simplifier la structure de la réponse
     if (!result || !result.activities) {
-      return res.status(500).json({
-        success: false,
-        message:
-          "Erreur lors de la récupération des activités: format de réponse invalide",
-      });
+      return res.json([]);
     }
 
-    res.json({
-      success: true,
-      activities: result.activities,
-      pagination: result.pagination,
-    });
+    // Renvoyer directement le tableau d'activités
+    res.json(result.activities);
   } catch (error) {
     console.error("Erreur lors de la récupération des activités:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des activités",
-      error: error.message,
-    });
+    res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
 

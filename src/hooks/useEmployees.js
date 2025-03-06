@@ -97,20 +97,55 @@ const useEmployees = () => {
 
         console.log("Réponse de l'API pour création:", response);
 
-        if (!response.ok) {
-          const errorMessage =
-            response.data?.message || "Erreur lors de la création de l'employé";
-          console.error("Erreur API:", errorMessage);
-          return { success: false, error: errorMessage };
+        // Vérifier si la réponse contient un indicateur de succès
+        if (response && response.success === false) {
+          console.error(
+            "Erreur API:",
+            response.message || "Erreur lors de la création de l'employé"
+          );
+          return {
+            success: false,
+            error:
+              response.message || "Erreur lors de la création de l'employé",
+          };
         }
 
-        // Mettre à jour l'état local
-        setEmployees((prev) => [...prev, response.data]);
+        // Si la réponse contient un employé, c'est un succès
+        if (response && response.employee) {
+          // Mettre à jour l'état local
+          setEmployees((prev) => [...prev, response.employee]);
+          return { success: true, employee: response.employee };
+        }
 
-        return { success: true, employee: response.data };
+        // Si la réponse est un objet mais ne contient pas d'employé, vérifier s'il y a un message d'erreur
+        if (response && typeof response === "object") {
+          if (response.message && response.message.includes("erreur")) {
+            return { success: false, error: response.message };
+          }
+
+          // Si la réponse est l'employé lui-même
+          if (response.id) {
+            setEmployees((prev) => [...prev, response]);
+            return { success: true, employee: response };
+          }
+        }
+
+        // Fallback pour les anciennes API qui renvoient directement l'employé
+        setEmployees((prev) => [...prev, response]);
+        return { success: true, employee: response };
       } catch (err) {
         console.error("Erreur lors de la création de l'employé:", err);
-        return { success: false, error: err.message || "Erreur inconnue" };
+
+        // Extraire un message d'erreur plus précis si possible
+        let errorMessage = "Erreur lors de la création de l'employé";
+
+        if (err.response && err.response.data) {
+          errorMessage = err.response.data.message || errorMessage;
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+
+        return { success: false, error: errorMessage };
       }
     },
     [api]

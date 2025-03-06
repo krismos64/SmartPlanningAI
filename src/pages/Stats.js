@@ -140,13 +140,6 @@ const Stats = () => {
     completion: 87,
   };
 
-  const vacationStats = {
-    pending: 8,
-    approved: 15,
-    rejected: 3,
-    totalDays: 120,
-  };
-
   return (
     <StatsContainer>
       <PageHeader>
@@ -224,30 +217,6 @@ const Stats = () => {
             </StatsItem>
           </StatsList>
           <ProgressBar value={planningStats.completion} color="#8338ec" />
-        </StatsCard>
-
-        <StatsCard>
-          <CardTitle>Congés</CardTitle>
-          <ChartContainer>
-            <ChartPlaceholder>
-              <StatValue color="#ff006e">{vacationStats.totalDays}</StatValue>
-              <StatLabel>Jours de congés pris</StatLabel>
-            </ChartPlaceholder>
-          </ChartContainer>
-          <StatsList>
-            <StatsItem>
-              <StatsItemLabel>En attente</StatsItemLabel>
-              <StatsItemValue>{vacationStats.pending}</StatsItemValue>
-            </StatsItem>
-            <StatsItem>
-              <StatsItemLabel>Approuvés</StatsItemLabel>
-              <StatsItemValue>{vacationStats.approved}</StatsItemValue>
-            </StatsItem>
-            <StatsItem>
-              <StatsItemLabel>Refusés</StatsItemLabel>
-              <StatsItemValue>{vacationStats.rejected}</StatsItemValue>
-            </StatsItem>
-          </StatsList>
         </StatsCard>
       </StatsGrid>
     </StatsContainer>

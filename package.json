@@ -28,6 +28,7 @@
     "dompurify": "^3.2.4",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "framer-motion": "^12.4.10",
     "html2canvas": "^1.4.1",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.0",
