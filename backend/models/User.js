@@ -1,4 +1,3 @@
-const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
 const pool = require("../config/db");
 
@@ -33,7 +32,7 @@ class User {
   static async findById(id) {
     try {
       const [rows] = await pool.execute(
-        "SELECT id, username, email, role, firstName, lastName, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?",
+        "SELECT id, username, email, password, role, firstName, lastName, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?",
         [id]
       );
       if (rows.length === 0) return null;
@@ -106,40 +105,93 @@ class User {
       // Définir le rôle comme admin si non défini
       this.role = this.role || "admin";
 
+      // Remplacer les valeurs undefined par null pour éviter l'erreur MySQL
+      // Utiliser des variables locales pour éviter de modifier directement les propriétés de l'objet
+      const profileImage =
+        this.profileImage === undefined ? null : this.profileImage;
+      const company = this.company === undefined ? null : this.company;
+      const phone = this.phone === undefined ? null : this.phone;
+      const jobTitle = this.jobTitle === undefined ? null : this.jobTitle;
+      const firstName = this.firstName === undefined ? null : this.firstName;
+      const lastName = this.lastName === undefined ? null : this.lastName;
+      const username = this.username === undefined ? null : this.username;
+      const email = this.email === undefined ? null : this.email;
+      const role = this.role === undefined ? "admin" : this.role;
+
+      console.log("Sauvegarde de l'utilisateur avec les données:", {
+        id: this.id,
+        username,
+        email,
+        role,
+        firstName,
+        lastName,
+        profileImageLength: profileImage ? profileImage.length : 0,
+        company,
+        phone,
+        jobTitle,
+      });
+
       if (this.id) {
+        // Pour une mise à jour, si le mot de passe est null ou undefined, récupérer le mot de passe existant
+        let password = this.password;
+
+        if (password === undefined || password === null) {
+          // Récupérer le mot de passe existant de la base de données
+          const [rows] = await pool.execute(
+            "SELECT password FROM users WHERE id = ?",
+            [this.id]
+          );
+
+          if (rows.length > 0) {
+            password = rows[0].password;
+            console.log(
+              "Utilisation du mot de passe existant pour la mise à jour"
+            );
+          } else {
+            throw new Error(`Utilisateur avec l'ID ${this.id} non trouvé`);
+          }
+        }
+
         // Mise à jour
         await pool.execute(
           "UPDATE users SET username = ?, email = ?, password = ?, role = ?, firstName = ?, lastName = ?, profileImage = ?, company = ?, phone = ?, jobTitle = ? WHERE id = ?",
           [
-            this.username,
-            this.email,
-            this.password,
-            this.role,
-            this.firstName,
-            this.lastName,
-            this.profileImage,
-            this.company,
-            this.phone,
-            this.jobTitle,
+            username,
+            email,
+            password,
+            role,
+            firstName,
+            lastName,
+            profileImage,
+            company,
+            phone,
+            jobTitle,
             this.id,
           ]
         );
         return this;
       } else {
+        // Création - le mot de passe est obligatoire
+        if (!this.password) {
+          throw new Error(
+            "Le mot de passe est requis pour créer un utilisateur"
+          );
+        }
+
         // Création
         const [result] = await pool.execute(
           "INSERT INTO users (username, email, password, role, firstName, lastName, profileImage, company, phone, jobTitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
-            this.username,
-            this.email,
+            username,
+            email,
             this.password,
-            this.role,
-            this.firstName,
-            this.lastName,
-            this.profileImage,
-            this.company,
-            this.phone,
-            this.jobTitle,
+            role,
+            firstName,
+            lastName,
+            profileImage,
+            company,
+            phone,
+            jobTitle,
           ]
         );
         this.id = result.insertId;
@@ -147,6 +199,7 @@ class User {
       }
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de l'utilisateur:", error);
+      console.error("Stack trace:", error.stack);
       throw error;
     }
   }

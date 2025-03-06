@@ -12,13 +12,27 @@ const weeklySchedulesRouter = require("./routes/weeklySchedules");
 const app = express();
 
 // Middleware
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+console.log(`Configuration CORS: autorisation de l'origine ${frontendUrl}`);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: frontendUrl,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.json());
+
+// Middleware pour gérer les requêtes OPTIONS
+app.options("*", (req, res) => {
+  console.log(`Requête OPTIONS reçue pour ${req.path}`);
+  res.status(200).end();
+});
+
+// Augmenter la limite de taille des requêtes pour permettre l'upload d'images
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 
 // Routes
