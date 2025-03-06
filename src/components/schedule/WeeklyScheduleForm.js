@@ -1,20 +1,34 @@
 import { format } from "date-fns";
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import useEmployees from "../../hooks/useEmployees";
 import useWeeklySchedules from "../../hooks/useWeeklySchedules";
+import { getWeekStart } from "../../utils/dateUtils";
 import WeeklyScheduleGrid from "./WeeklyScheduleGrid";
 
 const WeeklyScheduleForm = ({ onSubmit, onCancel }) => {
+  // Initialiser avec la date de début de la semaine courante
+  const currentWeekStart = format(getWeekStart(new Date()), "yyyy-MM-dd");
+
   const [formData, setFormData] = useState({
     employeeId: "",
-    weekStart: format(new Date(), "yyyy-MM-dd"),
+    weekStart: currentWeekStart,
     scheduleData: {},
   });
 
   const { employees, loading: employeesLoading } = useEmployees();
   const { createSchedule } = useWeeklySchedules();
+
+  // S'assurer que weekStart est toujours défini
+  useEffect(() => {
+    if (!formData.weekStart) {
+      setFormData((prev) => ({
+        ...prev,
+        weekStart: currentWeekStart,
+      }));
+    }
+  }, [currentWeekStart]);
 
   const handleEmployeeChange = (event) => {
     const selectedEmployeeId = event.target.value;
@@ -48,33 +62,29 @@ const WeeklyScheduleForm = ({ onSubmit, onCancel }) => {
         return;
       }
 
-      const scheduleData = {
-        employeeId: parseInt(formData.employeeId),
-        weekStart: formData.weekStart,
-        days: Object.entries(formData.scheduleData).map(([day, data]) => ({
-          day,
-          type: data.type || "work",
-          hours: parseFloat(data.hours) || 0,
-          absence: data.absence || false,
-          note: data.note || "",
-          timeSlots: data.hours > 0 ? [{ start: "09:00", end: "17:00" }] : [],
-        })),
-      };
+      if (!formData.weekStart) {
+        toast.error("Veuillez sélectionner une date de début de semaine");
+        return;
+      }
 
-      console.log("Données envoyées à l'API:", scheduleData);
-      const result = await createSchedule(scheduleData);
+      console.log("Données du formulaire à soumettre:", formData);
+
+      // Créer le planning
+      const result = await createSchedule({
+        employeeId: formData.employeeId,
+        weekStart: formData.weekStart,
+        scheduleData: formData.scheduleData,
+      });
 
       if (result.success) {
         toast.success("Planning créé avec succès");
-        onSubmit && onSubmit(result.schedule);
+        if (onSubmit) onSubmit(result.schedule);
       } else {
-        throw new Error(
-          result.error || "Erreur lors de la création du planning"
-        );
+        toast.error(`Erreur: ${result.message}`);
       }
     } catch (error) {
-      console.error("Erreur lors de la soumission:", error);
-      toast.error(error.message || "Erreur lors de la création du planning");
+      console.error("Erreur lors de la création du planning:", error);
+      toast.error("Erreur lors de la création du planning");
     }
   };
 

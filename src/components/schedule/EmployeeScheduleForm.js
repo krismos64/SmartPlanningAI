@@ -320,36 +320,25 @@ const EmployeeScheduleForm = ({
   scheduleData,
   onSave,
   onCancel,
-  isSubmitting = false,
 }) => {
-  // Initialiser le planning avec une fonction d'initialisation
-  const [schedule, setSchedule] = useState(() => {
-    // Obtenir les jours de la semaine
-    const weekDays = getDaysOfWeek(weekStart);
+  // Convertir scheduleData en tableau s'il est fourni comme un objet
+  const initialScheduleData = Array.isArray(scheduleData)
+    ? scheduleData
+    : scheduleData
+    ? Object.values(scheduleData)
+    : Array(7)
+        .fill()
+        .map(() => ({
+          type: "work",
+          hours: "0",
+          absence: "",
+          note: "",
+          timeSlots: [],
+        }));
 
-    // Si nous avons des données de planning pour cet employé, les utiliser
-    if (employee && Array.isArray(scheduleData)) {
-      const employeeSchedule = scheduleData.find(
-        (item) => item.employeeId === employee.id
-      );
-
-      if (employeeSchedule && employeeSchedule.days) {
-        // Convertir le format existant au nouveau format
-        return employeeSchedule.days.map((day) => convertToNewFormat(day));
-      }
-    }
-
-    // Sinon, créer un planning vide avec le nouveau format
-    return Array(7)
-      .fill()
-      .map(() => ({
-        type: "work",
-        absence: "",
-        note: "",
-        hours: "0",
-        timeSlots: [],
-      }));
-  });
+  const [formData, setFormData] = useState(initialScheduleData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const weekDays = getDaysOfWeek(weekStart);
 
@@ -360,117 +349,117 @@ const EmployeeScheduleForm = ({
 
   // Gérer le changement de type (travail ou absence)
   const handleTypeChange = useCallback((dayIndex, type) => {
-    setSchedule((prevSchedule) => {
-      const newSchedule = [...prevSchedule];
-      newSchedule[dayIndex] = {
-        ...newSchedule[dayIndex],
+    setFormData((prevFormData) => {
+      const newFormData = [...prevFormData];
+      newFormData[dayIndex] = {
+        ...newFormData[dayIndex],
         type: type,
         // Si on passe en mode absence, on vide les créneaux horaires
-        timeSlots: type === "absence" ? [] : newSchedule[dayIndex].timeSlots,
+        timeSlots: type === "absence" ? [] : newFormData[dayIndex].timeSlots,
         // Si on passe en mode travail, on vide le motif d'absence
-        absence: type === "work" ? "" : newSchedule[dayIndex].absence,
+        absence: type === "work" ? "" : newFormData[dayIndex].absence,
         // Mettre à jour les heures
         hours:
           type === "absence"
             ? "0"
-            : calculateDayHours(newSchedule[dayIndex].timeSlots),
+            : calculateDayHours(newFormData[dayIndex].timeSlots),
       };
-      return newSchedule;
+      return newFormData;
     });
   }, []);
 
   // Gérer le changement du motif d'absence
   const handleAbsenceChange = useCallback((dayIndex, value) => {
-    setSchedule((prevSchedule) => {
-      const newSchedule = [...prevSchedule];
-      newSchedule[dayIndex] = {
-        ...newSchedule[dayIndex],
+    setFormData((prevFormData) => {
+      const newFormData = [...prevFormData];
+      newFormData[dayIndex] = {
+        ...newFormData[dayIndex],
         absence: value,
       };
-      return newSchedule;
+      return newFormData;
     });
   }, []);
 
   // Gérer le changement de note
   const handleNoteChange = useCallback((dayIndex, value) => {
-    setSchedule((prevSchedule) => {
-      const newSchedule = [...prevSchedule];
-      newSchedule[dayIndex] = {
-        ...newSchedule[dayIndex],
+    setFormData((prevFormData) => {
+      const newFormData = [...prevFormData];
+      newFormData[dayIndex] = {
+        ...newFormData[dayIndex],
         note: value,
       };
-      return newSchedule;
+      return newFormData;
     });
   }, []);
 
   // Ajouter un créneau horaire
   const addTimeSlot = useCallback((dayIndex) => {
-    setSchedule((prevSchedule) => {
-      const newSchedule = [...prevSchedule];
+    setFormData((prevFormData) => {
+      const newFormData = [...prevFormData];
       const newTimeSlots = [
-        ...(newSchedule[dayIndex].timeSlots || []),
+        ...(newFormData[dayIndex].timeSlots || []),
         { start: "09:00", end: "17:00" },
       ];
 
-      newSchedule[dayIndex] = {
-        ...newSchedule[dayIndex],
+      newFormData[dayIndex] = {
+        ...newFormData[dayIndex],
         timeSlots: newTimeSlots,
         hours: calculateDayHours(newTimeSlots),
       };
 
-      return newSchedule;
+      return newFormData;
     });
   }, []);
 
   // Supprimer un créneau horaire
   const removeTimeSlot = useCallback((dayIndex, slotIndex) => {
-    setSchedule((prevSchedule) => {
-      const newSchedule = [...prevSchedule];
-      const newTimeSlots = [...newSchedule[dayIndex].timeSlots];
+    setFormData((prevFormData) => {
+      const newFormData = [...prevFormData];
+      const newTimeSlots = [...newFormData[dayIndex].timeSlots];
       newTimeSlots.splice(slotIndex, 1);
 
-      newSchedule[dayIndex] = {
-        ...newSchedule[dayIndex],
+      newFormData[dayIndex] = {
+        ...newFormData[dayIndex],
         timeSlots: newTimeSlots,
         hours: calculateDayHours(newTimeSlots),
       };
 
-      return newSchedule;
+      return newFormData;
     });
   }, []);
 
   // Mettre à jour un créneau horaire
   const updateTimeSlot = useCallback((dayIndex, slotIndex, field, value) => {
-    setSchedule((prevSchedule) => {
-      const newSchedule = [...prevSchedule];
-      const newTimeSlots = [...newSchedule[dayIndex].timeSlots];
+    setFormData((prevFormData) => {
+      const newFormData = [...prevFormData];
+      const newTimeSlots = [...newFormData[dayIndex].timeSlots];
 
       newTimeSlots[slotIndex] = {
         ...newTimeSlots[slotIndex],
         [field]: value,
       };
 
-      newSchedule[dayIndex] = {
-        ...newSchedule[dayIndex],
+      newFormData[dayIndex] = {
+        ...newFormData[dayIndex],
         timeSlots: newTimeSlots,
         hours: calculateDayHours(newTimeSlots),
       };
 
-      return newSchedule;
+      return newFormData;
     });
   }, []);
 
   // Calculer le total des heures
   const calculateTotalHours = useCallback(() => {
-    return schedule
+    return formData
       .reduce((total, day) => total + (parseFloat(day.hours) || 0), 0)
       .toFixed(1);
-  }, [schedule]);
+  }, [formData]);
 
   // Gérer la sauvegarde du planning
   const handleSave = useCallback(() => {
     // Convertir le format pour la sauvegarde
-    const formattedSchedule = schedule.map((day) => ({
+    const formattedSchedule = formData.map((day) => ({
       hours: day.hours,
       absence: day.absence,
       note: day.note,
@@ -484,9 +473,9 @@ const EmployeeScheduleForm = ({
     };
 
     onSave(updatedScheduleData);
-  }, [employee, onSave, schedule]);
+  }, [employee, onSave, formData]);
 
-  if (!employee || !weekDays || schedule.length === 0) {
+  if (!employee || !weekDays || formData.length === 0) {
     return null;
   }
 
@@ -535,7 +524,7 @@ const EmployeeScheduleForm = ({
                 <RadioInput
                   type="radio"
                   name={`day-type-${index}`}
-                  checked={schedule[index]?.type === "work"}
+                  checked={formData[index]?.type === "work"}
                   onChange={() => handleTypeChange(index, "work")}
                 />
                 Travail
@@ -544,20 +533,20 @@ const EmployeeScheduleForm = ({
                 <RadioInput
                   type="radio"
                   name={`day-type-${index}`}
-                  checked={schedule[index]?.type === "absence"}
+                  checked={formData[index]?.type === "absence"}
                   onChange={() => handleTypeChange(index, "absence")}
                 />
                 Absence
               </RadioLabel>
             </RadioGroup>
 
-            {schedule[index]?.type === "work" ? (
+            {formData[index]?.type === "work" ? (
               <TimeSlotContainer>
                 <InputLabel>
-                  Créneaux horaires ({schedule[index]?.hours || "0"}h)
+                  Créneaux horaires ({formData[index]?.hours || "0"}h)
                 </InputLabel>
 
-                {schedule[index]?.timeSlots?.map((slot, slotIndex) => (
+                {formData[index]?.timeSlots?.map((slot, slotIndex) => (
                   <TimeSlot key={slotIndex}>
                     <TimeInput
                       type="time"
@@ -600,7 +589,7 @@ const EmployeeScheduleForm = ({
                 <InputLabel>Motif d'absence</InputLabel>
                 <StyledFormInput
                   type="text"
-                  value={schedule[index]?.absence || ""}
+                  value={formData[index]?.absence || ""}
                   onChange={(e) => handleAbsenceChange(index, e.target.value)}
                   placeholder="Saisir le motif d'absence..."
                 />
@@ -611,7 +600,7 @@ const EmployeeScheduleForm = ({
               <InputLabel>Note (optionnelle)</InputLabel>
               <StyledFormInput
                 type="text"
-                value={schedule[index]?.note || ""}
+                value={formData[index]?.note || ""}
                 onChange={(e) => handleNoteChange(index, e.target.value)}
                 placeholder="Ajouter une note..."
               />
@@ -634,7 +623,6 @@ EmployeeScheduleForm.propTypes = {
   scheduleData: PropTypes.array,
   onSave: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
-  isSubmitting: PropTypes.bool,
 };
 
 export default EmployeeScheduleForm;
