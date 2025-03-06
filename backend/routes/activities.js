@@ -63,7 +63,16 @@ router.get("/", auth, async (req, res) => {
       sortOrder: req.query.sortOrder || "DESC",
     };
 
+    console.log("Récupération des activités avec options:", options);
     const result = await Activity.getAll(options);
+
+    if (!result || !result.activities) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Erreur lors de la récupération des activités: format de réponse invalide",
+      });
+    }
 
     res.json({
       success: true,
