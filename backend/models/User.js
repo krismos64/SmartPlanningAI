@@ -10,6 +10,7 @@ class User {
     this.first_name = data.first_name;
     this.last_name = data.last_name;
     this.created_at = data.created_at;
+    this.updated_at = data.updated_at;
     this.profileImage = data.profileImage;
     this.company = data.company;
     this.phone = data.phone;
@@ -149,9 +150,9 @@ class User {
           }
         }
 
-        // Mise à jour
+        // Mise à jour avec updated_at = NOW()
         await pool.execute(
-          "UPDATE users SET email = ?, password = ?, role = ?, first_name = ?, last_name = ?, profileImage = ?, company = ?, phone = ?, jobTitle = ? WHERE id = ?",
+          "UPDATE users SET email = ?, password = ?, role = ?, first_name = ?, last_name = ?, profileImage = ?, company = ?, phone = ?, jobTitle = ?, updated_at = NOW() WHERE id = ?",
           [
             email,
             password,
@@ -176,7 +177,7 @@ class User {
 
         // Création
         const [result] = await pool.execute(
-          "INSERT INTO users (email, password, role, first_name, last_name, profileImage, company, phone, jobTitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO users (email, password, role, first_name, last_name, profileImage, company, phone, jobTitle, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
           [
             email,
             this.password,

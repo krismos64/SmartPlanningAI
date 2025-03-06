@@ -1,4 +1,5 @@
 const { createActivitiesTable } = require("./create_activities_table");
+const { createShiftsTable } = require("./create_shifts_table");
 
 async function runMigrations() {
   try {
@@ -6,6 +7,9 @@ async function runMigrations() {
 
     // Exécuter la migration pour la table des activités
     await createActivitiesTable();
+
+    // Exécuter la migration pour la table des shifts
+    await createShiftsTable();
 
     // Ajouter d'autres migrations ici si nécessaire
 

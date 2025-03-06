@@ -368,3 +368,151 @@ export const ActivityService = {
     }
   },
 };
+
+export const WeeklyScheduleService = {
+  getAll: async () => {
+    try {
+      const response = await apiRequest(API_ENDPOINTS.WEEKLY_SCHEDULES, "GET");
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, schedules: response };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error.message || "Erreur lors de la récupération des plannings",
+      };
+    }
+  },
+
+  getByWeek: async (weekStart) => {
+    try {
+      const response = await apiRequest(
+        `${API_ENDPOINTS.WEEKLY_SCHEDULES}?weekStart=${weekStart}`,
+        "GET"
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, schedules: response };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error.message ||
+          "Erreur lors de la récupération des plannings pour cette semaine",
+      };
+    }
+  },
+
+  getByEmployee: async (employeeId) => {
+    try {
+      const response = await apiRequest(
+        `${API_ENDPOINTS.EMPLOYEES.SCHEDULES(employeeId)}`,
+        "GET"
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, schedules: response };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error.message ||
+          "Erreur lors de la récupération des plannings de l'employé",
+      };
+    }
+  },
+
+  getByEmployeeAndWeek: async (employeeId, weekStart) => {
+    try {
+      const response = await apiRequest(
+        `${API_ENDPOINTS.EMPLOYEES.SCHEDULES(
+          employeeId
+        )}?weekStart=${weekStart}`,
+        "GET"
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, schedule: response };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la récupération du planning",
+      };
+    }
+  },
+
+  create: async (scheduleData) => {
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.WEEKLY_SCHEDULES,
+        "POST",
+        scheduleData
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, schedule: response };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la création du planning",
+      };
+    }
+  },
+
+  update: async (id, scheduleData) => {
+    try {
+      const response = await apiRequest(
+        `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
+        "PUT",
+        scheduleData
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, schedule: response };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la mise à jour du planning",
+      };
+    }
+  },
+
+  delete: async (id) => {
+    try {
+      const response = await apiRequest(
+        `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
+        "DELETE"
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la suppression du planning",
+      };
+    }
+  },
+};

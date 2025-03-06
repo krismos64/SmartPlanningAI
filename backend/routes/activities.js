@@ -10,7 +10,8 @@ const { auth } = require("../middleware/auth");
  */
 const recordActivity = async (activityData) => {
   try {
-    return await Activity.create(activityData);
+    // Utiliser la nouvelle méthode logActivity qui gère également la diffusion WebSocket
+    return await Activity.logActivity(activityData);
   } catch (error) {
     console.error("Erreur lors de l'enregistrement de l'activité:", error);
     throw error;

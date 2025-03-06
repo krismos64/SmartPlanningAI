@@ -7,6 +7,10 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const setupWebSocket = require("./config/websocket");
+const Activity = require("./models/Activity");
+
+// Rendre le modèle Activity disponible globalement
+global.Activity = Activity;
 
 // Import des routes
 const employeesRoutes = require("./routes/employees");
@@ -231,7 +235,8 @@ const startServer = async () => {
     const server = http.createServer(app);
 
     // Configurer le WebSocket
-    setupWebSocket(server);
+    const wss = setupWebSocket(server);
+    console.log("🔌 WebSocket configuré et prêt à recevoir des connexions");
 
     // Démarrer le serveur
     server.listen(PORT, () => {
@@ -243,6 +248,26 @@ const startServer = async () => {
         }`
       );
       console.log(`🌐 CORS Origins: ${JSON.stringify(corsOptions.origin)}`);
+
+      // Enregistrer une activité de démarrage du serveur
+      Activity.logActivity({
+        type: "system",
+        entity_type: "server",
+        entity_id: 0,
+        description: `Serveur démarré sur le port ${PORT}`,
+        user_id: null,
+        details: {
+          port: PORT,
+          pid: process.pid,
+          nodeVersion: process.version,
+          environment: process.env.NODE_ENV || "development",
+        },
+      }).catch((err) =>
+        console.error(
+          "Erreur lors de l'enregistrement de l'activité de démarrage:",
+          err
+        )
+      );
     });
 
     // Gérer les erreurs de serveur
