@@ -36,22 +36,27 @@ const setupWebSocket = (server) => {
             try {
               console.log("Récupération des activités récentes...");
               // Récupérer les 10 dernières activités
-              const activities = await Activity.getAll({
+              const result = await Activity.getAll({
                 limit: 10,
                 sortBy: "timestamp",
                 sortOrder: "DESC",
               });
 
-              // Vérifier si activities est défini et est un tableau
-              if (!activities || !Array.isArray(activities)) {
+              // Vérifier si result contient les activités
+              if (
+                !result ||
+                !result.activities ||
+                !Array.isArray(result.activities)
+              ) {
                 console.error(
-                  "Erreur: activities n'est pas un tableau valide",
-                  activities
+                  "Erreur: result n'est pas un objet valide ou ne contient pas d'activités",
+                  result
                 );
                 ws.send(
                   JSON.stringify({
                     type: "ACTIVITIES",
                     data: [],
+                    pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
                     error: "Aucune activité disponible",
                     timestamp: new Date().toISOString(),
                   })
@@ -59,13 +64,16 @@ const setupWebSocket = (server) => {
                 return;
               }
 
-              console.log(`Envoi de ${activities.length} activités au client`);
+              console.log(
+                `Envoi de ${result.activities.length} activités au client`
+              );
 
               // Envoyer les activités au client
               ws.send(
                 JSON.stringify({
                   type: "ACTIVITIES",
-                  data: activities,
+                  data: result.activities,
+                  pagination: result.pagination,
                   timestamp: new Date().toISOString(),
                 })
               );

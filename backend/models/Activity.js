@@ -8,7 +8,7 @@ class Activity {
   /**
    * Récupère toutes les activités avec pagination et filtrage
    * @param {Object} options - Options de filtrage et pagination
-   * @returns {Promise<Array>} - Liste des activités
+   * @returns {Promise<Object>} - Objet contenant les activités et la pagination
    */
   static async getAll(options = {}) {
     try {
@@ -84,7 +84,10 @@ class Activity {
           "Erreur: La requête n'a pas renvoyé un tableau d'activités:",
           activities
         );
-        return [];
+        return {
+          activities: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        };
       }
 
       console.log(`${activities.length} activités récupérées`);
@@ -131,9 +134,45 @@ class Activity {
       const [countResult] = await db.query(countQuery, countParams);
       const total = countResult[0]?.total || 0;
 
+      // Transformer les données pour le frontend
+      const formattedActivities = activities.map((activity) => {
+        let details = {};
+        try {
+          if (activity.details && typeof activity.details === "string") {
+            details = JSON.parse(activity.details);
+          } else if (activity.details) {
+            details = activity.details;
+          }
+        } catch (e) {
+          console.error("Erreur lors du parsing des détails de l'activité:", e);
+          details = {};
+        }
+
+        return {
+          id: activity.id,
+          type: activity.type,
+          entity_type: activity.entity_type,
+          entity_id: activity.entity_id,
+          description: activity.description,
+          user_id: activity.user_id,
+          user: {
+            name:
+              activity.username ||
+              `${activity.first_name || ""} ${
+                activity.last_name || ""
+              }`.trim() ||
+              "Utilisateur inconnu",
+          },
+          ip_address: activity.ip_address,
+          user_agent: activity.user_agent,
+          timestamp: activity.timestamp,
+          details: details,
+        };
+      });
+
       // Ajouter les métadonnées de pagination aux activités
       const result = {
-        data: activities,
+        activities: formattedActivities,
         pagination: {
           page,
           limit,
@@ -142,11 +181,19 @@ class Activity {
         },
       };
 
-      return activities;
+      return result;
     } catch (error) {
       console.error("Erreur lors de la récupération des activités:", error);
-      // En cas d'erreur, retourner un tableau vide
-      return [];
+      // En cas d'erreur, retourner un objet avec un tableau vide et une pagination vide
+      return {
+        activities: [],
+        pagination: {
+          page: parseInt(options.page) || 1,
+          limit: parseInt(options.limit) || 50,
+          total: 0,
+          totalPages: 0,
+        },
+      };
     }
   }
 
@@ -344,23 +391,20 @@ class Activity {
       }
 
       // Récupérer les activités récentes
-      const activities = await this.getAll({
+      const result = await this.getAll({
         limit,
         sortBy: "timestamp",
         sortOrder: "DESC",
       });
 
       // S'assurer que activities est un tableau
-      if (!activities || !Array.isArray(activities)) {
-        console.error(
-          "Erreur: activities n'est pas un tableau valide",
-          activities
-        );
+      if (!result || !result.activities || !Array.isArray(result.activities)) {
+        console.error("Erreur: activities n'est pas un tableau valide", result);
         return;
       }
 
       console.log(
-        `Diffusion de ${activities.length} activités récentes via WebSocket`
+        `Diffusion de ${result.activities.length} activités récentes via WebSocket`
       );
 
       // Diffuser les activités à tous les clients connectés
@@ -371,7 +415,8 @@ class Activity {
             client.send(
               JSON.stringify({
                 type: "ACTIVITIES",
-                data: activities,
+                data: result.activities,
+                pagination: result.pagination,
                 timestamp: new Date().toISOString(),
               })
             );
