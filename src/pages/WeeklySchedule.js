@@ -248,27 +248,6 @@ const PageDescription = styled.p`
   font-size: 1.1rem;
 `;
 
-// Fonction utilitaire pour convertir les données existantes au nouveau format
-const convertToNewFormat = (day) => {
-  // Si le jour a déjà le format attendu, le retourner tel quel
-  if (day.type) {
-    return { ...day };
-  }
-
-  // Sinon, convertir au nouveau format
-  return {
-    type: day.absence ? "absence" : "work",
-    hours: day.hours || "0",
-    absence: day.absence || "",
-    note: day.note || "",
-    timeSlots:
-      day.timeSlots ||
-      (day.hours && parseFloat(day.hours) > 0
-        ? [{ start: "09:00", end: "17:00" }]
-        : []),
-  };
-};
-
 /**
  * Page de gestion des plannings hebdomadaires
  */
@@ -318,7 +297,9 @@ const WeeklySchedulePage = () => {
   const {
     employees,
     loading: employeesLoading,
+    // eslint-disable-next-line no-unused-vars
     error: employeesError,
+    fetchEmployees,
   } = useEmployees();
 
   // Récupérer les plannings
@@ -332,9 +313,44 @@ const WeeklySchedulePage = () => {
 
   // Formater les données de planning pour le composant WeeklyScheduleGrid
   const formattedScheduleData = useMemo(() => {
-    if (!schedules || !Array.isArray(schedules)) return [];
+    if (!schedules || !Array.isArray(schedules)) {
+      console.warn("Données de plannings invalides:", schedules);
+      return [];
+    }
 
-    return schedules.map((schedule) => standardizeScheduleData(schedule));
+    // Log pour débogage
+    console.log("Données brutes des plannings:", schedules);
+
+    // Standardiser les données de planning (incluant la conversion JSON si nécessaire)
+    // La fonction standardizeScheduleData s'assure que les données JSON sont correctement parsées
+    return schedules.map((schedule) => {
+      try {
+        const standardized = standardizeScheduleData(schedule);
+        console.log(
+          `Planning standardisé pour l'employé ${schedule.employee_id}:`,
+          standardized
+        );
+        return standardized;
+      } catch (error) {
+        console.error(
+          `Erreur lors de la standardisation du planning pour l'employé ${schedule.employee_id}:`,
+          error
+        );
+        // Retourner un planning vide en cas d'erreur
+        return {
+          employeeId: schedule.employee_id,
+          days: Array(7)
+            .fill()
+            .map(() => ({
+              type: "work",
+              hours: "0",
+              absence: "",
+              note: "",
+              timeSlots: [],
+            })),
+        };
+      }
+    });
   }, [schedules]);
 
   // Mettre à jour les données de planning lorsque les plannings changent
@@ -352,19 +368,34 @@ const WeeklySchedulePage = () => {
     ) {
       prevFormattedScheduleDataRef.current = currentFormattedScheduleDataStr;
       prevScheduleDataRef.current = currentScheduleDataStr;
+
+      console.log(
+        "Mise à jour des données de planning:",
+        formattedScheduleData
+      );
       setScheduleData(formattedScheduleData);
     }
   }, [formattedScheduleData, scheduleData]);
 
   // Charger les plannings lorsque la semaine change
   useEffect(() => {
-    fetchSchedules(formattedWeekStart);
+    console.log(
+      `Récupération des plannings pour la semaine du ${formattedWeekStart}`
+    );
+    fetchSchedules(formattedWeekStart)
+      .then((data) => {
+        console.log("Plannings récupérés avec succès:", data);
+      })
+      .catch((error) => {
+        console.error("Erreur lors de la récupération des plannings:", error);
+      });
   }, [fetchSchedules, formattedWeekStart]);
 
   // Gérer les erreurs de chargement des plannings
   useEffect(() => {
     if (schedulesError) {
-      toast.error("Erreur lors du chargement des plannings");
+      console.error("Erreur de chargement des plannings:", schedulesError);
+      toast.error(`Erreur lors du chargement des plannings: ${schedulesError}`);
     }
   }, [schedulesError]);
 

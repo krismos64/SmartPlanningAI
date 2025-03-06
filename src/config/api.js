@@ -102,11 +102,7 @@ export const apiRequest = async (
     }
 
     // Propager l'erreur avec les détails
-    throw {
-      status: error.response.status,
-      message: error.response.data.message || "Une erreur est survenue",
-      details: error.response.data,
-    };
+    throw new Error(error.response.data.message || "Une erreur est survenue");
   }
 };
 

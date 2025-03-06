@@ -166,7 +166,7 @@ export const parseScheduleFromApi = (apiData) => {
   };
 };
 
-export default {
+const scheduleUtils = {
   standardizeScheduleData,
   convertDayToStandardFormat,
   createEmptyDay,
@@ -175,3 +175,5 @@ export default {
   prepareScheduleForApi,
   parseScheduleFromApi,
 };
+
+export default scheduleUtils;

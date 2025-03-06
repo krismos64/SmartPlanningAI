@@ -1,4 +1,5 @@
 const WebSocket = require("ws");
+const Activity = require("../models/Activity");
 
 const setupWebSocket = (server) => {
   // Créer un serveur WebSocket
@@ -20,7 +21,7 @@ const setupWebSocket = (server) => {
     );
 
     // Gérer les messages reçus
-    ws.on("message", (message) => {
+    ws.on("message", async (message) => {
       try {
         const data = JSON.parse(message);
         console.log("Message WebSocket reçu:", data);
@@ -32,7 +33,57 @@ const setupWebSocket = (server) => {
             break;
 
           case "REQUEST_ACTIVITIES":
-            // La logique de récupération des activités est gérée dans le modèle Activity
+            try {
+              console.log("Récupération des activités récentes...");
+              // Récupérer les 10 dernières activités
+              const activities = await Activity.getAll({
+                limit: 10,
+                sortBy: "timestamp",
+                sortOrder: "DESC",
+              });
+
+              // Vérifier si activities est défini et est un tableau
+              if (!activities || !Array.isArray(activities)) {
+                console.error(
+                  "Erreur: activities n'est pas un tableau valide",
+                  activities
+                );
+                ws.send(
+                  JSON.stringify({
+                    type: "ACTIVITIES",
+                    data: [],
+                    error: "Aucune activité disponible",
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+                return;
+              }
+
+              console.log(`Envoi de ${activities.length} activités au client`);
+
+              // Envoyer les activités au client
+              ws.send(
+                JSON.stringify({
+                  type: "ACTIVITIES",
+                  data: activities,
+                  timestamp: new Date().toISOString(),
+                })
+              );
+            } catch (error) {
+              console.error(
+                "Erreur lors de la récupération des activités:",
+                error
+              );
+              ws.send(
+                JSON.stringify({
+                  type: "ERROR",
+                  message:
+                    "Erreur lors de la récupération des activités: " +
+                    (error.message || "Erreur inconnue"),
+                  timestamp: new Date().toISOString(),
+                })
+              );
+            }
             break;
 
           case "DATA_CHANGED":
@@ -45,7 +96,7 @@ const setupWebSocket = (server) => {
                     dataType: data.dataType,
                     action: data.action,
                     entityId: data.entityId,
-                    timestamp: data.timestamp,
+                    timestamp: data.timestamp || new Date().toISOString(),
                   })
                 );
               }
@@ -60,9 +111,29 @@ const setupWebSocket = (server) => {
               })
             );
             break;
+
+          default:
+            console.log(`Type de message non géré: ${data.type}`);
+            break;
         }
       } catch (error) {
         console.error("Erreur lors du traitement du message WebSocket:", error);
+        try {
+          ws.send(
+            JSON.stringify({
+              type: "ERROR",
+              message:
+                "Erreur lors du traitement du message: " +
+                (error.message || "Erreur inconnue"),
+              timestamp: new Date().toISOString(),
+            })
+          );
+        } catch (sendError) {
+          console.error(
+            "Erreur lors de l'envoi du message d'erreur:",
+            sendError
+          );
+        }
       }
     });
 
@@ -79,6 +150,21 @@ const setupWebSocket = (server) => {
       console.error("Erreur WebSocket:", error);
     });
   });
+
+  // Fonction utilitaire pour diffuser un message à tous les clients
+  wss.broadcast = (message) => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(
+            typeof message === "string" ? message : JSON.stringify(message)
+          );
+        } catch (error) {
+          console.error("Erreur lors de la diffusion du message:", error);
+        }
+      }
+    });
+  };
 
   return wss;
 };

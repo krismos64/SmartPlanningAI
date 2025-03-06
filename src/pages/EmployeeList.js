@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { useState } from "react";
 import styled from "styled-components";
 import DataTable from "../components/ui/DataTable";
+import useEmployees from "../hooks/useEmployees";
 
 // Composants stylisés
 const PageContainer = styled.div`
@@ -100,8 +103,7 @@ const Tab = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    color: ${({ theme, active }) =>
-      active ? theme.colors.primary : theme.colors.text.primary};
+    color: ${({ theme }) => theme.colors.primary};
   }
 `;
 
@@ -109,32 +111,39 @@ const TabBadge = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  background-color: ${({ theme, active }) =>
-    active ? theme.colors.primary : `${theme.colors.text.disabled}33`};
-  color: ${({ theme, active }) =>
-    active ? "white" : theme.colors.text.secondary};
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  margin-left: 0.5rem;
   font-size: 0.75rem;
   font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
-  margin-left: 0.5rem;
+  color: ${({ theme, active }) =>
+    active ? "white" : theme.colors.text.secondary};
+  background-color: ${({ theme, active }) =>
+    active ? theme.colors.primary : theme.colors.background};
+  border-radius: 1rem;
+  transition: all 0.2s ease;
 `;
 
-// Icônes
 const PlusIcon = () => (
   <svg
     width="16"
     height="16"
-    viewBox="0 0 24 24"
+    viewBox="0 0 16 16"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
     <path
-      d="M12 5V19M5 12H19"
+      d="M8 3.33334V12.6667"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M3.33334 8H12.6667"
+      stroke="currentColor"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -145,56 +154,38 @@ const ExportIcon = () => (
   <svg
     width="16"
     height="16"
-    viewBox="0 0 24 24"
+    viewBox="0 0 16 16"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
     <path
-      d="M12 10V16M12 16L9 13M12 16L15 13M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H17C18.1046 3 19 3.89543 19 5V19C19 20.1046 18.1046 21 17 21Z"
+      d="M10.6667 11.3333L14 8.00001L10.6667 4.66667"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M14 8H6"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V3.33333C2 2.97971 2.14048 2.64057 2.39052 2.39052C2.64057 2.14048 2.97971 2 3.33333 2H6"
+      stroke="currentColor"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
   </svg>
 );
 
-// Données fictives pour les employés
-const generateEmployees = (count) => {
-  const departments = ["Marketing", "Développement", "Design", "Finance", "RH"];
-  const roles = ["Manager", "Senior", "Junior", "Stagiaire", "Directeur"];
-  const statuses = ["active", "inactive", "pending"];
-
-  return Array.from({ length: count }, (_, i) => ({
-    id: i + 1,
-    name: `Employé ${i + 1}`,
-    email: `employe${i + 1}@example.com`,
-    department: departments[Math.floor(Math.random() * departments.length)],
-    role: roles[Math.floor(Math.random() * roles.length)],
-    status: statuses[Math.floor(Math.random() * statuses.length)],
-    joinDate: new Date(
-      2020 + Math.floor(Math.random() * 3),
-      Math.floor(Math.random() * 12),
-      Math.floor(Math.random() * 28) + 1
-    ).toISOString(),
-  }));
-};
-
 // Composant principal
 const EmployeeList = () => {
-  const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState([]);
+  const { employees, loading, error, fetchEmployees } = useEmployees();
   const [activeTab, setActiveTab] = useState("all");
-
-  // Simuler le chargement des données
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setEmployees(generateEmployees(50));
-      setLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   // Filtrer les employés en fonction de l'onglet actif
   const filteredEmployees = employees.filter((employee) => {
@@ -207,7 +198,7 @@ const EmployeeList = () => {
     {
       id: "name",
       header: "Nom",
-      accessor: (employee) => employee.name,
+      accessor: (employee) => `${employee.first_name} ${employee.last_name}`,
       sortable: true,
     },
     {
@@ -219,13 +210,13 @@ const EmployeeList = () => {
     {
       id: "department",
       header: "Département",
-      accessor: (employee) => employee.department,
+      accessor: (employee) => employee.department || "-",
       sortable: true,
     },
     {
       id: "role",
       header: "Rôle",
-      accessor: (employee) => employee.role,
+      accessor: (employee) => employee.role || "-",
       sortable: true,
     },
     {
@@ -236,11 +227,26 @@ const EmployeeList = () => {
       type: "status",
     },
     {
-      id: "joinDate",
+      id: "hire_date",
       header: "Date d'embauche",
-      accessor: (employee) => employee.joinDate,
+      accessor: (employee) => {
+        if (!employee.hire_date) return "-";
+        try {
+          return format(new Date(employee.hire_date), "dd MMMM yyyy", {
+            locale: fr,
+          });
+        } catch (e) {
+          return employee.hire_date;
+        }
+      },
       sortable: true,
       type: "date",
+    },
+    {
+      id: "contractHours",
+      header: "Heures contractuelles",
+      accessor: (employee) => employee.contractHours || "-",
+      sortable: true,
     },
   ];
 
@@ -254,8 +260,9 @@ const EmployeeList = () => {
   const countByStatus = {
     all: employees.length,
     active: employees.filter((e) => e.status === "active").length,
-    pending: employees.filter((e) => e.status === "pending").length,
     inactive: employees.filter((e) => e.status === "inactive").length,
+    vacation: employees.filter((e) => e.status === "vacation").length,
+    sick: employees.filter((e) => e.status === "sick").length,
   };
 
   return (
@@ -268,9 +275,9 @@ const EmployeeList = () => {
           </PageDescription>
         </HeaderLeft>
         <HeaderRight>
-          <Button>
+          <Button onClick={() => fetchEmployees()}>
             <ExportIcon />
-            Exporter
+            Rafraîchir
           </Button>
           <Button primary>
             <PlusIcon />
@@ -294,12 +301,18 @@ const EmployeeList = () => {
           </TabBadge>
         </Tab>
         <Tab
-          active={activeTab === "pending"}
-          onClick={() => setActiveTab("pending")}
+          active={activeTab === "vacation"}
+          onClick={() => setActiveTab("vacation")}
         >
-          En attente
-          <TabBadge active={activeTab === "pending"}>
-            {countByStatus.pending}
+          En congés
+          <TabBadge active={activeTab === "vacation"}>
+            {countByStatus.vacation}
+          </TabBadge>
+        </Tab>
+        <Tab active={activeTab === "sick"} onClick={() => setActiveTab("sick")}>
+          Malades
+          <TabBadge active={activeTab === "sick"}>
+            {countByStatus.sick}
           </TabBadge>
         </Tab>
         <Tab
@@ -322,7 +335,10 @@ const EmployeeList = () => {
         pageSize={10}
         onRowClick={handleRowClick}
         emptyStateTitle="Aucun employé trouvé"
-        emptyStateMessage="Il n'y a pas d'employés correspondant à vos critères de recherche."
+        emptyStateMessage={
+          error ||
+          "Il n'y a pas d'employés correspondant à vos critères de recherche."
+        }
       />
     </PageContainer>
   );

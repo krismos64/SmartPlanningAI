@@ -16,6 +16,37 @@ class WeeklySchedule {
   }
 
   /**
+   * Valider que les données du planning sont un JSON valide
+   * @param {*} data Les données à valider
+   * @returns {string} Les données au format JSON
+   * @throws {Error} Si les données ne sont pas un JSON valide
+   */
+  static validateScheduleData(data) {
+    if (!data) {
+      throw new Error("Les données du planning sont requises");
+    }
+
+    // Si c'est déjà une chaîne, vérifier que c'est un JSON valide
+    if (typeof data === "string") {
+      try {
+        JSON.parse(data);
+        return data;
+      } catch (e) {
+        throw new Error("Les données du planning ne sont pas un JSON valide");
+      }
+    }
+
+    // Si c'est un objet, le convertir en JSON
+    try {
+      return JSON.stringify(data);
+    } catch (e) {
+      throw new Error(
+        "Impossible de convertir les données du planning en JSON"
+      );
+    }
+  }
+
+  /**
    * Enregistrer un nouveau planning hebdomadaire
    * @returns {Promise<WeeklySchedule>} Le planning enregistré
    */
@@ -35,16 +66,15 @@ class WeeklySchedule {
       endDate.setDate(startDate.getDate() + 6);
       const formattedWeekEnd = formatDateForMySQL(endDate);
 
-      // Convertir les données du planning en JSON si nécessaire
-      const scheduleData =
-        typeof this.schedule_data === "string"
-          ? this.schedule_data
-          : JSON.stringify(this.schedule_data);
+      // Valider et convertir les données du planning en JSON
+      const scheduleData = WeeklySchedule.validateScheduleData(
+        this.schedule_data
+      );
 
       const sql = `
         INSERT INTO weekly_schedules 
-        (employee_id, week_start, week_end, schedule_data, total_hours, status, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (employee_id, week_start, week_end, schedule_data, total_hours, status, created_by, created_at, updated_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `;
 
       const [result] = await db.execute(sql, [
@@ -276,18 +306,18 @@ class WeeklySchedule {
    * Mettre à jour un planning hebdomadaire
    * @param {number} id ID du planning
    * @param {object} updateData Données à mettre à jour
-   * @returns {Promise<WeeklySchedule|null>} Le planning mis à jour ou null
+   * @returns {Promise<WeeklySchedule>} Le planning mis à jour
    */
   static async update(id, updateData) {
     try {
       console.log(`Mise à jour du planning hebdomadaire ${id}:`, updateData);
 
-      // Convertir les données du planning en JSON si nécessaire
-      if (
-        updateData.schedule_data &&
-        typeof updateData.schedule_data !== "string"
-      ) {
-        updateData.schedule_data = JSON.stringify(updateData.schedule_data);
+      // Valider et convertir les données du planning en JSON
+      let scheduleData = null;
+      if (updateData.schedule_data) {
+        scheduleData = WeeklySchedule.validateScheduleData(
+          updateData.schedule_data
+        );
       }
 
       const sql = `
@@ -301,7 +331,7 @@ class WeeklySchedule {
       `;
 
       await db.execute(sql, [
-        updateData.schedule_data,
+        scheduleData,
         updateData.total_hours,
         updateData.status || "draft",
         id,

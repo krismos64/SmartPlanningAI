@@ -69,9 +69,25 @@ class Activity {
 
       // Ajout de l'ordre et de la pagination
       query += ` ORDER BY a.${sortBy} ${sortOrder} LIMIT ? OFFSET ?`;
-      queryParams.push(limit, offset);
+      queryParams.push(parseInt(limit), parseInt(offset));
+
+      console.log("Exécution de la requête SQL pour récupérer les activités:", {
+        query,
+        params: queryParams,
+      });
 
       const [activities] = await db.query(query, queryParams);
+
+      // S'assurer que activities est un tableau
+      if (!activities || !Array.isArray(activities)) {
+        console.error(
+          "Erreur: La requête n'a pas renvoyé un tableau d'activités:",
+          activities
+        );
+        return [];
+      }
+
+      console.log(`${activities.length} activités récupérées`);
 
       // Compter le nombre total d'activités pour la pagination
       let countQuery = `
@@ -112,50 +128,25 @@ class Activity {
         countParams.push(endDate);
       }
 
-      const [totalResult] = await db.query(countQuery, countParams);
-      const total = totalResult[0].total;
+      const [countResult] = await db.query(countQuery, countParams);
+      const total = countResult[0]?.total || 0;
 
-      // Transformer les données pour le frontend
-      const formattedActivities = activities.map((activity) => {
-        let details = {};
-        try {
-          details = JSON.parse(activity.details);
-        } catch (e) {
-          details = {};
-        }
-
-        return {
-          id: activity.id,
-          type: activity.type,
-          entity_type: activity.entity_type,
-          entity_id: activity.entity_id,
-          description: activity.description,
-          user_id: activity.user_id,
-          user: {
-            name:
-              activity.username ||
-              `${activity.first_name} ${activity.last_name}`.trim() ||
-              "Utilisateur inconnu",
-          },
-          ip_address: activity.ip_address,
-          user_agent: activity.user_agent,
-          timestamp: activity.timestamp,
-          details: details,
-        };
-      });
-
-      return {
-        activities: formattedActivities,
+      // Ajouter les métadonnées de pagination aux activités
+      const result = {
+        data: activities,
         pagination: {
-          total,
           page,
           limit,
-          pages: Math.ceil(total / limit),
+          total,
+          totalPages: Math.ceil(total / limit),
         },
       };
+
+      return activities;
     } catch (error) {
       console.error("Erreur lors de la récupération des activités:", error);
-      throw error;
+      // En cas d'erreur, retourner un tableau vide
+      return [];
     }
   }
 
@@ -265,22 +256,141 @@ class Activity {
 
       // Notifier tous les clients WebSocket connectés
       if (global.wss) {
+        console.log("Diffusion de la nouvelle activité via WebSocket");
         global.wss.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(
               JSON.stringify({
                 type: "NEW_ACTIVITY",
                 activity,
+                timestamp: new Date().toISOString(),
               })
             );
           }
         });
+
+        // Envoyer également la liste mise à jour des activités récentes
+        this.broadcastRecentActivities();
       }
 
       return result.insertId;
     } catch (error) {
       console.error("Erreur lors de la création de l'activité:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Enregistre une activité et la diffuse via WebSocket
+   * @param {Object} activityData - Données de l'activité
+   * @returns {Promise<number>} - ID de l'activité créée
+   */
+  static async logActivity(activityData) {
+    try {
+      const {
+        type,
+        entity_type,
+        entity_id,
+        description,
+        user_id,
+        details = {},
+      } = activityData;
+
+      if (!type || !entity_type || !description) {
+        throw new Error(
+          "Les champs type, entity_type et description sont obligatoires"
+        );
+      }
+
+      console.log("Enregistrement d'une nouvelle activité:", {
+        type,
+        entity_type,
+        entity_id,
+        description,
+        user_id,
+      });
+
+      // Utiliser la méthode create existante pour créer l'activité
+      const activityId = await this.create({
+        type,
+        entity_type,
+        entity_id,
+        description,
+        user_id,
+        details,
+      });
+
+      console.log(`Activité enregistrée avec l'ID: ${activityId}`);
+
+      return activityId;
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement de l'activité:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Diffuse les activités récentes à tous les clients WebSocket
+   * @param {number} limit - Nombre d'activités à récupérer
+   * @returns {Promise<void>}
+   */
+  static async broadcastRecentActivities(limit = 10) {
+    try {
+      if (!global.wss) {
+        console.warn(
+          "WebSocket non disponible pour la diffusion des activités"
+        );
+        return;
+      }
+
+      // Récupérer les activités récentes
+      const activities = await this.getAll({
+        limit,
+        sortBy: "timestamp",
+        sortOrder: "DESC",
+      });
+
+      // S'assurer que activities est un tableau
+      if (!activities || !Array.isArray(activities)) {
+        console.error(
+          "Erreur: activities n'est pas un tableau valide",
+          activities
+        );
+        return;
+      }
+
+      console.log(
+        `Diffusion de ${activities.length} activités récentes via WebSocket`
+      );
+
+      // Diffuser les activités à tous les clients connectés
+      let clientCount = 0;
+      global.wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          try {
+            client.send(
+              JSON.stringify({
+                type: "ACTIVITIES",
+                data: activities,
+                timestamp: new Date().toISOString(),
+              })
+            );
+            clientCount++;
+          } catch (error) {
+            console.error(
+              "Erreur lors de l'envoi des activités au client:",
+              error
+            );
+          }
+        }
+      });
+
+      console.log(`Activités diffusées à ${clientCount} clients`);
+    } catch (error) {
+      console.error(
+        "Erreur lors de la diffusion des activités récentes:",
+        error
+      );
     }
   }
 

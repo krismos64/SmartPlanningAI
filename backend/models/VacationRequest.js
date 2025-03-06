@@ -18,6 +18,7 @@ class VacationRequest {
     this.attachment = data.attachment;
     this.quota_exceeded = data.quota_exceeded || false;
     this.created_at = data.created_at;
+    this.updated_at = data.updated_at;
   }
 
   static async find() {
@@ -95,6 +96,18 @@ class VacationRequest {
         ? new Date(this.end_date).toISOString().split("T")[0]
         : null;
 
+      // Validation: vérifier que la date de début est antérieure ou égale à la date de fin
+      if (start_date && end_date) {
+        const startDateObj = new Date(start_date);
+        const endDateObj = new Date(end_date);
+
+        if (startDateObj > endDateObj) {
+          throw new Error(
+            "La date de début doit être antérieure ou égale à la date de fin"
+          );
+        }
+      }
+
       console.log("Données de la demande de congé à sauvegarder:", {
         id: this.id,
         employee_id: this.employee_id,
@@ -106,7 +119,7 @@ class VacationRequest {
       });
 
       if (this.id) {
-        // Mise à jour
+        // Mise à jour avec updated_at
         const [result] = await connectDB.execute(
           `UPDATE vacation_requests 
            SET employee_id = ?, 
@@ -114,7 +127,8 @@ class VacationRequest {
                start_date = ?, 
                end_date = ?, 
                reason = ?, 
-               status = ?
+               status = ?,
+               updated_at = NOW()
            WHERE id = ?`,
           [
             this.employee_id,
@@ -131,8 +145,8 @@ class VacationRequest {
         // Création
         const [result] = await connectDB.execute(
           `INSERT INTO vacation_requests 
-           (employee_id, type, start_date, end_date, reason, status)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+           (employee_id, type, start_date, end_date, reason, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
           [
             this.employee_id,
             this.type,

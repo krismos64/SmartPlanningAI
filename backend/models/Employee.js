@@ -5,26 +5,20 @@ class Employee {
     // S'assurer que data est un objet
     data = data || {};
 
-    // Conversion des noms de champs camelCase vers snake_case
+    // Initialisation des propriétés
     this.id = data.id;
     this.first_name = data.first_name || null;
     this.last_name = data.last_name || null;
     this.email = data.email || null;
     this.role = data.role || null;
     this.department = data.department || null;
-    this.contractHours = data.contractHours || 35;
+    this.contractHours = data.contract_hours || data.contractHours || 35; // Support des deux formats
     this.birthdate = data.birthdate || null;
     this.hire_date = data.hire_date || null;
     this.status = data.status || "active";
-    this.hourlyRate = data.hourlyRate || 0;
+    this.hourlyRate = data.hourly_rate || data.hourlyRate || 0; // Support des deux formats
     this.created_at = data.created_at || new Date();
-
-    // Log des données reçues et initialisées
-    console.log(
-      "Données reçues dans le constructeur Employee:",
-      JSON.stringify(data)
-    );
-    console.log("Objet Employee initialisé:", JSON.stringify(this));
+    this.updated_at = data.updated_at || new Date(); // Ajout du champ updated_at
   }
 
   static async find() {
@@ -64,25 +58,11 @@ class Employee {
         ? new Date(this.hire_date).toISOString().split("T")[0]
         : null;
 
-      console.log("Données de l'employé à sauvegarder:", {
-        id: this.id,
-        first_name: this.first_name,
-        last_name: this.last_name,
-        email: this.email,
-        role: this.role,
-        department: this.department,
-        contractHours: this.contractHours,
-        birthdate: birth_date,
-        hire_date: start_date,
-        status: this.status,
-        hourlyRate: this.hourlyRate,
-      });
+      // Mettre à jour la date de modification
+      this.updated_at = new Date();
 
       if (this.id) {
         // Mise à jour
-        console.log(
-          `Exécution de la requête UPDATE pour l'employé ID ${this.id}`
-        );
         try {
           // S'assurer que toutes les valeurs sont correctement définies
           const params = [
@@ -96,16 +76,14 @@ class Employee {
             start_date,
             this.status || "active",
             this.hourlyRate !== undefined ? this.hourlyRate : 0,
+            this.updated_at,
             this.id,
           ];
 
-          console.log("Paramètres de la requête UPDATE:", params);
-
           await connectDB.execute(
-            "UPDATE employees SET first_name = ?, last_name = ?, email = ?, role = ?, department = ?, contractHours = ?, birthdate = ?, hire_date = ?, status = ?, hourlyRate = ? WHERE id = ?",
+            "UPDATE employees SET first_name = ?, last_name = ?, email = ?, role = ?, department = ?, contractHours = ?, birthdate = ?, hire_date = ?, status = ?, hourlyRate = ?, updated_at = ? WHERE id = ?",
             params
           );
-          console.log(`Mise à jour réussie pour l'employé ID ${this.id}`);
         } catch (updateError) {
           console.error(
             `Erreur SQL lors de la mise à jour de l'employé ID ${this.id}:`,
@@ -116,9 +94,8 @@ class Employee {
         return this;
       } else {
         // Création
-        console.log("Tentative d'insertion d'un nouvel employé");
         const [result] = await connectDB.execute(
-          "INSERT INTO employees (first_name, last_name, email, role, department, contractHours, birthdate, hire_date, status, hourlyRate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO employees (first_name, last_name, email, role, department, contractHours, birthdate, hire_date, status, hourlyRate, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
             this.first_name || null,
             this.last_name || null,
@@ -130,6 +107,8 @@ class Employee {
             this.hire_date,
             this.status || "active",
             this.hourlyRate !== undefined ? this.hourlyRate : 0,
+            this.created_at,
+            this.updated_at,
           ]
         );
         this.id = result.insertId;
@@ -140,17 +119,12 @@ class Employee {
         "Erreur détaillée lors de l'enregistrement de l'employé:",
         error
       );
-      console.error("Message d'erreur:", error.message);
-      console.error("Code d'erreur SQL:", error.code);
-      console.error("Numéro d'erreur SQL:", error.errno);
-      console.error("État SQL:", error.sqlState);
       throw error;
     }
   }
 
   static async create(employeeData) {
     try {
-      console.log("Données reçues dans create():", employeeData);
       const employee = new Employee(employeeData);
       return await employee.save();
     } catch (error) {
@@ -161,24 +135,15 @@ class Employee {
 
   static async findByIdAndUpdate(id, updateData) {
     try {
-      console.log(
-        `Tentative de mise à jour de l'employé ${id} avec les données:`,
-        JSON.stringify(updateData)
-      );
-
       // Vérifier si l'ID est valide
       if (!id) {
-        console.error("ID d'employé non valide:", id);
         throw new Error("ID d'employé non valide");
       }
 
       const employee = await this.findById(id);
       if (!employee) {
-        console.log(`Employé avec ID ${id} non trouvé`);
         return null;
       }
-
-      console.log(`Employé trouvé:`, JSON.stringify(employee));
 
       // Vérifier et nettoyer les données avant la mise à jour
       // Utiliser les valeurs existantes comme fallback
@@ -203,6 +168,7 @@ class Employee {
           updateData.hourlyRate !== undefined
             ? updateData.hourlyRate
             : employee.hourlyRate,
+        updated_at: new Date(), // Mettre à jour la date de modification
       };
 
       // Formater les dates correctement pour MySQL
@@ -214,12 +180,7 @@ class Employee {
             const date = new Date(cleanedData.birthdate);
             cleanedData.birthdate = date.toISOString().split("T")[0];
           }
-          console.log(`Date de naissance formatée: ${cleanedData.birthdate}`);
         } catch (dateError) {
-          console.error(
-            "Erreur lors du formatage de la date de naissance:",
-            dateError
-          );
           cleanedData.birthdate = employee.birthdate; // Utiliser l'ancienne valeur en cas d'erreur
         }
       }
@@ -232,28 +193,13 @@ class Employee {
             const date = new Date(cleanedData.hire_date);
             cleanedData.hire_date = date.toISOString().split("T")[0];
           }
-          console.log(`Date de début formatée: ${cleanedData.hire_date}`);
         } catch (dateError) {
-          console.error(
-            "Erreur lors du formatage de la date de début:",
-            dateError
-          );
           cleanedData.hire_date = employee.hire_date; // Utiliser l'ancienne valeur en cas d'erreur
         }
       }
 
-      console.log(
-        `Données nettoyées pour la mise à jour:`,
-        JSON.stringify(cleanedData)
-      );
-
       // Mettre à jour les propriétés
       Object.assign(employee, cleanedData);
-
-      console.log(
-        `Employé après fusion des données:`,
-        JSON.stringify(employee)
-      );
 
       // Enregistrer les modifications
       await employee.save();
