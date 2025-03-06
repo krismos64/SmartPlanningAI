@@ -32,61 +32,6 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// Récupérer les statistiques des congés
-router.get("/stats", auth, async (req, res) => {
-  try {
-    console.log("Récupération des statistiques de congés");
-
-    // Récupérer toutes les demandes de congés
-    const [allVacations] = await db.query(`
-      SELECT * FROM vacation_requests
-    `);
-
-    // Calculer le nombre de demandes en attente
-    const pendingVacations = allVacations.filter(
-      (vacation) => vacation.status === "pending"
-    ).length;
-
-    // Calculer le nombre d'employés en congé aujourd'hui
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split("T")[0]; // Format YYYY-MM-DD
-
-    // Compter les employés en congé aujourd'hui (tous types confondus)
-    const [employeesOnVacationResult] = await db.query(
-      `
-      SELECT COUNT(DISTINCT employee_id) as count
-      FROM vacation_requests
-      WHERE status = 'approved'
-      AND ? BETWEEN start_date AND end_date
-    `,
-      [todayStr]
-    );
-
-    const employeesOnVacation = employeesOnVacationResult[0]?.count || 0;
-
-    // Pour les besoins de l'interface, nous allons simuler les employés en repos
-    // puisque la table ne distingue pas les types de congés
-    const employeesOnDayOff = Math.round(employeesOnVacation * 0.3); // 30% des employés en congé sont en repos
-
-    res.json({
-      success: true,
-      pendingVacations,
-      employeesOnVacation,
-      employeesOnDayOff,
-    });
-  } catch (error) {
-    console.error(
-      "Erreur lors de la récupération des statistiques de congés:",
-      error
-    );
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des statistiques de congés",
-    });
-  }
-});
-
 // Récupérer une demande de congé par son ID
 router.get("/:id", auth, async (req, res) => {
   try {

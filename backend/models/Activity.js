@@ -23,6 +23,7 @@ class Activity {
         endDate,
         sortBy = "timestamp",
         sortOrder = "DESC",
+        excludeSystemActivities = true,
       } = options;
 
       const offset = (page - 1) * limit;
@@ -65,6 +66,14 @@ class Activity {
       if (endDate) {
         query += ` AND a.timestamp <= ?`;
         queryParams.push(endDate);
+      }
+
+      // Exclure les activités système si demandé
+      if (excludeSystemActivities) {
+        query += ` AND (
+          (a.entity_type IN ('employee', 'vacation', 'planning', 'department', 'user', 'project', 'task'))
+          OR (a.type IN ('create', 'update', 'delete', 'approve', 'reject', 'login', 'logout', 'register'))
+        )`;
       }
 
       // Ajout de l'ordre et de la pagination
@@ -357,38 +366,74 @@ class Activity {
         user_id,
       });
 
-      // Utiliser la méthode create existante pour créer l'activité
-      const activityId = await this.create({
+      // Insérer directement l'activité dans la base de données
+      const query = `
+        INSERT INTO activities (
+          type, 
+          entity_type, 
+          entity_id, 
+          description, 
+          user_id, 
+          details, 
+          timestamp
+        )
+        VALUES (?, ?, ?, ?, ?, ?, NOW())
+      `;
+
+      const [result] = await db.query(query, [
         type,
         entity_type,
         entity_id,
         description,
         user_id,
-        details,
-      });
+        JSON.stringify(details || {}),
+      ]);
 
+      const activityId = result.insertId;
       console.log(`Activité enregistrée avec l'ID: ${activityId}`);
 
-      // Vérifier explicitement que la diffusion WebSocket fonctionne
+      // Récupérer l'activité créée
+      const newActivity = await this.getById(activityId);
+
+      // Récupérer les 10 dernières activités pour mise à jour en temps réel
+      const recentActivities = await this.getAll({ limit: 10 });
+
+      // Vérifier si WebSocket est actif et diffuser les activités
       if (global.wss) {
-        const clientCount = Array.from(global.wss.clients).filter(
-          (client) => client.readyState === WebSocket.OPEN
-        ).length;
+        let clientCount = 0;
+        global.wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            try {
+              // Envoyer la nouvelle activité
+              client.send(
+                JSON.stringify({
+                  type: "NEW_ACTIVITY",
+                  activity: newActivity,
+                  timestamp: new Date().toISOString(),
+                })
+              );
 
-        console.log(`État WebSocket: ${clientCount} clients connectés`);
+              // Envoyer la liste mise à jour des activités
+              client.send(
+                JSON.stringify({
+                  type: "ACTIVITIES",
+                  data: recentActivities.activities,
+                  pagination: recentActivities.pagination,
+                  timestamp: new Date().toISOString(),
+                })
+              );
 
-        // Forcer une diffusion supplémentaire des activités récentes
-        try {
-          await this.broadcastRecentActivities(10);
-          console.log(
-            "Diffusion supplémentaire des activités récentes effectuée"
-          );
-        } catch (wsError) {
-          console.error(
-            "Erreur lors de la diffusion supplémentaire des activités:",
-            wsError
-          );
-        }
+              clientCount++;
+            } catch (error) {
+              console.error(
+                "Erreur lors de l'envoi des activités au client:",
+                error
+              );
+            }
+          }
+        });
+
+        console.log(`Activités diffusées à ${clientCount} clients WebSocket`);
       } else {
         console.warn(
           "WebSocket non disponible pour la diffusion des activités"
@@ -416,22 +461,18 @@ class Activity {
         return;
       }
 
-      // Récupérer les activités récentes
+      console.log("Récupération des activités récentes...");
       const result = await this.getAll({
         limit,
-        sortBy: "timestamp",
-        sortOrder: "DESC",
+        excludeSystemActivities: true, // Exclure les activités système
       });
 
-      // S'assurer que activities est un tableau
-      if (!result || !result.activities || !Array.isArray(result.activities)) {
-        console.error("Erreur: activities n'est pas un tableau valide", result);
+      if (!result || !result.activities || result.activities.length === 0) {
+        console.log("Aucune activité récente à diffuser");
         return;
       }
 
-      console.log(
-        `Diffusion de ${result.activities.length} activités récentes via WebSocket`
-      );
+      console.log(`${result.activities.length} activités récupérées`);
 
       // Diffuser les activités à tous les clients connectés
       let clientCount = 0;

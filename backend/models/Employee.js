@@ -94,25 +94,50 @@ class Employee {
         return this;
       } else {
         // Création
-        const [result] = await connectDB.execute(
-          "INSERT INTO employees (first_name, last_name, email, role, department, contractHours, birthdate, hire_date, status, hourlyRate, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [
-            this.first_name || null,
-            this.last_name || null,
-            this.email,
-            this.role,
-            this.department,
-            this.contractHours !== undefined ? this.contractHours : 35,
-            this.birthdate,
-            this.hire_date,
-            this.status || "active",
-            this.hourlyRate !== undefined ? this.hourlyRate : 0,
-            this.created_at,
-            this.updated_at,
-          ]
-        );
-        this.id = result.insertId;
-        return this;
+        try {
+          console.log("Données pour insertion:", {
+            first_name: this.first_name,
+            last_name: this.last_name,
+            email: this.email,
+            role: this.role,
+            department: this.department,
+            contractHours: this.contractHours,
+            birthdate: birth_date,
+            hire_date: start_date,
+            status: this.status,
+            hourlyRate: this.hourlyRate,
+          });
+
+          const [result] = await connectDB.execute(
+            "INSERT INTO employees (first_name, last_name, email, role, department, contractHours, birthdate, hire_date, status, hourlyRate, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+              this.first_name || null,
+              this.last_name || null,
+              this.email,
+              this.role,
+              this.department,
+              this.contractHours !== undefined ? this.contractHours : 35,
+              birth_date,
+              start_date,
+              this.status || "active",
+              this.hourlyRate !== undefined ? this.hourlyRate : 0,
+              this.created_at,
+              this.updated_at,
+            ]
+          );
+          this.id = result.insertId;
+          return this;
+        } catch (insertError) {
+          console.error(
+            "Erreur SQL lors de l'insertion d'un nouvel employé:",
+            insertError
+          );
+          console.error("Message d'erreur:", insertError.message);
+          console.error("Code d'erreur:", insertError.code);
+          console.error("Numéro d'erreur SQL:", insertError.errno);
+          console.error("État SQL:", insertError.sqlState);
+          throw insertError;
+        }
       }
     } catch (error) {
       console.error(

@@ -3,7 +3,8 @@ const express = require("express");
 const router = express.Router();
 const Employee = require("../models/Employee");
 const { auth, checkRole } = require("../middleware/auth");
-const { recordActivity } = require("./activities");
+const { recordActivity } = require("../routes/activities");
+const Activity = require("../models/Activity");
 const db = require("../config/db");
 
 // @route   GET /api/employees
@@ -44,20 +45,75 @@ router.get("/:id", auth, async (req, res) => {
 
 // @route   POST /api/employees
 // @desc    Créer un nouvel employé
-// @access  Public
+// @access  Private (Admin)
 router.post("/", auth, async (req, res) => {
   try {
-    console.log("Données reçues dans la route POST /api/employees:", req.body);
-    const employee = new Employee(req.body);
-    await employee.save();
-    res.status(201).json(employee);
+    const employeeData = req.body;
+
+    // Validation des données
+    if (
+      !employeeData.first_name ||
+      !employeeData.last_name ||
+      !employeeData.email
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Veuillez fournir le prénom, le nom et l'email de l'employé",
+      });
+    }
+
+    // Créer l'employé
+    const employee = new Employee(employeeData);
+    const employeeId = await employee.save();
+
+    // Récupérer l'employé créé
+    const newEmployee = await Employee.findById(employeeId);
+
+    // Enregistrer l'activité
+    try {
+      console.log(
+        "Tentative d'enregistrement de l'activité de création pour l'employé:",
+        {
+          id: employeeId,
+          name: `${employeeData.first_name} ${employeeData.last_name}`,
+          userId: req.user.id,
+        }
+      );
+
+      await recordActivity({
+        type: "create",
+        entity_type: "employee",
+        entity_id: employeeId,
+        description: `Création de l'employé ${employeeData.first_name} ${employeeData.last_name}`,
+        user_id: req.user.id,
+        details: {
+          employeeId: employeeId,
+          employeeName: `${employeeData.first_name} ${employeeData.last_name}`,
+          department: employeeData.department,
+        },
+      });
+
+      console.log("Activité de création enregistrée avec succès");
+    } catch (activityError) {
+      console.error(
+        "Erreur lors de l'enregistrement de l'activité:",
+        activityError
+      );
+      // On continue malgré l'erreur d'activité
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Employé créé avec succès",
+      employee: newEmployee,
+    });
   } catch (error) {
     console.error("Erreur lors de la création de l'employé:", error);
-    console.error("Message d'erreur:", error.message);
-    console.error("Stack trace:", error.stack);
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la création de l'employé" });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création de l'employé",
+      error: error.message,
+    });
   }
 });
 
@@ -84,12 +140,12 @@ router.put("/:id", auth, async (req, res) => {
 
 // @route   DELETE /api/employees/:id
 // @desc    Supprimer un employé
-// @access  Public
+// @access  Private (Admin)
 router.delete("/:id", auth, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id;
 
-    // Récupérer les informations de l'employé avant de le supprimer
+    // Vérifier si l'employé existe
     const [employees] = await db.query("SELECT * FROM employees WHERE id = ?", [
       id,
     ]);
@@ -107,16 +163,37 @@ router.delete("/:id", auth, async (req, res) => {
     await db.query("DELETE FROM employees WHERE id = ?", [id]);
 
     // Enregistrer l'activité
-    await recordActivity({
-      type: "delete",
-      description: `Suppression de l'employé ${employee.first_name} ${employee.last_name}`,
-      userId: req.user.id,
-      details: {
-        employeeId: employee.id,
-        employeeName: `${employee.first_name} ${employee.last_name}`,
-        department: employee.department,
-      },
-    });
+    try {
+      console.log(
+        "Tentative d'enregistrement de l'activité de suppression pour l'employé:",
+        {
+          id,
+          name: `${employee.first_name} ${employee.last_name}`,
+          userId: req.user.id,
+        }
+      );
+
+      await recordActivity({
+        type: "delete",
+        entity_type: "employee",
+        entity_id: id,
+        description: `Suppression de l'employé ${employee.first_name} ${employee.last_name}`,
+        user_id: req.user.id,
+        details: {
+          employeeId: employee.id,
+          employeeName: `${employee.first_name} ${employee.last_name}`,
+          department: employee.department,
+        },
+      });
+
+      console.log("Activité de suppression enregistrée avec succès");
+    } catch (activityError) {
+      console.error(
+        "Erreur lors de l'enregistrement de l'activité:",
+        activityError
+      );
+      // On continue malgré l'erreur d'activité
+    }
 
     res.json({
       success: true,

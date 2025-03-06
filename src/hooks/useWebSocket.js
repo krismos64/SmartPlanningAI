@@ -109,10 +109,17 @@ const useWebSocket = (url = `ws://${window.location.hostname}:5001`) => {
               return prevActivitiesArray;
             });
           } else if (
-            data.type === "ACTIVITIES_LIST" &&
-            Array.isArray(data.activities)
+            (data.type === "ACTIVITIES_LIST" &&
+              Array.isArray(data.activities)) ||
+            (data.type === "ACTIVITIES" && Array.isArray(data.data))
           ) {
-            setActivities(data.activities || []);
+            // Traiter à la fois ACTIVITIES_LIST et ACTIVITIES
+            const activitiesData =
+              data.type === "ACTIVITIES" ? data.data : data.activities;
+            console.log(
+              `Reçu ${activitiesData.length} activités via WebSocket`
+            );
+            setActivities(activitiesData || []);
           } else if (data.type === "DATA_UPDATED") {
             // Demander les dernières activités lorsque les données sont mises à jour
             try {

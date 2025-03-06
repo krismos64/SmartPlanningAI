@@ -1,7 +1,6 @@
-import { FiCalendar, FiClock, FiSun, FiUsers } from "react-icons/fi";
+import { FiUsers } from "react-icons/fi";
 import styled from "styled-components";
 import useEmployees from "../../hooks/useEmployees";
-import useVacationStats from "../../hooks/useVacationStats";
 
 // Composants stylisés
 const StatsContainer = styled.div`
@@ -60,18 +59,10 @@ const LoadingIndicator = styled.div`
 
 const DashboardStats = () => {
   const { employees, loading: employeesLoading } = useEmployees();
-  const {
-    pendingVacations,
-    employeesOnDayOff,
-    employeesOnVacation,
-    loading: vacationStatsLoading,
-  } = useVacationStats();
-
-  const loading = employeesLoading || vacationStatsLoading;
 
   return (
     <StatsContainer>
-      {loading ? (
+      {employeesLoading ? (
         <LoadingIndicator>Chargement des statistiques...</LoadingIndicator>
       ) : (
         <>
@@ -83,36 +74,6 @@ const DashboardStats = () => {
               </StatIcon>
             </StatHeader>
             <StatValue>{employees?.length || 0}</StatValue>
-          </StatCard>
-
-          <StatCard>
-            <StatHeader>
-              <StatTitle>Congés en attente</StatTitle>
-              <StatIcon color="#F59E0B">
-                <FiClock />
-              </StatIcon>
-            </StatHeader>
-            <StatValue>{pendingVacations}</StatValue>
-          </StatCard>
-
-          <StatCard>
-            <StatHeader>
-              <StatTitle>Personnes en repos aujourd'hui</StatTitle>
-              <StatIcon color="#10B981">
-                <FiSun />
-              </StatIcon>
-            </StatHeader>
-            <StatValue>{employeesOnDayOff}</StatValue>
-          </StatCard>
-
-          <StatCard>
-            <StatHeader>
-              <StatTitle>Personnes en congés aujourd'hui</StatTitle>
-              <StatIcon color="#3B82F6">
-                <FiCalendar />
-              </StatIcon>
-            </StatHeader>
-            <StatValue>{employeesOnVacation}</StatValue>
           </StatCard>
         </>
       )}

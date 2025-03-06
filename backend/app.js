@@ -8,6 +8,8 @@ const employeesRouter = require("./routes/employees");
 const shiftsRouter = require("./routes/shifts");
 const vacationsRouter = require("./routes/vacations");
 const weeklySchedulesRouter = require("./routes/weeklySchedules");
+const activitiesRouter = require("./routes/activities");
+const departmentsRouter = require("./routes/departments");
 
 const app = express();
 
@@ -41,6 +43,8 @@ app.use("/api/employees", employeesRouter);
 app.use("/api/shifts", shiftsRouter);
 app.use("/api/vacations", vacationsRouter);
 app.use("/api/weekly-schedules", weeklySchedulesRouter);
+app.use("/api/activities", activitiesRouter);
+app.use("/api/departments", departmentsRouter);
 
 // Gestion des erreurs
 app.use((err, req, res, next) => {
