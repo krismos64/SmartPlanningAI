@@ -1,10 +1,10 @@
-import { API_ROUTES, apiRequest } from "../config/api";
+import { API_ENDPOINTS, apiRequest } from "../config/api";
 
 export const AuthService = {
   login: async (email, password) => {
     console.log("🔐 Tentative de connexion avec:", { email, password: "***" });
     try {
-      const response = await apiRequest(API_ROUTES.LOGIN, "POST", {
+      const response = await apiRequest(API_ENDPOINTS.LOGIN, "POST", {
         email,
         password,
       });
@@ -23,8 +23,8 @@ export const AuthService = {
             id: response.id,
             email: response.email,
             role: response.role,
-            firstName: response.firstName,
-            lastName: response.lastName,
+            first_name: response.first_name,
+            last_name: response.last_name,
           })
         );
         return { success: true, user: response };
@@ -43,7 +43,11 @@ export const AuthService = {
 
   register: async (userData) => {
     try {
-      const response = await apiRequest(API_ROUTES.REGISTER, "POST", userData);
+      const response = await apiRequest(API_ENDPOINTS.REGISTER, "POST", {
+        ...userData,
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+      });
 
       if (response.error) {
         return { success: false, message: response.error };
@@ -80,7 +84,7 @@ export const AuthService = {
 export const EmployeeService = {
   getAll: async () => {
     try {
-      const response = await apiRequest(API_ROUTES.EMPLOYEES, "GET");
+      const response = await apiRequest(API_ENDPOINTS.EMPLOYEES.BASE, "GET");
 
       if (response.error) {
         return { success: false, message: response.error };
@@ -97,13 +101,20 @@ export const EmployeeService = {
 
   getById: async (id) => {
     try {
-      const response = await apiRequest(`${API_ROUTES.EMPLOYEES}/${id}`, "GET");
+      const response = await apiRequest(
+        API_ENDPOINTS.EMPLOYEES.BY_ID(id),
+        "GET"
+      );
 
       if (response.error) {
         return { success: false, message: response.error };
       }
 
-      return { success: true, employee: response };
+      return {
+        ...response,
+        first_name: response.first_name,
+        last_name: response.last_name,
+      };
     } catch (error) {
       return {
         success: false,
@@ -115,7 +126,7 @@ export const EmployeeService = {
   create: async (employeeData) => {
     try {
       const response = await apiRequest(
-        API_ROUTES.EMPLOYEES,
+        API_ENDPOINTS.EMPLOYEES.BASE,
         "POST",
         employeeData
       );
@@ -136,7 +147,7 @@ export const EmployeeService = {
   update: async (id, employeeData) => {
     try {
       const response = await apiRequest(
-        `${API_ROUTES.EMPLOYEES}/${id}`,
+        API_ENDPOINTS.EMPLOYEES.BY_ID(id),
         "PUT",
         employeeData
       );
@@ -157,7 +168,7 @@ export const EmployeeService = {
   delete: async (id) => {
     try {
       const response = await apiRequest(
-        `${API_ROUTES.EMPLOYEES}/${id}`,
+        API_ENDPOINTS.EMPLOYEES.BY_ID(id),
         "DELETE"
       );
 
@@ -178,7 +189,7 @@ export const EmployeeService = {
 export const VacationService = {
   getAll: async () => {
     try {
-      const response = await apiRequest(API_ROUTES.VACATIONS, "GET");
+      const response = await apiRequest(API_ENDPOINTS.VACATIONS, "GET");
 
       if (response.error) {
         return { success: false, message: response.error };
@@ -195,7 +206,10 @@ export const VacationService = {
 
   getById: async (id) => {
     try {
-      const response = await apiRequest(`${API_ROUTES.VACATIONS}/${id}`, "GET");
+      const response = await apiRequest(
+        `${API_ENDPOINTS.VACATIONS}/${id}`,
+        "GET"
+      );
 
       if (response.error) {
         return { success: false, message: response.error };
@@ -213,7 +227,7 @@ export const VacationService = {
   create: async (vacationData) => {
     try {
       const response = await apiRequest(
-        API_ROUTES.VACATIONS,
+        API_ENDPOINTS.VACATIONS,
         "POST",
         vacationData
       );
@@ -234,7 +248,7 @@ export const VacationService = {
   update: async (id, vacationData) => {
     try {
       const response = await apiRequest(
-        `${API_ROUTES.VACATIONS}/${id}`,
+        `${API_ENDPOINTS.VACATIONS}/${id}`,
         "PUT",
         vacationData
       );
@@ -255,7 +269,7 @@ export const VacationService = {
   delete: async (id) => {
     try {
       const response = await apiRequest(
-        `${API_ROUTES.VACATIONS}/${id}`,
+        `${API_ENDPOINTS.VACATIONS}/${id}`,
         "DELETE"
       );
 
@@ -273,82 +287,73 @@ export const VacationService = {
   },
 };
 
-export const ShiftService = {
+export const ActivityService = {
   getAll: async () => {
     try {
-      const response = await apiRequest(API_ROUTES.SHIFTS, "GET");
+      const response = await apiRequest(API_ENDPOINTS.ACTIVITIES.LIST, "GET");
 
       if (response.error) {
         return { success: false, message: response.error };
       }
 
-      return { success: true, shifts: response };
+      return { success: true, activities: response };
     } catch (error) {
       return {
         success: false,
-        message: error.message || "Erreur lors de la récupération des shifts",
+        message:
+          error.message || "Erreur lors de la récupération des activités",
       };
     }
   },
 
-  getById: async (id) => {
-    try {
-      const response = await apiRequest(`${API_ROUTES.SHIFTS}/${id}`, "GET");
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, shift: response };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || "Erreur lors de la récupération du shift",
-      };
-    }
-  },
-
-  create: async (shiftData) => {
-    try {
-      const response = await apiRequest(API_ROUTES.SHIFTS, "POST", shiftData);
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, shift: response };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || "Erreur lors de la création du shift",
-      };
-    }
-  },
-
-  update: async (id, shiftData) => {
+  create: async (activityData) => {
     try {
       const response = await apiRequest(
-        `${API_ROUTES.SHIFTS}/${id}`,
-        "PUT",
-        shiftData
+        API_ENDPOINTS.ACTIVITIES.CREATE,
+        "POST",
+        activityData
       );
 
       if (response.error) {
         return { success: false, message: response.error };
       }
 
-      return { success: true, shift: response };
+      return { success: true, activity: response };
     } catch (error) {
       return {
         success: false,
-        message: error.message || "Erreur lors de la mise à jour du shift",
+        message: error.message || "Erreur lors de la création de l'activité",
+      };
+    }
+  },
+
+  update: async (id, activityData) => {
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.ACTIVITIES.UPDATE(id),
+        "PUT",
+        activityData
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, activity: response };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la mise à jour de l'activité",
       };
     }
   },
 
   delete: async (id) => {
     try {
-      const response = await apiRequest(`${API_ROUTES.SHIFTS}/${id}`, "DELETE");
+      const response = await apiRequest(
+        API_ENDPOINTS.ACTIVITIES.DELETE(id),
+        "DELETE"
+      );
 
       if (response.error) {
         return { success: false, message: response.error };
@@ -358,65 +363,7 @@ export const ShiftService = {
     } catch (error) {
       return {
         success: false,
-        message: error.message || "Erreur lors de la suppression du shift",
-      };
-    }
-  },
-};
-
-export const StatsService = {
-  getOverview: async () => {
-    try {
-      const response = await apiRequest(`${API_ROUTES.STATS}/overview`, "GET");
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, stats: response };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error.message || "Erreur lors de la récupération des statistiques",
-      };
-    }
-  },
-
-  getEmployeeStats: async () => {
-    try {
-      const response = await apiRequest(`${API_ROUTES.STATS}/employees`, "GET");
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, stats: response };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error.message ||
-          "Erreur lors de la récupération des statistiques des employés",
-      };
-    }
-  },
-
-  getVacationStats: async () => {
-    try {
-      const response = await apiRequest(`${API_ROUTES.STATS}/vacations`, "GET");
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, stats: response };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error.message ||
-          "Erreur lors de la récupération des statistiques des congés",
+        message: error.message || "Erreur lors de la suppression de l'activité",
       };
     }
   },

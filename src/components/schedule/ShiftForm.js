@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
-import { FormInput, FormSelect, FormTextarea, Button } from "../ui/Form";
+import { Button, FormInput, FormSelect, FormTextarea } from "../ui/Form";
 
 const Form = styled.form`
   display: flex;
@@ -95,7 +95,7 @@ const ShiftForm = ({
         <option value="">Sélectionner un employé</option>
         {employees.map((employee) => (
           <option key={employee._id} value={employee._id}>
-            {employee.firstName} {employee.lastName}
+            {employee.first_name} {employee.last_name}
           </option>
         ))}
       </FormSelect>

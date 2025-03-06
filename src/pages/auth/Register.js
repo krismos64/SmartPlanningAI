@@ -5,6 +5,7 @@ import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import { useNotification } from "../../components/ui/Notification";
 import { useAuth } from "../../contexts/AuthContext";
+import { AuthService } from "../../services/api";
 
 // Animations
 const fadeInUp = keyframes`
@@ -133,18 +134,27 @@ const LinkContainer = styled.div`
 // Composant Register
 const Register = () => {
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
-    role: "employee", // Valeur par défaut
+    first_name: "",
+    last_name: "",
+    company: "",
+    phone: "",
+    jobTitle: "",
     profileImage: null,
+  });
+
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    first_name: "",
+    last_name: "",
     company: "",
     phone: "",
     jobTitle: "",
   });
-  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
   const fileInputRef = useRef(null);
@@ -214,18 +224,10 @@ const Register = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.firstName) {
-      newErrors.firstName = "Le prénom est requis";
-    }
-
-    if (!formData.lastName) {
-      newErrors.lastName = "Le nom est requis";
-    }
-
     if (!formData.email) {
       newErrors.email = "L'email est requis";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "L'email est invalide";
+      newErrors.email = "L'email n'est pas valide";
     }
 
     if (!formData.password) {
@@ -235,8 +237,18 @@ const Register = () => {
         "Le mot de passe doit contenir au moins 6 caractères";
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "La confirmation du mot de passe est requise";
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+    }
+
+    if (!formData.first_name) {
+      newErrors.first_name = "Le prénom est requis";
+    }
+
+    if (!formData.last_name) {
+      newErrors.last_name = "Le nom est requis";
     }
 
     setErrors(newErrors);
@@ -254,46 +266,27 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      // Préparer les données à envoyer
-      const dataToSend = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-        // Envoyer explicitement null si la valeur est vide
-        phone: formData.phone || null,
-        company: formData.company || null,
-        jobTitle: formData.jobTitle || null,
-        // Ne pas envoyer profileImage si aucune modification n'a été faite
-        ...(formData.profileImage
-          ? { profileImage: formData.profileImage }
-          : {}),
-      };
+      const { confirmPassword, ...registrationData } = formData;
+      const result = await AuthService.register(registrationData);
 
-      console.log("Envoi des données d'inscription:", {
-        ...dataToSend,
-        password: "***",
-        profileImageLength: dataToSend.profileImage
-          ? dataToSend.profileImage.length
-          : 0,
-      });
-
-      await register(dataToSend);
-
-      showNotification({
-        type: "success",
-        title: "Inscription réussie",
-        message: "Votre compte a été créé avec succès",
-      });
-
-      navigate("/dashboard");
+      if (result.success) {
+        showNotification({
+          type: "success",
+          message:
+            "Inscription réussie ! Vous pouvez maintenant vous connecter.",
+        });
+        navigate("/login");
+      } else {
+        showNotification({
+          type: "error",
+          message: result.message || "Erreur lors de l'inscription",
+        });
+      }
     } catch (error) {
+      console.error("Erreur lors de l'inscription:", error);
       showNotification({
         type: "error",
-        title: "Erreur d'inscription",
-        message:
-          error.message || "Une erreur est survenue lors de l'inscription",
+        message: "Une erreur est survenue lors de l'inscription",
       });
     } finally {
       setIsLoading(false);
@@ -320,33 +313,35 @@ const Register = () => {
 
         <Form onSubmit={handleSubmit}>
           <FormGroup>
-            <Label htmlFor="firstName">Prénom *</Label>
+            <Label htmlFor="first_name">Prénom *</Label>
             <Input
-              id="firstName"
-              name="firstName"
+              id="first_name"
+              name="first_name"
               type="text"
-              value={formData.firstName}
+              value={formData.first_name}
               onChange={handleChange}
               placeholder="Entrez votre prénom"
-              error={!!errors.firstName}
+              error={!!errors.first_name}
             />
-            {errors.firstName && (
-              <ErrorMessage>{errors.firstName}</ErrorMessage>
+            {errors.first_name && (
+              <ErrorMessage>{errors.first_name}</ErrorMessage>
             )}
           </FormGroup>
 
           <FormGroup>
-            <Label htmlFor="lastName">Nom *</Label>
+            <Label htmlFor="last_name">Nom *</Label>
             <Input
-              id="lastName"
-              name="lastName"
+              id="last_name"
+              name="last_name"
               type="text"
-              value={formData.lastName}
+              value={formData.last_name}
               onChange={handleChange}
               placeholder="Entrez votre nom"
-              error={!!errors.lastName}
+              error={!!errors.last_name}
             />
-            {errors.lastName && <ErrorMessage>{errors.lastName}</ErrorMessage>}
+            {errors.last_name && (
+              <ErrorMessage>{errors.last_name}</ErrorMessage>
+            )}
           </FormGroup>
 
           <FormGroup>

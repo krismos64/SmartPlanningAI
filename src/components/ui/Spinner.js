@@ -1,46 +1,51 @@
 import PropTypes from "prop-types";
 import styled, { keyframes } from "styled-components";
 
-const spin = keyframes`
-  0% {
+// Animation de rotation
+const rotate = keyframes`
+  from {
     transform: rotate(0deg);
   }
-  100% {
+  to {
     transform: rotate(360deg);
   }
 `;
 
+// Conteneur du spinner
 const SpinnerContainer = styled.div`
   display: flex;
-  justify-content: ${({ center }) => (center ? "center" : "flex-start")};
+  flex-direction: column;
   align-items: center;
+  justify-content: ${({ $center }) => ($center ? "center" : "flex-start")};
+  height: ${({ $center }) => ($center ? "100%" : "auto")};
   width: 100%;
-  padding: ${({ size }) => (size === "large" ? "2rem" : "1rem")} 0;
+  padding: 1rem;
 `;
 
+// Élément du spinner
 const SpinnerElement = styled.div`
-  width: ${({ size }) => {
-    switch (size) {
+  width: ${({ $size }) => {
+    switch ($size) {
       case "small":
-        return "1rem";
+        return "1.5rem";
       case "large":
         return "3rem";
       default:
         return "2rem";
     }
   }};
-  height: ${({ size }) => {
-    switch (size) {
+  height: ${({ $size }) => {
+    switch ($size) {
       case "small":
-        return "1rem";
+        return "1.5rem";
       case "large":
         return "3rem";
       default:
         return "2rem";
     }
   }};
-  border: ${({ size }) => {
-      switch (size) {
+  border: ${({ $size }) => {
+      switch ($size) {
         case "small":
           return "2px";
         case "large":
@@ -50,43 +55,44 @@ const SpinnerElement = styled.div`
       }
     }}
     solid rgba(0, 0, 0, 0.1);
-  border-top: ${({ size }) => {
-      switch (size) {
-        case "small":
-          return "2px";
-        case "large":
-          return "4px";
-        default:
-          return "3px";
-      }
-    }}
-    solid ${({ theme }) => theme.colors.primary || "#1890ff"};
+  border-top: ${({ $size, theme }) => {
+    const borderWidth =
+      $size === "small" ? "2px" : $size === "large" ? "4px" : "3px";
+    return `${borderWidth} solid ${theme.colors.primary.main}`;
+  }};
   border-radius: 50%;
-  animation: ${spin} 0.8s linear infinite;
+  animation: ${rotate} 1s linear infinite;
 `;
 
-const SpinnerText = styled.span`
-  margin-left: 0.75rem;
+// Texte du spinner
+const SpinnerText = styled.p`
+  margin-top: 0.5rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
   font-size: 0.875rem;
-  color: ${({ theme }) => theme.colors.text?.secondary || "#666"};
 `;
 
 /**
- * Composant de chargement (spinner)
+ * Composant Spinner pour indiquer un chargement
  */
-const Spinner = ({ size = "medium", center = false, text }) => {
+const Spinner = ({ $center, $size, text }) => {
   return (
-    <SpinnerContainer center={center} size={size}>
-      <SpinnerElement size={size} />
+    <SpinnerContainer $center={$center}>
+      <SpinnerElement $size={$size} />
       {text && <SpinnerText>{text}</SpinnerText>}
     </SpinnerContainer>
   );
 };
 
 Spinner.propTypes = {
-  size: PropTypes.oneOf(["small", "medium", "large"]),
-  center: PropTypes.bool,
+  $center: PropTypes.bool,
+  $size: PropTypes.oneOf(["small", "medium", "large"]),
   text: PropTypes.string,
+};
+
+Spinner.defaultProps = {
+  $center: false,
+  $size: "medium",
+  text: "",
 };
 
 export default Spinner;

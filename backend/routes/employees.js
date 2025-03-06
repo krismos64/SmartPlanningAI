@@ -3,6 +3,8 @@ const express = require("express");
 const router = express.Router();
 const Employee = require("../models/Employee");
 const { auth, checkRole } = require("../middleware/auth");
+const { recordActivity } = require("./activities");
+const db = require("../config/db");
 
 // @route   GET /api/employees
 // @desc    Obtenir tous les employés
@@ -85,19 +87,48 @@ router.put("/:id", auth, async (req, res) => {
 // @access  Public
 router.delete("/:id", auth, async (req, res) => {
   try {
-    const result = await Employee.delete(req.params.id);
-    if (!result) {
-      return res.status(404).json({ message: "Employé non trouvé" });
+    const { id } = req.params;
+
+    // Récupérer les informations de l'employé avant de le supprimer
+    const [employees] = await db.query("SELECT * FROM employees WHERE id = ?", [
+      id,
+    ]);
+
+    if (employees.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Employé non trouvé",
+      });
     }
-    res.json({ message: "Employé supprimé avec succès" });
+
+    const employee = employees[0];
+
+    // Supprimer l'employé
+    await db.query("DELETE FROM employees WHERE id = ?", [id]);
+
+    // Enregistrer l'activité
+    await recordActivity({
+      type: "delete",
+      description: `Suppression de l'employé ${employee.first_name} ${employee.last_name}`,
+      userId: req.user.id,
+      details: {
+        employeeId: employee.id,
+        employeeName: `${employee.first_name} ${employee.last_name}`,
+        department: employee.department,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Employé supprimé avec succès",
+    });
   } catch (error) {
-    console.error(
-      `Erreur lors de la suppression de l'employé ${req.params.id}:`,
-      error
-    );
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la suppression de l'employé" });
+    console.error("Erreur lors de la suppression de l'employé:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la suppression de l'employé",
+      error: error.message,
+    });
   }
 });
 

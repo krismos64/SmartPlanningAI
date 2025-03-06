@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import styled, { keyframes, css } from "styled-components";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import styled, { css, keyframes } from "styled-components";
 
 // Animations
 const slideIn = keyframes`
@@ -389,28 +389,50 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
   // Afficher une notification
-  const showNotification = React.useCallback(
-    ({ type = "info", title, message, duration = 5000 }) => {
-      console.log("Affichage d'une notification:", { type, title, message });
+  const showNotification = React.useCallback((param1, param2, param3) => {
+    // Vérifier le format des paramètres
+    let type = "info";
+    let title = "";
+    let message = "";
+    let duration = 5000;
 
-      const id = Date.now().toString();
+    // Si le premier paramètre est un objet, utiliser ses propriétés
+    if (typeof param1 === "object" && param1 !== null) {
+      type = param1.type || "info";
+      title = param1.title || "";
+      message = param1.message || "";
+      duration = param1.duration || 5000;
+    }
+    // Si le premier paramètre est une chaîne et le deuxième est une chaîne, considérer param1 comme message et param2 comme type
+    else if (typeof param1 === "string" && typeof param2 === "string") {
+      message = param1;
+      type = param2;
+      duration = param3 || 5000;
+    }
+    // Si le premier paramètre est une chaîne mais pas le deuxième, considérer param1 comme message
+    else if (typeof param1 === "string") {
+      message = param1;
+      duration = param2 || 5000;
+    }
 
-      setNotifications((prev) => [
-        ...prev,
-        {
-          id,
-          type,
-          title,
-          message,
-          duration,
-          createdAt: new Date(),
-        },
-      ]);
+    console.log("Affichage d'une notification:", { type, title, message });
 
-      return id;
-    },
-    []
-  );
+    const id = Date.now().toString();
+
+    setNotifications((prev) => [
+      ...prev,
+      {
+        id,
+        type,
+        title,
+        message,
+        duration,
+        createdAt: new Date(),
+      },
+    ]);
+
+    return id;
+  }, []);
 
   // Masquer une notification
   const hideNotification = React.useCallback((id) => {

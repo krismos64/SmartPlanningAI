@@ -5,12 +5,16 @@ const cors = require("cors");
 const db = require("./config/db");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+const setupWebSocket = require("./config/websocket");
 
 // Import des routes
 const employeesRoutes = require("./routes/employees");
-const vacationsRoutes = require("./routes/vacations");
+const vacationRequestsRoutes = require("./routes/vacations");
 const authRoutes = require("./routes/auth");
 const weeklySchedulesRoutes = require("./routes/weeklySchedules");
+const activitiesRoutes = require("./routes/activities");
+const scheduleStatsRoutes = require("./routes/scheduleStats");
 
 const app = express();
 
@@ -33,7 +37,8 @@ const corsOptions = {
 };
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cors(corsOptions));
 
 // Créer le dossier de logs s'il n'existe pas
@@ -117,9 +122,11 @@ app.use((req, res, next) => {
 
 // Routes API
 app.use("/api/employees", employeesRoutes);
-app.use("/api/vacations", vacationsRoutes);
+app.use("/api/vacations", vacationRequestsRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/weekly-schedules", weeklySchedulesRoutes);
+app.use("/api/activities", activitiesRoutes);
+app.use("/api/schedule-stats", scheduleStatsRoutes);
 
 // Route de base
 app.get("/", (req, res) => {
@@ -143,67 +150,46 @@ app.use((err, req, res, next) => {
 // Fichier de verrouillage pour éviter les démarrages multiples
 const lockFile = path.join(__dirname, "server.lock");
 
-// Vérifier si le serveur est déjà en cours d'exécution
+// Fonction pour vérifier si le serveur est déjà en cours d'exécution
 const isServerRunning = () => {
   try {
     if (fs.existsSync(lockFile)) {
-      const pid = fs.readFileSync(lockFile, "utf8");
-
-      // Vérifier si le processus existe toujours
+      const pid = parseInt(fs.readFileSync(lockFile, "utf8"));
       try {
-        process.kill(parseInt(pid, 10), 0);
-        console.log(
-          `⚠️ Le serveur est déjà en cours d'exécution avec le PID ${pid}`
-        );
+        process.kill(pid, 0);
         return true;
       } catch (e) {
-        // Le processus n'existe plus, on peut supprimer le fichier de verrouillage
         fs.unlinkSync(lockFile);
         return false;
       }
     }
     return false;
   } catch (error) {
-    console.error("Erreur lors de la vérification du serveur:", error);
     return false;
   }
 };
 
-// Port dynamique avec limite de tentatives
-const findAvailablePort = (startPort, maxAttempts = 10) => {
-  return new Promise((resolve, reject) => {
-    let attempts = 0;
+// Fonction pour trouver un port disponible
+const findAvailablePort = async (startPort) => {
+  const net = require("net");
 
-    const tryPort = (port) => {
-      attempts++;
-      const server = require("http").createServer();
-
-      server.on("error", (err) => {
-        if (err.code === "EADDRINUSE") {
-          console.log(
-            `Port ${port} déjà utilisé, essai du port ${port + 1}...`
-          );
-          if (attempts >= maxAttempts) {
-            reject(
-              new Error(
-                `Impossible de trouver un port disponible après ${maxAttempts} tentatives`
-              )
-            );
-          } else {
-            tryPort(port + 1);
-          }
-        } else {
-          reject(err);
-        }
+  const isPortAvailable = (port) => {
+    return new Promise((resolve) => {
+      const server = net.createServer();
+      server.once("error", () => resolve(false));
+      server.once("listening", () => {
+        server.close();
+        resolve(true);
       });
+      server.listen(port);
+    });
+  };
 
-      server.listen(port, () => {
-        server.close(() => resolve(port));
-      });
-    };
-
-    tryPort(startPort);
-  });
+  let port = startPort;
+  while (!(await isPortAvailable(port))) {
+    port++;
+  }
+  return port;
 };
 
 const startServer = async () => {
@@ -241,7 +227,14 @@ const startServer = async () => {
     process.on("SIGTERM", cleanup);
     process.on("exit", cleanup);
 
-    const server = app.listen(PORT, () => {
+    // Créer un serveur HTTP
+    const server = http.createServer(app);
+
+    // Configurer le WebSocket
+    setupWebSocket(server);
+
+    // Démarrer le serveur
+    server.listen(PORT, () => {
       console.log(`🚀 Serveur démarré sur le port ${PORT}`);
       console.log(`📚 Documentation API: http://localhost:${PORT}/api-docs`);
       console.log(

@@ -34,35 +34,41 @@ async function initDB() {
     // Utiliser la base de données
     await connection.query(`USE ${dbConfig.database}`);
 
-    // Créer la table users si elle n'existe pas
+    // Créer la table users
     await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        email VARCHAR(100) NOT NULL UNIQUE,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        role ENUM('admin', 'manager', 'employee') DEFAULT 'employee',
-        firstName VARCHAR(255),
-        lastName VARCHAR(255),
+        role ENUM('admin') NOT NULL DEFAULT 'admin',
+        first_name VARCHAR(255),
+        last_name VARCHAR(255),
+        profileImage LONGTEXT,
+        company VARCHAR(255),
+        phone VARCHAR(20),
+        jobTitle VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log("✅ Table 'users' créée ou existante");
 
-    // Créer la table employees si elle n'existe pas
+    // Créer la table employees
     await connection.query(`
       CREATE TABLE IF NOT EXISTS employees (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        firstName VARCHAR(255) NOT NULL,
-        lastName VARCHAR(255) NOT NULL,
-        email VARCHAR(100) NOT NULL UNIQUE,
-        phone VARCHAR(20),
-        position VARCHAR(100),
-        department VARCHAR(100),
+        first_name VARCHAR(255) NOT NULL,
+        last_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        role VARCHAR(255),
+        department VARCHAR(255),
+        contract_hours DECIMAL(5,2) DEFAULT 0,
+        birth_date DATE,
+        start_date DATE,
         status ENUM('active', 'inactive', 'pending') DEFAULT 'active',
-        hireDate DATE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        hours_worked DECIMAL(10,2) DEFAULT 0,
+        overtime_hours DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log("✅ Table 'employees' créée ou existante");
@@ -96,7 +102,7 @@ async function initDB() {
       const hashedPassword = await bcrypt.hash("admin", salt);
 
       await connection.query(
-        "INSERT INTO users (username, email, password, role, firstName, lastName) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO users (username, email, password, role, first_name, last_name) VALUES (?, ?, ?, ?, ?, ?)",
         ["admin", "admin@admin.fr", hashedPassword, "admin", "Admin", "User"]
       );
       console.log("✅ Utilisateur admin créé");

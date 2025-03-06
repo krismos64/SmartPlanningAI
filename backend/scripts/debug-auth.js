@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const dotenv = require("dotenv");
+const mysql = require("mysql2/promise");
 
 // Charger les variables d'environnement
 dotenv.config({ path: path.join(__dirname, "../.env") });
@@ -128,8 +129,8 @@ app.post("/api/auth/login", async (req, res) => {
       username: user.username,
       email: user.email,
       role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      first_name: user.first_name,
+      last_name: user.last_name,
       token,
     });
   } catch (error) {
@@ -191,6 +192,52 @@ const findAvailablePort = (startPort, maxAttempts = 10) => {
 
     // Trouver un port disponible en commençant par 5002
     const PORT = await findAvailablePort(5002);
+
+    // Créer un utilisateur de test
+    const testUser = {
+      username: "test.user",
+      email: "test@example.com",
+      password: "password123",
+      role: "admin",
+      first_name: "Test",
+      last_name: "User",
+    };
+
+    // Insérer l'utilisateur dans la base de données
+    const pool = await mysql.createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+    });
+
+    const [result] = await pool.query(
+      "INSERT INTO users (username, email, password, role, first_name, last_name) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        testUser.username,
+        testUser.email,
+        testUser.password,
+        testUser.role,
+        testUser.first_name,
+        testUser.last_name,
+      ]
+    );
+
+    // Récupérer l'utilisateur créé
+    const [users] = await pool.query(
+      "SELECT id, username, email, role, first_name, last_name FROM users WHERE id = ?",
+      [result.insertId]
+    );
+
+    // Afficher les informations de l'utilisateur
+    console.log("Utilisateur créé:", {
+      id: users[0].id,
+      username: users[0].username,
+      email: users[0].email,
+      role: users[0].role,
+      first_name: users[0].first_name,
+      last_name: users[0].last_name,
+    });
 
     // Démarrer le serveur
     app.listen(PORT, () => {

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { useNotification } from "../components/ui/Notification";
-import { API_BASE_URL } from "../config/api";
+import { API_URL } from "../config/api";
 import { useAuth } from "../contexts/AuthContext";
+import { useUserName } from "../hooks/useUserName";
 
 // Composants stylisés
 const ProfileContainer = styled.div`
@@ -230,52 +231,44 @@ const Profile = () => {
   const fileInputRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const { first_name, last_name, fullName, initials } = useUserName(user);
+
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    company: "",
-    jobTitle: "",
-    profileImage: null,
+    first_name: user?.first_name || "",
+    last_name: user?.last_name || "",
+    email: user?.email || "",
+    company: user?.company || "",
+    phone: user?.phone || "",
+    jobTitle: user?.jobTitle || "",
   });
+
   const [errors, setErrors] = useState({});
 
-  // Initialiser les données du formulaire avec les données de l'utilisateur
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     if (user) {
       setFormData({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
         email: user.email || "",
-        phone: user.phone || "",
         company: user.company || "",
+        phone: user.phone || "",
         jobTitle: user.jobTitle || "",
-        profileImage: user.profileImage || null,
       });
     }
   }, [user]);
 
-  // Obtenir les initiales de l'utilisateur
-  const getInitials = () => {
-    if (!user) return "U";
-    if (user.firstName && user.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-    }
-    return user.username ? user.username[0].toUpperCase() : "U";
+  const getUserInitials = () => {
+    return initials;
   };
 
-  // Obtenir le nom complet de l'utilisateur
-  const getFullName = () => {
-    if (!user) return "Utilisateur";
-    if (user.firstName && user.lastName) {
-      return `${user.firstName} ${user.lastName}`;
-    }
-    return user.username || "Utilisateur";
+  const getUserFullName = () => {
+    return fullName;
   };
 
-  // Obtenir le rôle de l'utilisateur en français
   const getUserRole = () => {
     if (!user) return "Utilisateur";
     switch (user.role) {
@@ -290,16 +283,13 @@ const Profile = () => {
     }
   };
 
-  // Gérer le clic sur le bouton d'upload
   const handleAvatarUploadClick = () => {
     fileInputRef.current.click();
   };
 
-  // Gérer le changement de fichier
-  const handleFileChange = (e) => {
+  const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Vérifier la taille du fichier (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         showNotification({
           type: "error",
@@ -309,17 +299,54 @@ const Profile = () => {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        // Prévisualisation de l'image
-        setProfileImagePreview(reader.result);
+      const compressImage = (
+        file,
+        maxWidth = 800,
+        maxHeight = 800,
+        quality = 0.7
+      ) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              let width = img.width;
+              let height = img.height;
 
-        // Stocker l'image en base64 (sans le préfixe data:image/jpeg;base64,)
-        const base64String = reader.result.split(",")[1];
+              if (width > height) {
+                if (width > maxWidth) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                }
+              } else {
+                if (height > maxHeight) {
+                  width = Math.round((width * maxHeight) / height);
+                  height = maxHeight;
+                }
+              }
 
-        // Vérifier la taille de la chaîne base64
+              canvas.width = width;
+              canvas.height = height;
+
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const dataUrl = canvas.toDataURL("image/jpeg", quality);
+              resolve(dataUrl);
+            };
+          };
+        });
+      };
+
+      compressImage(file).then((compressedDataUrl) => {
+        setPreviewUrl(compressedDataUrl);
+
+        const base64String = compressedDataUrl.split(",")[1];
+
         if (base64String.length > 2 * 1024 * 1024) {
-          // ~2MB en base64
           showNotification({
             type: "error",
             title: "Image trop volumineuse",
@@ -329,16 +356,11 @@ const Profile = () => {
           return;
         }
 
-        setFormData((prev) => ({
-          ...prev,
-          profileImage: base64String,
-        }));
-      };
-      reader.readAsDataURL(file);
+        setProfileImage(base64String);
+      });
     }
   };
 
-  // Mise à jour du formulaire
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -347,67 +369,37 @@ const Profile = () => {
     }));
   };
 
-  // Validation du formulaire
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.firstName) {
-      newErrors.firstName = "Le prénom est requis";
-    }
-
-    if (!formData.lastName) {
-      newErrors.lastName = "Le nom est requis";
-    }
 
     if (!formData.email) {
       newErrors.email = "L'email est requis";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "L'email est invalide";
+      newErrors.email = "L'email n'est pas valide";
+    }
+
+    if (!formData.first_name) {
+      newErrors.first_name = "Le prénom est requis";
+    }
+
+    if (!formData.last_name) {
+      newErrors.last_name = "Le nom est requis";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    // Demander confirmation avant d'enregistrer les modifications
-    if (!window.confirm("Êtes-vous sûr de vouloir modifier votre profil ?")) {
-      return;
-    }
-
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
-      // Récupérer le token du localStorage
       const token = localStorage.getItem("token");
-      console.log(
-        "Token utilisé pour la requête:",
-        token ? "Présent" : "Absent"
-      );
 
-      if (!token) {
-        setIsLoading(false);
-        throw new Error("Vous n'êtes pas connecté. Veuillez vous reconnecter.");
-      }
-
-      // Préparer les données à envoyer
       const dataToSend = {
-        firstName: formData.firstName || null,
-        lastName: formData.lastName || null,
-        email: formData.email || null,
-        // Envoyer explicitement null si la valeur est vide
-        phone: formData.phone || null,
-        company: formData.company || null,
-        jobTitle: formData.jobTitle || null,
-        // Ne pas envoyer profileImage si aucune modification n'a été faite
-        ...(profileImagePreview ? { profileImage: formData.profileImage } : {}),
+        ...formData,
+        ...(profileImage ? { profileImage } : {}),
       };
 
       console.log("Envoi des données de profil:", {
@@ -417,10 +409,23 @@ const Profile = () => {
           : 0,
       });
 
-      console.log("URL de l'API:", `${API_BASE_URL}/api/auth/profile`);
+      console.log("URL de l'API:", `${API_URL}/api/auth/profile`);
 
-      // Appel à l'API pour mettre à jour le profil
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+      if (
+        dataToSend.profileImage &&
+        dataToSend.profileImage.length > 1 * 1024 * 1024
+      ) {
+        showNotification({
+          type: "warning",
+          title: "Image trop volumineuse",
+          message:
+            "La photo de profil semble poser problème pour être sauvegardée. Essayez avec une image plus petite.",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -438,35 +443,33 @@ const Profile = () => {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (jsonError) {
-          console.error(
-            "Erreur lors de la lecture de la réponse JSON:",
-            jsonError
-          );
+        } catch (e) {
+          // Si la réponse n'est pas du JSON valide, utiliser le message d'erreur par défaut
         }
 
         throw new Error(errorMessage);
       }
 
-      const updatedUser = await response.json();
-      console.log("Données utilisateur mises à jour:", updatedUser);
+      const data = await response.json();
 
-      // Mettre à jour les données utilisateur dans le localStorage
-      const currentUser = JSON.parse(localStorage.getItem("user"));
-      const newUserData = { ...currentUser, ...updatedUser };
-      localStorage.setItem("user", JSON.stringify(newUserData));
+      updateUser(data);
+
+      setFormData({
+        first_name: data.first_name || "",
+        last_name: data.last_name || "",
+        email: data.email || "",
+        company: data.company || "",
+        phone: data.phone || "",
+        jobTitle: data.jobTitle || "",
+      });
+
+      setPreviewUrl(null);
 
       showNotification({
         type: "success",
         title: "Profil mis à jour",
-        message: "Votre profil a été mis à jour avec succès.",
+        message: "Vos informations ont été mises à jour avec succès",
       });
-
-      // Mettre à jour le contexte d'authentification
-      updateUser(newUserData);
-
-      // Réinitialiser l'état de prévisualisation
-      setProfileImagePreview(null);
     } catch (error) {
       console.error("Erreur lors de la mise à jour du profil:", error);
 
@@ -475,32 +478,40 @@ const Profile = () => {
         title: "Erreur",
         message:
           error.message ||
-          "Une erreur est survenue lors de la mise à jour du profil.",
+          "Une erreur est survenue lors de la mise à jour du profil",
       });
+
+      if (
+        error.message.includes("fetch") ||
+        error.message.includes("network")
+      ) {
+        showNotification({
+          type: "warning",
+          title: "Problème avec l'image",
+          message:
+            "La photo de profil semble poser problème pour être sauvegardée. Essayez avec une image plus petite.",
+        });
+      }
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Annuler les modifications
   const handleCancel = () => {
-    // Réinitialiser les données du formulaire
     if (user) {
       setFormData({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        first_name: user.firstName || "",
+        last_name: user.lastName || "",
         email: user.email || "",
         phone: user.phone || "",
         company: user.company || "",
         jobTitle: user.jobTitle || "",
-        profileImage: user.profileImage || null,
       });
     }
-    // Réinitialiser l'état de prévisualisation
-    setProfileImagePreview(null);
-    // Réinitialiser les erreurs
+    setPreviewUrl(null);
     setErrors({});
-    // Désactiver le mode édition
     setIsEditing(false);
   };
 
@@ -515,15 +526,15 @@ const Profile = () => {
         <ProfileHeader>
           <AvatarContainer>
             <Avatar>
-              {profileImagePreview ? (
-                <AvatarImage src={profileImagePreview} alt="Photo de profil" />
+              {previewUrl ? (
+                <AvatarImage src={previewUrl} alt="Photo de profil" />
               ) : user?.profileImage ? (
                 <AvatarImage
                   src={`data:image/jpeg;base64,${user.profileImage}`}
                   alt="Photo de profil"
                 />
               ) : (
-                getInitials()
+                getUserInitials()
               )}
             </Avatar>
             {isEditing && (
@@ -537,14 +548,14 @@ const Profile = () => {
                 <HiddenFileInput
                   type="file"
                   ref={fileInputRef}
-                  onChange={handleFileChange}
+                  onChange={handleImageChange}
                   accept="image/*"
                 />
               </>
             )}
           </AvatarContainer>
           <ProfileInfo>
-            <ProfileName>{getFullName()}</ProfileName>
+            <ProfileName>{getUserFullName()}</ProfileName>
             <ProfileRole>{getUserRole()}</ProfileRole>
             <ProfileEmail>{user?.email}</ProfileEmail>
           </ProfileInfo>
@@ -561,32 +572,32 @@ const Profile = () => {
             <FormSection>
               <SectionTitle>Informations personnelles</SectionTitle>
               <FormGroup>
-                <FormLabel htmlFor="firstName">Prénom</FormLabel>
+                <FormLabel htmlFor="first_name">Prénom</FormLabel>
                 <FormInput
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
+                  id="first_name"
+                  name="first_name"
+                  value={formData.first_name}
                   onChange={handleChange}
                   placeholder="Votre prénom"
-                  error={errors.firstName}
+                  error={errors.first_name}
                 />
-                {errors.firstName && (
-                  <ErrorMessage>{errors.firstName}</ErrorMessage>
+                {errors.first_name && (
+                  <ErrorMessage>{errors.first_name}</ErrorMessage>
                 )}
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="lastName">Nom</FormLabel>
+                <FormLabel htmlFor="last_name">Nom</FormLabel>
                 <FormInput
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
+                  id="last_name"
+                  name="last_name"
+                  value={formData.last_name}
                   onChange={handleChange}
                   placeholder="Votre nom"
-                  error={errors.lastName}
+                  error={errors.last_name}
                 />
-                {errors.lastName && (
-                  <ErrorMessage>{errors.lastName}</ErrorMessage>
+                {errors.last_name && (
+                  <ErrorMessage>{errors.last_name}</ErrorMessage>
                 )}
               </FormGroup>
 
@@ -645,8 +656,8 @@ const Profile = () => {
               <SecondaryButton type="button" onClick={handleCancel}>
                 Annuler
               </SecondaryButton>
-              <PrimaryButton type="submit" disabled={isLoading}>
-                {isLoading
+              <PrimaryButton type="submit" disabled={isSubmitting}>
+                {isSubmitting
                   ? "Enregistrement..."
                   : "Enregistrer les modifications"}
               </PrimaryButton>

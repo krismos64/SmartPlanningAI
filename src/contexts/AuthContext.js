@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { API_BASE_URL } from "../config/api";
+import { API_URL } from "../config/api";
+import useWebSocket from "../hooks/useWebSocket";
 
 const AuthContext = createContext({
   isAuthenticated: false,
   isLoading: true,
   user: null,
+  token: null,
   login: async () => {},
   logout: async () => {},
   register: async () => {},
@@ -18,7 +20,9 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token"));
   const [loginError, setLoginError] = useState(null);
+  const { notifyDataChange } = useWebSocket();
 
   // Fonction pour définir l'utilisateur avec le rôle admin
   const setUserWithAdminRole = (userData) => {
@@ -111,14 +115,55 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (email, password) => {
-    setIsLoading(true);
-    setLoginError(null);
-
+  // Fonction pour mettre à jour le profil utilisateur
+  const updateUserProfile = async (userData) => {
     try {
+      setIsLoading(true);
+      setLoginError(null);
+
+      const response = await fetch(`${API_URL}/api/auth/update-profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser((prevUser) => ({ ...prevUser, ...data }));
+
+        // Notifier le WebSocket du changement de profil
+        notifyDataChange("profile", "update", user.id);
+
+        return { success: true };
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setLoginError(
+          errorData.message || "Erreur lors de la mise à jour du profil"
+        );
+        return { success: false, error: errorData.message };
+      }
+    } catch (err) {
+      const errorMessage =
+        err.message || "Erreur lors de la mise à jour du profil";
+      setLoginError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fonction pour se connecter
+  const login = async (email, password) => {
+    try {
+      setIsLoading(true);
+      setLoginError(null);
+
       console.log("Tentative de connexion avec:", { email, password: "***" });
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -148,6 +193,7 @@ export const AuthProvider = ({ children }) => {
 
       // Stocker le token et les informations utilisateur
       localStorage.setItem("token", data.token);
+      setToken(data.token);
 
       // S'assurer que les champs optionnels sont définis
       const sanitizedUserData = {
@@ -163,6 +209,9 @@ export const AuthProvider = ({ children }) => {
 
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
+
+      // Notifier le WebSocket de la connexion
+      notifyDataChange("auth", "login", adminUser.id);
 
       return true;
     } catch (err) {
@@ -194,7 +243,7 @@ export const AuthProvider = ({ children }) => {
           : 0,
       });
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -220,6 +269,7 @@ export const AuthProvider = ({ children }) => {
       // Stocker le token si présent dans la réponse
       if (data.token) {
         localStorage.setItem("token", data.token);
+        setToken(data.token);
       }
 
       // Définir l'utilisateur comme admin
@@ -234,6 +284,9 @@ export const AuthProvider = ({ children }) => {
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
 
+      // Notifier le WebSocket de la connexion
+      notifyDataChange("auth", "login", adminUser.id);
+
       return true;
     } catch (error) {
       console.error("Erreur d'inscription:", error);
@@ -243,27 +296,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Fonction pour se déconnecter
   const logout = () => {
-    try {
-      setUser(null);
-      setIsAuthenticated(false);
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      window.location.href = "/login";
-    } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error);
+    // Notifier le WebSocket de la déconnexion
+    if (user) {
+      notifyDataChange("auth", "logout", user.id);
     }
+
+    localStorage.removeItem("token");
+    setToken(null);
+    setUser(null);
+    window.location.href = "/login";
   };
 
   const value = {
     user,
     isAuthenticated,
     isLoading,
+    token,
     login,
     register,
     logout,
     loginError,
     updateUser,
+    updateUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

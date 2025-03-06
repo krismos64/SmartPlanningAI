@@ -276,3 +276,99 @@ Distribué sous la licence MIT. Voir `LICENSE` pour plus d'informations.
 ---
 
 © 2023 SmartPlanning AI. Tous droits réservés.
+
+## Structure des données de planning
+
+### Format standard des données de planning
+
+```javascript
+{
+  employeeId: number,           // ID de l'employé
+  days: [                       // Tableau de 7 jours (lundi à dimanche)
+    {
+      type: string,             // "work" ou "absence"
+      hours: string,            // Nombre d'heures travaillées (format "0.0")
+      absence: string,          // Type d'absence (congé, maladie, etc.)
+      note: string,             // Note ou commentaire
+      timeSlots: [              // Créneaux horaires
+        {
+          start: string,        // Heure de début (format "HH:MM")
+          end: string,          // Heure de fin (format "HH:MM")
+          break: string         // Durée de la pause en heures (optionnel)
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Conversion des données
+
+Pour assurer la cohérence des données dans toute l'application, utilisez les fonctions utilitaires dans `src/utils/scheduleUtils.js` :
+
+- `standardizeScheduleData(schedule)` : Convertit les données de planning au format standard
+- `parseScheduleFromApi(apiData)` : Analyse les données reçues de l'API
+- `prepareScheduleForApi(schedule)` : Prépare les données pour l'envoi à l'API
+
+## Optimisations et bonnes pratiques
+
+### Props React transientes
+
+Pour éviter les avertissements React concernant les props inconnues, utilisez des props transientes avec le préfixe `$` :
+
+```jsx
+// Mauvaise pratique
+<StyledComponent center={true} size="large" />
+
+// Bonne pratique
+<StyledComponent $center={true} $size="large" />
+```
+
+### Optimisation des hooks React
+
+Pour éviter les boucles infinies et les rendus inutiles :
+
+1. Utilisez `useCallback` pour les fonctions passées comme props
+2. Utilisez `useMemo` pour les calculs coûteux
+3. Optimisez les dépendances des hooks `useEffect` et `useMemo`
+4. Utilisez `useRef` pour stocker des valeurs qui ne déclenchent pas de re-rendu
+
+### Gestion des erreurs
+
+L'application implémente une stratégie de retry pour les requêtes API échouées :
+
+1. Tentatives multiples avec délai exponentiel
+2. Messages d'erreur spécifiques
+3. Mode de secours en cas d'échec répété
+
+### WebSockets
+
+L'application utilise les WebSockets pour les mises à jour en temps réel :
+
+1. Notifications de création, mise à jour et suppression de plannings
+2. Mode de secours automatique en cas d'indisponibilité du serveur WebSocket
+3. Reconnexion automatique en cas de perte de connexion
+
+## Développement
+
+### Installation
+
+```bash
+npm install
+```
+
+### Démarrage du serveur de développement
+
+```bash
+npm run dev
+```
+
+### Construction pour la production
+
+```bash
+npm run build
+```
+
+## Licence
+
+Ce projet est sous licence propriétaire. Tous droits réservés.

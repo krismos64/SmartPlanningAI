@@ -2,33 +2,58 @@
  * Configuration et utilitaires pour les appels API
  */
 
+import axios from "axios";
+
 // URL de base de l'API
-export const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:5001";
+export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
 
 // Routes de l'API
-export const API_ROUTES = {
+export const API_ENDPOINTS = {
+  EMPLOYEES: {
+    BASE: "/api/employees",
+    BY_ID: (id) => `/api/employees/${id}`,
+    SCHEDULES: (id) => `/api/employees/${id}/schedules`,
+    VACATIONS: (id) => `/api/employees/${id}/vacations`,
+  },
+  WEEKLY_SCHEDULES: "/api/weekly-schedules",
+  VACATIONS: "/api/vacations",
+  VACATIONS_STATS: "/api/vacations/stats",
+  SHIFTS: {
+    BASE: "/api/shifts",
+    BY_ID: (id) => `/api/shifts/${id}`,
+  },
+  ACTIVITIES: {
+    BASE: "/api/activities",
+    BY_ID: (id) => `/api/activities/${id}`,
+    LOG: "/api/activities/log",
+  },
   AUTH: {
     LOGIN: "/api/auth/login",
     REGISTER: "/api/auth/register",
-    VERIFY: "/api/auth/verify",
+    LOGOUT: "/api/auth/logout",
     REFRESH: "/api/auth/refresh",
+    VERIFY: "/api/auth/verify",
+    RESET_PASSWORD: "/api/auth/reset-password",
+    FORGOT_PASSWORD: "/api/auth/forgot-password",
   },
-  EMPLOYEES: {
-    BASE: "/api/employees",
-    DETAIL: (id) => `/api/employees/${id}`,
+  DEPARTMENTS: {
+    BASE: "/api/departments",
+    BY_ID: (id) => `/api/departments/${id}`,
+    EMPLOYEES: (id) => `/api/departments/${id}/employees`,
   },
-  VACATIONS: {
-    BASE: "/api/vacations",
-    DETAIL: (id) => `/api/vacations/${id}`,
-    APPROVE: (id) => `/api/vacations/${id}/approve`,
-    REJECT: (id) => `/api/vacations/${id}/reject`,
+  ROLES: {
+    BASE: "/api/roles",
+    BY_ID: (id) => `/api/roles/${id}`,
   },
-  WEEKLY_SCHEDULES: {
-    BASE: "/api/weekly-schedules",
-    DETAIL: (id) => `/api/weekly-schedules/${id}`,
-    BY_WEEK: (weekStart) => `/api/weekly-schedules/week/${weekStart}`,
-    BY_EMPLOYEE: (employeeId) => `/api/weekly-schedules/employee/${employeeId}`,
+  SETTINGS: {
+    BASE: "/api/settings",
+    BY_KEY: (key) => `/api/settings/${key}`,
+  },
+  NOTIFICATIONS: {
+    BASE: "/api/notifications",
+    BY_ID: (id) => `/api/notifications/${id}`,
+    MARK_READ: (id) => `/api/notifications/${id}/read`,
+    MARK_ALL_READ: "/api/notifications/mark-all-read",
   },
 };
 
@@ -36,8 +61,8 @@ export const API_ROUTES = {
  * Fonction pour effectuer des requêtes API
  * @param {string} url - URL de la requête
  * @param {string} method - Méthode HTTP (GET, POST, PUT, DELETE)
- * @param {Object} data - Données à envoyer (pour POST, PUT)
- * @param {Object} headers - En-têtes HTTP supplémentaires
+ * @param {object} data - Données à envoyer (pour POST et PUT)
+ * @param {object} headers - En-têtes HTTP supplémentaires
  * @returns {Promise} - Promesse avec les données de la réponse
  */
 export const apiRequest = async (
@@ -47,79 +72,74 @@ export const apiRequest = async (
   headers = {}
 ) => {
   try {
-    // Récupérer le token d'authentification du localStorage
     const token = localStorage.getItem("token");
 
-    // Afficher le token utilisé (pour le débogage)
-    console.log("🔑 Token utilisé:", token ? "Présent" : "Absent");
-
-    // Préparer les en-têtes de la requête
-    const requestHeaders = {
-      "Content-Type": "application/json",
-      ...headers,
-    };
-
-    // Ajouter le token d'authentification si disponible
-    if (token) {
-      requestHeaders.Authorization = `Bearer ${token}`;
-    }
-
-    // Préparer les options de la requête
-    const options = {
+    const config = {
       method,
-      headers: requestHeaders,
-      credentials: "include",
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...headers,
+      },
+      ...(data && { data }),
     };
 
-    // Ajouter le corps de la requête pour les méthodes POST et PUT
-    if (data && (method === "POST" || method === "PUT")) {
-      options.body = JSON.stringify(data);
-    }
-
-    // Construire l'URL complète
-    const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
-
-    // Afficher les détails de la requête (pour le débogage)
-    console.log(`📤 Envoi de la requête: ${method} ${fullUrl}`);
-
-    // Effectuer la requête
-    const response = await fetch(fullUrl, options);
-
-    // Vérifier si la réponse est OK
-    if (!response.ok) {
-      // Si la réponse contient du JSON, l'extraire pour l'erreur
-      const errorData = await response.json().catch(() => ({}));
-      // eslint-disable-next-line no-throw-literal
-      throw {
-        status: response.status,
-        message: errorData.message || response.statusText,
-        data: errorData,
-      };
-    }
-
-    // Vérifier si la réponse est vide
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      return { success: true };
-    }
-
-    // Extraire les données JSON de la réponse
-    const responseData = await response.json();
-    return responseData;
+    const response = await axios(config);
+    return response.data;
   } catch (error) {
     // Gérer les erreurs réseau
-    if (error.name === "TypeError" && error.message === "Failed to fetch") {
-      console.error("🌐 Erreur réseau:", error);
-      // eslint-disable-next-line no-throw-literal
-      throw {
-        status: 0,
-        message: "Erreur de connexion au serveur",
-        originalError: error,
-      };
+    if (!error.response) {
+      throw new Error("Erreur réseau. Veuillez vérifier votre connexion.");
     }
 
-    // Propager l'erreur
-    console.error("❌ Erreur API:", error);
-    throw error;
+    // Gérer les erreurs d'authentification
+    if (error.response.status === 401) {
+      // Rediriger vers la page de connexion ou rafraîchir le token
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    }
+
+    // Propager l'erreur avec les détails
+    throw {
+      status: error.response.status,
+      message: error.response.data.message || "Une erreur est survenue",
+      details: error.response.data,
+    };
   }
 };
+
+export const handleApiError = (error) => {
+  if (error.response) {
+    const { status, data } = error.response;
+    switch (status) {
+      case 400:
+        return data.message || "Requête invalide";
+      case 401:
+        return "Non autorisé - Veuillez vous reconnecter";
+      case 403:
+        return "Accès refusé";
+      case 404:
+        return "Ressource non trouvée";
+      case 409:
+        return "Conflit - La ressource existe déjà";
+      case 422:
+        return "Données invalides";
+      case 429:
+        return "Trop de requêtes - Veuillez réessayer plus tard";
+      case 500:
+        return "Erreur serveur - Veuillez réessayer plus tard";
+      default:
+        return `Erreur ${status} - ${
+          data.message || "Une erreur est survenue"
+        }`;
+    }
+  }
+  if (error.request) {
+    return "Impossible de contacter le serveur";
+  }
+  return error.message || "Une erreur est survenue";
+};
+
+export default apiRequest;

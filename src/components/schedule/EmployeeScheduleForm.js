@@ -512,7 +512,7 @@ const EmployeeScheduleForm = ({
 
       <EmployeeInfo>
         <EmployeeName>
-          {employee.firstName} {employee.lastName}
+          {employee.first_name} {employee.last_name}
         </EmployeeName>
         <EmployeeDetails>
           <div>Département: {employee.department || "Non défini"}</div>

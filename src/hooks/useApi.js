@@ -1,119 +1,300 @@
-import axios from "axios";
-import { useCallback, useState } from "react";
-
-// Correction de la définition de l'URL de base pour éviter la duplication du chemin /api
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+import { useCallback, useMemo } from "react";
+import { toast } from "react-hot-toast";
+import { API_URL } from "../config/api";
 
 /**
- * Hook personnalisé pour centraliser les appels API
- * @returns {Object} Méthodes pour effectuer des appels API
+ * Hook personnalisé pour effectuer des appels API
+ * @returns {Object} Méthodes pour effectuer des requêtes API
  */
 const useApi = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  /**
-   * Fonction générique pour effectuer des appels API
-   * @param {string} method - Méthode HTTP (GET, POST, PUT, DELETE)
-   * @param {string} endpoint - Endpoint de l'API (sans la base URL)
-   * @param {Object} data - Données à envoyer (pour POST, PUT)
-   * @returns {Promise} Promesse contenant la réponse
-   */
-  const apiCall = useCallback(async (method, endpoint, data = null) => {
-    setIsLoading(true);
-    setError(null);
-
-    // Construire l'URL complète
-    const url = endpoint.startsWith("http")
-      ? endpoint
-      : `${API_BASE_URL}${endpoint}`;
-
-    // Journaliser l'appel API pour le débogage
-    console.log(`API ${method}:`, url, data ? data : "");
-
+  const handleResponse = useCallback(async (response) => {
     try {
-      // Récupérer le token d'authentification s'il existe
-      const token = localStorage.getItem("token");
+      // Récupérer les en-têtes pour le débogage
+      const headers = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
 
-      const config = {
-        method,
-        url,
-        data,
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        withCredentials: true, // Pour inclure les cookies
-      };
+      console.log("Réponse du serveur:", {
+        url: response.url,
+        status: response.status,
+        statusText: response.statusText,
+        headers: headers,
+      });
 
-      const response = await axios(config);
+      // Vérifier si la réponse est au format JSON
+      const contentType = response.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
 
-      // Gérer les réponses vides (204 No Content)
-      if (response.status === 204) {
-        setIsLoading(false);
-        return { data: null, success: true };
-      }
-
-      // Vérifier si la réponse contient du JSON
-      let responseData;
-      if (response.headers["content-type"]?.includes("application/json")) {
-        responseData = response.data;
+      // Récupérer le corps de la réponse
+      let data;
+      if (isJson) {
+        data = await response.json();
+        console.log("Données JSON reçues:", data);
       } else {
-        // Pour les réponses non-JSON, retourner le texte brut
-        responseData =
-          typeof response.data === "string"
-            ? response.data
-            : { message: "Réponse non-JSON reçue" };
+        const text = await response.text();
+        console.warn("Réponse non-JSON reçue:", text);
+        try {
+          // Essayer de parser le texte comme JSON
+          data = JSON.parse(text);
+          console.log("Texte parsé comme JSON:", data);
+        } catch (e) {
+          data = { message: text };
+        }
       }
 
-      setIsLoading(false);
-      return { data: responseData, success: true };
-    } catch (err) {
-      setIsLoading(false);
+      // Gérer les différents codes de statut
+      if (response.ok) {
+        return data;
+      } else {
+        // Gérer les erreurs d'authentification (401, 403)
+        if (response.status === 401 || response.status === 403) {
+          console.error("Erreur d'authentification:", data);
+          toast.error(
+            "Session expirée ou accès non autorisé. Veuillez vous reconnecter."
+          );
 
-      // Extraire le message d'erreur
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.statusText ||
-        err.message ||
-        "Erreur inconnue";
+          // Supprimer le token et l'utilisateur du localStorage
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
 
-      // Définir l'erreur pour l'affichage
-      setError(errorMessage);
+          // Rediriger vers la page de connexion après un délai
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+        }
 
-      // Journaliser l'erreur pour le débogage
-      console.error(`Erreur API ${method} ${url}:`, err);
+        // Gérer les erreurs serveur (500)
+        if (response.status === 500) {
+          console.error("Erreur serveur:", data);
+          console.error("URL:", response.url);
+          console.error("Méthode:", response.method);
 
-      // Retourner un objet d'erreur standardisé
-      return {
-        data: null,
-        success: false,
-        error: errorMessage,
-        status: err.response?.status,
-      };
+          // Journaliser plus de détails pour le débogage
+          if (data.error) {
+            console.error("Détails de l'erreur:", data.error);
+          }
+          if (data.stack) {
+            console.error("Stack trace:", data.stack);
+          }
+        }
+
+        // Construire un message d'erreur détaillé
+        const errorMessage =
+          data.message ||
+          data.error ||
+          response.statusText ||
+          "Erreur inconnue";
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        error.response = { status: response.status, data };
+
+        throw error;
+      }
+    } catch (error) {
+      console.error("Erreur lors du traitement de la réponse:", error);
+      throw error;
     }
   }, []);
 
-  // Méthodes HTTP spécifiques
-  const get = useCallback((endpoint) => apiCall("GET", endpoint), [apiCall]);
-  const post = useCallback(
-    (endpoint, data) => apiCall("POST", endpoint, data),
-    [apiCall]
-  );
-  const put = useCallback(
-    (endpoint, data) => apiCall("PUT", endpoint, data),
-    [apiCall]
-  );
-  const del = useCallback((endpoint) => apiCall("DELETE", endpoint), [apiCall]);
+  const api = useMemo(() => {
+    const get = async (endpoint) => {
+      try {
+        console.log(`[API] GET ${endpoint}`);
+        const token = localStorage.getItem("token");
 
-  return {
-    get,
-    post,
-    put,
-    delete: del,
-    isLoading,
-    error,
-  };
+        if (!token) {
+          console.error(
+            "Token d'authentification manquant pour la requête GET"
+          );
+          toast.error("Vous devez être connecté pour accéder à ces données");
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+          return { ok: false, status: 401, data: [] };
+        }
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
+
+        return await handleResponse(response);
+      } catch (error) {
+        console.error(`[API] GET ${endpoint} Error:`, error);
+
+        // Si l'erreur est liée à l'authentification, rediriger vers la page de connexion
+        if (error.status === 401 || error.status === 403) {
+          toast.error("Session expirée. Veuillez vous reconnecter.");
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+        } else {
+          toast.error(
+            error.message || "Erreur lors de la récupération des données"
+          );
+        }
+
+        throw error;
+      }
+    };
+
+    // Fonction utilitaire pour convertir camelCase en snake_case
+    const camelToSnakeCase = (str) => {
+      return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    };
+
+    const post = async (endpoint, data) => {
+      try {
+        // Vérifier que les données sont valides
+        if (!data || typeof data !== "object") {
+          console.error("Données invalides pour la requête POST:", data);
+          throw new Error("Données invalides pour la requête POST");
+        }
+
+        // Convertir les données en snake_case pour le backend
+        const snakeCaseData = {};
+        for (const key in data) {
+          snakeCaseData[camelToSnakeCase(key)] = data[key];
+        }
+
+        // Récupérer le token d'authentification
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.error("Token d'authentification manquant");
+          throw new Error(
+            "Vous devez être connecté pour effectuer cette action"
+          );
+        }
+
+        // Configurer les en-têtes de la requête
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+
+        // Journaliser les détails de la requête (sans le token complet)
+        console.log("Détails de la requête POST:", {
+          endpoint,
+          dataSize: JSON.stringify(snakeCaseData).length,
+          headers: { ...headers, Authorization: "Bearer [MASQUÉ]" },
+        });
+
+        // Effectuer la requête avec un timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(snakeCaseData),
+          signal: controller.signal,
+        });
+
+        // Annuler le timeout
+        clearTimeout(timeoutId);
+
+        // Traiter la réponse
+        return handleResponse(response);
+      } catch (error) {
+        // Gérer les erreurs spécifiques
+        if (error.name === "AbortError") {
+          console.error("La requête a été interrompue (timeout):", error);
+          throw new Error(
+            "La requête a pris trop de temps, veuillez réessayer"
+          );
+        }
+
+        if (
+          error.message.includes("NetworkError") ||
+          error.message.includes("Failed to fetch")
+        ) {
+          console.error("Erreur réseau lors de la requête POST:", error);
+          throw new Error(
+            "Problème de connexion au serveur, veuillez vérifier votre connexion internet"
+          );
+        }
+
+        // Journaliser et propager l'erreur
+        console.error("Erreur lors de la requête POST:", error);
+        throw error;
+      }
+    };
+
+    const put = async (endpoint, data) => {
+      try {
+        console.log(`[API] PUT ${endpoint}`, data);
+        const token = localStorage.getItem("token");
+
+        // S'assurer que les données sont sérialisables
+        const cleanData = JSON.parse(JSON.stringify(data));
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+          body: JSON.stringify(cleanData),
+          credentials: "include",
+        });
+
+        const result = await handleResponse(response);
+        console.log(`[API] PUT ${endpoint} Response:`, result);
+        return result;
+      } catch (error) {
+        console.error(`[API] PUT ${endpoint} Error:`, error);
+        return {
+          ok: false,
+          status: 0,
+          data: { message: error.message || "Erreur lors de la requête PUT" },
+          headers: new Headers(),
+        };
+      }
+    };
+
+    const del = async (endpoint) => {
+      try {
+        console.log(`[API] DELETE ${endpoint}`);
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_URL}${endpoint}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+          credentials: "include",
+        });
+
+        const result = await handleResponse(response);
+        console.log(`[API] DELETE ${endpoint} Response:`, result);
+        return result;
+      } catch (error) {
+        console.error(`[API] DELETE ${endpoint} Error:`, error);
+        return {
+          ok: false,
+          status: 0,
+          data: {
+            message: error.message || "Erreur lors de la requête DELETE",
+          },
+          headers: new Headers(),
+        };
+      }
+    };
+
+    return {
+      get,
+      post,
+      put,
+      delete: del,
+    };
+  }, [handleResponse]);
+
+  return api;
 };
 
 export default useApi;

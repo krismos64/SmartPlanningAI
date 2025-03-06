@@ -3,11 +3,13 @@ import { useCallback, useState } from "react";
 import { FaCalendarAlt, FaList, FaPlus } from "react-icons/fa";
 import styled from "styled-components";
 import holidaysAnimation from "../assets/animations/holidays.json";
+import { useNotification } from "../components/ui/Notification";
 import VacationCalendar from "../components/vacations/VacationCalendar";
 import VacationExport from "../components/vacations/VacationExport";
 import VacationForm from "../components/vacations/VacationForm";
 import { useAuth } from "../contexts/AuthContext";
 import useVacations from "../hooks/useVacations";
+import ActivityLogger from "../utils/activityLogger";
 
 // Composants stylisés
 const VacationsContainer = styled.div`
@@ -344,7 +346,9 @@ const Vacations = () => {
     rejectVacation,
     deleteVacation,
     getVacationsByStatus,
+    refetch: fetchVacations,
   } = useVacations();
+  const { showNotification } = useNotification();
 
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState("list");
@@ -352,6 +356,7 @@ const Vacations = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedVacation, setSelectedVacation] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Filtrer les demandes en fonction de l'onglet actif
   const filteredVacations = getVacationsByStatus(
@@ -384,50 +389,159 @@ const Vacations = () => {
 
   // Gérer la soumission du formulaire
   const handleSubmit = useCallback(
-    async (formData) => {
-      let success;
-      if (selectedVacation) {
-        success = await updateVacation(selectedVacation.id, formData);
-      } else {
-        success = await createVacation(formData);
-      }
+    async (vacationData) => {
+      setIsLoading(true);
+      try {
+        console.log("Données du formulaire soumises:", vacationData);
 
-      if (success) {
-        setShowModal(false);
-        setSelectedVacation(null);
+        // Vérifier que l'utilisateur est authentifié
+        if (!user) {
+          console.error("Erreur: utilisateur non authentifié");
+          showNotification(
+            "Vous devez être connecté pour créer une demande de congé",
+            "error"
+          );
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+          return;
+        }
+
+        // Vérifier que les données requises sont présentes
+        if (!vacationData.employeeId) {
+          throw new Error("L'identifiant de l'employé est requis");
+        }
+
+        if (!vacationData.startDate || !vacationData.endDate) {
+          throw new Error("Les dates de début et de fin sont requises");
+        }
+
+        if (selectedVacation) {
+          // Mise à jour d'un congé existant
+          console.log("Mise à jour d'un congé existant:", selectedVacation.id);
+          const response = await updateVacation(
+            selectedVacation.id,
+            vacationData
+          );
+
+          console.log("Réponse de mise à jour:", response);
+
+          if (response.success) {
+            // Enregistrer l'activité de mise à jour
+            await ActivityLogger.logUpdate(
+              "vacation",
+              selectedVacation.id,
+              `Mise à jour d'une demande de congé du ${formatDate(
+                vacationData.startDate
+              )} au ${formatDate(vacationData.endDate)}`,
+              user
+            );
+
+            setSelectedVacation(null);
+            setShowModal(false);
+            showNotification(
+              "Demande de congé mise à jour avec succès",
+              "success"
+            );
+          } else {
+            // Vérifier si l'erreur est liée à l'authentification
+            if (
+              response.error === "Authentification requise" ||
+              response.error === "Session expirée"
+            ) {
+              showNotification(
+                "Session expirée. Veuillez vous reconnecter.",
+                "error"
+              );
+              setTimeout(() => {
+                window.location.href = "/login";
+              }, 2000);
+              return;
+            }
+            throw new Error(response.error || "Erreur lors de la mise à jour");
+          }
+        } else {
+          // Création d'un nouveau congé
+          console.log("Création d'un nouveau congé");
+          const response = await createVacation(vacationData);
+
+          console.log("Réponse de création:", response);
+
+          if (response.success) {
+            // Enregistrer l'activité de création
+            await ActivityLogger.logCreation(
+              "vacation",
+              response.vacation.id,
+              `Nouvelle demande de congé du ${formatDate(
+                vacationData.startDate
+              )} au ${formatDate(vacationData.endDate)}`,
+              user
+            );
+
+            setSelectedVacation(null);
+            setShowModal(false);
+            showNotification("Demande de congé créée avec succès", "success");
+          } else {
+            // Vérifier si l'erreur est liée à l'authentification
+            if (
+              response.error === "Authentification requise" ||
+              response.error === "Session expirée"
+            ) {
+              showNotification(
+                "Session expirée. Veuillez vous reconnecter.",
+                "error"
+              );
+              setTimeout(() => {
+                window.location.href = "/login";
+              }, 2000);
+              return;
+            }
+            throw new Error(response.error || "Erreur lors de la création");
+          }
+        }
+      } catch (error) {
+        console.error("Erreur détaillée lors de la soumission:", error);
+        showNotification(error.message || "Une erreur est survenue", "error");
+      } finally {
+        setIsLoading(false);
       }
     },
-    [selectedVacation, createVacation, updateVacation]
+    [
+      selectedVacation,
+      createVacation,
+      updateVacation,
+      user,
+      formatDate,
+      showNotification,
+    ]
   );
 
   // Gérer l'approbation d'une demande
   const handleApprove = useCallback(
     async (id) => {
-      const success = await approveVacation(id);
-      if (success) {
-        setSelectedVacation(null);
+      try {
+        await approveVacation(id);
+        showNotification("Demande de congé approuvée", "success");
+      } catch (error) {
+        showNotification("Erreur lors de l'approbation de la demande", "error");
       }
     },
-    [approveVacation]
+    [approveVacation, showNotification]
   );
 
   // Gérer le rejet d'une demande
   const handleReject = useCallback(
-    async (e) => {
-      e.preventDefault();
-      if (!selectedVacation) return;
-
-      const success = await rejectVacation(
-        selectedVacation.id,
-        rejectionReason
-      );
-      if (success) {
+    async (id, reason) => {
+      try {
+        await rejectVacation(id, reason);
+        showNotification("Demande de congé rejetée", "success");
         setShowRejectModal(false);
-        setSelectedVacation(null);
         setRejectionReason("");
+      } catch (error) {
+        showNotification("Erreur lors du rejet de la demande", "error");
       }
     },
-    [selectedVacation, rejectionReason, rejectVacation]
+    [rejectVacation, showNotification]
   );
 
   // Ouvrir le modal de rejet
@@ -439,18 +553,41 @@ const Vacations = () => {
   // Gérer la suppression d'une demande
   const handleDelete = useCallback(
     async (id) => {
-      if (
-        window.confirm(
-          "Êtes-vous sûr de vouloir supprimer cette demande de congé ?"
-        )
-      ) {
-        const success = await deleteVacation(id);
-        if (success) {
-          setSelectedVacation(null);
+      if (!id) return;
+
+      setIsLoading(true);
+      try {
+        const vacationToDelete = vacations.find((v) => v.id === id);
+        if (!vacationToDelete) {
+          throw new Error("Demande de congé introuvable");
         }
+
+        const response = await deleteVacation(id);
+        if (response.success) {
+          // Enregistrer l'activité de suppression
+          await ActivityLogger.logDeletion(
+            "vacation",
+            id,
+            `Suppression d'une demande de congé du ${formatDate(
+              vacationToDelete.startDate
+            )} au ${formatDate(vacationToDelete.endDate)}`,
+            user
+          );
+
+          setSelectedVacation(null);
+          showNotification("Demande de congé supprimée avec succès", "success");
+        }
+      } catch (error) {
+        console.error("Erreur lors de la suppression:", error);
+        showNotification(
+          error.message || "Une erreur est survenue lors de la suppression",
+          "error"
+        );
+      } finally {
+        setIsLoading(false);
       }
     },
-    [deleteVacation]
+    [vacations, deleteVacation, user]
   );
 
   // Ouvrir le modal d'édition
@@ -795,7 +932,7 @@ const Vacations = () => {
               </CloseButton>
             </ModalHeader>
 
-            <RejectForm onSubmit={handleReject}>
+            <RejectForm onSubmit={(e) => e.preventDefault()}>
               <RejectTextarea
                 placeholder="Veuillez indiquer le motif du refus..."
                 value={rejectionReason}

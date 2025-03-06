@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import Lottie from "lottie-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import Lottie from "lottie-react";
 import planningAnimation from "../../assets/animations/planning-animation.json";
-import { FormInput } from "../../components/ui/Form";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
+import { FormInput } from "../../components/ui/Form";
 import { useNotification } from "../../components/ui/Notification";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -161,6 +161,19 @@ const Login = () => {
       });
     }
   }, [loginError]);
+
+  // Vérifier les erreurs d'URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+
+    if (error === "session_expired") {
+      showNotification(
+        "Votre session a expiré. Veuillez vous reconnecter.",
+        "warning"
+      );
+    }
+  }, [showNotification]);
 
   // Valider le formulaire
   const validateForm = () => {

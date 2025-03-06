@@ -2,21 +2,22 @@ const connectDB = require("../config/db");
 
 class Employee {
   constructor(data) {
+    // S'assurer que data est un objet
+    data = data || {};
+
+    // Conversion des noms de champs camelCase vers snake_case
     this.id = data.id;
-    this.first_name = data.first_name;
-    this.last_name = data.last_name;
+    this.first_name = data.first_name || null;
+    this.last_name = data.last_name || null;
     this.email = data.email || null;
     this.role = data.role || null;
     this.department = data.department || null;
-    this.contract_hours =
-      data.contract_hours !== undefined ? data.contract_hours : 0;
-    this.birth_date = data.birth_date || null;
-    this.start_date = data.start_date || null;
+    this.contractHours = data.contractHours || 35;
+    this.birthdate = data.birthdate || null;
+    this.hire_date = data.hire_date || null;
     this.status = data.status || "active";
-    this.hours_worked = data.hours_worked !== undefined ? data.hours_worked : 0;
-    this.overtime_hours =
-      data.overtime_hours !== undefined ? data.overtime_hours : 0;
-    this.created_at = data.created_at;
+    this.hourlyRate = data.hourlyRate || 0;
+    this.created_at = data.created_at || new Date();
 
     // Log des données reçues et initialisées
     console.log(
@@ -55,45 +56,13 @@ class Employee {
 
   async save() {
     try {
-      // Formater les dates pour MySQL si nécessaire
-      let birth_date = this.birth_date;
-      let start_date = this.start_date;
-
-      // Formater la date de naissance
-      if (
-        birth_date &&
-        typeof birth_date === "string" &&
-        birth_date.includes("T")
-      ) {
-        try {
-          const date = new Date(birth_date);
-          birth_date = date.toISOString().split("T")[0];
-          console.log(`Date de naissance formatée dans save(): ${birth_date}`);
-        } catch (error) {
-          console.error(
-            "Erreur lors du formatage de la date de naissance dans save():",
-            error
-          );
-        }
-      }
-
-      // Formater la date de début
-      if (
-        start_date &&
-        typeof start_date === "string" &&
-        start_date.includes("T")
-      ) {
-        try {
-          const date = new Date(start_date);
-          start_date = date.toISOString().split("T")[0];
-          console.log(`Date de début formatée dans save(): ${start_date}`);
-        } catch (error) {
-          console.error(
-            "Erreur lors du formatage de la date de début dans save():",
-            error
-          );
-        }
-      }
+      // Formater les dates pour MySQL
+      const birth_date = this.birthdate
+        ? new Date(this.birthdate).toISOString().split("T")[0]
+        : null;
+      const start_date = this.hire_date
+        ? new Date(this.hire_date).toISOString().split("T")[0]
+        : null;
 
       console.log("Données de l'employé à sauvegarder:", {
         id: this.id,
@@ -102,12 +71,11 @@ class Employee {
         email: this.email,
         role: this.role,
         department: this.department,
-        contract_hours: this.contract_hours,
-        birth_date: birth_date,
-        start_date: start_date,
+        contractHours: this.contractHours,
+        birthdate: birth_date,
+        hire_date: start_date,
         status: this.status,
-        hours_worked: this.hours_worked,
-        overtime_hours: this.overtime_hours,
+        hourlyRate: this.hourlyRate,
       });
 
       if (this.id) {
@@ -118,24 +86,23 @@ class Employee {
         try {
           // S'assurer que toutes les valeurs sont correctement définies
           const params = [
-            this.first_name,
-            this.last_name,
+            this.first_name || null,
+            this.last_name || null,
             this.email,
             this.role,
             this.department,
-            this.contract_hours !== undefined ? this.contract_hours : 0,
+            this.contractHours !== undefined ? this.contractHours : 35,
             birth_date,
             start_date,
             this.status || "active",
-            this.hours_worked !== undefined ? this.hours_worked : 0,
-            this.overtime_hours !== undefined ? this.overtime_hours : 0,
+            this.hourlyRate !== undefined ? this.hourlyRate : 0,
             this.id,
           ];
 
           console.log("Paramètres de la requête UPDATE:", params);
 
           await connectDB.execute(
-            "UPDATE employees SET first_name = ?, last_name = ?, email = ?, role = ?, department = ?, contract_hours = ?, birth_date = ?, start_date = ?, status = ?, hours_worked = ?, overtime_hours = ? WHERE id = ?",
+            "UPDATE employees SET first_name = ?, last_name = ?, email = ?, role = ?, department = ?, contractHours = ?, birthdate = ?, hire_date = ?, status = ?, hourlyRate = ? WHERE id = ?",
             params
           );
           console.log(`Mise à jour réussie pour l'employé ID ${this.id}`);
@@ -151,23 +118,21 @@ class Employee {
         // Création
         console.log("Tentative d'insertion d'un nouvel employé");
         const [result] = await connectDB.execute(
-          "INSERT INTO employees (first_name, last_name, email, role, department, contract_hours, birth_date, start_date, status, hours_worked, overtime_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO employees (first_name, last_name, email, role, department, contractHours, birthdate, hire_date, status, hourlyRate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
-            this.first_name,
-            this.last_name,
+            this.first_name || null,
+            this.last_name || null,
             this.email,
-            this.role || null,
-            this.department || null,
-            this.contract_hours || 0,
-            this.birth_date,
-            this.start_date,
+            this.role,
+            this.department,
+            this.contractHours !== undefined ? this.contractHours : 35,
+            this.birthdate,
+            this.hire_date,
             this.status || "active",
-            this.hours_worked || 0,
-            this.overtime_hours || 0,
+            this.hourlyRate !== undefined ? this.hourlyRate : 0,
           ]
         );
         this.id = result.insertId;
-        console.log("Employé créé avec succès, ID:", this.id);
         return this;
       }
     } catch (error) {
@@ -227,57 +192,53 @@ class Employee {
           updateData.department !== undefined
             ? updateData.department
             : employee.department,
-        contract_hours:
-          updateData.contract_hours !== undefined
-            ? updateData.contract_hours
-            : employee.contract_hours,
-        birth_date: updateData.birth_date,
-        start_date: updateData.start_date,
+        contractHours:
+          updateData.contractHours !== undefined
+            ? updateData.contractHours
+            : employee.contractHours,
+        birthdate: updateData.birthdate,
+        hire_date: updateData.hire_date,
         status: updateData.status || employee.status || "active",
-        hours_worked:
-          updateData.hours_worked !== undefined
-            ? updateData.hours_worked
-            : employee.hours_worked,
-        overtime_hours:
-          updateData.overtime_hours !== undefined
-            ? updateData.overtime_hours
-            : employee.overtime_hours,
+        hourlyRate:
+          updateData.hourlyRate !== undefined
+            ? updateData.hourlyRate
+            : employee.hourlyRate,
       };
 
       // Formater les dates correctement pour MySQL
-      if (cleanedData.birth_date) {
+      if (cleanedData.birthdate) {
         try {
           // Vérifier si la date est au format ISO
-          if (cleanedData.birth_date.includes("T")) {
+          if (cleanedData.birthdate.includes("T")) {
             // Convertir la date ISO en format YYYY-MM-DD
-            const date = new Date(cleanedData.birth_date);
-            cleanedData.birth_date = date.toISOString().split("T")[0];
+            const date = new Date(cleanedData.birthdate);
+            cleanedData.birthdate = date.toISOString().split("T")[0];
           }
-          console.log(`Date de naissance formatée: ${cleanedData.birth_date}`);
+          console.log(`Date de naissance formatée: ${cleanedData.birthdate}`);
         } catch (dateError) {
           console.error(
             "Erreur lors du formatage de la date de naissance:",
             dateError
           );
-          cleanedData.birth_date = employee.birth_date; // Utiliser l'ancienne valeur en cas d'erreur
+          cleanedData.birthdate = employee.birthdate; // Utiliser l'ancienne valeur en cas d'erreur
         }
       }
 
-      if (cleanedData.start_date) {
+      if (cleanedData.hire_date) {
         try {
           // Vérifier si la date est au format ISO
-          if (cleanedData.start_date.includes("T")) {
+          if (cleanedData.hire_date.includes("T")) {
             // Convertir la date ISO en format YYYY-MM-DD
-            const date = new Date(cleanedData.start_date);
-            cleanedData.start_date = date.toISOString().split("T")[0];
+            const date = new Date(cleanedData.hire_date);
+            cleanedData.hire_date = date.toISOString().split("T")[0];
           }
-          console.log(`Date de début formatée: ${cleanedData.start_date}`);
+          console.log(`Date de début formatée: ${cleanedData.hire_date}`);
         } catch (dateError) {
           console.error(
             "Erreur lors du formatage de la date de début:",
             dateError
           );
-          cleanedData.start_date = employee.start_date; // Utiliser l'ancienne valeur en cas d'erreur
+          cleanedData.hire_date = employee.hire_date; // Utiliser l'ancienne valeur en cas d'erreur
         }
       }
 

@@ -71,7 +71,7 @@ export const EMPLOYEE_TABLE_COLUMNS = [
   {
     id: "name",
     header: "Nom",
-    accessor: (employee) => `${employee.firstName} ${employee.lastName}`,
+    accessor: (employee) => `${employee.first_name} ${employee.last_name}`,
     sortable: true,
   },
   {
@@ -100,9 +100,13 @@ export const EMPLOYEE_TABLE_COLUMNS = [
     type: "status",
   },
   {
-    id: "startDate",
+    id: "hire_date",
     header: "Date d'embauche",
-    accessor: (employee) => employee.startDate,
+    accessor: (employee) => {
+      if (!employee.hire_date) return "";
+      const date = new Date(employee.hire_date);
+      return date.toLocaleDateString("fr-FR");
+    },
     sortable: true,
     type: "date",
   },
@@ -119,3 +123,7 @@ export const EMPLOYEE_TABLE_COLUMNS = [
     type: "number",
   },
 ];
+
+// URL de l'API
+export const API_URL =
+  process.env.REACT_APP_API_URL || "http://localhost:5001/api";

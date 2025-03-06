@@ -1,12 +1,11 @@
 import { lazy, Suspense } from "react";
+import { Toaster } from "react-hot-toast";
 import {
   Navigate,
   Route,
   BrowserRouter as Router,
   Routes,
 } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import ThemeProvider from "./components/ThemeProvider";
 import { NotificationProvider } from "./components/ui/Notification";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -21,10 +20,8 @@ const Login = lazy(() => import("./pages/auth/Login"));
 const Register = lazy(() => import("./pages/auth/Register"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Employees = lazy(() => import("./pages/Employees"));
-const Schedule = lazy(() => import("./pages/Schedule"));
-const WeeklySchedulePage = lazy(() => import("./pages/WeeklySchedule"));
+const WeeklySchedule = lazy(() => import("./pages/WeeklySchedule"));
 const Vacations = lazy(() => import("./pages/Vacations"));
-const Reports = lazy(() => import("./pages/Reports"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -69,7 +66,26 @@ const App = () => {
         <NotificationProvider>
           <Router>
             <Suspense fallback={<LoadingFallback />}>
-              <ToastContainer position="top-right" autoClose={3000} />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: "#333",
+                    color: "#fff",
+                  },
+                  success: {
+                    style: {
+                      background: "#28a745",
+                    },
+                  },
+                  error: {
+                    style: {
+                      background: "#dc3545",
+                    },
+                  },
+                }}
+              />
               <Routes>
                 {/* Landing Page */}
                 <Route path="/" element={<LandingPage />} />
@@ -90,12 +106,12 @@ const App = () => {
                 >
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/employees" element={<Employees />} />
-                  <Route path="/schedule" element={<Schedule />} />
+                  <Route path="/schedule" element={<WeeklySchedule />} />
                   <Route
                     path="/weekly-schedule"
                     element={
                       <ProtectedRoute>
-                        <WeeklySchedulePage />
+                        <WeeklySchedule />
                       </ProtectedRoute>
                     }
                   />
@@ -103,12 +119,11 @@ const App = () => {
                     path="/weekly-schedule/:weekStart"
                     element={
                       <ProtectedRoute>
-                        <WeeklySchedulePage />
+                        <WeeklySchedule />
                       </ProtectedRoute>
                     }
                   />
                   <Route path="/vacations" element={<Vacations />} />
-                  <Route path="/reports" element={<Reports />} />
                   <Route path="/stats" element={<Stats />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/profile" element={<Profile />} />

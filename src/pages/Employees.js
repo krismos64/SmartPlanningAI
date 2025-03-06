@@ -1,15 +1,14 @@
+import Lottie from "lottie-react";
 import { useCallback, useMemo, useState } from "react";
-// Remplacer l'importation de react-lottie
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
 import { FormSelect } from "../components/ui/Form";
+import { useNotification } from "../components/ui/Notification";
 import { EMPLOYEE_STATUSES, EMPLOYEE_TABLE_COLUMNS } from "../config/constants";
+import { useAuth } from "../contexts/AuthContext";
 import useEmployees from "../hooks/useEmployees";
-
-// Importer react-lottie avec require pour éviter les problèmes de compatibilité
-const Lottie = require("react-lottie").default;
 
 // Composants stylisés
 const PageContainer = styled.div`
@@ -147,6 +146,9 @@ const EmptyStateDescription = styled.p`
 
 // Composant principal
 const Employees = () => {
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -157,26 +159,36 @@ const Employees = () => {
   });
 
   const {
-    loading,
     employees,
-    addEmployee,
+    setEmployees,
+    loading,
+    error,
+    createEmployee,
     updateEmployee,
     deleteEmployee,
+    fetchEmployees,
+    apiRequest,
     getEmployeesByStatus,
-    error,
   } = useEmployees();
 
   // Filtrer les employés avec useMemo pour éviter les recalculs inutiles
   const filteredEmployees = useMemo(() => {
-    return employees.filter((employee) => {
-      if (activeTab !== "all" && employee.status !== activeTab) return false;
+    let employeesToFilter = employees;
+
+    // Filtrer par statut si nécessaire
+    if (activeTab !== "all") {
+      employeesToFilter = getEmployeesByStatus(activeTab);
+    }
+
+    // Appliquer les autres filtres
+    return employeesToFilter.filter((employee) => {
       if (filters.department && employee.department !== filters.department)
         return false;
       if (filters.role && employee.role !== filters.role) return false;
       if (filters.status && employee.status !== filters.status) return false;
       return true;
     });
-  }, [employees, activeTab, filters]);
+  }, [employees, activeTab, filters, getEmployeesByStatus]);
 
   // Récupérer les départements et rôles uniques des employés
   const uniqueDepartments = useMemo(() => {
@@ -193,27 +205,121 @@ const Employees = () => {
     return roles;
   }, [employees]);
 
-  const handleSubmit = useCallback(
-    async (data) => {
-      const success = editingEmployee
-        ? await updateEmployee(editingEmployee.id, data)
-        : await addEmployee(data);
-
-      if (success) {
-        setShowModal(false);
-        setEditingEmployee(null);
+  const handleUpdateEmployee = async (employeeData) => {
+    try {
+      if (!editingEmployee?.id) {
+        throw new Error("Aucun employé sélectionné pour la mise à jour");
       }
-    },
-    [editingEmployee, updateEmployee, addEmployee]
-  );
 
-  const handleDelete = useCallback(async () => {
-    const success = await deleteEmployee(editingEmployee.id);
-    if (success) {
+      setIsLoading(true);
+      console.log("ID de l'employé à mettre à jour:", editingEmployee.id);
+      console.log("Données à envoyer:", employeeData);
+
+      // Pas besoin de convertir les valeurs numériques ici, c'est fait dans le hook
+      const result = await updateEmployee(editingEmployee.id, employeeData);
+
+      console.log("Résultat de la mise à jour:", result);
+
+      if (!result || !result.success) {
+        throw new Error(result?.error || "La mise à jour a échoué");
+      }
+
+      // Rafraîchir la liste des employés
+      await fetchEmployees();
+
+      showNotification({
+        type: "success",
+        message: `Mise à jour des informations de l'employé ${employeeData.first_name} ${employeeData.last_name}`,
+      });
+
+      // Fermer le modal et réinitialiser l'état
       setShowModal(false);
-      setEditingEmployee(null);
+      // Réinitialiser editingEmployee après la fermeture du modal
+      setTimeout(() => setEditingEmployee(null), 0);
+    } catch (error) {
+      console.error("Erreur détaillée:", error);
+      showNotification({
+        type: "error",
+        message: error.message || "Erreur lors de la mise à jour de l'employé",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [deleteEmployee, editingEmployee]);
+  };
+
+  const handleCreateEmployee = async (employeeData) => {
+    try {
+      setIsLoading(true);
+
+      console.log("Données pour création d'employé:", employeeData);
+
+      // Pas besoin de convertir les valeurs numériques ici, c'est fait dans le hook
+      const result = await createEmployee(employeeData);
+
+      console.log("Résultat de la création:", result);
+
+      if (!result || !result.success) {
+        throw new Error(result?.error || "La création a échoué");
+      }
+
+      // Rafraîchir la liste des employés
+      await fetchEmployees();
+
+      showNotification({
+        type: "success",
+        message: `Création d'un nouvel employé: ${employeeData.first_name} ${employeeData.last_name}`,
+      });
+
+      setShowModal(false);
+    } catch (error) {
+      console.error("Erreur détaillée:", error);
+      showNotification({
+        type: "error",
+        message: error.message || "Erreur lors de la création de l'employé",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteEmployee = async () => {
+    try {
+      if (!editingEmployee?.id) {
+        throw new Error("Aucun employé sélectionné pour la suppression");
+      }
+
+      setIsLoading(true);
+
+      console.log("Tentative de suppression de l'employé:", editingEmployee.id);
+
+      const result = await deleteEmployee(editingEmployee.id);
+
+      console.log("Résultat de la suppression:", result);
+
+      if (!result || !result.success) {
+        throw new Error(result?.error || "La suppression a échoué");
+      }
+
+      // Rafraîchir la liste des employés
+      await fetchEmployees();
+
+      showNotification({
+        type: "success",
+        message: `Suppression de l'employé ${editingEmployee.first_name} ${editingEmployee.last_name}`,
+      });
+
+      setEditingEmployee(null);
+      setShowModal(false);
+    } catch (error) {
+      console.error("Erreur détaillée:", error);
+      showNotification({
+        type: "error",
+        message: error.message || "Erreur lors de la suppression de l'employé",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddEmployee = useCallback(() => {
     setEditingEmployee(null);
@@ -222,8 +328,22 @@ const Employees = () => {
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
-    setEditingEmployee(null);
   }, []);
+
+  const handleSubmit = useCallback(
+    async (formData) => {
+      try {
+        if (editingEmployee) {
+          await handleUpdateEmployee(formData);
+        } else {
+          await handleCreateEmployee(formData);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la soumission:", error);
+      }
+    },
+    [editingEmployee, handleUpdateEmployee, handleCreateEmployee]
+  );
 
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
@@ -239,22 +359,29 @@ const Employees = () => {
 
   const countByStatus = getEmployeesByStatus();
 
+  const handleEditEmployee = useCallback((employee) => {
+    if (employee && employee.id) {
+      console.log("Sélection de l'employé pour édition:", employee);
+      setEditingEmployee(employee);
+      setShowModal(true);
+    } else {
+      console.error("Employé invalide sélectionné:", employee);
+    }
+  }, []);
+
   return (
     <PageContainer>
       <PageHeader>
         <HeaderLeft>
           <AnimationContainer>
             <Lottie
-              options={{
-                loop: true,
-                autoplay: true,
-                animationData: employeesAnimation,
-                rendererSettings: {
-                  preserveAspectRatio: "xMidYMid slice",
-                },
+              animationData={employeesAnimation}
+              loop={true}
+              autoplay={true}
+              style={{ width: 80, height: 80 }}
+              rendererSettings={{
+                preserveAspectRatio: "xMidYMid slice",
               }}
-              height={80}
-              width={80}
             />
           </AnimationContainer>
           <div>
@@ -265,7 +392,7 @@ const Employees = () => {
           </div>
         </HeaderLeft>
         <HeaderRight>
-          <Button variant="primary" onClick={() => setShowModal(true)}>
+          <Button variant="primary" onClick={handleAddEmployee}>
             <PlusIcon /> Ajouter un employé
           </Button>
         </HeaderRight>
@@ -385,28 +512,25 @@ const Employees = () => {
             loading={loading}
             pagination={true}
             pageSize={10}
-            onRowClick={(employee) => {
-              setEditingEmployee(employee);
-              setShowModal(true);
-            }}
+            onRowClick={handleEditEmployee}
             emptyStateTitle="Aucun employé trouvé"
             emptyStateMessage="Aucun employé ne correspond à vos critères de recherche."
           />
         </>
       )}
 
-      {showModal && (
-        <Modal
-          title={editingEmployee ? "Modifier un employé" : "Ajouter un employé"}
-          onClose={handleCloseModal}
-        >
-          <EmployeeForm
-            employee={editingEmployee}
-            onSubmit={handleSubmit}
-            onDelete={editingEmployee ? handleDelete : undefined}
-          />
-        </Modal>
-      )}
+      <Modal
+        isOpen={showModal}
+        title={editingEmployee ? "Modifier un employé" : "Ajouter un employé"}
+        onClose={handleCloseModal}
+      >
+        <EmployeeForm
+          key={editingEmployee ? editingEmployee.id : "new"}
+          employee={editingEmployee}
+          onSubmit={handleSubmit}
+          onDelete={editingEmployee ? handleDeleteEmployee : undefined}
+        />
+      </Modal>
     </PageContainer>
   );
 };

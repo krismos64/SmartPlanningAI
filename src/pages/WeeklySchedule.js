@@ -2,18 +2,20 @@ import DOMPurify from "dompurify";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
 import {
   FaArrowLeft,
   FaArrowRight,
   FaCalendarDay,
   FaFilePdf,
+  FaPlus,
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
 import styled from "styled-components";
 import thinkingAnimation from "../assets/animations/thinking.json";
 import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
+import WeeklyScheduleForm from "../components/schedule/WeeklyScheduleForm";
 import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
 import Button from "../components/ui/Button";
 import Card, { CardContent, CardHeader } from "../components/ui/Card";
@@ -32,6 +34,7 @@ import {
   getWeekStart,
   isWeekend,
 } from "../utils/dateUtils";
+import { standardizeScheduleData } from "../utils/scheduleUtils";
 
 // Importer react-lottie avec require pour éviter les problèmes de compatibilité
 const Lottie = require("react-lottie").default;
@@ -270,27 +273,93 @@ const convertToNewFormat = (day) => {
  * Page de gestion des plannings hebdomadaires
  */
 const WeeklySchedulePage = () => {
-  const { weekStartParam } = useParams();
   const navigate = useNavigate();
-  const [currentWeekStart, setCurrentWeekStart] = useState(
-    weekStartParam ? new Date(weekStartParam) : getWeekStart(new Date())
-  );
+  const { weekStart: weekStartParam } = useParams();
+
+  // Références pour éviter les boucles infinies
+  const prevScheduleDataRef = useRef(null);
+  const prevFormattedScheduleDataRef = useRef(null);
+
+  // États pour la gestion des plannings
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    try {
+      // Essayer de créer une date à partir de weekStartParam
+      if (weekStartParam) {
+        const date = new Date(weekStartParam);
+        // Vérifier si la date est valide
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      // Si weekStartParam est invalide ou non fourni, utiliser la date actuelle
+      return getWeekStart(new Date());
+    } catch (error) {
+      console.error(
+        "Erreur lors de l'initialisation de currentWeekStart:",
+        error
+      );
+      return getWeekStart(new Date());
+    }
+  });
   const [scheduleData, setScheduleData] = useState([]);
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
-  const [filteredEmployees, setFilteredEmployees] = useState([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { employees, loading: loadingEmployees } = useEmployees();
+  // Formater la date de début de semaine pour l'API
+  const formattedWeekStart = useMemo(
+    () => formatDateForInput(currentWeekStart),
+    [currentWeekStart]
+  );
+
+  // Récupérer les employés
   const {
-    scheduleData: schedulesData,
+    employees,
+    loading: employeesLoading,
+    error: employeesError,
+  } = useEmployees();
+
+  // Récupérer les plannings
+  const {
+    schedules,
     loading: schedulesLoading,
     error: schedulesError,
-    saveSchedule: saveEmployeeSchedule,
-    saveSchedules,
-  } = useWeeklySchedules(formatDate(currentWeekStart, "yyyy-MM-dd"));
+    fetchSchedules,
+    createSchedule,
+  } = useWeeklySchedules();
+
+  // Formater les données de planning pour le composant WeeklyScheduleGrid
+  const formattedScheduleData = useMemo(() => {
+    if (!schedules || !Array.isArray(schedules)) return [];
+
+    return schedules.map((schedule) => standardizeScheduleData(schedule));
+  }, [schedules]);
+
+  // Mettre à jour les données de planning lorsque les plannings changent
+  useEffect(() => {
+    // Vérifier si les données ont changé pour éviter les boucles infinies
+    const currentScheduleDataStr = JSON.stringify(scheduleData);
+    const currentFormattedScheduleDataStr = JSON.stringify(
+      formattedScheduleData
+    );
+
+    if (
+      prevFormattedScheduleDataRef.current !==
+        currentFormattedScheduleDataStr &&
+      prevScheduleDataRef.current !== currentScheduleDataStr
+    ) {
+      prevFormattedScheduleDataRef.current = currentFormattedScheduleDataStr;
+      prevScheduleDataRef.current = currentScheduleDataStr;
+      setScheduleData(formattedScheduleData);
+    }
+  }, [formattedScheduleData, scheduleData]);
+
+  // Charger les plannings lorsque la semaine change
+  useEffect(() => {
+    fetchSchedules(formattedWeekStart);
+  }, [fetchSchedules, formattedWeekStart]);
 
   // Gérer les erreurs de chargement des plannings
   useEffect(() => {
@@ -301,20 +370,20 @@ const WeeklySchedulePage = () => {
 
   // Obtenir l'employé en cours d'édition
   const editingEmployee = useMemo(() => {
-    if (!editingEmployeeId) return null;
+    if (!editingEmployeeId || !employees) return null;
     return employees.find((emp) => emp.id === editingEmployeeId) || null;
   }, [editingEmployeeId, employees]);
 
   // Extraire les départements uniques
   const uniqueDepartments = useMemo(() => {
-    if (!employees) return [];
+    if (!employees || !Array.isArray(employees)) return [];
     const departments = [...new Set(employees.map((emp) => emp.department))];
     return departments.filter((dept) => dept && dept.trim() !== "");
   }, [employees]);
 
   // Extraire les rôles uniques
   const uniqueRoles = useMemo(() => {
-    if (!employees) return [];
+    if (!employees || !Array.isArray(employees)) return [];
     const roles = [...new Set(employees.map((emp) => emp.role))];
     return roles.filter((role) => role && role.trim() !== "");
   }, [employees]);
@@ -326,13 +395,10 @@ const WeeklySchedulePage = () => {
   }, [currentWeekStart, navigate]);
 
   // Filtrer les employés en fonction des critères
-  useEffect(() => {
-    if (!employees) {
-      setFilteredEmployees([]);
-      return;
-    }
+  const filteredEmployees = useMemo(() => {
+    if (!employees) return [];
 
-    let filtered = [...employees];
+    let filtered = Array.isArray(employees) ? [...employees] : [];
 
     // Filtrer par département si sélectionné
     if (selectedDepartment) {
@@ -346,134 +412,62 @@ const WeeklySchedulePage = () => {
       filtered = filtered.filter((emp) => emp.role === selectedRole);
     }
 
-    // Filtrer par recherche
+    // Filtrer par recherche si saisie
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (emp) =>
           emp.firstName.toLowerCase().includes(query) ||
           emp.lastName.toLowerCase().includes(query) ||
-          emp.email.toLowerCase().includes(query)
+          (emp.email && emp.email.toLowerCase().includes(query))
       );
     }
 
-    setFilteredEmployees(filtered);
+    return filtered;
   }, [employees, selectedDepartment, selectedRole, searchQuery]);
 
-  // Préparer les données du planning pour l'affichage
-  useEffect(() => {
-    if (schedulesData.length > 0 && filteredEmployees.length > 0) {
-      // Transformer les données pour le composant de grille
-      const formattedData = [];
+  // Fonctions de navigation entre les semaines
+  const goToPreviousWeek = useCallback(() => {
+    setCurrentWeekStart((prev) => addWeeks(prev, -1));
+  }, []);
 
-      // Pour chaque employé filtré, chercher son planning ou en créer un vide
-      for (const employee of filteredEmployees) {
-        const existingSchedule = schedulesData.find(
-          (schedule) => schedule.employeeId === employee.id
-        );
+  const goToNextWeek = useCallback(() => {
+    setCurrentWeekStart((prev) => addWeeks(prev, 1));
+  }, []);
 
-        if (existingSchedule) {
-          // Utiliser directement les données déjà transformées
-          formattedData.push({
-            employeeId: existingSchedule.employeeId,
-            id: existingSchedule.id,
-            days: existingSchedule.days.map((day) => convertToNewFormat(day)),
-          });
-        } else {
-          // Créer un planning vide pour cet employé avec le nouveau format
-          formattedData.push({
-            employeeId: employee.id,
-            days: Array(7)
-              .fill()
-              .map(() => ({
-                type: "work",
-                hours: "0",
-                absence: "",
-                note: "",
-                timeSlots: [],
-              })),
-          });
-        }
-      }
+  const goToCurrentWeek = useCallback(() => {
+    setCurrentWeekStart(getWeekStart(new Date()));
+  }, []);
 
-      setScheduleData(formattedData);
-    } else {
-      setScheduleData([]);
-    }
-  }, [schedulesData, filteredEmployees]);
-
-  // Navigation vers la semaine précédente
-  const goToPreviousWeek = () => {
-    const prevWeek = addWeeks(currentWeekStart, -1);
-    setCurrentWeekStart(prevWeek);
-  };
-
-  // Navigation vers la semaine suivante
-  const goToNextWeek = () => {
-    const nextWeek = addWeeks(currentWeekStart, 1);
-    setCurrentWeekStart(nextWeek);
-  };
-
-  // Navigation vers la semaine courante
-  const goToCurrentWeek = () => {
-    const currentWeek = getWeekStart(new Date());
-    setCurrentWeekStart(currentWeek);
-  };
-
-  // Gestion du changement de département
-  const handleDepartmentChange = (e) => {
-    setSelectedDepartment(e.target.value);
-  };
-
-  // Gestion du changement de rôle
-  const handleRoleChange = (e) => {
-    setSelectedRole(e.target.value);
-  };
-
-  // Gestion de la recherche d'employé
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-  };
-
-  // Activer le mode édition pour un employé spécifique
-  const handleEditEmployee = (employeeId) => {
+  // Fonction pour gérer l'édition d'un employé
+  const handleEditEmployee = useCallback((employeeId) => {
     setEditingEmployeeId(employeeId);
-  };
+  }, []);
 
-  // Annuler l'édition
-  const handleCancelEdit = () => {
+  // Fonction pour annuler l'édition
+  const handleCancelEdit = useCallback(() => {
     setEditingEmployeeId(null);
-  };
+  }, []);
 
-  // Gérer la sauvegarde du planning d'un employé
-  const handleSaveEmployeeSchedule = async (updatedSchedule) => {
-    setIsSubmitting(true);
-    try {
-      // Trouver le planning existant pour cet employé
-      const existingSchedule = scheduleData.find(
-        (schedule) => schedule.employeeId === updatedSchedule.employeeId
-      );
+  // Fonction pour gérer la recherche
+  const handleSearchChange = useCallback((e) => {
+    setSearchQuery(e.target.value);
+  }, []);
 
-      // Si un planning existe déjà, ajouter son ID à la mise à jour
-      if (existingSchedule && existingSchedule.id) {
-        updatedSchedule.id = existingSchedule.id;
-      }
+  // Fonction pour gérer le changement de département
+  const handleDepartmentChange = useCallback((e) => {
+    setSelectedDepartment(e.target.value);
+  }, []);
 
-      await saveEmployeeSchedule(updatedSchedule);
-      toast.success("Planning enregistré avec succès");
-      setEditingEmployeeId(null);
-    } catch (error) {
-      console.error("Erreur lors de l'enregistrement du planning:", error);
-      toast.error("Erreur lors de l'enregistrement du planning");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Fonction pour gérer le changement de rôle
+  const handleRoleChange = useCallback((e) => {
+    setSelectedRole(e.target.value);
+  }, []);
 
-  // Gérer les changements dans le planning
-  const handleScheduleChange = (newScheduleData) => {
-    saveSchedules(newScheduleData);
-  };
+  // Fonction pour gérer le changement de planning
+  const handleScheduleChange = useCallback((newScheduleData) => {
+    setScheduleData(newScheduleData);
+  }, []);
 
   // Fonction pour générer un PDF global de tous les employés
   const generateAllEmployeesPDF = () => {
@@ -668,9 +662,28 @@ const WeeklySchedulePage = () => {
     });
   };
 
+  // Ajouter la fonction de gestion de création
+  const handleCreateSchedule = async (formData) => {
+    try {
+      const result = await createSchedule(formData);
+      if (result.success) {
+        setShowCreateForm(false);
+        await fetchSchedules(formData.weekStart);
+        toast.success("Planning créé avec succès");
+      } else {
+        toast.error(result.error || "Erreur lors de la création du planning");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la création du planning:", error);
+      toast.error("Erreur lors de la création du planning");
+    }
+  };
+
   // Afficher un spinner pendant le chargement
-  if (loadingEmployees || schedulesLoading) {
-    return <Spinner />;
+  if (employeesLoading || schedulesLoading) {
+    return (
+      <Spinner $center={true} $size="large" text="Chargement du planning..." />
+    );
   }
 
   return (
@@ -718,6 +731,12 @@ const WeeklySchedulePage = () => {
                 </ActionButton>
                 <ActionButton variant="outline" onClick={goToNextWeek}>
                   Semaine suivante <FaArrowRight />
+                </ActionButton>
+                <ActionButton
+                  variant="primary"
+                  onClick={() => setShowCreateForm(true)}
+                >
+                  <FaPlus /> Nouveau planning
                 </ActionButton>
                 <ExportAllButton
                   variant="secondary"
@@ -819,14 +838,21 @@ const WeeklySchedulePage = () => {
                   employee={editingEmployee}
                   weekStart={currentWeekStart}
                   scheduleData={scheduleData}
-                  onSave={handleSaveEmployeeSchedule}
+                  onSave={handleScheduleChange}
                   onCancel={handleCancelEdit}
-                  isSubmitting={isSubmitting}
                 />
               )}
             </CardContent>
           </Card>
         )}
+
+        {/* Ajouter le modal de création */}
+        <WeeklyScheduleForm
+          isOpen={showCreateForm}
+          onClose={() => setShowCreateForm(false)}
+          onSubmit={handleCreateSchedule}
+          employees={employees}
+        />
       </ScheduleContainer>
     </div>
   );
