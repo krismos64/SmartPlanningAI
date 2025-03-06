@@ -157,12 +157,21 @@ class Activity {
           details = {};
         }
 
+        // Utiliser la description formatée si la description originale est vide ou contient "undefined"
+        let description = activity.description;
+        if (!description || description.includes("undefined")) {
+          description = this.formatActivityDescription({
+            ...activity,
+            details,
+          });
+        }
+
         return {
           id: activity.id,
           type: activity.type,
           entity_type: activity.entity_type,
           entity_id: activity.entity_id,
-          description: activity.description,
+          description: description,
           user_id: activity.user_id,
           user: {
             name:
@@ -358,10 +367,13 @@ class Activity {
         );
       }
 
+      // Assurer que entity_id est une chaîne de caractères
+      const safeEntityId = entity_id ? String(entity_id) : null;
+
       console.log("Enregistrement d'une nouvelle activité:", {
         type,
         entity_type,
-        entity_id,
+        entity_id: safeEntityId,
         description,
         user_id,
       });
@@ -383,7 +395,7 @@ class Activity {
       const [result] = await db.query(query, [
         type,
         entity_type,
-        entity_id,
+        safeEntityId,
         description,
         user_id,
         JSON.stringify(details || {}),
@@ -396,7 +408,10 @@ class Activity {
       const newActivity = await this.getById(activityId);
 
       // Récupérer les 10 dernières activités pour mise à jour en temps réel
-      const recentActivities = await this.getAll({ limit: 10 });
+      const recentActivities = await this.getAll({
+        limit: 10,
+        excludeSystemActivities: true, // Exclure les activités système
+      });
 
       // Vérifier si WebSocket est actif et diffuser les activités
       if (global.wss) {
@@ -587,6 +602,98 @@ class Activity {
         error
       );
       throw error;
+    }
+  }
+
+  /**
+   * Formate une description d'activité en fonction de son type et de ses détails
+   * @param {Object} activity - Activité à formater
+   * @returns {string} - Description formatée
+   */
+  static formatActivityDescription(activity) {
+    try {
+      // Si la description est déjà formatée, la retourner telle quelle
+      if (activity.description) {
+        return activity.description;
+      }
+
+      let details = {};
+      if (activity.details) {
+        if (typeof activity.details === "string") {
+          try {
+            details = JSON.parse(activity.details);
+          } catch (e) {
+            details = {};
+          }
+        } else {
+          details = activity.details;
+        }
+      }
+
+      // Formater la description en fonction du type d'activité
+      switch (activity.type) {
+        case "create":
+          switch (activity.entity_type) {
+            case "employee":
+              return `Création de l'employé ${
+                details.employeeName || "Inconnu"
+              }`;
+            case "vacation":
+              return `Nouvelle demande de congés ${details.type || ""} du ${
+                details.start_date || "?"
+              } au ${details.end_date || "?"}`;
+            case "planning":
+              return `Création d'un planning pour l'employé #${
+                details.employee_id || "Inconnu"
+              }`;
+            default:
+              return `Création d'un(e) ${activity.entity_type || "élément"}`;
+          }
+        case "update":
+          switch (activity.entity_type) {
+            case "employee":
+              return `Mise à jour de l'employé ${
+                details.employeeName || "Inconnu"
+              }`;
+            case "vacation":
+              return `Mise à jour de la demande de congés pour ${
+                details.employeeName || "Inconnu"
+              }`;
+            case "planning":
+              return `Mise à jour du planning pour l'employé #${
+                details.employee_id || "Inconnu"
+              }`;
+            default:
+              return `Mise à jour d'un(e) ${activity.entity_type || "élément"}`;
+          }
+        case "delete":
+          switch (activity.entity_type) {
+            case "employee":
+              return `Suppression de l'employé ${
+                details.employeeName || "Inconnu"
+              }`;
+            case "vacation":
+              return `Suppression de la demande de congés pour ${
+                details.employeeName || "Inconnu"
+              }`;
+            case "planning":
+              return `Suppression du planning pour l'employé #${
+                details.employee_id || "Inconnu"
+              }`;
+            default:
+              return `Suppression d'un(e) ${activity.entity_type || "élément"}`;
+          }
+        default:
+          return `Action ${activity.type || "inconnue"} sur ${
+            activity.entity_type || "élément"
+          }`;
+      }
+    } catch (error) {
+      console.error(
+        "Erreur lors du formatage de la description de l'activité:",
+        error
+      );
+      return "Action non spécifiée";
     }
   }
 }

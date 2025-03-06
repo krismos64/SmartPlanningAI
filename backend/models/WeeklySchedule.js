@@ -57,8 +57,17 @@ class WeeklySchedule {
         week_start: this.week_start,
       });
 
+      // Vérifier que l'ID employé est un nombre valide
+      const employeeId = parseInt(this.employee_id);
+      if (isNaN(employeeId)) {
+        throw new Error("L'ID de l'employé doit être un nombre valide");
+      }
+
       // Formater la date pour MySQL
       const formattedWeekStart = formatDateForMySQL(this.week_start);
+      if (!formattedWeekStart) {
+        throw new Error("Date de début de semaine invalide");
+      }
 
       // Calculer la date de fin (week_start + 6 jours)
       const startDate = new Date(this.week_start);
@@ -71,6 +80,9 @@ class WeeklySchedule {
         this.schedule_data
       );
 
+      // Valider le total des heures
+      const totalHours = parseFloat(this.total_hours) || 0;
+
       const sql = `
         INSERT INTO weekly_schedules 
         (employee_id, week_start, week_end, schedule_data, total_hours, status, created_by, created_at, updated_at) 
@@ -78,12 +90,12 @@ class WeeklySchedule {
       `;
 
       const [result] = await db.execute(sql, [
-        this.employee_id,
+        employeeId,
         formattedWeekStart,
         formattedWeekEnd,
         scheduleData,
-        this.total_hours,
-        this.status,
+        totalHours,
+        this.status || "draft",
         this.created_by || 1, // Valeur par défaut si non fournie
       ]);
 
@@ -304,48 +316,79 @@ class WeeklySchedule {
 
   /**
    * Mettre à jour un planning hebdomadaire
-   * @param {number} id ID du planning
-   * @param {object} updateData Données à mettre à jour
+   * @param {number} id - ID du planning à mettre à jour
+   * @param {Object} data - Données à mettre à jour
    * @returns {Promise<WeeklySchedule>} Le planning mis à jour
    */
-  static async update(id, updateData) {
+  static async update(id, data) {
     try {
-      console.log(`Mise à jour du planning hebdomadaire ${id}:`, updateData);
+      console.log(`Mise à jour du planning #${id}:`, data);
 
-      // Valider et convertir les données du planning en JSON
-      let scheduleData = null;
-      if (updateData.schedule_data) {
-        scheduleData = WeeklySchedule.validateScheduleData(
-          updateData.schedule_data
-        );
+      // Valider l'ID
+      const scheduleId = parseInt(id);
+      if (isNaN(scheduleId) || scheduleId <= 0) {
+        throw new Error("ID de planning invalide");
       }
 
-      const sql = `
-        UPDATE weekly_schedules
-        SET 
-          schedule_data = ?,
-          total_hours = ?,
-          status = ?,
-          updated_at = NOW()
-        WHERE id = ?
-      `;
+      // Construire la requête SQL dynamiquement
+      let sql = "UPDATE weekly_schedules SET ";
+      const params = [];
+      const updates = [];
 
-      await db.execute(sql, [
-        scheduleData,
-        updateData.total_hours,
-        updateData.status || "draft",
-        id,
-      ]);
+      // Traiter les données du planning si fournies
+      if (data.schedule_data !== undefined) {
+        const validatedData = this.validateScheduleData(data.schedule_data);
+        updates.push("schedule_data = ?");
+        params.push(validatedData);
+      }
 
-      console.log(`Planning hebdomadaire ${id} mis à jour avec succès`);
+      // Traiter le total des heures si fourni
+      if (data.total_hours !== undefined) {
+        const totalHours = parseFloat(data.total_hours) || 0;
+        updates.push("total_hours = ?");
+        params.push(totalHours);
+      }
 
-      // Récupérer le planning mis à jour
-      return this.findById(id);
+      // Traiter le statut si fourni
+      if (data.status) {
+        updates.push("status = ?");
+        params.push(data.status);
+      }
+
+      // Toujours mettre à jour le timestamp
+      updates.push("updated_at = NOW()");
+
+      // Si aucune mise à jour n'est demandée, retourner le planning existant
+      if (updates.length === 0) {
+        return await this.findById(id);
+      }
+
+      // Finaliser la requête SQL
+      sql += updates.join(", ") + " WHERE id = ?";
+      params.push(scheduleId);
+
+      console.log("Exécution de la requête SQL:", {
+        sql,
+        params: params.map((p) =>
+          typeof p === "string" && p.length > 100
+            ? p.substring(0, 100) + "..."
+            : p
+        ),
+      });
+
+      // Exécuter la requête
+      const [result] = await db.execute(sql, params);
+
+      if (result.affectedRows === 0) {
+        throw new Error(`Planning #${id} non trouvé`);
+      }
+
+      console.log(`Planning #${id} mis à jour avec succès`);
+
+      // Récupérer et retourner le planning mis à jour
+      return await this.findById(id);
     } catch (error) {
-      console.error(
-        `Erreur lors de la mise à jour du planning hebdomadaire ${id}:`,
-        error
-      );
+      console.error(`Erreur lors de la mise à jour du planning #${id}:`, error);
       throw error;
     }
   }

@@ -10,37 +10,28 @@ const { auth } = require("../middleware/auth");
  */
 const recordActivity = async (activityData) => {
   try {
+    console.log("recordActivity appelé avec les données:", activityData);
+
     // Utiliser la nouvelle méthode logActivity qui gère également la diffusion WebSocket
     return await Activity.logActivity(activityData);
   } catch (error) {
     console.error("Erreur lors de l'enregistrement de l'activité:", error);
+    console.error("Stack trace:", error.stack);
     throw error;
   }
 };
 
 // Exporter la fonction pour qu'elle soit utilisable dans d'autres modules
-module.exports.recordActivity = recordActivity;
+router.recordActivity = recordActivity;
 
 /**
- * @route GET /api/activities/test
- * @desc Route de test pour vérifier si le serveur fonctionne correctement
- * @access Public
+ * @route   GET /api/activities/test
+ * @desc    Route de test pour vérifier si le routeur fonctionne
+ * @access  Public
  */
-router.get("/test", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      message: "API d'activités fonctionnelle",
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Erreur lors du test de l'API:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors du test de l'API",
-      error: error.message,
-    });
-  }
+router.get("/test", (req, res) => {
+  console.log("Route GET /api/activities/test appelée");
+  res.json({ message: "Route de test des activités fonctionnelle" });
 });
 
 /**

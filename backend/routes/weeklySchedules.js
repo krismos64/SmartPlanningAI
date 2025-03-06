@@ -121,23 +121,56 @@ router.post("/", async (req, res) => {
       req.body;
 
     // Validation des données
-    if (!employee_id || !week_start) {
-      console.error("Données manquantes:", { employee_id, week_start });
-      return res
-        .status(400)
-        .json({ message: "ID employé et date de début de semaine requis" });
+    if (!employee_id) {
+      console.error("ID employé manquant");
+      return res.status(400).json({ message: "L'ID de l'employé est requis" });
+    }
+
+    // Si week_start n'est pas fourni, utiliser la date du lundi de la semaine courante
+    let weekStartDate = week_start;
+    if (!weekStartDate) {
+      const today = new Date();
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Ajuster quand aujourd'hui est dimanche
+      weekStartDate = new Date(today.setDate(diff)).toISOString().split("T")[0];
+      console.log(
+        "Date de début de semaine générée automatiquement:",
+        weekStartDate
+      );
     }
 
     console.log("Vérification de l'existence d'un planning pour:", {
       employee_id,
-      week_start,
+      week_start: weekStartDate,
     });
 
     // Vérifier si un planning existe déjà pour cet employé et cette semaine
     const existingSchedule = await WeeklySchedule.findByEmployeeAndWeek(
       employee_id,
-      week_start
+      weekStartDate
     );
+
+    // Validation du format JSON pour schedule_data
+    let validatedScheduleData;
+    try {
+      // Si c'est une chaîne, vérifier que c'est un JSON valide
+      if (typeof schedule_data === "string") {
+        JSON.parse(schedule_data); // Juste pour valider
+        validatedScheduleData = schedule_data;
+      } else {
+        // Si c'est un objet, le convertir en JSON
+        validatedScheduleData = JSON.stringify(schedule_data);
+      }
+    } catch (error) {
+      console.error("Données de planning invalides:", error);
+      return res.status(400).json({
+        message: "Les données du planning ne sont pas un JSON valide",
+        error: error.message,
+      });
+    }
+
+    // Validation du total des heures
+    const validatedTotalHours = parseFloat(total_hours) || 0;
 
     if (existingSchedule) {
       console.log(
@@ -146,8 +179,8 @@ router.post("/", async (req, res) => {
       );
       // Mettre à jour le planning existant
       const updatedSchedule = await WeeklySchedule.update(existingSchedule.id, {
-        schedule_data,
-        total_hours,
+        schedule_data: validatedScheduleData,
+        total_hours: validatedTotalHours,
         status,
       });
 
@@ -157,18 +190,20 @@ router.post("/", async (req, res) => {
     console.log("Aucun planning existant, création d'un nouveau planning");
 
     // Calculer la date de fin (week_start + 6 jours)
-    const startDate = new Date(week_start);
+    const startDate = new Date(weekStartDate);
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 6);
     const week_end = endDate.toISOString().split("T")[0];
 
     console.log("Données du planning à créer:", {
       employee_id,
-      week_start,
+      week_start: weekStartDate,
       week_end,
       schedule_data:
-        typeof schedule_data === "string" ? "JSON string" : schedule_data,
-      total_hours,
+        typeof validatedScheduleData === "string"
+          ? "JSON string"
+          : validatedScheduleData,
+      total_hours: validatedTotalHours,
       status: status || "draft",
       created_by: req.user ? req.user.id : 1,
     });
@@ -176,16 +211,41 @@ router.post("/", async (req, res) => {
     // Créer un nouveau planning
     const newSchedule = new WeeklySchedule({
       employee_id,
-      week_start,
+      week_start: weekStartDate,
       week_end,
-      schedule_data,
-      total_hours,
+      schedule_data: validatedScheduleData,
+      total_hours: validatedTotalHours,
       status: status || "draft",
       created_by: req.user ? req.user.id : 1, // Utiliser l'ID de l'utilisateur authentifié ou une valeur par défaut
     });
 
     const savedSchedule = await newSchedule.save();
     console.log("Planning créé avec succès:", savedSchedule);
+
+    // Enregistrer l'activité
+    try {
+      const { recordActivity } = require("./activities");
+      await recordActivity({
+        type: "create",
+        entity_type: "planning",
+        entity_id: savedSchedule.id.toString(), // Convertir en string pour assurer la compatibilité
+        description: `Création d'un planning pour l'employé #${employee_id}`,
+        user_id: req.user ? req.user.id : 1,
+        details: {
+          employee_id,
+          week_start: weekStartDate,
+          week_end,
+          total_hours: validatedTotalHours,
+        },
+      });
+    } catch (activityError) {
+      console.error(
+        "Erreur lors de l'enregistrement de l'activité:",
+        activityError
+      );
+      // Continuer malgré l'erreur d'activité
+    }
+
     res.status(201).json(savedSchedule);
   } catch (error) {
     console.error("Erreur détaillée lors de la création du planning:", error);

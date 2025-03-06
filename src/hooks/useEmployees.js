@@ -219,18 +219,17 @@ const useEmployees = () => {
 
         console.log("Réponse de l'API pour suppression:", response);
 
-        if (!response.ok) {
+        // Vérifier si la réponse contient success: true
+        if (response && response.success === true) {
+          // Mettre à jour l'état local
+          setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+          return { success: true };
+        } else {
           const errorMessage =
-            response.data?.message ||
-            "Erreur lors de la suppression de l'employé";
+            response?.message || "Erreur lors de la suppression de l'employé";
           console.error("Erreur API:", errorMessage);
           return { success: false, error: errorMessage };
         }
-
-        // Mettre à jour l'état local
-        setEmployees((prev) => prev.filter((emp) => emp.id !== id));
-
-        return { success: true };
       } catch (err) {
         console.error("Erreur lors de la suppression de l'employé:", err);
         return { success: false, error: err.message || "Erreur inconnue" };

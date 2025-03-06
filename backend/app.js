@@ -26,6 +26,13 @@ app.use(
   })
 );
 
+// Middleware de logging pour déboguer les requêtes
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log("Headers:", JSON.stringify(req.headers));
+  next();
+});
+
 // Middleware pour gérer les requêtes OPTIONS
 app.options("*", (req, res) => {
   console.log(`Requête OPTIONS reçue pour ${req.path}`);

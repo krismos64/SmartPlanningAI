@@ -1,5 +1,6 @@
 import Lottie from "lottie-react";
 import { useCallback, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeForm from "../components/employees/EmployeeForm";
@@ -171,6 +172,8 @@ const Employees = () => {
     getEmployeesByStatus,
   } = useEmployees();
 
+  const navigate = useNavigate();
+
   // Filtrer les employés avec useMemo pour éviter les recalculs inutiles
   const filteredEmployees = useMemo(() => {
     let employeesToFilter = employees;
@@ -270,7 +273,11 @@ const Employees = () => {
         message: `Création d'un nouvel employé: ${employeeData.first_name} ${employeeData.last_name}`,
       });
 
+      // Fermer le modal et rediriger vers la page des employés
       setShowModal(false);
+
+      // Rediriger vers la page des employés
+      navigate("/employees");
     } catch (error) {
       console.error("Erreur détaillée:", error);
       showNotification({

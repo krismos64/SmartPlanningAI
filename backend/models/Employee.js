@@ -113,7 +113,7 @@ class Employee {
             [
               this.first_name || null,
               this.last_name || null,
-              this.email,
+              this.email || null,
               this.role,
               this.department,
               this.contractHours !== undefined ? this.contractHours : 35,

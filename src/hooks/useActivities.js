@@ -156,10 +156,17 @@ const useActivities = () => {
   const formatActivityDescription = useCallback((activity) => {
     if (!activity) return "";
 
-    const { type, entityType, entityId, userId, details } = activity;
+    const { type, entity_type, entity_id, user_id, details, user } = activity;
 
     // Obtenir le nom de l'utilisateur qui a effectué l'action
-    const userName = activity.userName || "Un utilisateur";
+    const userName = user && user.name ? user.name : "Un utilisateur";
+
+    // Pour les activités de type "update" sur les employés, utiliser un format spécifique
+    if (type === "update" && entity_type === "employee" && details) {
+      if (details.employeeName) {
+        return `${userName} a modifié l'employé ${details.employeeName}`;
+      }
+    }
 
     // Formater le type d'entité
     const entityName =
@@ -169,7 +176,7 @@ const useActivities = () => {
         vacation: "une demande de congé",
         shift: "un horaire",
         user: "un utilisateur",
-      }[entityType] || entityType;
+      }[entity_type] || entity_type;
 
     // Formater le type d'action
     const actionType =
@@ -189,10 +196,10 @@ const useActivities = () => {
       if (typeof details === "string") {
         description += ` : ${details}`;
       } else if (typeof details === "object") {
-        const detailsStr = Object.entries(details)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join(", ");
-        description += ` : ${detailsStr}`;
+        // Ne pas ajouter les détails sous forme d'objet pour éviter [object Object]
+        if (details.employeeName && entity_type === "employee") {
+          description += ` : ${details.employeeName}`;
+        }
       }
     }
 
