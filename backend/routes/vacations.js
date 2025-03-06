@@ -66,6 +66,9 @@ router.get("/:id", auth, async (req, res) => {
 // Créer une nouvelle demande de congé
 router.post("/", auth, async (req, res) => {
   try {
+    console.log("POST /api/vacations - Création d'une demande de congés");
+    console.log("Body:", req.body);
+
     // Si l'utilisateur est un employé, s'assurer qu'il ne crée une demande que pour lui-même
     if (
       req.user.role === "employee" &&
@@ -129,6 +132,43 @@ router.post("/", auth, async (req, res) => {
 
     const vacationRequest = new VacationRequest(vacationData);
     await vacationRequest.save();
+
+    // Enregistrer l'activité
+    try {
+      console.log(
+        "Tentative d'enregistrement de l'activité pour la demande de congés"
+      );
+
+      const activityData = {
+        type: "create",
+        entity_type: "vacation",
+        entity_id: vacationRequest.id.toString(),
+        description: `Nouvelle demande de congés ${vacationRequest.type} du ${vacationRequest.start_date} au ${vacationRequest.end_date}`,
+        user_id: req.user.id,
+        details: {
+          vacation_id: vacationRequest.id,
+          employee_id: vacationRequest.employee_id,
+          type: vacationRequest.type,
+          start_date: vacationRequest.start_date,
+          end_date: vacationRequest.end_date,
+          status: vacationRequest.status,
+        },
+      };
+
+      console.log("Données de l'activité:", activityData);
+
+      const activitiesRouter = require("./activities");
+      await activitiesRouter.recordActivity(activityData);
+
+      console.log("Activité enregistrée avec succès");
+    } catch (activityError) {
+      console.error(
+        "Erreur lors de l'enregistrement de l'activité:",
+        activityError
+      );
+      console.error("Stack trace:", activityError.stack);
+      // Ne pas bloquer la création si l'enregistrement de l'activité échoue
+    }
 
     res.status(201).json(vacationRequest);
   } catch (error) {
@@ -284,6 +324,127 @@ router.delete("/:id", auth, async (req, res) => {
     );
     res.status(500).json({
       message: "Erreur lors de la suppression de la demande de congé",
+    });
+  }
+});
+
+/**
+ * @route   GET /api/vacations/stats
+ * @desc    Récupérer les statistiques des demandes de congés
+ * @access  Private
+ */
+router.get("/stats", auth, async (req, res) => {
+  try {
+    console.log("Récupération des statistiques de congés");
+
+    // Récupérer toutes les demandes de congés
+    const [vacationRequests] = await db.query(
+      "SELECT * FROM vacation_requests"
+    );
+
+    console.log("Nombre de demandes trouvées:", vacationRequests.length);
+
+    // Même s'il n'y a pas de demandes, retourner des statistiques vides
+    const stats = {
+      total: vacationRequests.length,
+      pending: vacationRequests.filter((vr) => vr.status === "pending").length,
+      approved: vacationRequests.filter((vr) => vr.status === "approved")
+        .length,
+      rejected: vacationRequests.filter((vr) => vr.status === "rejected")
+        .length,
+      byType: {
+        paid: vacationRequests.filter((vr) => vr.type === "paid").length,
+        unpaid: vacationRequests.filter((vr) => vr.type === "unpaid").length,
+        sick: vacationRequests.filter((vr) => vr.type === "sick").length,
+        other: vacationRequests.filter((vr) => vr.type === "other").length,
+      },
+      byMonth: {},
+    };
+
+    // Calculer les statistiques par mois seulement s'il y a des demandes
+    if (vacationRequests.length > 0) {
+      vacationRequests.forEach((vr) => {
+        const startDate = new Date(vr.start_date);
+        const month = startDate.getMonth() + 1; // Les mois commencent à 0
+        const year = startDate.getFullYear();
+        const key = `${year}-${month.toString().padStart(2, "0")}`;
+
+        if (!stats.byMonth[key]) {
+          stats.byMonth[key] = {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+          };
+        }
+
+        stats.byMonth[key].total++;
+        stats.byMonth[key][vr.status]++;
+      });
+    }
+
+    console.log("Statistiques calculées:", stats);
+    res.json(stats);
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des statistiques de congés:",
+      error
+    );
+    console.error("Stack trace:", error.stack);
+
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques de congés",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   GET /api/vacations/test-stats
+ * @desc    Route de test pour les statistiques de vacances
+ * @access  Public
+ */
+router.get("/test-stats", async (req, res) => {
+  console.log("Route GET /api/vacations/test-stats appelée");
+
+  try {
+    // Récupérer toutes les demandes de congés
+    const [vacationRequests] = await db.query(
+      "SELECT * FROM vacation_requests"
+    );
+
+    console.log("Demandes de congés trouvées:", vacationRequests.length);
+
+    // Statistiques simplifiées
+    const stats = {
+      total: vacationRequests.length,
+      pending: vacationRequests.filter((vr) => vr.status === "pending").length,
+      approved: vacationRequests.filter((vr) => vr.status === "approved")
+        .length,
+      rejected: vacationRequests.filter((vr) => vr.status === "rejected")
+        .length,
+      byType: {
+        paid: vacationRequests.filter((vr) => vr.type === "paid").length,
+        unpaid: vacationRequests.filter((vr) => vr.type === "unpaid").length,
+        sick: vacationRequests.filter((vr) => vr.type === "sick").length,
+        other: vacationRequests.filter((vr) => vr.type === "other").length,
+      },
+    };
+
+    console.log("Statistiques calculées:", stats);
+    res.json(stats);
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des statistiques de test:",
+      error
+    );
+    console.error("Stack trace:", error.stack);
+
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques de test",
+      error: error.message,
     });
   }
 });

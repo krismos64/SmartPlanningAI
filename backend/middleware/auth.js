@@ -92,21 +92,60 @@ const generateToken = (userId) => {
   );
 };
 
-// Middleware pour vérifier le token JWT (version simplifiée pour le développement)
+/**
+ * Middleware d'authentification
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ * @param {Function} next - Fonction suivante
+ */
 const authenticateToken = (req, res, next) => {
+  console.log(`Middleware d'authentification appelé pour ${req.path}`);
+
+  // Récupérer le token du header Authorization
+  const authHeader = req.headers["authorization"];
+  console.log(`En-tête Authorization: ${authHeader ? "Présent" : "Absent"}`);
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.log("Token manquant ou format incorrect");
+    return res
+      .status(401)
+      .json({ message: "Accès non autorisé. Token manquant." });
+  }
+
+  const token = authHeader.split(" ")[1];
+  console.log(`Token extrait: ${token.substring(0, 10)}...`);
+
   try {
-    // Pour le développement, on simule un utilisateur authentifié
-    req.user = {
-      id: "1", // ID comme chaîne de caractères
-      role: "admin",
-      first_name: "Admin",
-      last_name: "Système",
-      fullName: "Admin Système",
-    };
-    next();
+    // Vérifier et décoder le token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "smartplanningai_secret_key"
+    );
+    console.log(`Token décodé:`, decoded);
+
+    // Vérifier si l'utilisateur existe
+    User.findById(decoded.userId)
+      .then((user) => {
+        console.log(`Utilisateur trouvé: ${user ? "Oui" : "Non"}`);
+
+        if (!user) {
+          return res.status(401).json({ message: "Utilisateur non trouvé" });
+        }
+
+        // Ajouter l'utilisateur à la requête
+        req.user = user;
+        next();
+      })
+      .catch((error) => {
+        console.error(
+          "Erreur lors de la vérification de l'utilisateur:",
+          error
+        );
+        res.status(500).json({ message: "Erreur serveur" });
+      });
   } catch (error) {
-    console.error("Erreur d'authentification:", error);
-    res.status(401).json({ message: "Token invalide ou expiré." });
+    console.error("Erreur lors de la vérification du token:", error);
+    res.status(401).json({ message: "Token invalide ou expiré" });
   }
 };
 

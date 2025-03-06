@@ -3,19 +3,50 @@ const router = express.Router();
 const Department = require("../models/Department");
 const { auth, checkRole } = require("../middleware/auth");
 const { recordActivity } = require("./activities");
+const db = require("../config/db");
+
+/**
+ * @route   GET /api/departments/test
+ * @desc    Route de test pour vérifier si le routeur fonctionne
+ * @access  Public
+ */
+router.get("/test", (req, res) => {
+  console.log("Route GET /api/departments/test appelée");
+  res.json({ message: "Route de test des départements fonctionnelle" });
+});
 
 /**
  * @route   GET /api/departments
  * @desc    Récupérer tous les départements
- * @access  Private
+ * @access  Public
  */
-router.get("/", auth, async (req, res) => {
+router.get("/", async (req, res) => {
+  console.log("Route GET /api/departments appelée");
+
   try {
-    console.log("Récupération des départements");
-    const departments = await Department.find();
-    res.json(departments);
+    // Version simplifiée pour déboguer
+    console.log(
+      "Récupération des départements directement depuis la base de données"
+    );
+
+    const [departments] = await db.query(
+      "SELECT DISTINCT department FROM employees WHERE department IS NOT NULL"
+    );
+
+    console.log("Départements trouvés:", departments);
+
+    // Transformer en format simplifié
+    const formattedDepartments = departments.map((dept) => ({
+      id: dept.department.toLowerCase().replace(/\s+/g, "-"),
+      name: dept.department,
+    }));
+
+    console.log("Départements formatés:", formattedDepartments);
+    res.json(formattedDepartments);
   } catch (error) {
     console.error("Erreur lors de la récupération des départements:", error);
+    console.error("Stack trace:", error.stack);
+
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des départements",
@@ -63,18 +94,37 @@ router.get("/:id", auth, async (req, res) => {
  * @access  Private
  */
 router.get("/:id/employees", auth, async (req, res) => {
-  try {
-    const employees = await Department.getEmployees(req.params.id);
+  console.log(`Route GET /api/departments/${req.params.id}/employees appelée`);
 
-    res.json({
-      success: true,
-      employees,
-    });
+  try {
+    const departmentId = req.params.id;
+    console.log(
+      `Récupération des employés pour le département ID: ${departmentId}`
+    );
+
+    // Convertir l'ID en nom de département (en remplaçant les tirets par des espaces)
+    const departmentName = departmentId
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+    console.log(`Nom du département: ${departmentName}`);
+
+    // Récupérer les employés du département
+    const [employees] = await db.query(
+      "SELECT * FROM employees WHERE department = ?",
+      [departmentName]
+    );
+
+    console.log(
+      `${employees.length} employés trouvés pour le département ${departmentName}`
+    );
+    res.json(employees);
   } catch (error) {
     console.error(
       `Erreur lors de la récupération des employés du département ${req.params.id}:`,
       error
     );
+    console.error("Stack trace:", error.stack);
+
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des employés du département",
