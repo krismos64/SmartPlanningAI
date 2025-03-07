@@ -11,18 +11,18 @@ import {
   FaSortAmountUp,
 } from "react-icons/fa";
 import styled, { useTheme } from "styled-components";
+import Button from "../../components/ui/Button";
 import { formatDate, getDayName, getDaysOfWeek } from "../../utils/dateUtils";
 import {
   calculateTotalHours,
   isAbsent as isEmployeeAbsent,
   standardizeScheduleData,
 } from "../../utils/scheduleUtils";
-import Button from "../ui/Button";
 
 // Styles
 const ScheduleGrid = styled.div`
   display: grid;
-  grid-template-columns: 200px repeat(7, 1fr) 100px 80px 80px;
+  grid-template-columns: 250px repeat(7, 1fr) 100px 80px 80px;
   gap: 1px;
   background-color: ${({ theme }) => theme.colors.border.light};
   border-radius: 0.5rem;
@@ -61,15 +61,15 @@ const ScheduleGrid = styled.div`
   }
 
   @media (max-width: 1200px) {
-    grid-template-columns: 180px repeat(7, 1fr) 100px 80px 80px;
+    grid-template-columns: 220px repeat(7, 1fr) 100px 80px 80px;
   }
 
   @media (max-width: 992px) {
-    grid-template-columns: 150px repeat(7, minmax(80px, 1fr)) 100px 80px 80px;
+    grid-template-columns: 180px repeat(7, minmax(80px, 1fr)) 100px 80px 80px;
   }
 
   @media (max-width: 768px) {
-    grid-template-columns: 120px repeat(7, minmax(70px, 1fr)) 100px 80px 80px;
+    grid-template-columns: 150px repeat(7, minmax(70px, 1fr)) 100px 80px 80px;
     font-size: 0.85rem;
   }
 
@@ -131,20 +131,45 @@ const HeaderCell = styled(GridCell)`
 
 const EmployeeCell = styled(GridCell)`
   justify-content: flex-start;
-  font-weight: 500;
-  background-color: ${({ theme }) => theme.colors.background.secondary};
+  font-weight: 600;
   position: sticky;
   left: 0;
-  z-index: 5;
+  z-index: 3;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  padding: 0.75rem 1rem;
+  min-width: 220px;
+  flex-direction: column;
+  align-items: flex-start;
+`;
 
-  @media (max-width: 576px) {
-    position: static;
-    border-top-left-radius: 0.5rem;
-    border-top-right-radius: 0.5rem;
-    margin-top: 1rem;
-    font-size: 1.1rem;
-    justify-content: center;
-  }
+const EmployeeActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
+`;
+
+const EmployeeName = styled.div`
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 0.25rem;
+  color: ${({ theme }) => theme.colors.primary.main};
+  display: block;
+  width: 100%;
+  text-align: left;
+`;
+
+const EmployeeRole = styled.div`
+  font-size: 0.85rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-weight: normal;
+`;
+
+const EmployeeDepartment = styled.div`
+  font-size: 0.8rem;
+  color: ${({ theme }) => theme.colors.text.tertiary};
+  font-weight: normal;
+  margin-top: 0.25rem;
 `;
 
 const TotalCell = styled(GridCell)`
@@ -265,14 +290,33 @@ const ExportCell = styled(GridCell)`
   }
 `;
 
-const ActionButton = styled(Button)`
-  padding: 0.4rem 0.6rem;
-  font-size: 0.8rem;
-  width: 100%;
+const EmployeeActionButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+
+  &.edit {
+    background-color: ${(props) => props.theme.colors.secondary};
+    &:hover {
+      background-color: ${(props) => props.theme.colors.secondaryDark};
+    }
+  }
+
+  &.print {
+    background-color: ${(props) => props.theme.colors.success};
+    &:hover {
+      background-color: ${(props) => props.theme.colors.successDark};
+    }
+  }
 `;
 
 const EmployeeRow = styled.div`
@@ -300,6 +344,40 @@ const ActionRow = styled.div`
   }
 `;
 
+const QuickEditButton = styled.button`
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  opacity: 0;
+  padding: 0.25rem;
+  font-size: 0.7rem;
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  border: 1px solid ${({ theme }) => theme.colors.border.main};
+
+  ${DayCell}:hover & {
+    opacity: 1;
+  }
+`;
+
+const ActionButton = styled(Button)`
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+  }
+`;
+
 const WeeklyScheduleGrid = ({
   employees,
   weekStart,
@@ -307,6 +385,7 @@ const WeeklyScheduleGrid = ({
   onChange,
   readOnly,
   onEditEmployee,
+  onGeneratePDF,
 }) => {
   const theme = useTheme();
 
@@ -649,6 +728,11 @@ const WeeklyScheduleGrid = ({
   };
 
   const handleGeneratePDF = (employee) => {
+    if (onGeneratePDF) {
+      onGeneratePDF(employee);
+      return;
+    }
+
     // Vérifier si weekStart est une date valide
     if (!validWeekStart) {
       console.error("Date de début de semaine invalide");
@@ -689,6 +773,21 @@ const WeeklyScheduleGrid = ({
     }
   };
 
+  // Fonction pour formater la cellule d'employé
+  const formatEmployeeCell = useCallback((employee) => {
+    console.log("Données de l'employé:", employee);
+
+    // Récupérer le prénom et le nom en tenant compte des différentes structures possibles
+    const firstName = employee.firstName || employee.first_name || "";
+    const lastName = employee.lastName || employee.last_name || "";
+
+    return (
+      <EmployeeName>
+        {firstName} {lastName}
+      </EmployeeName>
+    );
+  }, []);
+
   return (
     <ScheduleGrid>
       {/* En-tête avec les jours de la semaine */}
@@ -711,9 +810,7 @@ const WeeklyScheduleGrid = ({
         );
         return (
           <EmployeeRow key={employee.id}>
-            <EmployeeCell>
-              {employee.firstName} {employee.lastName}
-            </EmployeeCell>
+            <EmployeeCell>{formatEmployeeCell(employee)}</EmployeeCell>
 
             {/* Cellules pour chaque jour */}
             {Array(7)
@@ -727,6 +824,16 @@ const WeeklyScheduleGrid = ({
                   onClick={() => !readOnly && onEditEmployee(employee.id)}
                 >
                   {formatDayCell(employee.id, dayIndex)}
+                  {!readOnly && (
+                    <QuickEditButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditEmployee(employee.id);
+                      }}
+                    >
+                      <FaEdit />
+                    </QuickEditButton>
+                  )}
                 </DayCell>
               ))}
 
@@ -780,6 +887,7 @@ WeeklyScheduleGrid.propTypes = {
   onChange: PropTypes.func,
   readOnly: PropTypes.bool,
   onEditEmployee: PropTypes.func,
+  onGeneratePDF: PropTypes.func,
 };
 
 WeeklyScheduleGrid.defaultProps = {
@@ -788,6 +896,7 @@ WeeklyScheduleGrid.defaultProps = {
   onChange: () => {},
   readOnly: false,
   onEditEmployee: null,
+  onGeneratePDF: null,
 };
 
 export default WeeklyScheduleGrid;
