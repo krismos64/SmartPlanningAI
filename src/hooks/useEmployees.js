@@ -270,18 +270,19 @@ const useEmployees = () => {
           );
           return response.data.hour_balance;
         } else {
-          throw new Error(
-            response.data?.message ||
-              "Erreur lors de la récupération du solde d'heures"
+          console.warn(
+            `Avertissement: Impossible de récupérer le solde d'heures pour l'employé #${id}:`,
+            response.data?.message || "Raison inconnue"
           );
+          return 0; // Retourner 0 par défaut au lieu de lancer une erreur
         }
       } catch (err) {
-        console.error(
-          `Erreur lors de la récupération du solde d'heures pour l'employé #${id}:`,
+        console.warn(
+          `Avertissement: Erreur lors de la récupération du solde d'heures pour l'employé #${id}:`,
           err
         );
-        toast.error("Erreur lors de la récupération du solde d'heures");
-        return 0;
+        // Ne pas afficher de toast d'erreur pour ne pas perturber l'utilisateur
+        return 0; // Retourner 0 par défaut
       }
     },
     [api]

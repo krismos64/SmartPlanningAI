@@ -9,7 +9,6 @@ import {
   FaArrowRight,
   FaCalendarDay,
   FaFilePdf,
-  FaPlus,
   FaUsers,
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
@@ -403,6 +402,7 @@ const WeeklySchedulePage = () => {
     error: schedulesError,
     fetchSchedules,
     createSchedule,
+    updateSchedule,
   } = useWeeklySchedules();
 
   // Formater les données de planning pour le composant WeeklyScheduleGrid
@@ -479,6 +479,8 @@ const WeeklySchedulePage = () => {
     fetchSchedules(formattedWeekStart)
       .then((data) => {
         console.log("Plannings récupérés avec succès:", data);
+        // Mettre à jour l'état local avec les plannings récupérés
+        setScheduleData(data); // Assurez-vous que 'data' contient les plannings
       })
       .catch((error) => {
         console.error("Erreur lors de la récupération des plannings:", error);
@@ -590,9 +592,84 @@ const WeeklySchedulePage = () => {
   }, []);
 
   // Fonction pour gérer le changement de planning
-  const handleScheduleChange = useCallback((newScheduleData) => {
-    setScheduleData(newScheduleData);
-  }, []);
+  const handleScheduleChange = useCallback(
+    async (updatedScheduleData) => {
+      try {
+        // Si les données mises à jour concernent un seul employé
+        if (updatedScheduleData.employeeId) {
+          // Vérifier si un planning existe déjà pour cet employé
+          const existingSchedule = scheduleData.find(
+            (s) => s.employeeId === updatedScheduleData.employeeId
+          );
+
+          let result;
+
+          if (existingSchedule && existingSchedule.id) {
+            // Mettre à jour le planning existant dans la base de données
+            console.log(
+              "Mise à jour du planning existant:",
+              existingSchedule.id
+            );
+            result = await updateSchedule(
+              existingSchedule.id,
+              updatedScheduleData
+            );
+          } else {
+            // Créer un nouveau planning dans la base de données
+            console.log("Création d'un nouveau planning");
+            result = await createSchedule(updatedScheduleData);
+          }
+
+          if (result.success) {
+            // Mettre à jour l'état local
+            setScheduleData((prevData) => {
+              const existingIndex = prevData.findIndex(
+                (s) => s.employeeId === updatedScheduleData.employeeId
+              );
+
+              const newData = [...prevData];
+
+              if (existingIndex >= 0) {
+                // Mettre à jour le planning existant
+                newData[existingIndex] = {
+                  ...updatedScheduleData,
+                  id: result.schedule.id, // Ajouter l'ID retourné par l'API
+                };
+              } else {
+                // Ajouter un nouveau planning
+                newData.push({
+                  ...updatedScheduleData,
+                  id: result.schedule.id, // Ajouter l'ID retourné par l'API
+                });
+              }
+
+              return newData;
+            });
+
+            // Fermer le formulaire d'édition
+            setEditingEmployeeId(null);
+
+            // Afficher un message de succès
+            toast.success(
+              "Planning enregistré avec succès dans la base de données"
+            );
+          } else {
+            // Afficher un message d'erreur
+            toast.error(
+              result.error || "Erreur lors de l'enregistrement du planning"
+            );
+          }
+        } else {
+          // Si c'est un tableau complet de plannings, remplacer tout
+          setScheduleData(updatedScheduleData);
+        }
+      } catch (error) {
+        console.error("Erreur lors de l'enregistrement du planning:", error);
+        toast.error("Erreur lors de l'enregistrement du planning");
+      }
+    },
+    [scheduleData, updateSchedule, createSchedule]
+  );
 
   // Fonction pour générer un PDF global de tous les employés
   const generateAllEmployeesPDF = () => {
@@ -1205,12 +1282,6 @@ const WeeklySchedulePage = () => {
                 <ActionButton variant="outline" onClick={goToNextWeek}>
                   Semaine suivante <FaArrowRight />
                 </ActionButton>
-                <ActionButton
-                  variant="primary"
-                  onClick={() => setShowCreateForm(true)}
-                >
-                  <FaPlus /> Nouveau planning
-                </ActionButton>
                 <ExportAllButton
                   variant="secondary"
                   onClick={() => setShowExportOptions(!showExportOptions)}
@@ -1347,7 +1418,22 @@ const WeeklySchedulePage = () => {
                 <EmployeeScheduleForm
                   employee={editingEmployee}
                   weekStart={currentWeekStart}
-                  scheduleData={scheduleData}
+                  scheduleData={
+                    scheduleData.find(
+                      (s) => s.employeeId === editingEmployeeId
+                    ) || {
+                      employeeId: editingEmployeeId,
+                      days: Array(7)
+                        .fill()
+                        .map(() => ({
+                          type: "work",
+                          hours: "0",
+                          absence: "",
+                          note: "",
+                          timeSlots: [],
+                        })),
+                    }
+                  }
                   onSave={handleScheduleChange}
                   onCancel={handleCancelEdit}
                 />
