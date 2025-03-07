@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+// Utiliser db directement dans un commentaire pour indiquer son utilisation implicite
+// db est utilisé implicitement pour établir la connexion à la base de données au démarrage
 const db = require("./config/db");
 const fs = require("fs");
 const path = require("path");
@@ -19,6 +21,8 @@ const authRoutes = require("./routes/auth");
 const weeklySchedulesRoutes = require("./routes/weeklySchedules");
 const activitiesRoutes = require("./routes/activities");
 const scheduleStatsRoutes = require("./routes/scheduleStats");
+const workHoursRoutes = require("./routes/workHoursRoutes");
+const hourBalanceRoutes = require("./routes/hourBalance");
 
 const app = express();
 
@@ -131,6 +135,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/weekly-schedules", weeklySchedulesRoutes);
 app.use("/api/activities", activitiesRoutes);
 app.use("/api/schedule-stats", scheduleStatsRoutes);
+app.use("/api/work-hours", workHoursRoutes);
+app.use("/api/hour-balance", hourBalanceRoutes);
 
 // Route de base
 app.get("/", (req, res) => {
@@ -235,7 +241,8 @@ const startServer = async () => {
     const server = http.createServer(app);
 
     // Configurer le WebSocket
-    const wss = setupWebSocket(server);
+    // wss est utilisé implicitement par setupWebSocket pour gérer les connexions WebSocket
+    setupWebSocket(server);
     console.log("🔌 WebSocket configuré et prêt à recevoir des connexions");
 
     // Démarrer le serveur
@@ -248,6 +255,24 @@ const startServer = async () => {
         }`
       );
       console.log(`🌐 CORS Origins: ${JSON.stringify(corsOptions.origin)}`);
+
+      // Afficher les routes enregistrées
+      console.log("Routes enregistrées:");
+      app._router.stack.forEach(function (middleware) {
+        if (middleware.route) {
+          // routes registered directly on the app
+          console.log(`Route: ${middleware.route.path}`);
+        } else if (middleware.name === "router") {
+          // router middleware
+          middleware.handle.stack.forEach(function (handler) {
+            if (handler.route) {
+              const path = handler.route.path;
+              const methods = Object.keys(handler.route.methods).join(", ");
+              console.log(`Route: ${methods.toUpperCase()} ${path}`);
+            }
+          });
+        }
+      });
 
       // Enregistrer une activité de démarrage du serveur
       Activity.logActivity({

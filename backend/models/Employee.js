@@ -17,6 +17,7 @@ class Employee {
     this.hire_date = data.hire_date || null;
     this.status = data.status || "active";
     this.hourlyRate = data.hourly_rate || data.hourlyRate || 0; // Support des deux formats
+    this.hour_balance = data.hour_balance || 0; // Ajout du solde d'heures
     this.created_at = data.created_at || new Date();
     this.updated_at = data.updated_at || new Date(); // Ajout du champ updated_at
   }
@@ -242,6 +243,31 @@ class Employee {
       return true;
     } catch (error) {
       console.error(`Erreur lors de la suppression de l'employé ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async updateHourBalance(employeeId) {
+    try {
+      const [result] = await connectDB.execute(
+        `SELECT SUM(balance) AS total_balance 
+         FROM work_hours WHERE employee_id = ?`,
+        [employeeId]
+      );
+
+      const totalBalance = result[0]?.total_balance || 0;
+
+      await connectDB.execute(
+        "UPDATE employees SET hour_balance = ? WHERE id = ?",
+        [totalBalance, employeeId]
+      );
+
+      return totalBalance;
+    } catch (error) {
+      console.error(
+        "Erreur lors de la mise à jour du compteur horaire :",
+        error
+      );
       throw error;
     }
   }

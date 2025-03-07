@@ -37,12 +37,26 @@ const ModalOverlay = styled.div`
   animation: ${fadeIn} 0.2s ease-out;
 `;
 
+const getModalWidth = (size) => {
+  switch (size) {
+    case "small":
+      return "400px";
+    case "large":
+      return "900px";
+    case "xlarge":
+      return "1200px";
+    case "medium":
+    default:
+      return "600px";
+  }
+};
+
 const ModalContainer = styled.div`
   background-color: ${({ theme }) => theme.colors.background};
   border-radius: ${({ theme }) => theme.borderRadius.large};
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 600px;
+  max-width: ${({ size }) => getModalWidth(size)};
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
@@ -111,7 +125,13 @@ const CloseIcon = () => (
   </svg>
 );
 
-const Modal = ({ isOpen = true, title, children, onClose }) => {
+const Modal = ({
+  isOpen = true,
+  title,
+  children,
+  onClose,
+  size = "medium",
+}) => {
   // Gérer la touche Echap
   React.useEffect(() => {
     if (isOpen === false) return;
@@ -135,7 +155,7 @@ const Modal = ({ isOpen = true, title, children, onClose }) => {
 
   return (
     <ModalOverlay onClick={onClose}>
-      <ModalContainer onClick={handleContentClick}>
+      <ModalContainer onClick={handleContentClick} size={size}>
         <ModalHeader>
           <ModalTitle>{title}</ModalTitle>
           <CloseButton onClick={onClose} aria-label="Fermer">
@@ -153,6 +173,7 @@ Modal.propTypes = {
   title: PropTypes.string.isRequired,
   children: PropTypes.node.isRequired,
   onClose: PropTypes.func.isRequired,
+  size: PropTypes.oneOf(["small", "medium", "large", "xlarge"]),
 };
 
 export default Modal;

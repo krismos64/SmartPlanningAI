@@ -26,6 +26,14 @@ export const API_ENDPOINTS = {
     BY_ID: (id) => `/api/activities/${id}`,
     LOG: "/api/activities/log",
   },
+  WORK_HOURS: {
+    BASE: "/api/work-hours",
+    BY_ID: (id) => `/api/work-hours/${id}`,
+    BY_EMPLOYEE: (employeeId) => `/api/work-hours/employee/${employeeId}`,
+  },
+  HOUR_BALANCE: {
+    BY_EMPLOYEE: (employeeId) => `/api/hour-balance/${employeeId}`,
+  },
   AUTH: {
     LOGIN: "/api/auth/login",
     REGISTER: "/api/auth/register",

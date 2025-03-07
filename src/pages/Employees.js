@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeForm from "../components/employees/EmployeeForm";
+import WorkHoursManager from "../components/employees/WorkHoursManager";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
 import { FormSelect } from "../components/ui/Form";
 import { useNotification } from "../components/ui/Notification";
@@ -144,6 +145,37 @@ const EmptyStateDescription = styled.p`
   margin-bottom: 2rem;
 `;
 
+const ModalContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+`;
+
+const TabsModalContainer = styled.div`
+  display: flex;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  margin-bottom: 1rem;
+`;
+
+const TabModal = styled.button`
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
+  color: ${({ theme, active }) =>
+    active ? theme.colors.primary : theme.colors.text.secondary};
+  background: none;
+  border: none;
+  border-bottom: 2px solid
+    ${({ theme, active }) => (active ? theme.colors.primary : "transparent")};
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: ${({ theme, active }) =>
+      active ? theme.colors.primary : theme.colors.text.primary};
+  }
+`;
+
 // Composant principal
 const Employees = () => {
   const { showNotification } = useNotification();
@@ -156,6 +188,7 @@ const Employees = () => {
     role: "",
     status: "",
   });
+  const [activeModalTab, setActiveModalTab] = useState("infos");
 
   const {
     employees,
@@ -531,15 +564,50 @@ const Employees = () => {
 
       <Modal
         isOpen={showModal}
-        title={editingEmployee ? "Modifier un employé" : "Ajouter un employé"}
+        title={
+          editingEmployee
+            ? `Modifier un employé (${editingEmployee.first_name} ${editingEmployee.last_name})`
+            : "Ajouter un employé"
+        }
         onClose={handleCloseModal}
+        size={editingEmployee ? "large" : "medium"}
       >
-        <EmployeeForm
-          key={editingEmployee ? editingEmployee.id : "new"}
-          employee={editingEmployee}
-          onSubmit={handleSubmit}
-          onDelete={editingEmployee ? handleDeleteEmployee : undefined}
-        />
+        {editingEmployee ? (
+          <>
+            <TabsModalContainer>
+              <TabModal
+                active={activeModalTab === "infos"}
+                onClick={() => setActiveModalTab("infos")}
+              >
+                Informations
+              </TabModal>
+              <TabModal
+                active={activeModalTab === "hours"}
+                onClick={() => setActiveModalTab("hours")}
+              >
+                Gestion des heures
+              </TabModal>
+            </TabsModalContainer>
+
+            <ModalContent>
+              {activeModalTab === "infos" ? (
+                <EmployeeForm
+                  key={editingEmployee.id}
+                  employee={editingEmployee}
+                  onSubmit={handleSubmit}
+                  onDelete={handleDeleteEmployee}
+                />
+              ) : (
+                <WorkHoursManager
+                  employeeId={editingEmployee.id}
+                  employeeName={`${editingEmployee.first_name} ${editingEmployee.last_name}`}
+                />
+              )}
+            </ModalContent>
+          </>
+        ) : (
+          <EmployeeForm key="new" employee={null} onSubmit={handleSubmit} />
+        )}
       </Modal>
     </PageContainer>
   );
