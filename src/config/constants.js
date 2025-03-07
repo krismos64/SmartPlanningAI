@@ -100,6 +100,21 @@ export const EMPLOYEE_TABLE_COLUMNS = [
     type: "status",
   },
   {
+    id: "hour_balance",
+    header: "Solde d'heures",
+    accessor: (employee) => {
+      const balance = employee.hour_balance || 0;
+      const isPositive = balance >= 0;
+      return {
+        value: balance,
+        display: `${isPositive ? "+" : ""}${balance}h`,
+        isPositive,
+      };
+    },
+    sortable: true,
+    type: "hour_balance",
+  },
+  {
     id: "hire_date",
     header: "Date d'embauche",
     accessor: (employee) => {
@@ -109,18 +124,6 @@ export const EMPLOYEE_TABLE_COLUMNS = [
     },
     sortable: true,
     type: "date",
-  },
-  {
-    id: "hourCounter",
-    header: "Compteur d'heures",
-    accessor: (employee) => {
-      const contractHours = employee.contractHours || 0;
-      const hoursWorked = employee.hoursWorked || 0;
-      const difference = hoursWorked - contractHours;
-      return difference;
-    },
-    sortable: true,
-    type: "number",
   },
 ];
 

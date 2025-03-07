@@ -251,6 +251,57 @@ const useEmployees = () => {
     [employees]
   );
 
+  /**
+   * Récupère le solde d'heures d'un employé
+   */
+  const fetchEmployeeHourBalance = useCallback(
+    async (id) => {
+      try {
+        const response = await api.get(`/api/hour-balance/${id}`);
+
+        if (response.ok) {
+          // Mettre à jour l'état local des employés avec le nouveau solde d'heures
+          setEmployees((prev) =>
+            prev.map((emp) =>
+              emp.id === id
+                ? { ...emp, hour_balance: response.data.hour_balance }
+                : emp
+            )
+          );
+          return response.data.hour_balance;
+        } else {
+          throw new Error(
+            response.data?.message ||
+              "Erreur lors de la récupération du solde d'heures"
+          );
+        }
+      } catch (err) {
+        console.error(
+          `Erreur lors de la récupération du solde d'heures pour l'employé #${id}:`,
+          err
+        );
+        toast.error("Erreur lors de la récupération du solde d'heures");
+        return 0;
+      }
+    },
+    [api]
+  );
+
+  /**
+   * Récupère le solde d'heures pour tous les employés
+   */
+  const fetchAllEmployeesHourBalances = useCallback(async () => {
+    try {
+      const promises = employees.map((employee) =>
+        fetchEmployeeHourBalance(employee.id)
+      );
+
+      await Promise.all(promises);
+    } catch (err) {
+      console.error("Erreur lors de la récupération des soldes d'heures:", err);
+    }
+  }, [employees, fetchEmployeeHourBalance]);
+
   // Charger les employés au montage du composant
   useEffect(() => {
     let mounted = true;
@@ -311,6 +362,13 @@ const useEmployees = () => {
     };
   }, [api]);
 
+  // Charger les soldes d'heures après avoir chargé les employés
+  useEffect(() => {
+    if (employees.length > 0) {
+      fetchAllEmployeesHourBalances();
+    }
+  }, [employees.length, fetchAllEmployeesHourBalances]);
+
   return {
     employees,
     loading,
@@ -321,6 +379,8 @@ const useEmployees = () => {
     updateEmployee,
     deleteEmployee,
     getEmployeesByStatus,
+    fetchEmployeeHourBalance,
+    fetchAllEmployeesHourBalances,
   };
 };
 

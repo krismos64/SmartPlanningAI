@@ -200,6 +200,19 @@ const HourCounter = styled.span`
   }};
 `;
 
+const HourBalanceBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background-color: ${({ theme, isPositive }) =>
+    isPositive ? `${theme.colors.success}20` : `${theme.colors.error}20`};
+  color: ${({ theme, isPositive }) =>
+    isPositive ? theme.colors.success : theme.colors.error};
+`;
+
 const TableFooter = styled.div`
   display: flex;
   align-items: center;
@@ -542,6 +555,14 @@ const DataTable = ({
         );
       }
       return value.toString();
+    }
+
+    if (column.type === "hour_balance") {
+      return (
+        <HourBalanceBadge isPositive={value.isPositive}>
+          {value.display}
+        </HourBalanceBadge>
+      );
     }
 
     return value;
