@@ -10,12 +10,12 @@ import {
   FaCalendarDay,
   FaFilePdf,
   FaPlus,
+  FaUsers,
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import thinkingAnimation from "../assets/animations/thinking.json";
 import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
-import WeeklyScheduleForm from "../components/schedule/WeeklyScheduleForm";
 import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
 import Button from "../components/ui/Button";
 import Card, { CardContent, CardHeader } from "../components/ui/Card";
@@ -248,6 +248,99 @@ const PageDescription = styled.p`
   font-size: 1.1rem;
 `;
 
+const TableFooter = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.border.light};
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+`;
+
+const FooterInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const FooterInfoItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const FooterActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+`;
+
+const ExportOptions = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+`;
+
+const ExportOptionsTitle = styled.h4`
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const ExportOptionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+`;
+
+const ExportOptionCard = styled.div`
+  padding: 1rem;
+  background-color: ${({ theme }) => theme.colors.background.primary};
+  border-radius: 0.5rem;
+  border: 1px solid ${({ theme }) => theme.colors.border.main};
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+`;
+
+const ExportOptionTitle = styled.h5`
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const ExportOptionDescription = styled.p`
+  font-size: 0.8rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin: 0;
+`;
+
 /**
  * Page de gestion des plannings hebdomadaires
  */
@@ -286,6 +379,7 @@ const WeeklySchedulePage = () => {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showExportOptions, setShowExportOptions] = useState(false);
 
   // Formater la date de début de semaine pour l'API
   const formattedWeekStart = useMemo(
@@ -693,6 +787,354 @@ const WeeklySchedulePage = () => {
     });
   };
 
+  // Fonction pour générer un PDF par département
+  const generateDepartmentPDF = (department) => {
+    // Filtrer les employés du département
+    const departmentEmployees = filteredEmployees.filter(
+      (emp) => emp.department === department
+    );
+
+    if (departmentEmployees.length === 0) {
+      toast.info(`Aucun employé trouvé dans le département ${department}`);
+      return;
+    }
+
+    // Créer un élément temporaire pour le rendu
+    const tempElement = document.createElement("div");
+    tempElement.style.position = "absolute";
+    tempElement.style.left = "-9999px";
+    tempElement.style.top = "-9999px";
+    tempElement.style.width = "1200px"; // Plus large pour le format paysage
+
+    // Formater les dates
+    const weekStartDate = new Date(currentWeekStart);
+    const weekEndDate = new Date(currentWeekStart);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+    const formattedWeekStart = formatDate(weekStartDate);
+    const formattedWeekEnd = formatDate(weekEndDate);
+
+    // Créer le contenu HTML
+    const content = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <h2 style="text-align: center; color: #2563eb;">Planning Hebdomadaire - ${department}</h2>
+        <h3 style="text-align: center; margin-bottom: 20px;">Du ${formattedWeekStart} au ${formattedWeekEnd}</h3>
+        
+        <div style="margin-bottom: 20px;">
+          <p style="margin: 5px 0;">Département: ${department}</p>
+          <p style="margin: 5px 0;">Nombre d'employés: ${
+            departmentEmployees.length
+          }</p>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background-color: #e5e7eb;">
+              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Employé</th>
+              ${getDaysOfWeek(currentWeekStart)
+                .map(
+                  (day) => `
+                <th style="padding: 10px; border: 1px solid #d1d5db; text-align: center; ${
+                  isWeekend(day) ? "background-color: #f3f4f6;" : ""
+                }">
+                  ${getDayName(day, true)} ${formatDate(day, "dd/MM")}
+                </th>
+              `
+                )
+                .join("")}
+              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: center; background-color: #e5e7eb;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${departmentEmployees
+              .map((employee) => {
+                const employeeSchedule = scheduleData.find(
+                  (s) => s.employeeId === employee.id
+                );
+                const days = employeeSchedule
+                  ? employeeSchedule.days.map((day) => ({
+                      isAbsent:
+                        day.type === "absence" &&
+                        day.absence &&
+                        day.absence.trim() !== "",
+                      absenceReason: day.absence || "",
+                      hours: day.hours || "0",
+                      timeSlots: day.timeSlots || [],
+                      notes: day.note || "",
+                    }))
+                  : Array(7)
+                      .fill()
+                      .map(() => ({
+                        isAbsent: false,
+                        absenceReason: "",
+                        hours: "0",
+                        timeSlots: [],
+                        notes: "",
+                      }));
+
+                // Calculer le total des heures
+                const totalHours = days.reduce((sum, day) => {
+                  return sum + (day.isAbsent ? 0 : parseFloat(day.hours || 0));
+                }, 0);
+
+                // Déterminer la couleur du total (rouge si < heures contractuelles, vert si >=)
+                const totalColor =
+                  totalHours < employee.contractHours ? "#ef4444" : "#10b981";
+
+                return `
+                <tr>
+                  <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: bold;">
+                    ${employee.firstName} ${employee.lastName}<br>
+                    <span style="font-weight: normal; font-size: 0.9em;">${
+                      employee.role
+                    }</span>
+                  </td>
+                  ${days
+                    .map((day, index) => {
+                      const dayDate = new Date(currentWeekStart);
+                      dayDate.setDate(dayDate.getDate() + index);
+                      const isWeekendDay = isWeekend(dayDate);
+
+                      return `
+                      <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center; ${
+                        isWeekendDay ? "background-color: #f9fafb;" : ""
+                      }">
+                        ${
+                          day.isAbsent
+                            ? `<span style="color: #ef4444; font-weight: bold;">${
+                                day.absenceReason || "Absent"
+                              }</span>`
+                            : `
+                            <div style="font-weight: bold; font-size: 1.2em;">${(
+                              day.timeSlots || []
+                            )
+                              .map((slot) => `${slot.start}-${slot.end}`)
+                              .join("<br>")}</div>
+                            <div style="font-size: 0.8em; margin-top: 3px;">${
+                              day.hours
+                            }h</div>
+                            ${
+                              day.notes
+                                ? `<div style="font-style: italic; font-size: 0.8em; color: #6b7280;">${DOMPurify.sanitize(
+                                    day.notes
+                                  )}</div>`
+                                : ""
+                            }
+                          `
+                        }
+                      </td>
+                    `;
+                    })
+                    .join("")}
+                  <td style="padding: 10px; border: 1px solid #d1d5db; text-align: center; font-weight: bold; color: ${totalColor};">
+                    ${totalHours.toFixed(1)}h<br>
+                    <span style="font-size: 0.8em; font-weight: normal;">(${
+                      employee.contractHours
+                    }h)</span>
+                  </td>
+                </tr>
+              `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Ajouter le contenu à l'élément temporaire
+    tempElement.innerHTML = DOMPurify.sanitize(content);
+    document.body.appendChild(tempElement);
+
+    // Générer le PDF
+    html2canvas(tempElement, {
+      scale: 1,
+      useCORS: true,
+      logging: false,
+    }).then((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("l", "mm", "a4"); // Format paysage
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const ratio = canvas.width / canvas.height;
+      const imgWidth = pdfWidth;
+      const imgHeight = imgWidth / ratio;
+
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.save(
+        `Planning_${department}_${formatDate(
+          currentWeekStart,
+          "yyyy-MM-dd"
+        )}.pdf`
+      );
+
+      // Nettoyer
+      document.body.removeChild(tempElement);
+
+      toast.success(
+        `Planning du département ${department} exporté avec succès`
+      );
+    });
+  };
+
+  // Fonction pour générer un PDF pour un employé spécifique
+  const generateEmployeePDF = (employee) => {
+    if (!employee) {
+      toast.error("Employé non trouvé");
+      return;
+    }
+
+    // Trouver le planning de l'employé
+    const employeeSchedule = scheduleData.find(
+      (s) => s.employeeId === employee.id
+    );
+
+    if (!employeeSchedule) {
+      toast.info(
+        `Aucun planning trouvé pour ${employee.firstName} ${employee.lastName}`
+      );
+      return;
+    }
+
+    // Convertir les jours au format attendu
+    const formattedDays = employeeSchedule.days.map((day) => {
+      return {
+        isAbsent:
+          day.type === "absence" && day.absence && day.absence.trim() !== "",
+        absenceReason: day.absence || "",
+        hours: day.hours || "0",
+        timeSlots: day.timeSlots || [],
+        notes: day.note || "",
+      };
+    });
+
+    // Créer un élément temporaire pour le rendu
+    const tempElement = document.createElement("div");
+    tempElement.style.position = "absolute";
+    tempElement.style.left = "-9999px";
+    tempElement.style.top = "-9999px";
+    tempElement.style.width = "1000px"; // Plus large pour le format paysage
+
+    // Formater les dates
+    const weekStartDate = new Date(currentWeekStart);
+    const weekEndDate = new Date(currentWeekStart);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+    const formattedWeekStart = formatDate(weekStartDate);
+    const formattedWeekEnd = formatDate(weekEndDate);
+
+    // Calculer le total des heures
+    const totalHours = formattedDays.reduce((sum, day) => {
+      return sum + (day.isAbsent ? 0 : parseFloat(day.hours || 0));
+    }, 0);
+
+    // Créer le contenu HTML
+    const content = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; text-align: center;">
+        <h2 style="text-align: center; color: #2563eb;">Planning Hebdomadaire</h2>
+        <h3 style="text-align: center; margin-bottom: 10px;">Du ${formattedWeekStart} au ${formattedWeekEnd}</h3>
+        
+        <div style="margin-bottom: 20px; text-align: center;">
+          <h2 style="margin-bottom: 5px; color: #2563eb; font-size: 24px; font-weight: bold;">${
+            employee.firstName
+          } ${employee.lastName}</h2>
+          <p style="margin: 5px 0;">Poste: ${employee.role}</p>
+          <p style="margin: 5px 0;">Département: ${employee.department}</p>
+          <p style="margin: 5px 0;">Heures contractuelles: ${
+            employee.contractHours
+          }h</p>
+          <p style="margin: 5px 0;">Total heures planifiées: ${totalHours.toFixed(
+            1
+          )}h</p>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 0 auto; max-width: 900px;">
+          <thead>
+            <tr style="background-color: #e5e7eb;">
+              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Jour</th>
+              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Heures</th>
+              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Créneaux</th>
+              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${formattedDays
+              .map((day, index) => {
+                const dayDate = new Date(currentWeekStart);
+                dayDate.setDate(dayDate.getDate() + index);
+                const isWeekendDay = isWeekend(dayDate);
+
+                return `
+                <tr style="background-color: ${
+                  isWeekendDay ? "#f9fafb" : "white"
+                };">
+                  <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: ${
+                    isWeekendDay ? "bold" : "normal"
+                  };">
+                    ${getDayName(dayDate)} ${formatDate(dayDate, "dd/MM")}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #d1d5db;">
+                    ${
+                      day.isAbsent
+                        ? `<span style="color: #ef4444; font-weight: bold;">${
+                            day.absenceReason || "Absent"
+                          }</span>`
+                        : `${day.hours}h`
+                    }
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #d1d5db;">
+                    ${
+                      day.isAbsent
+                        ? "-"
+                        : (day.timeSlots || [])
+                            .map((slot) => `${slot.start} - ${slot.end}`)
+                            .join("<br>")
+                    }
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #d1d5db; font-style: italic;">
+                    ${day.notes || "-"}
+                  </td>
+                </tr>
+              `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Ajouter le contenu à l'élément temporaire
+    tempElement.innerHTML = DOMPurify.sanitize(content);
+    document.body.appendChild(tempElement);
+
+    // Générer le PDF
+    html2canvas(tempElement, {
+      scale: 1,
+      useCORS: true,
+      logging: false,
+    }).then((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("l", "mm", "a4"); // Format paysage
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const ratio = canvas.width / canvas.height;
+      const imgWidth = pdfWidth;
+      const imgHeight = imgWidth / ratio;
+
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.save(
+        `Planning_${employee.firstName}_${employee.lastName}_${formatDate(
+          currentWeekStart,
+          "yyyy-MM-dd"
+        )}.pdf`
+      );
+
+      // Nettoyer
+      document.body.removeChild(tempElement);
+
+      toast.success(
+        `Planning de ${employee.firstName} ${employee.lastName} exporté avec succès`
+      );
+    });
+  };
+
   // Ajouter la fonction de gestion de création
   const handleCreateSchedule = async (formData) => {
     try {
@@ -771,16 +1213,16 @@ const WeeklySchedulePage = () => {
                 </ActionButton>
                 <ExportAllButton
                   variant="secondary"
-                  onClick={generateAllEmployeesPDF}
+                  onClick={() => setShowExportOptions(!showExportOptions)}
                 >
-                  <FaFilePdf /> Exporter planning global
+                  <FaFilePdf /> Options d'export
                 </ExportAllButton>
               </WeekActions>
             </WeekNavigation>
           </div>
         </ScheduleHeader>
 
-        {!editingEmployee && (
+        {!editingEmployeeId && (
           <>
             <SearchContainer>
               <EmployeeSearchInput
@@ -823,6 +1265,40 @@ const WeeklySchedulePage = () => {
               </FilterContainer>
             </ScheduleFilters>
 
+            {showExportOptions && (
+              <ExportOptions>
+                <ExportOptionsTitle>
+                  <FaFilePdf /> Options d'exportation PDF
+                </ExportOptionsTitle>
+                <ExportOptionsGrid>
+                  <ExportOptionCard onClick={generateAllEmployeesPDF}>
+                    <ExportOptionTitle>
+                      <FaUsers /> Planning global
+                    </ExportOptionTitle>
+                    <ExportOptionDescription>
+                      Exporter le planning de tous les employés affichés dans un
+                      seul document PDF
+                    </ExportOptionDescription>
+                  </ExportOptionCard>
+
+                  {uniqueDepartments.map((dept) => (
+                    <ExportOptionCard
+                      key={dept}
+                      onClick={() => generateDepartmentPDF(dept)}
+                    >
+                      <ExportOptionTitle>
+                        <FaUsers /> Département: {dept}
+                      </ExportOptionTitle>
+                      <ExportOptionDescription>
+                        Exporter uniquement le planning des employés du
+                        département {dept}
+                      </ExportOptionDescription>
+                    </ExportOptionCard>
+                  ))}
+                </ExportOptionsGrid>
+              </ExportOptions>
+            )}
+
             <Card>
               <CardHeader>
                 <PlanningTitle>
@@ -839,14 +1315,17 @@ const WeeklySchedulePage = () => {
                       : "Aucun employé trouvé avec les filtres sélectionnés."}
                   </NoResultsMessage>
                 ) : (
-                  <WeeklyScheduleGrid
-                    employees={filteredEmployees}
-                    weekStart={currentWeekStart}
-                    scheduleData={scheduleData}
-                    onChange={handleScheduleChange}
-                    readOnly={true}
-                    onEditEmployee={handleEditEmployee}
-                  />
+                  <>
+                    <WeeklyScheduleGrid
+                      employees={filteredEmployees}
+                      weekStart={currentWeekStart}
+                      scheduleData={scheduleData}
+                      onChange={handleScheduleChange}
+                      readOnly={false}
+                      onEditEmployee={handleEditEmployee}
+                      onGeneratePDF={generateEmployeePDF}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -876,14 +1355,6 @@ const WeeklySchedulePage = () => {
             </CardContent>
           </Card>
         )}
-
-        {/* Ajouter le modal de création */}
-        <WeeklyScheduleForm
-          isOpen={showCreateForm}
-          onClose={() => setShowCreateForm(false)}
-          onSubmit={handleCreateSchedule}
-          employees={employees}
-        />
       </ScheduleContainer>
     </div>
   );
