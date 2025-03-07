@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FaSave, FaTimes } from "react-icons/fa";
 import styled, { keyframes } from "styled-components";
 import {
@@ -321,20 +321,32 @@ const EmployeeScheduleForm = ({
   onSave,
   onCancel,
 }) => {
-  // Convertir scheduleData en tableau s'il est fourni comme un objet
-  const initialScheduleData = Array.isArray(scheduleData)
-    ? scheduleData
-    : scheduleData
-    ? Object.values(scheduleData)
-    : Array(7)
-        .fill()
-        .map(() => ({
-          type: "work",
-          hours: "0",
-          absence: "",
-          note: "",
-          timeSlots: [],
-        }));
+  // Créer un tableau de jours vides
+  const emptyDays = Array(7)
+    .fill()
+    .map(() => ({
+      type: "work",
+      hours: "0",
+      absence: "",
+      note: "",
+      timeSlots: [],
+    }));
+
+  // Initialiser les données du formulaire
+  const initialScheduleData = useMemo(() => {
+    // Si scheduleData est un tableau, l'utiliser directement
+    if (Array.isArray(scheduleData)) {
+      return scheduleData;
+    }
+
+    // Si scheduleData est un objet avec une propriété days, utiliser days
+    if (scheduleData && scheduleData.days && Array.isArray(scheduleData.days)) {
+      return scheduleData.days;
+    }
+
+    // Sinon, utiliser le tableau de jours vides
+    return emptyDays;
+  }, [scheduleData]);
 
   const [formData, setFormData] = useState(initialScheduleData);
   const [isSubmitting, setIsSubmitting] = useState(false);

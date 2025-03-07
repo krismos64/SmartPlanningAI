@@ -2,7 +2,7 @@ import DOMPurify from "dompurify";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import PropTypes from "prop-types";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
   FaEdit,
@@ -12,6 +12,7 @@ import {
 } from "react-icons/fa";
 import styled, { useTheme } from "styled-components";
 import Button from "../../components/ui/Button";
+import useHourBalance from "../../hooks/useHourBalance";
 import { formatDate, getDayName, getDaysOfWeek } from "../../utils/dateUtils";
 import {
   calculateTotalHours,
@@ -137,16 +138,9 @@ const EmployeeCell = styled(GridCell)`
   z-index: 3;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
   padding: 0.75rem 1rem;
-  min-width: 220px;
+  min-width: 150px;
   flex-direction: column;
   align-items: flex-start;
-`;
-
-const EmployeeActions = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  width: 100%;
 `;
 
 const EmployeeName = styled.div`
@@ -159,17 +153,11 @@ const EmployeeName = styled.div`
   text-align: left;
 `;
 
-const EmployeeRole = styled.div`
-  font-size: 0.85rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-weight: normal;
-`;
-
-const EmployeeDepartment = styled.div`
-  font-size: 0.8rem;
-  color: ${({ theme }) => theme.colors.text.tertiary};
-  font-weight: normal;
-  margin-top: 0.25rem;
+const EmployeeActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
 `;
 
 const TotalCell = styled(GridCell)`
@@ -230,12 +218,6 @@ const TimeSlot = styled.div`
   align-items: center;
 `;
 
-const TimeSlotDetails = styled.div`
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  margin-top: 0.25rem;
-`;
-
 const BreakInfo = styled.div`
   font-size: 0.7rem;
   color: ${({ theme }) => theme.colors.text.tertiary};
@@ -290,35 +272,6 @@ const ExportCell = styled(GridCell)`
   }
 `;
 
-const EmployeeActionButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  border-radius: 0.25rem;
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex: 1;
-
-  &.edit {
-    background-color: ${(props) => props.theme.colors.secondary};
-    &:hover {
-      background-color: ${(props) => props.theme.colors.secondaryDark};
-    }
-  }
-
-  &.print {
-    background-color: ${(props) => props.theme.colors.success};
-    &:hover {
-      background-color: ${(props) => props.theme.colors.successDark};
-    }
-  }
-`;
-
 const EmployeeRow = styled.div`
   display: contents;
 
@@ -331,16 +284,6 @@ const EmployeeRow = styled.div`
       ${({ theme }) =>
         theme.mode === "dark" ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"};
     margin-bottom: 1.5rem;
-  }
-`;
-
-const ActionRow = styled.div`
-  @media (max-width: 576px) {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background-color: ${({ theme }) => theme.colors.background.secondary};
   }
 `;
 
@@ -388,12 +331,15 @@ const WeeklyScheduleGrid = ({
   onGeneratePDF,
 }) => {
   const theme = useTheme();
+  const { getEmployeeBalance } = useHourBalance();
 
   // S'assurer que employees est un tableau
   const employeesArray = Array.isArray(employees) ? employees : [];
 
   // S'assurer que scheduleData est un tableau
-  const scheduleDataArray = Array.isArray(scheduleData) ? scheduleData : [];
+  const scheduleDataArray = useMemo(() => {
+    return Array.isArray(scheduleData) ? scheduleData : [];
+  }, [scheduleData]);
 
   // S'assurer que weekStart est une date valide
   const validWeekStart = useMemo(() => {
@@ -571,21 +517,80 @@ const WeeklyScheduleGrid = ({
   // Obtenir le compteur horaire d'un employé (heures contractuelles vs heures travaillées)
   const getEmployeeHoursCounter = useCallback(
     (employeeId) => {
-      const employee = employees.find((emp) => emp.id === employeeId);
-      if (!employee || !employee.contractHours) return "N/A";
+      try {
+        const employee = employees.find((emp) => emp.id === employeeId);
+        if (!employee) return "N/A";
 
-      const contractHours = parseFloat(employee.contractHours);
-      const workedHours = parseFloat(calculateEmployeeTotal(employeeId));
-      const diff = workedHours - contractHours;
+        // Vérifier si contractHours existe et est un nombre valide
+        const contractHours = employee.contractHours
+          ? parseFloat(employee.contractHours)
+          : null;
+        if (contractHours === null || isNaN(contractHours)) return "N/A";
 
-      return diff === 0
-        ? "0"
-        : diff > 0
-        ? `+${diff.toFixed(1)}`
-        : diff.toFixed(1);
+        // Calculer les heures travaillées
+        const workedHours = parseFloat(calculateEmployeeTotal(employeeId));
+        if (isNaN(workedHours)) return "N/A";
+
+        // Utiliser le solde d'heures de l'API si disponible
+        if (employee.hour_balance !== undefined) {
+          const balance = parseFloat(employee.hour_balance);
+          if (!isNaN(balance)) {
+            return balance === 0
+              ? "0"
+              : balance > 0
+              ? `+${balance.toFixed(1)}`
+              : balance.toFixed(1);
+          }
+        }
+
+        // Sinon, calculer la différence localement
+        const diff = workedHours - contractHours;
+
+        return diff === 0
+          ? "0"
+          : diff > 0
+          ? `+${diff.toFixed(1)}`
+          : diff.toFixed(1);
+      } catch (error) {
+        console.error("Erreur lors du calcul du solde d'heures:", error);
+        return "N/A";
+      }
     },
     [employees, calculateEmployeeTotal]
   );
+
+  // Charger le solde d'heures pour chaque employé
+  useEffect(() => {
+    const loadHourBalances = async () => {
+      try {
+        for (const employee of employees) {
+          if (employee && employee.id) {
+            try {
+              const balance = await getEmployeeBalance(employee.id);
+              if (balance !== null) {
+                // Mettre à jour l'employé avec le solde d'heures
+                employee.hour_balance = balance;
+              }
+            } catch (error) {
+              console.warn(
+                `Avertissement: Impossible de récupérer le solde d'heures pour l'employé ${employee.id}:`,
+                error
+              );
+              // Continuer avec les autres employés même si une erreur se produit
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "Avertissement lors du chargement des soldes d'heures:",
+          error
+        );
+        // Ne pas afficher de toast d'erreur pour ne pas perturber l'utilisateur
+      }
+    };
+
+    loadHourBalances();
+  }, [employees, getEmployeeBalance]);
 
   // Fonction pour générer un PDF du planning d'un employé
   const generatePDF = (employee, days, weekStart) => {
@@ -614,6 +619,10 @@ const WeeklyScheduleGrid = ({
     const formattedWeekStart = formatDate(weekStartDate);
     const formattedWeekEnd = formatDate(weekEndDate);
 
+    // Récupérer le prénom et le nom
+    const firstName = employee.first_name || "Inconnu";
+    const lastName = employee.last_name || "Inconnu";
+
     // Calculer le total des heures
     const totalHours = days.reduce((sum, day) => {
       return sum + (day.isAbsent ? 0 : parseFloat(day.hours || 0));
@@ -626,13 +635,13 @@ const WeeklyScheduleGrid = ({
         <h3 style="text-align: center; margin-bottom: 10px;">Du ${formattedWeekStart} au ${formattedWeekEnd}</h3>
         
         <div style="margin-bottom: 20px; text-align: center;">
-          <h2 style="margin-bottom: 5px; color: #2563eb; font-size: 24px; font-weight: bold;">${
-            employee.firstName
-          } ${employee.lastName}</h2>
-          <p style="margin: 5px 0;">Poste: ${employee.role}</p>
-          <p style="margin: 5px 0;">Département: ${employee.department}</p>
+          <h2 style="margin-bottom: 5px; color: #2563eb; font-size: 24px; font-weight: bold;">${firstName} ${lastName}</h2>
+          <p style="margin: 5px 0;">Poste: ${employee.role || "Inconnu"}</p>
+          <p style="margin: 5px 0;">Département: ${
+            employee.department || "Inconnu"
+          }</p>
           <p style="margin: 5px 0;">Heures contractuelles: ${
-            employee.contractHours
+            employee.contractHours || "0"
           }h</p>
           <p style="margin: 5px 0;">Total heures planifiées: ${totalHours.toFixed(
             1
@@ -652,45 +661,40 @@ const WeeklyScheduleGrid = ({
             ${days
               .map((day, index) => {
                 const dayDate = new Date(weekStart);
-                if (isNaN(dayDate.getTime())) {
-                  console.error("Date invalide:", weekStart);
-                  return ""; // Ignorer cette ligne en cas de date invalide
-                }
-
                 dayDate.setDate(dayDate.getDate() + index);
                 const isWeekendDay = isWeekend(dayDate);
 
                 return `
-                <tr style="background-color: ${
-                  isWeekendDay ? "#f9fafb" : "white"
+              <tr style="background-color: ${
+                isWeekendDay ? "#f9fafb" : "white"
+              };">
+                <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: ${
+                  isWeekendDay ? "bold" : "normal"
                 };">
-                  <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: ${
-                    isWeekendDay ? "bold" : "normal"
-                  };">
-                    ${getDayName(dayDate)} ${formatDate(dayDate, "dd/MM")}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #d1d5db;">
-                    ${
-                      day.isAbsent
-                        ? `<span style="color: #ef4444; font-weight: bold;">${
-                            day.absenceReason || "Absent"
-                          }</span>`
-                        : `${day.hours}h`
-                    }
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #d1d5db;">
-                    ${
-                      day.isAbsent
-                        ? "-"
-                        : (day.timeSlots || [])
-                            .map((slot) => `${slot.start} - ${slot.end}`)
-                            .join("<br>")
-                    }
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #d1d5db; font-style: italic;">
-                    ${day.notes ? DOMPurify.sanitize(day.notes) : ""}
-                  </td>
-                </tr>
+                  ${getDayName(dayDate)} ${formatDate(dayDate, "dd/MM")}
+                </td>
+                <td style="padding: 10px; border: 1px solid #d1d5db;">
+                  ${
+                    day.isAbsent
+                      ? `<span style="color: #ef4444; font-weight: bold;">${
+                          day.absenceReason || "Absent"
+                        }</span>`
+                      : `${day.hours}h`
+                  }
+                </td>
+                <td style="padding: 10px; border: 1px solid #d1d5db;">
+                  ${
+                    day.isAbsent
+                      ? "-"
+                      : (day.timeSlots || [])
+                          .map((slot) => `${slot.start} - ${slot.end}`)
+                          .join("<br>")
+                  }
+                </td>
+                <td style="padding: 10px; border: 1px solid #d1d5db; font-style: italic;">
+                  ${day.notes ? DOMPurify.sanitize(day.notes) : ""}
+                </td>
+              </tr>
               `;
               })
               .join("")}
@@ -718,9 +722,7 @@ const WeeklyScheduleGrid = ({
       const imgHeight = imgWidth / ratio;
 
       pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-      pdf.save(
-        `Planning_${employee.firstName}_${employee.lastName}_${formattedWeekStart}.pdf`
-      );
+      pdf.save(`Planning_${firstName}_${lastName}_${formattedWeekStart}.pdf`);
 
       // Nettoyer
       document.body.removeChild(tempElement);
@@ -780,6 +782,11 @@ const WeeklyScheduleGrid = ({
     // Récupérer le prénom et le nom en tenant compte des différentes structures possibles
     const firstName = employee.firstName || employee.first_name || "";
     const lastName = employee.lastName || employee.last_name || "";
+
+    // Vérifiez si les noms sont définis
+    if (!firstName || !lastName) {
+      console.error("Nom ou prénom manquant pour l'employé:", employee);
+    }
 
     return (
       <EmployeeName>

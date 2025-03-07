@@ -516,3 +516,80 @@ export const WeeklyScheduleService = {
     }
   },
 };
+
+export const HourBalanceService = {
+  getByEmployee: async (employeeId) => {
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.HOUR_BALANCE.BY_EMPLOYEE(employeeId),
+        "GET"
+      );
+
+      if (response && response.error) {
+        return { success: false, message: response.error };
+      }
+
+      if (response && typeof response.balance !== "undefined") {
+        return { success: true, balance: response.balance };
+      }
+
+      if (response && typeof response === "object") {
+        if (typeof response.hour_balance !== "undefined") {
+          return { success: true, balance: response.hour_balance };
+        }
+
+        if (
+          Object.keys(response).length === 1 &&
+          typeof Object.values(response)[0] === "number"
+        ) {
+          return { success: true, balance: Object.values(response)[0] };
+        }
+      }
+
+      console.warn(
+        `Avertissement: Format de réponse inattendu pour le solde d'heures de l'employé ${employeeId}:`,
+        response
+      );
+      return { success: true, balance: 0 };
+    } catch (error) {
+      console.warn(
+        "Avertissement lors de la récupération du solde d'heures:",
+        error
+      );
+      return {
+        success: false,
+        message:
+          error.message || "Erreur lors de la récupération du solde d'heures",
+      };
+    }
+  },
+
+  updateBalance: async (employeeId, balanceData) => {
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.HOUR_BALANCE.BY_EMPLOYEE(employeeId),
+        "PUT",
+        balanceData
+      );
+
+      if (response && response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return {
+        success: true,
+        balance:
+          response.balance ||
+          response.hour_balance ||
+          (typeof response === "number" ? response : 0),
+      };
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du solde d'heures:", error);
+      return {
+        success: false,
+        message:
+          error.message || "Erreur lors de la mise à jour du solde d'heures",
+      };
+    }
+  },
+};
