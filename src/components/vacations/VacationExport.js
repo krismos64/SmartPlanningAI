@@ -330,7 +330,6 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
             { header: "Fin", dataKey: "end" },
             { header: "Durée", dataKey: "duration" },
             { header: "Statut", dataKey: "status" },
-            { header: "Date d'approbation", dataKey: "approvalDate" },
             { header: "Motif", dataKey: "reason" },
           ]
         : [
@@ -339,31 +338,23 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
             { header: "Fin", dataKey: "end" },
             { header: "Durée", dataKey: "duration" },
             { header: "Statut", dataKey: "status" },
-            { header: "Date d'approbation", dataKey: "approvalDate" },
             { header: "Motif", dataKey: "reason" },
           ];
 
       // Préparer les données
       const data = filteredVacations.map((vacation) => {
-        let approvalDate = "-";
-        if (vacation.status === "approved" && vacation.approvedAt) {
-          approvalDate = `${formatDate(vacation.approvedAt)}`;
-        } else if (vacation.status === "rejected" && vacation.rejectedAt) {
-          approvalDate = `${formatDate(vacation.rejectedAt)}`;
-        }
-
         const row = {
           type: translateType(vacation.type),
           start: formatDate(vacation.startDate),
           end: formatDate(vacation.endDate),
-          duration: vacation.duration,
+          duration: vacation.duration || "-",
           status: translateStatus(vacation.status),
-          approvalDate: approvalDate,
           reason: vacation.reason || "-",
         };
 
         if (isGlobal) {
-          row.employee = vacation.employeeName || "Inconnu";
+          row.employee =
+            vacation.employeeName || vacation.employee_name || "Inconnu";
         }
 
         return row;

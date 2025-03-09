@@ -494,9 +494,15 @@ const VacationCalendar = ({ vacations, onDayClick }) => {
                       key={vIndex}
                       type={vacation.type}
                       status={vacation.status}
-                      title={`${vacation.employeeName} - ${vacation.type} (${vacation.status})`}
+                      title={`${
+                        vacation.employeeName ||
+                        vacation.employee_name ||
+                        "Employé inconnu"
+                      } - ${vacation.type} (${vacation.status})`}
                     >
-                      {vacation.employeeName}
+                      {vacation.employeeName ||
+                        vacation.employee_name ||
+                        "Employé inconnu"}
                     </VacationItem>
                   ))}
                 </VacationList>

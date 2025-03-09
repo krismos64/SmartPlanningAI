@@ -14,7 +14,7 @@ const useVacations = () => {
   const api = useApi();
 
   // Intégration WebSocket pour les mises à jour en temps réel
-  const { socket, isConnected, sendMessage, notifyDataChange, fallbackMode } =
+  const { socket, isConnected, notifyDataChange, fallbackMode } =
     useWebSocket();
 
   // Écouter les mises à jour WebSocket
@@ -141,7 +141,69 @@ const useVacations = () => {
         console.log("Données des congés reçues:", data);
 
         if (Array.isArray(data)) {
-          setVacations(data);
+          // Convertir les propriétés de snake_case à camelCase
+          const formattedData = data.map((vacation) => {
+            // Convertir les dates pour le calcul de la durée
+            const startDate = vacation.start_date || vacation.startDate;
+            const endDate = vacation.end_date || vacation.endDate;
+
+            // Calculer la durée en jours ouvrables selon la législation française
+            let duration = "-";
+            if (startDate && endDate) {
+              const start = new Date(startDate);
+              const end = new Date(endDate);
+
+              // Réinitialiser les heures pour éviter les problèmes de comparaison
+              start.setHours(0, 0, 0, 0);
+              end.setHours(0, 0, 0, 0);
+
+              // Compter les jours ouvrables (lundi au samedi, hors jours fériés)
+              let workableDays = 0;
+              const currentDate = new Date(start);
+
+              while (currentDate <= end) {
+                // Si ce n'est pas un dimanche (0 = dimanche, 1-6 = lundi-samedi)
+                if (currentDate.getDay() !== 0) {
+                  workableDays++;
+                }
+
+                // Passer au jour suivant
+                currentDate.setDate(currentDate.getDate() + 1);
+              }
+
+              duration = `${workableDays} jour${
+                workableDays > 1 ? "s" : ""
+              } ouvrable${workableDays > 1 ? "s" : ""}`;
+            }
+
+            // Créer un nouvel objet avec les propriétés converties
+            return {
+              ...vacation,
+              // Assurer que employeeName est défini, même si employee_name ne l'est pas
+              employeeName:
+                vacation.employee_name ||
+                vacation.employeeName ||
+                "Employé inconnu",
+              // Convertir les dates si nécessaire
+              startDate: startDate,
+              endDate: endDate,
+              // Ajouter la durée calculée
+              duration: duration,
+              // Autres propriétés qui pourraient être en snake_case
+              employeeId: vacation.employee_id || vacation.employeeId,
+              approvedAt: vacation.approved_at || vacation.approvedAt,
+              approvedBy: vacation.approved_by || vacation.approvedBy,
+              rejectedAt: vacation.rejected_at || vacation.rejectedAt,
+              rejectedBy: vacation.rejected_by || vacation.rejectedBy,
+              rejectionReason:
+                vacation.rejection_reason || vacation.rejectionReason,
+              createdAt: vacation.created_at || vacation.createdAt,
+              updatedAt: vacation.updated_at || vacation.updatedAt,
+            };
+          });
+
+          console.log("Données des congés formatées:", formattedData);
+          setVacations(formattedData);
           setError(null);
         } else {
           console.error("Format de données invalide:", data);
@@ -169,134 +231,62 @@ const useVacations = () => {
   }, [fetchVacations]);
 
   /**
-   * Vérifie si la base de données est accessible
-   */
-  const checkDatabaseConnection = useCallback(async () => {
-    try {
-      // Faire une requête simple pour vérifier la connexion
-      const response = await api.get(API_ENDPOINTS.VACATIONS);
-
-      // Si la requête échoue avec une erreur de connexion, la base de données n'est pas accessible
-      if (!response.ok && (response.status === 0 || response.status >= 500)) {
-        console.error("La base de données semble inaccessible:", response);
-        return {
-          connected: false,
-          error: "La connexion à la base de données a échoué",
-        };
-      }
-
-      return { connected: true };
-    } catch (error) {
-      console.error(
-        "Erreur lors de la vérification de la connexion à la base de données:",
-        error
-      );
-      return {
-        connected: false,
-        error:
-          "Erreur lors de la vérification de la connexion à la base de données",
-      };
-    }
-  }, [api]);
-
-  /**
    * Crée une nouvelle demande de congé
    */
   const createVacation = useCallback(
     async (vacationData) => {
-      setLoading(true);
-      setError(null);
-
       try {
+        setLoading(true);
+        setError(null);
+
+        console.log("Données originales de la demande de congé:", vacationData);
+
         // Vérifier que les données essentielles sont présentes
-        if (!vacationData.employeeId) {
-          toast.error("L'identifiant de l'employé est requis");
+        if (!vacationData.employeeId && !vacationData.employee_id) {
+          const errorMsg = "L'identifiant de l'employé est requis";
+          toast.error(errorMsg);
           setLoading(false);
-          return {
-            success: false,
-            error: "L'identifiant de l'employé est requis",
-          };
+          return { success: false, error: errorMsg };
         }
 
-        if (!vacationData.startDate || !vacationData.endDate) {
-          toast.error("Les dates de début et de fin sont requises");
+        if (
+          (!vacationData.startDate && !vacationData.start_date) ||
+          (!vacationData.endDate && !vacationData.end_date)
+        ) {
+          const errorMsg = "Les dates de début et de fin sont requises";
+          toast.error(errorMsg);
           setLoading(false);
-          return {
-            success: false,
-            error: "Les dates de début et de fin sont requises",
-          };
+          return { success: false, error: errorMsg };
         }
 
-        // Convertir les dates en objets Date
-        const startDate = new Date(vacationData.startDate);
-        const endDate = new Date(vacationData.endDate);
-
-        // Vérifier que les dates sont valides
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          toast.error("Les dates fournies ne sont pas valides");
-          setLoading(false);
-          return {
-            success: false,
-            error: "Les dates fournies ne sont pas valides",
-          };
-        }
-
-        // Vérifier que la date de début est avant la date de fin
-        if (startDate > endDate) {
-          toast.error("La date de début doit être antérieure à la date de fin");
-          setLoading(false);
-          return {
-            success: false,
-            error: "La date de début doit être antérieure à la date de fin",
-          };
-        }
-
-        // Formater les données pour l'API - utiliser directement snake_case pour éviter les conversions
+        // Formater les données pour correspondre à la structure de la base de données
         const formattedData = {
-          employee_id: String(vacationData.employeeId),
+          employee_id: vacationData.employeeId || vacationData.employee_id,
+          start_date: vacationData.startDate || vacationData.start_date,
+          end_date: vacationData.endDate || vacationData.end_date,
           type: vacationData.type || "paid",
-          start_date: startDate.toISOString().split("T")[0],
-          end_date: endDate.toISOString().split("T")[0],
           reason: vacationData.reason || "",
           status: "pending",
-          // Supprimer les champs qui n'existent pas dans la table
-          // approved_by et approved_at ne sont pas dans la table
-          // rejected_by et rejected_at ne sont pas dans la table
         };
 
-        // Vérifier que les données sont valides pour le backend
-        if (!formattedData.employee_id) {
-          console.error("Erreur: employee_id manquant après formatage");
-          toast.error("L'identifiant de l'employé est requis");
-          return {
-            success: false,
-            error: "Erreur de formatage des données: employee_id manquant",
-          };
+        // Convertir les dates au format YYYY-MM-DD si elles ne le sont pas déjà
+        if (
+          formattedData.start_date &&
+          !formattedData.start_date.includes("-")
+        ) {
+          const startDate = new Date(formattedData.start_date);
+          formattedData.start_date = startDate.toISOString().split("T")[0];
         }
 
-        // Vérifier que les dates sont au bon format
-        if (!formattedData.start_date || !formattedData.end_date) {
-          console.error("Erreur: dates mal formatées", {
-            start_date: formattedData.start_date,
-            end_date: formattedData.end_date,
-          });
-          toast.error("Les dates de début et de fin sont requises");
-          return {
-            success: false,
-            error: "Erreur de formatage des dates",
-          };
+        if (formattedData.end_date && !formattedData.end_date.includes("-")) {
+          const endDate = new Date(formattedData.end_date);
+          formattedData.end_date = endDate.toISOString().split("T")[0];
         }
 
-        // Vérifier que le type est valide (paid, unpaid, sick, other)
-        const validTypes = ["paid", "unpaid", "sick", "other"];
-        if (!validTypes.includes(formattedData.type)) {
-          console.warn(
-            `Type de congé non standard: ${formattedData.type}, utilisation de 'paid' par défaut`
-          );
-          formattedData.type = "paid";
-        }
-
-        console.log("Données formatées pour l'API:", formattedData);
+        console.log(
+          "Données formatées pour la création de congé:",
+          formattedData
+        );
 
         // Récupérer le token d'authentification
         const token = localStorage.getItem("token");
@@ -364,15 +354,7 @@ const useVacations = () => {
         return { success: false, error: error.message };
       }
     },
-    [
-      api,
-      retryApiCall,
-      socket,
-      isConnected,
-      notifyDataChange,
-      fallbackMode,
-      checkDatabaseConnection,
-    ]
+    [api, retryApiCall, socket]
   );
 
   /**

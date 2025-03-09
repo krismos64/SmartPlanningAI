@@ -471,7 +471,7 @@ const Vacations = () => {
             // Enregistrer l'activité de création
             await ActivityLogger.logCreation(
               "vacation",
-              response.vacation.id,
+              response.data.id,
               `Nouvelle demande de congé du ${formatDate(
                 vacationData.startDate
               )} au ${formatDate(vacationData.endDate)}`,
@@ -689,7 +689,9 @@ const Vacations = () => {
               <VacationCard key={vacation.id} status={vacation.status}>
                 <VacationHeader>
                   <VacationTitle>
-                    {vacation.employeeName || "Employé inconnu"}
+                    {vacation.employeeName ||
+                      vacation.employee_name ||
+                      "Employé inconnu"}
                   </VacationTitle>
                   <VacationStatus status={vacation.status}>
                     {vacation.status === "approved"

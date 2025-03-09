@@ -105,7 +105,7 @@ const useApi = () => {
     const get = async (endpoint) => {
       try {
         // Vérifier que l'URL est correcte
-        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        const apiUrl = API_URL || "http://localhost:5001"; // Utiliser l'URL correcte
         console.log(`[API] GET ${apiUrl}${endpoint}`);
 
         const token = localStorage.getItem("token");
@@ -152,7 +152,7 @@ const useApi = () => {
         }
 
         // Vérifier que l'URL est correcte
-        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        const apiUrl = API_URL || "http://localhost:5001"; // Utiliser l'URL correcte
         console.log(`[API] POST ${apiUrl}${endpoint}`);
 
         // Vérifier si le token est présent
@@ -244,7 +244,7 @@ const useApi = () => {
     const put = async (endpoint, data) => {
       try {
         // Vérifier que l'URL est correcte
-        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        const apiUrl = API_URL || "http://localhost:5001"; // Utiliser l'URL correcte
         console.log(`[API] PUT ${apiUrl}${endpoint}`, data);
 
         const token = localStorage.getItem("token");
