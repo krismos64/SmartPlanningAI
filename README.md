@@ -1,6 +1,6 @@
 # SmartPlanning AI - Refonte UI/UX
 
-## 🎨 Présentation
+## 🎨 Présentation du projet
 
 SmartPlanning AI est une application de gestion de planning intelligente qui permet aux entreprises de gérer efficacement leurs employés, plannings, congés et statistiques. Cette refonte complète du design intègre des animations modernes et un style professionnel, tout en conservant une fluidité et une ergonomie optimale.
 
