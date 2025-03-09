@@ -29,6 +29,18 @@ router.get("/", async (req, res) => {
       "Récupération des départements directement depuis la base de données"
     );
 
+    // Vérifier la connexion à la base de données
+    try {
+      await db.query("SELECT 1");
+      console.log("Connexion à la base de données vérifiée avec succès");
+    } catch (dbError) {
+      console.error("Erreur de connexion à la base de données:", dbError);
+      return res.status(500).json({
+        message: "Erreur de connexion à la base de données",
+        error: dbError.message,
+      });
+    }
+
     const [departments] = await db.query(
       "SELECT DISTINCT department FROM employees WHERE department IS NOT NULL"
     );

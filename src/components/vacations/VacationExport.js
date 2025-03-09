@@ -459,11 +459,17 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
                   onChange={handleFilterChange}
                 >
                   <option value="">Tous les départements</option>
-                  {departments.map((department) => (
-                    <option key={department.id} value={department.id}>
-                      {department.name}
+                  {departments && departments.length > 0 ? (
+                    departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      Chargement des départements...
                     </option>
-                  ))}
+                  )}
                 </FilterSelect>
               </FilterGroup>
             </>

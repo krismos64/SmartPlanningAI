@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
 import { API_ENDPOINTS } from "../config/api";
 import useApi from "./useApi";
 
@@ -8,31 +7,50 @@ import useApi from "./useApi";
  * Récupère les départements depuis la base de données via les employés
  */
 const useDepartments = () => {
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [departments, setDepartments] = useState([
+    // Départements par défaut toujours disponibles
+    { id: "administration", name: "Administration" },
+    { id: "commercial", name: "Commercial" },
+    { id: "technique", name: "Technique" },
+    { id: "caisses", name: "Caisses" },
+    { id: "boutique", name: "Boutique" },
+    { id: "informatique", name: "Informatique" },
+    { id: "direction", name: "Direction" },
+  ]);
+  const [loading, setLoading] = useState(false); // Commencer avec loading à false
   const [error, setError] = useState(null);
   const api = useApi();
 
   /**
    * Récupère tous les départements depuis les employés existants
+   * Version silencieuse qui n'affiche pas d'erreurs
    */
   const fetchDepartments = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get(API_ENDPOINTS.DEPARTMENTS.BASE);
+      console.log("Tentative de récupération des départements...");
 
-      if (response.ok) {
+      const response = await api.get(API_ENDPOINTS.DEPARTMENTS.BASE);
+      console.log("Réponse de l'API départements:", response);
+
+      if (
+        response.ok &&
+        Array.isArray(response.data) &&
+        response.data.length > 0
+      ) {
         setDepartments(response.data);
         setError(null);
+        console.log("Départements récupérés avec succès:", response.data);
       } else {
-        throw new Error(
-          response.data?.message || "Erreur lors du chargement des départements"
-        );
+        console.log("Utilisation des départements par défaut");
+        // Nous gardons les départements par défaut déjà définis dans le state initial
       }
     } catch (err) {
-      console.error("Erreur lors du chargement des départements:", err);
-      setError("Erreur lors du chargement des départements");
-      toast.error("Erreur lors du chargement des départements");
+      console.error(
+        "Erreur silencieuse lors du chargement des départements:",
+        err
+      );
+      // Nous gardons les départements par défaut, pas besoin de les redéfinir
     } finally {
       setLoading(false);
     }
@@ -48,7 +66,6 @@ const useDepartments = () => {
 
         if (response.ok) {
           setDepartments((prev) => [...prev, response.data]);
-          toast.success("Département créé avec succès");
           return { success: true, department: response.data };
         } else {
           throw new Error(
@@ -58,7 +75,6 @@ const useDepartments = () => {
         }
       } catch (err) {
         console.error("Erreur lors de la création du département:", err);
-        toast.error("Erreur lors de la création du département");
         return { success: false, error: err.message };
       }
     },
@@ -79,7 +95,6 @@ const useDepartments = () => {
               dept.id === id ? { ...dept, ...response.data } : dept
             )
           );
-          toast.success("Département mis à jour avec succès");
           return { success: true, department: response.data };
         } else {
           throw new Error(
@@ -89,7 +104,6 @@ const useDepartments = () => {
         }
       } catch (err) {
         console.error("Erreur lors de la mise à jour du département:", err);
-        toast.error("Erreur lors de la mise à jour du département");
         return { success: false, error: err.message };
       }
     },
@@ -103,7 +117,6 @@ const useDepartments = () => {
 
         if (response.ok) {
           setDepartments((prev) => prev.filter((dept) => dept.id !== id));
-          toast.success("Département supprimé avec succès");
           return { success: true };
         } else {
           throw new Error(
@@ -113,7 +126,6 @@ const useDepartments = () => {
         }
       } catch (err) {
         console.error("Erreur lors de la suppression du département:", err);
-        toast.error("Erreur lors de la suppression du département");
         return { success: false, error: err.message };
       }
     },

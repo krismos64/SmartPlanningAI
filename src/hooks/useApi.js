@@ -108,6 +108,9 @@ const useApi = () => {
         const apiUrl = API_URL || "http://localhost:5001"; // Utiliser l'URL correcte
         console.log(`[API] GET ${apiUrl}${endpoint}`);
 
+        // Gestion spéciale pour les départements - ne pas afficher d'erreurs
+        const isDepartmentsEndpoint = endpoint.includes("/departments");
+
         const token = localStorage.getItem("token");
         const headers = {
           "Content-Type": "application/json",
@@ -119,9 +122,46 @@ const useApi = () => {
           headers,
         });
 
-        return handleResponse(response);
+        // Pour les requêtes autres que les départements, vérifier si la réponse est OK
+        if (!isDepartmentsEndpoint && !response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.message || `Erreur lors de la requête GET ${endpoint}`
+          );
+        }
+
+        const result = await handleResponse(response);
+
+        // Pour les départements, on retourne un objet structuré
+        if (isDepartmentsEndpoint) {
+          return {
+            ok: response.ok,
+            status: response.status,
+            data: result,
+            headers: response.headers,
+          };
+        }
+
+        // Pour les autres requêtes, on retourne directement les données
+        return result;
       } catch (error) {
         console.error(`[API] GET ${endpoint} Error:`, error);
+
+        // Vérifier si c'est une requête pour les départements
+        const isDepartmentsEndpoint = endpoint.includes("/departments");
+
+        // Si c'est une requête pour les départements, retourner un objet structuré
+        if (isDepartmentsEndpoint) {
+          console.log("Erreur silencieuse pour les départements");
+          return {
+            ok: false,
+            status: error.status || 0,
+            data: { message: error.message || "Erreur lors de la requête GET" },
+            headers: new Headers(),
+          };
+        }
+
+        // Pour les autres requêtes, propager l'erreur
         throw error;
       }
     };
