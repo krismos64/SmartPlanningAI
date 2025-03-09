@@ -114,16 +114,33 @@ const useApi = () => {
           return { ok: false, status: 401, data: [] };
         }
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
-        });
+        // Ajouter un timeout pour éviter que les requêtes ne restent bloquées
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondes de timeout
 
-        return await handleResponse(response);
+        try {
+          const response = await fetch(`${API_URL}${endpoint}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: "include",
+            signal: controller.signal,
+          });
+
+          // Annuler le timeout
+          clearTimeout(timeoutId);
+
+          return await handleResponse(response);
+        } catch (fetchError) {
+          // Gérer spécifiquement les erreurs d'abort
+          if (fetchError.name === "AbortError") {
+            console.warn(`La requête ${endpoint} a été interrompue (timeout)`);
+            throw new Error(`Timeout de la requête après 5 secondes`);
+          }
+          throw fetchError;
+        }
       } catch (error) {
         console.error(`[API] GET ${endpoint} Error:`, error);
 
@@ -134,9 +151,16 @@ const useApi = () => {
             window.location.href = "/login";
           }, 2000);
         } else {
-          toast.error(
-            error.message || "Erreur lors de la récupération des données"
-          );
+          // Ne pas afficher de toast pour les erreurs de timeout ou de réseau
+          // pour éviter de surcharger l'interface
+          if (
+            !error.message.includes("Timeout") &&
+            !error.message.includes("fetch")
+          ) {
+            toast.error(
+              error.message || "Erreur lors de la récupération des données"
+            );
+          }
         }
 
         throw error;

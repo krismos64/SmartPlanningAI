@@ -10,7 +10,11 @@ class WorkHours {
     this.date = data.date;
     this.expected_hours = data.expected_hours || 7.0;
     this.actual_hours = data.actual_hours || 0.0;
-    this.balance = data.balance; // Calculé automatiquement par MySQL
+    this.balance =
+      data.balance !== undefined
+        ? data.balance
+        : this.actual_hours - this.expected_hours;
+    this.description = data.description || "";
     this.created_at = data.created_at || new Date();
   }
 
@@ -63,32 +67,36 @@ class WorkHours {
   async save() {
     try {
       // Formater la date pour MySQL
-      const formattedDate =
-        this.date instanceof Date
-          ? this.date.toISOString().split("T")[0]
-          : this.date;
+      const formattedDate = this.date
+        ? new Date(this.date).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
 
       if (this.id) {
         // Mise à jour
         await connectDB.execute(
-          "UPDATE work_hours SET employee_id = ?, date = ?, expected_hours = ?, actual_hours = ? WHERE id = ?",
+          "UPDATE work_hours SET employee_id = ?, date = ?, expected_hours = ?, actual_hours = ?, balance = ?, description = ? WHERE id = ?",
           [
             this.employee_id,
             formattedDate,
             this.expected_hours,
             this.actual_hours,
+            this.balance,
+            this.description,
             this.id,
           ]
         );
       } else {
         // Création
         const [result] = await connectDB.execute(
-          "INSERT INTO work_hours (employee_id, date, expected_hours, actual_hours) VALUES (?, ?, ?, ?)",
+          "INSERT INTO work_hours (employee_id, date, expected_hours, actual_hours, balance, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
           [
             this.employee_id,
             formattedDate,
             this.expected_hours,
             this.actual_hours,
+            this.balance,
+            this.description,
+            this.created_at,
           ]
         );
         this.id = result.insertId;

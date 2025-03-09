@@ -87,42 +87,47 @@ router.post("/", auth, async (req, res) => {
   try {
     const {
       employee_id,
+      employeeId,
       date,
       expected_hours,
+      expectedHours,
       actual_hours,
+      actualHours,
       hours,
       balance,
       description,
     } = req.body;
 
+    // Utiliser les versions camelCase ou snake_case selon ce qui est disponible
+    const employeeID = employee_id || employeeId;
+    const expectedHrs = expected_hours || expectedHours || 7.0;
+    const actualHrs = actual_hours || actualHours || hours || 0.0;
+
     // Validation des données
-    if (!employee_id || !date) {
+    if (!employeeID || !date) {
       return res.status(400).json({
         message: "L'ID de l'employé et la date sont requis",
       });
     }
 
     // Vérifier si l'employé existe
-    const employee = await Employee.findById(employee_id);
+    const employee = await Employee.findById(employeeID);
     if (!employee) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
     // Créer l'enregistrement d'heures
     const workHours = await WorkHours.create({
-      employee_id,
+      employee_id: employeeID,
       date,
-      expected_hours: expected_hours || 7.0,
-      actual_hours: actual_hours || hours || 0.0,
-      balance:
-        balance !== undefined
-          ? balance
-          : (actual_hours || hours || 0) - (expected_hours || 7.0),
+      expected_hours: expectedHrs,
+      actual_hours: actualHrs,
+      balance: balance !== undefined ? balance : actualHrs - expectedHrs,
       description: description || "Ajout manuel",
     });
 
     // Mettre à jour le solde d'heures de l'employé
-    await Employee.updateHourBalance(employee_id);
+    await Employee.updateHourBalance(employeeID);
 
     res.status(201).json({
       success: true,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { API_ENDPOINTS } from "../config/api";
 import useApi from "./useApi";
@@ -257,49 +257,82 @@ const useEmployees = () => {
   const fetchEmployeeHourBalance = useCallback(
     async (id) => {
       try {
+        // Ajouter un délai aléatoire pour éviter les requêtes simultanées
+        const randomDelay = Math.floor(Math.random() * 200);
+        await new Promise((resolve) => setTimeout(resolve, randomDelay));
+
         const response = await api.get(`/api/hour-balance/${id}`);
 
-        if (response.ok) {
+        // Vérifier si la réponse contient hour_balance ou balance
+        if (
+          response &&
+          (response.hour_balance !== undefined ||
+            response.balance !== undefined)
+        ) {
+          const balance =
+            response.hour_balance !== undefined
+              ? response.hour_balance
+              : response.balance;
+
           // Mettre à jour l'état local des employés avec le nouveau solde d'heures
           setEmployees((prev) =>
             prev.map((emp) =>
-              emp.id === id
-                ? { ...emp, hour_balance: response.data.hour_balance }
-                : emp
+              emp.id === id ? { ...emp, hour_balance: balance } : emp
             )
           );
-          return response.data.hour_balance;
+          return balance;
         } else {
           console.warn(
-            `Avertissement: Impossible de récupérer le solde d'heures pour l'employé #${id}:`,
-            response.data?.message || "Raison inconnue"
+            `Avertissement: Format de réponse inattendu pour l'employé #${id}`
           );
-          return 0; // Retourner 0 par défaut au lieu de lancer une erreur
+          return 0; // Retourner 0 par défaut
         }
       } catch (err) {
+        // Éviter de logger l'erreur complète pour ne pas surcharger la console
         console.warn(
-          `Avertissement: Erreur lors de la récupération du solde d'heures pour l'employé #${id}:`,
-          err
+          `Avertissement: Impossible de récupérer le solde d'heures pour l'employé #${id}`
         );
-        // Ne pas afficher de toast d'erreur pour ne pas perturber l'utilisateur
-        return 0; // Retourner 0 par défaut
+
+        // Ne pas mettre à jour l'état pour éviter des re-rendus en cascade
+        return 0; // Retourner 0 par défaut en cas d'erreur
       }
     },
-    [api]
+    [api, setEmployees]
   );
 
   /**
    * Récupère le solde d'heures pour tous les employés
+   * Utilise une approche séquentielle pour éviter de surcharger le navigateur
    */
   const fetchAllEmployeesHourBalances = useCallback(async () => {
-    try {
-      const promises = employees.map((employee) =>
-        fetchEmployeeHourBalance(employee.id)
-      );
+    // Variable pour suivre si la fonction est déjà en cours d'exécution
+    if (window._isFetchingHourBalances) {
+      console.log("Récupération des soldes d'heures déjà en cours, ignoré");
+      return;
+    }
 
-      await Promise.all(promises);
+    try {
+      // Marquer comme en cours d'exécution
+      window._isFetchingHourBalances = true;
+
+      // Traiter les employés un par un au lieu de par lots
+      for (const employee of employees) {
+        try {
+          await fetchEmployeeHourBalance(employee.id);
+          // Attendre 300ms entre chaque requête
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (error) {
+          // Ignorer les erreurs individuelles et continuer avec le prochain employé
+          console.warn(
+            `Erreur pour l'employé ${employee.id}, continuons avec le suivant`
+          );
+        }
+      }
     } catch (err) {
       console.error("Erreur lors de la récupération des soldes d'heures:", err);
+    } finally {
+      // Marquer comme terminé
+      window._isFetchingHourBalances = false;
     }
   }, [employees, fetchEmployeeHourBalance]);
 
@@ -364,9 +397,22 @@ const useEmployees = () => {
   }, [api]);
 
   // Charger les soldes d'heures après avoir chargé les employés
+  // Utiliser une référence pour suivre si l'effet a déjà été exécuté
+  const hourBalancesLoaded = useRef(false);
+
   useEffect(() => {
-    if (employees.length > 0) {
-      fetchAllEmployeesHourBalances();
+    // Ne charger les soldes d'heures que si les employés sont chargés et que l'effet n'a pas encore été exécuté
+    if (employees.length > 0 && !hourBalancesLoaded.current) {
+      // Marquer l'effet comme exécuté
+      hourBalancesLoaded.current = true;
+
+      // Ajouter un délai avant de charger les soldes d'heures
+      // pour s'assurer que le composant est complètement monté
+      const timer = setTimeout(() => {
+        fetchAllEmployeesHourBalances();
+      }, 1000);
+
+      return () => clearTimeout(timer);
     }
   }, [employees.length, fetchAllEmployeesHourBalances]);
 

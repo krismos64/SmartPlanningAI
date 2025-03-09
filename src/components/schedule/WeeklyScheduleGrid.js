@@ -153,13 +153,6 @@ const EmployeeName = styled.div`
   text-align: left;
 `;
 
-const EmployeeActions = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  width: 100%;
-`;
-
 const TotalCell = styled(GridCell)`
   font-weight: 600;
   background-color: ${({ theme }) => theme.colors.background.secondary};
@@ -716,7 +709,6 @@ const WeeklyScheduleGrid = ({
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("l", "mm", "a4"); // Format paysage
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
       const ratio = canvas.width / canvas.height;
       const imgWidth = pdfWidth;
       const imgHeight = imgWidth / ratio;
@@ -812,9 +804,6 @@ const WeeklyScheduleGrid = ({
 
       {/* Lignes pour chaque employé */}
       {sortedEmployees.map((employee) => {
-        const schedule = scheduleDataArray.find(
-          (s) => s.employeeId === employee.id
-        );
         return (
           <EmployeeRow key={employee.id}>
             <EmployeeCell>{formatEmployeeCell(employee)}</EmployeeCell>

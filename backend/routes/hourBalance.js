@@ -13,13 +13,19 @@ router.get("/:employeeId", auth, async (req, res) => {
     // Mettre à jour le solde d'heures avant de le récupérer
     const balance = await Employee.updateHourBalance(employeeId);
 
-    res.json({ hour_balance: balance });
+    // Renvoyer le solde dans un format cohérent
+    res.json({
+      success: true,
+      hour_balance: balance,
+      balance: balance, // Pour la compatibilité
+    });
   } catch (error) {
     console.error(
       `Erreur lors de la récupération du solde d'heures pour l'employé ${req.params.employeeId}:`,
       error
     );
     res.status(500).json({
+      success: false,
       message: "Erreur lors de la récupération du solde d'heures",
       error: error.message,
     });

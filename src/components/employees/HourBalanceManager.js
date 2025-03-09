@@ -1,7 +1,8 @@
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import styled from "styled-components";
+import { API_ENDPOINTS } from "../../config/api";
+import useApi from "../../hooks/useApi";
 
 const Container = styled.div`
   display: flex;
@@ -101,31 +102,92 @@ const BalanceValue = styled.span`
     isPositive ? theme.colors.success : theme.colors.error};
 `;
 
+const StepperContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+`;
+
+const StepButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: ${({ theme }) => theme.colors.background.hover};
+  color: ${({ theme }) => theme.colors.text.primary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.background.active};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const HoursDisplay = styled.div`
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 60px;
+  text-align: center;
+`;
+
 const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
-  const [hours, setHours] = useState("");
+  const [hours, setHours] = useState("1");
   const [currentBalance, setCurrentBalance] = useState(null);
   const [loading, setLoading] = useState(false);
+  const api = useApi();
 
   // Charger le solde actuel
-  const fetchCurrentBalance = async () => {
+  const fetchCurrentBalance = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/hour-balance/${employeeId}`);
-      setCurrentBalance(parseFloat(response.data.hour_balance));
+      const response = await api.get(
+        API_ENDPOINTS.HOUR_BALANCE.BY_EMPLOYEE(employeeId)
+      );
+
+      // Vérifier si la réponse contient hour_balance
+      if (
+        response &&
+        (response.hour_balance !== undefined || response.balance !== undefined)
+      ) {
+        const balance =
+          response.hour_balance !== undefined
+            ? response.hour_balance
+            : response.balance;
+        setCurrentBalance(parseFloat(balance));
+      } else {
+        console.error("Format de réponse inattendu:", response);
+        toast.error("Format de réponse inattendu");
+      }
     } catch (error) {
       console.error("Erreur lors de la récupération du solde d'heures:", error);
       toast.error("Impossible de récupérer le solde d'heures");
     } finally {
       setLoading(false);
     }
-  };
+  }, [employeeId, api]);
 
   // Charger le solde au montage du composant
   useEffect(() => {
     if (employeeId) {
       fetchCurrentBalance();
     }
-  }, [employeeId]);
+  }, [employeeId, fetchCurrentBalance]);
+
+  // Ajuster la valeur des heures
+  const adjustHours = (increment) => {
+    const currentValue = parseFloat(hours) || 0;
+    const newValue = Math.max(0.25, currentValue + increment);
+    setHours(newValue.toFixed(2));
+  };
 
   // Mettre à jour le solde d'heures
   const updateBalance = async (operation) => {
@@ -138,10 +200,11 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
       setLoading(true);
 
       // Créer un nouvel enregistrement dans work_hours
-      const response = await axios.post("/api/work-hours", {
-        employee_id: employeeId,
+      const response = await api.post(API_ENDPOINTS.WORK_HOURS.BASE, {
+        employeeId: employeeId,
         date: new Date().toISOString().split("T")[0],
-        hours: parseFloat(hours),
+        expectedHours: operation === "add" ? 0 : parseFloat(hours),
+        actualHours: operation === "add" ? parseFloat(hours) : 0,
         balance: operation === "add" ? parseFloat(hours) : -parseFloat(hours),
         description:
           operation === "add"
@@ -149,7 +212,7 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
             : "Soustraction manuelle d'heures",
       });
 
-      if (response.data && response.data.success) {
+      if (response && response.success) {
         // Récupérer le solde mis à jour
         await fetchCurrentBalance();
 
@@ -165,10 +228,10 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
         );
 
         // Réinitialiser le formulaire
-        setHours("");
+        setHours("1");
       } else {
         throw new Error(
-          response.data?.message || "Erreur lors de la mise à jour du solde"
+          response?.message || "Erreur lors de la mise à jour du solde"
         );
       }
     } catch (error) {
@@ -201,13 +264,31 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
           <Input
             id="hours"
             type="number"
-            min="0.01"
-            step="0.01"
+            min="0.25"
+            step="0.25"
             value={hours}
             onChange={(e) => setHours(e.target.value)}
             placeholder="Entrez le nombre d'heures"
             disabled={loading}
           />
+
+          <StepperContainer>
+            <StepButton
+              type="button"
+              onClick={() => adjustHours(-0.25)}
+              disabled={loading || parseFloat(hours) <= 0.25}
+            >
+              -
+            </StepButton>
+            <HoursDisplay>{hours}h</HoursDisplay>
+            <StepButton
+              type="button"
+              onClick={() => adjustHours(0.25)}
+              disabled={loading}
+            >
+              +
+            </StepButton>
+          </StepperContainer>
         </InputGroup>
 
         <ButtonGroup>

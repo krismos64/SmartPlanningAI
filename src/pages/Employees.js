@@ -5,7 +5,6 @@ import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import HourBalanceManager from "../components/employees/HourBalanceManager";
-import WorkHoursManager from "../components/employees/WorkHoursManager";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
 import { FormSelect } from "../components/ui/Form";
 import { useNotification } from "../components/ui/Notification";
@@ -583,12 +582,6 @@ const Employees = () => {
                 Informations
               </TabModal>
               <TabModal
-                active={activeModalTab === "hours"}
-                onClick={() => setActiveModalTab("hours")}
-              >
-                Gestion des heures
-              </TabModal>
-              <TabModal
                 active={activeModalTab === "balance"}
                 onClick={() => setActiveModalTab("balance")}
               >
@@ -603,11 +596,6 @@ const Employees = () => {
                   employee={editingEmployee}
                   onSubmit={handleSubmit}
                   onDelete={handleDeleteEmployee}
-                />
-              ) : activeModalTab === "hours" ? (
-                <WorkHoursManager
-                  employeeId={editingEmployee.id}
-                  employeeName={`${editingEmployee.first_name} ${editingEmployee.last_name}`}
                 />
               ) : (
                 <HourBalanceManager
