@@ -23,6 +23,7 @@ import PageHeader from "../components/ui/PageHeader";
 import Spinner from "../components/ui/Spinner";
 import useEmployees from "../hooks/useEmployees";
 import useWeeklySchedules from "../hooks/useWeeklySchedules";
+import { WeeklyScheduleService } from "../services/api";
 import {
   addWeeks,
   formatDate,
@@ -247,41 +248,6 @@ const PageDescription = styled.p`
   font-size: 1.1rem;
 `;
 
-const TableFooter = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid ${({ theme }) => theme.colors.border.light};
-
-  @media (min-width: 768px) {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-`;
-
-const FooterInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const FooterInfoItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
-`;
-
-const FooterActions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-`;
-
 const ExportOptions = styled.div`
   display: flex;
   flex-direction: column;
@@ -340,6 +306,20 @@ const ExportOptionDescription = styled.p`
   margin: 0;
 `;
 
+// Ajouter ce style après les autres styles
+const InfoMessage = styled.div`
+  background-color: ${({ theme }) => theme.colors.info.light};
+  color: ${({ theme }) => theme.colors.info.dark};
+  border-left: 4px solid ${({ theme }) => theme.colors.info.main};
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
 /**
  * Page de gestion des plannings hebdomadaires
  */
@@ -374,7 +354,6 @@ const WeeklySchedulePage = () => {
   });
   const [scheduleData, setScheduleData] = useState([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -392,7 +371,6 @@ const WeeklySchedulePage = () => {
     loading: employeesLoading,
     // eslint-disable-next-line no-unused-vars
     error: employeesError,
-    fetchEmployees,
   } = useEmployees();
 
   // Récupérer les plannings
@@ -413,17 +391,12 @@ const WeeklySchedulePage = () => {
     }
 
     // Log pour débogage
-    console.log("Données brutes des plannings:", schedules);
 
     // Standardiser les données de planning (incluant la conversion JSON si nécessaire)
     // La fonction standardizeScheduleData s'assure que les données JSON sont correctement parsées
     return schedules.map((schedule) => {
       try {
         const standardized = standardizeScheduleData(schedule);
-        console.log(
-          `Planning standardisé pour l'employé ${schedule.employee_id}:`,
-          standardized
-        );
         return standardized;
       } catch (error) {
         console.error(
@@ -463,22 +436,14 @@ const WeeklySchedulePage = () => {
       prevFormattedScheduleDataRef.current = currentFormattedScheduleDataStr;
       prevScheduleDataRef.current = currentScheduleDataStr;
 
-      console.log(
-        "Mise à jour des données de planning:",
-        formattedScheduleData
-      );
       setScheduleData(formattedScheduleData);
     }
   }, [formattedScheduleData, scheduleData]);
 
   // Charger les plannings lorsque la semaine change
   useEffect(() => {
-    console.log(
-      `Récupération des plannings pour la semaine du ${formattedWeekStart}`
-    );
     fetchSchedules(formattedWeekStart)
       .then((data) => {
-        console.log("Plannings récupérés avec succès:", data);
         // Mettre à jour l'état local avec les plannings récupérés
         setScheduleData(data); // Assurez-vous que 'data' contient les plannings
       })
@@ -595,28 +560,34 @@ const WeeklySchedulePage = () => {
   const handleScheduleChange = useCallback(
     async (updatedScheduleData) => {
       try {
+        // S'assurer que la date de début de semaine est correctement définie
+        if (!updatedScheduleData.weekStart) {
+          updatedScheduleData.weekStart = formattedWeekStart;
+        }
+
         // Si les données mises à jour concernent un seul employé
         if (updatedScheduleData.employeeId) {
-          // Vérifier si un planning existe déjà pour cet employé
-          const existingSchedule = scheduleData.find(
-            (s) => s.employeeId === updatedScheduleData.employeeId
-          );
+          // Vérifier si un planning existe déjà pour cet employé et cette semaine spécifique
+          // en utilisant le service getByEmployeeAndWeek
+          const existingScheduleResult =
+            await WeeklyScheduleService.getByEmployeeAndWeek(
+              updatedScheduleData.employeeId,
+              updatedScheduleData.weekStart
+            );
 
           let result;
 
-          if (existingSchedule && existingSchedule.id) {
+          if (
+            existingScheduleResult.success &&
+            existingScheduleResult.schedule
+          ) {
             // Mettre à jour le planning existant dans la base de données
-            console.log(
-              "Mise à jour du planning existant:",
-              existingSchedule.id
-            );
             result = await updateSchedule(
-              existingSchedule.id,
+              existingScheduleResult.schedule.id,
               updatedScheduleData
             );
           } else {
             // Créer un nouveau planning dans la base de données
-            console.log("Création d'un nouveau planning");
             result = await createSchedule(updatedScheduleData);
           }
 
@@ -668,7 +639,7 @@ const WeeklySchedulePage = () => {
         toast.error("Erreur lors de l'enregistrement du planning");
       }
     },
-    [scheduleData, updateSchedule, createSchedule]
+    [updateSchedule, createSchedule, formattedWeekStart]
   );
 
   // Fonction pour générer un PDF global de tous les employés
@@ -1209,13 +1180,21 @@ const WeeklySchedulePage = () => {
   };
 
   // Ajouter la fonction de gestion de création
+  // eslint-disable-next-line no-unused-vars
   const handleCreateSchedule = async (formData) => {
     try {
+      // S'assurer que la date de début de semaine est correctement définie
+      if (!formData.weekStart) {
+        formData.weekStart = formattedWeekStart;
+      }
+
       const result = await createSchedule(formData);
       if (result.success) {
-        setShowCreateForm(false);
         await fetchSchedules(formData.weekStart);
-        toast.success("Planning créé avec succès");
+        toast.success(
+          "Planning créé avec succès pour la semaine du " +
+            formatDate(new Date(formData.weekStart))
+        );
       } else {
         toast.error(result.error || "Erreur lors de la création du planning");
       }
@@ -1224,6 +1203,22 @@ const WeeklySchedulePage = () => {
       toast.error("Erreur lors de la création du planning");
     }
   };
+
+  // Vérifier si le token d'authentification est présent
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    console.log(
+      "Token d'authentification dans WeeklySchedule:",
+      token ? "Présent" : "Manquant",
+      token ? `(${token.substring(0, 10)}...)` : ""
+    );
+
+    if (!token) {
+      console.error("Token d'authentification manquant dans WeeklySchedule");
+      toast.error("Vous devez être connecté pour accéder à cette page");
+      navigate("/login");
+    }
+  }, [navigate]);
 
   // Afficher un spinner pendant le chargement
   if (employeesLoading || schedulesLoading) {
@@ -1256,7 +1251,8 @@ const WeeklySchedulePage = () => {
             <TitleContainer>
               <PageTitle>Planning Hebdomadaire</PageTitle>
               <PageDescription>
-                Gérez les horaires de travail de vos employés
+                Gérez les horaires de travail de vos employés pour la semaine
+                sélectionnée. Chaque semaine a son propre planning indépendant.
               </PageDescription>
             </TitleContainer>
           </HeaderLeft>
@@ -1288,6 +1284,13 @@ const WeeklySchedulePage = () => {
             </WeekNavigation>
           </div>
         </ScheduleHeader>
+
+        <InfoMessage>
+          <strong>Note:</strong> Les plannings sont spécifiques à chaque
+          semaine. Lorsque vous changez de semaine, vous verrez un planning
+          différent. Les modifications apportées à une semaine n'affectent pas
+          les autres semaines.
+        </InfoMessage>
 
         {!editingEmployeeId && (
           <>

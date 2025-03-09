@@ -769,8 +769,6 @@ const WeeklyScheduleGrid = ({
 
   // Fonction pour formater la cellule d'employé
   const formatEmployeeCell = useCallback((employee) => {
-    console.log("Données de l'employé:", employee);
-
     // Récupérer le prénom et le nom en tenant compte des différentes structures possibles
     const firstName = employee.firstName || employee.first_name || "";
     const lastName = employee.lastName || employee.last_name || "";
@@ -797,7 +795,7 @@ const WeeklyScheduleGrid = ({
         <HeaderCell key={index}>{formatDate(day, "EEE dd/MM")}</HeaderCell>
       ))}
       <HeaderCell sortable onClick={() => requestSort("total")}>
-        Total {getSortIcon("total")}
+        Heures planifiées {getSortIcon("total")}
       </HeaderCell>
       <HeaderCell>Export</HeaderCell>
       <HeaderCell>Actions</HeaderCell>
@@ -834,21 +832,7 @@ const WeeklyScheduleGrid = ({
               ))}
 
             {/* Cellule de total */}
-            <TotalCell>
-              {calculateEmployeeTotal(employee.id)}h
-              <br />
-              <small
-                style={{
-                  color: getEmployeeHoursCounter(employee.id).startsWith("+")
-                    ? theme.colors.success.main
-                    : getEmployeeHoursCounter(employee.id).startsWith("-")
-                    ? theme.colors.error.main
-                    : "inherit",
-                }}
-              >
-                {getEmployeeHoursCounter(employee.id)}
-              </small>
-            </TotalCell>
+            <TotalCell>{calculateEmployeeTotal(employee.id)}h</TotalCell>
 
             {/* Cellule d'export */}
             <ExportCell>

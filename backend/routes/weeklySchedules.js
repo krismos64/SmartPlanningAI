@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const WeeklySchedule = require("../models/WeeklySchedule");
 const { authenticateToken } = require("../middleware/auth");
+const { formatDateForMySQL } = require("../utils/dateUtils");
 
 // Middleware d'authentification pour toutes les routes
 router.use(authenticateToken);
@@ -31,23 +32,47 @@ router.get("/", async (req, res) => {
 router.get("/week/:weekStart", async (req, res) => {
   try {
     const { weekStart } = req.params;
+    console.log("Requête reçue pour les plannings de la semaine:", weekStart);
 
     if (!weekStart) {
+      console.log("Erreur: Date de début de semaine manquante");
       return res
         .status(400)
         .json({ message: "Date de début de semaine requise" });
     }
 
-    const schedules = await WeeklySchedule.findByWeek(weekStart);
-    res.json(schedules);
+    // Formater la date pour MySQL
+    const formattedWeekStart = formatDateForMySQL(weekStart);
+    console.log("Date formatée pour MySQL:", formattedWeekStart);
+
+    if (!formattedWeekStart) {
+      console.log("Erreur: Format de date invalide");
+      return res.status(400).json({ message: "Format de date invalide" });
+    }
+
+    try {
+      const schedules = await WeeklySchedule.findByWeek(formattedWeekStart);
+      console.log(
+        `${schedules.length} plannings trouvés pour la semaine du ${formattedWeekStart}`
+      );
+
+      res.json(schedules);
+    } catch (dbError) {
+      console.error("Erreur lors de la requête à la base de données:", dbError);
+      res.status(500).json({
+        message: "Erreur lors de la récupération des plannings",
+        details: dbError.message,
+      });
+    }
   } catch (error) {
     console.error(
       `Erreur lors de la récupération des plannings pour la semaine du ${req.params.weekStart}:`,
       error
     );
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la récupération des plannings" });
+    res.status(500).json({
+      message: "Erreur lors de la récupération des plannings",
+      details: error.message,
+    });
   }
 });
 
@@ -105,6 +130,72 @@ router.get("/:id", async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la récupération du planning" });
+  }
+});
+
+/**
+ * @route   GET /api/weekly-schedules/employee/:employeeId/week/:weekStart
+ * @desc    Récupérer un planning pour un employé et une semaine spécifiques
+ * @access  Private
+ */
+router.get("/employee/:employeeId/week/:weekStart", async (req, res) => {
+  try {
+    const { employeeId, weekStart } = req.params;
+    console.log(
+      "Requête reçue pour le planning de l'employé:",
+      employeeId,
+      "semaine du:",
+      weekStart
+    );
+
+    if (!employeeId || !weekStart) {
+      console.log("Erreur: ID employé ou date de début de semaine manquant");
+      return res.status(400).json({
+        success: false,
+        message: "ID employé et date de début de semaine requis",
+      });
+    }
+
+    // Formater la date pour MySQL
+    const formattedWeekStart = formatDateForMySQL(weekStart);
+    console.log("Date formatée pour MySQL:", formattedWeekStart);
+
+    if (!formattedWeekStart) {
+      console.log("Erreur: Format de date invalide");
+      return res.status(400).json({
+        success: false,
+        message: "Format de date invalide",
+      });
+    }
+
+    const schedule = await WeeklySchedule.findByEmployeeAndWeek(
+      employeeId,
+      formattedWeekStart
+    );
+
+    if (!schedule) {
+      console.log("Aucun planning trouvé pour cet employé et cette semaine");
+      return res.json({
+        success: true,
+        message: "Aucun planning trouvé pour cet employé et cette semaine",
+        schedule: null,
+      });
+    }
+
+    console.log("Planning trouvé avec ID:", schedule.id);
+    res.json({
+      success: true,
+      schedule,
+    });
+  } catch (error) {
+    console.error(
+      `Erreur lors de la récupération du planning pour l'employé ${req.params.employeeId} et la semaine du ${req.params.weekStart}:`,
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération du planning",
+    });
   }
 });
 

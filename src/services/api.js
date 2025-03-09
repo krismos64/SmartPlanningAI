@@ -1,4 +1,5 @@
 import { API_ENDPOINTS, apiRequest } from "../config/api";
+import { formatDateForAPI } from "../utils/dateUtils";
 
 export const AuthService = {
   login: async (email, password) => {
@@ -390,22 +391,73 @@ export const WeeklyScheduleService = {
 
   getByWeek: async (weekStart) => {
     try {
-      const response = await apiRequest(
-        `${API_ENDPOINTS.WEEKLY_SCHEDULES}?weekStart=${weekStart}`,
-        "GET"
-      );
-
-      if (response.error) {
-        return { success: false, message: response.error };
+      if (!weekStart) {
+        console.error("Date de début de semaine non spécifiée");
+        return { success: false, message: "Date de début de semaine requise" };
       }
 
-      return { success: true, schedules: response };
+      // Vérifier que le token d'authentification est présent
+      const token = localStorage.getItem("token");
+      console.error(
+        "Token d'authentification:",
+        token ? "Présent" : "Manquant",
+        token ? `(${token.substring(0, 10)}...)` : ""
+      );
+
+      if (!token) {
+        console.error("Token d'authentification manquant");
+        return {
+          success: false,
+          message: "Vous devez être connecté pour accéder à ces données",
+        };
+      }
+
+      console.error(
+        "Appel API pour récupérer les plannings de la semaine:",
+        weekStart
+      );
+
+      try {
+        const response = await apiRequest(
+          `${API_ENDPOINTS.WEEKLY_SCHEDULES}/week/${weekStart}`,
+          "GET"
+        );
+
+        if (response.error) {
+          console.error(
+            "Erreur API lors de la récupération des plannings:",
+            response.error
+          );
+          return {
+            success: false,
+            message: response.error,
+            details: response.details || "",
+          };
+        }
+
+        console.error(
+          "Réponse API pour les plannings:",
+          JSON.stringify(response).substring(0, 200) + "..."
+        );
+
+        return { success: true, schedules: response };
+      } catch (apiError) {
+        console.error("Exception lors de l'appel API:", apiError);
+        return {
+          success: false,
+          message:
+            apiError.message || "Erreur lors de la récupération des plannings",
+          details: apiError.details || "",
+        };
+      }
     } catch (error) {
+      console.error("Exception lors de la récupération des plannings:", error);
       return {
         success: false,
         message:
           error.message ||
           "Erreur lors de la récupération des plannings pour cette semaine",
+        details: error.details || "",
       };
     }
   },
@@ -434,19 +486,48 @@ export const WeeklyScheduleService = {
 
   getByEmployeeAndWeek: async (employeeId, weekStart) => {
     try {
+      if (!employeeId) {
+        console.error("ID employé non spécifié");
+        return { success: false, message: "ID employé requis" };
+      }
+
+      if (!weekStart) {
+        console.error("Date de début de semaine non spécifiée");
+        return { success: false, message: "Date de début de semaine requise" };
+      }
+
+      // S'assurer que la date est au format YYYY-MM-DD
+      let formattedDate = weekStart;
+      if (weekStart instanceof Date) {
+        formattedDate = formatDateForAPI(weekStart);
+      } else if (typeof weekStart === "string" && weekStart.includes("T")) {
+        // Si la date contient un T (format ISO), extraire seulement la partie date
+        formattedDate = weekStart.split("T")[0];
+      }
+
+      console.error(
+        "Appel API pour récupérer le planning de l'employé:",
+        employeeId,
+        "semaine du:",
+        formattedDate
+      );
+
       const response = await apiRequest(
-        `${API_ENDPOINTS.EMPLOYEES.SCHEDULES(
-          employeeId
-        )}?weekStart=${weekStart}`,
+        `${API_ENDPOINTS.WEEKLY_SCHEDULES}/employee/${employeeId}/week/${formattedDate}`,
         "GET"
       );
 
       if (response.error) {
+        console.error(
+          "Erreur API lors de la récupération du planning:",
+          response.error
+        );
         return { success: false, message: response.error };
       }
 
-      return { success: true, schedule: response };
+      return response; // La réponse contient déjà success et schedule
     } catch (error) {
+      console.error("Exception lors de la récupération du planning:", error);
       return {
         success: false,
         message: error.message || "Erreur lors de la récupération du planning",

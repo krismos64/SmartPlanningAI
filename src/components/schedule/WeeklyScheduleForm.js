@@ -46,7 +46,6 @@ const WeeklyScheduleForm = ({ onSubmit, onCancel }) => {
   };
 
   const handleScheduleChange = (newScheduleData) => {
-    console.log("Nouvelles données de planning reçues:", newScheduleData);
     setFormData((prev) => ({
       ...prev,
       scheduleData: newScheduleData,
@@ -67,7 +66,6 @@ const WeeklyScheduleForm = ({ onSubmit, onCancel }) => {
         return;
       }
 
-      console.log("Données du formulaire à soumettre:", formData);
 
       // Créer le planning
       const result = await createSchedule({

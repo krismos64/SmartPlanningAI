@@ -5,6 +5,7 @@ import styled, { keyframes } from "styled-components";
 import {
   calculateHours,
   formatDate,
+  formatDateForInput,
   getDaysOfWeek,
 } from "../../utils/dateUtils";
 import Button from "../ui/Button";
@@ -261,6 +262,17 @@ const StyledFormInput = styled(FormInput)`
   }
 `;
 
+// Ajouter ce style après les autres styles
+const WeekInfo = styled.div`
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.info.dark};
+  background-color: ${({ theme }) => theme.colors.info.light};
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border-left: 3px solid ${({ theme }) => theme.colors.info.main};
+`;
+
 // Fonction utilitaire pour convertir les données existantes au nouveau format
 const convertToNewFormat = (day) => {
   // Si le jour a déjà le format attendu, le retourner tel quel
@@ -481,11 +493,12 @@ const EmployeeScheduleForm = ({
 
     const updatedScheduleData = {
       employeeId: employee.id,
+      weekStart: formatDateForInput(weekStart),
       days: formattedSchedule,
     };
 
     onSave(updatedScheduleData);
-  }, [employee, onSave, formData]);
+  }, [employee, onSave, formData, weekStart]);
 
   if (!employee || !weekDays || formData.length === 0) {
     return null;
@@ -520,6 +533,11 @@ const EmployeeScheduleForm = ({
           <div>Heures contractuelles: {employee.contractHours}h</div>
         </EmployeeDetails>
       </EmployeeInfo>
+
+      <WeekInfo>
+        Ce planning est spécifique à la semaine du {formatDate(weekStart)} au{" "}
+        {formatDate(weekDays[6])}. Il n'affectera pas les autres semaines.
+      </WeekInfo>
 
       <DaysGrid>
         {weekDays.map((day, index) => (

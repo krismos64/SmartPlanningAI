@@ -2,6 +2,9 @@
  * Utilitaires pour la gestion des plannings
  */
 
+// Importer la fonction formatDateForInput
+import { formatDateForInput } from "./dateUtils";
+
 /**
  * Format standard des données de planning
  *
@@ -41,12 +44,23 @@ export const standardizeScheduleData = (schedule) => {
     schedule.days.length > 0 &&
     schedule.days[0].type !== undefined
   ) {
-    return schedule;
+    return {
+      ...schedule,
+      // S'assurer que weekStart est présent
+      weekStart:
+        schedule.weekStart ||
+        schedule.week_start ||
+        formatDateForInput(new Date()),
+    };
   }
 
   // Convertir au format standard
   return {
     employeeId: schedule.employeeId || schedule.employee_id,
+    weekStart:
+      schedule.weekStart ||
+      schedule.week_start ||
+      formatDateForInput(new Date()),
     days: Array.isArray(schedule.days)
       ? schedule.days.map(convertDayToStandardFormat)
       : Array(7)
@@ -130,6 +144,7 @@ export const prepareScheduleForApi = (schedule) => {
 
   return {
     employee_id: standardSchedule.employeeId,
+    week_start: standardSchedule.weekStart,
     schedule_data: JSON.stringify(standardSchedule.days),
     total_hours: calculateTotalHours(standardSchedule).toFixed(1),
   };

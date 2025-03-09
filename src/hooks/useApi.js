@@ -257,14 +257,19 @@ const useApi = () => {
         // S'assurer que les données sont sérialisables
         const cleanData = JSON.parse(JSON.stringify(data));
 
+        // Convertir les données en snake_case pour le backend
+        const snakeCaseData = {};
+        for (const key in cleanData) {
+          snakeCaseData[camelToSnakeCase(key)] = cleanData[key];
+        }
+
         const response = await fetch(`${API_URL}${endpoint}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: token ? `Bearer ${token}` : "",
           },
-          body: JSON.stringify(cleanData),
-          credentials: "include",
+          body: JSON.stringify(snakeCaseData),
         });
 
         const result = await handleResponse(response);

@@ -80,59 +80,36 @@ const useEmployees = () => {
    */
   const createEmployee = useCallback(
     async (employeeData) => {
+      setLoading(true);
       try {
-        console.log("Données envoyées à l'API pour création:", employeeData);
-
-        // Convertir les valeurs numériques
-        const formattedData = {
-          ...employeeData,
-          contractHours: parseFloat(employeeData.contractHours) || 35,
-          hourlyRate: parseFloat(employeeData.hourlyRate) || 0,
-        };
-
         const response = await api.post(
           API_ENDPOINTS.EMPLOYEES.BASE,
-          formattedData
+          employeeData
         );
 
-        console.log("Réponse de l'API pour création:", response);
+        if (response && response.id) {
+          // Mettre à jour la liste des employés
+          setEmployees((prevEmployees) => [...prevEmployees, response]);
+          setError(null);
+          return response;
+        } else {
+          // Si la réponse est un objet mais ne contient pas d'employé, vérifier s'il y a un message d'erreur
+          if (response && typeof response === "object") {
+            if (response.message && response.message.includes("erreur")) {
+              return { success: false, error: response.message };
+            }
 
-        // Vérifier si la réponse contient un indicateur de succès
-        if (response && response.success === false) {
-          console.error(
-            "Erreur API:",
-            response.message || "Erreur lors de la création de l'employé"
-          );
-          return {
-            success: false,
-            error:
-              response.message || "Erreur lors de la création de l'employé",
-          };
-        }
-
-        // Si la réponse contient un employé, c'est un succès
-        if (response && response.employee) {
-          // Mettre à jour l'état local
-          setEmployees((prev) => [...prev, response.employee]);
-          return { success: true, employee: response.employee };
-        }
-
-        // Si la réponse est un objet mais ne contient pas d'employé, vérifier s'il y a un message d'erreur
-        if (response && typeof response === "object") {
-          if (response.message && response.message.includes("erreur")) {
-            return { success: false, error: response.message };
+            // Si la réponse est l'employé lui-même
+            if (response.id) {
+              setEmployees((prev) => [...prev, response]);
+              return { success: true, employee: response };
+            }
           }
 
-          // Si la réponse est l'employé lui-même
-          if (response.id) {
-            setEmployees((prev) => [...prev, response]);
-            return { success: true, employee: response };
-          }
+          // Fallback pour les anciennes API qui renvoient directement l'employé
+          setEmployees((prev) => [...prev, response]);
+          return { success: true, employee: response };
         }
-
-        // Fallback pour les anciennes API qui renvoient directement l'employé
-        setEmployees((prev) => [...prev, response]);
-        return { success: true, employee: response };
       } catch (err) {
         console.error("Erreur lors de la création de l'employé:", err);
 
@@ -146,6 +123,8 @@ const useEmployees = () => {
         }
 
         return { success: false, error: errorMessage };
+      } finally {
+        setLoading(false);
       }
     },
     [api]
@@ -156,47 +135,28 @@ const useEmployees = () => {
    */
   const updateEmployee = useCallback(
     async (id, employeeData) => {
+      setLoading(true);
       try {
-        if (!id) {
-          console.error("ID d'employé non valide:", id);
-          return { success: false, error: "ID d'employé non valide" };
-        }
-
-        console.log("Données envoyées à l'API pour mise à jour:", employeeData);
-
-        // Convertir les valeurs numériques
-        const formattedData = {
-          ...employeeData,
-          contractHours: parseFloat(employeeData.contractHours) || 35,
-          hourlyRate: parseFloat(employeeData.hourlyRate) || 0,
-        };
-
         const response = await api.put(
-          API_ENDPOINTS.EMPLOYEES.BY_ID(id),
-          formattedData
+          `${API_ENDPOINTS.EMPLOYEES.BASE}/${id}`,
+          employeeData
         );
 
-        console.log("Réponse de l'API pour mise à jour:", response);
-
-        if (!response.ok) {
-          const errorMessage =
-            response.data?.message ||
-            "Erreur lors de la mise à jour de l'employé";
-          console.error("Erreur API:", errorMessage);
-          return { success: false, error: errorMessage };
+        if (response) {
+          // Mettre à jour la liste des employés
+          setEmployees((prevEmployees) =>
+            prevEmployees.map((emp) =>
+              emp.id === id ? { ...emp, ...response.data } : emp
+            )
+          );
+          setError(null);
+          return response.data;
         }
-
-        // Mettre à jour l'état local
-        setEmployees((prev) =>
-          prev.map((emp) =>
-            emp.id === id ? { ...emp, ...response.data } : emp
-          )
-        );
-
-        return { success: true, employee: response.data };
       } catch (err) {
         console.error("Erreur lors de la mise à jour de l'employé:", err);
         return { success: false, error: err.message || "Erreur inconnue" };
+      } finally {
+        setLoading(false);
       }
     },
     [api]
@@ -207,22 +167,17 @@ const useEmployees = () => {
    */
   const deleteEmployee = useCallback(
     async (id) => {
+      setLoading(true);
       try {
-        if (!id) {
-          console.error("ID d'employé non valide pour suppression:", id);
-          return { success: false, error: "ID d'employé non valide" };
-        }
+        const response = await api.delete(
+          `${API_ENDPOINTS.EMPLOYEES.BASE}/${id}`
+        );
 
-        console.log("Tentative de suppression de l'employé avec ID:", id);
-
-        const response = await api.delete(API_ENDPOINTS.EMPLOYEES.BY_ID(id));
-
-        console.log("Réponse de l'API pour suppression:", response);
-
-        // Vérifier si la réponse contient success: true
-        if (response && response.success === true) {
-          // Mettre à jour l'état local
-          setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+        if (response) {
+          // Mettre à jour la liste des employés
+          setEmployees((prevEmployees) =>
+            prevEmployees.filter((emp) => emp.id !== id)
+          );
           return { success: true };
         } else {
           const errorMessage =
@@ -233,6 +188,8 @@ const useEmployees = () => {
       } catch (err) {
         console.error("Erreur lors de la suppression de l'employé:", err);
         return { success: false, error: err.message || "Erreur inconnue" };
+      } finally {
+        setLoading(false);
       }
     },
     [api]
@@ -307,7 +264,6 @@ const useEmployees = () => {
   const fetchAllEmployeesHourBalances = useCallback(async () => {
     // Variable pour suivre si la fonction est déjà en cours d'exécution
     if (window._isFetchingHourBalances) {
-      console.log("Récupération des soldes d'heures déjà en cours, ignoré");
       return;
     }
 
@@ -354,7 +310,6 @@ const useEmployees = () => {
       }
 
       try {
-        console.log("Chargement des employés...");
         const token = localStorage.getItem("token");
 
         if (!token) {
@@ -365,7 +320,6 @@ const useEmployees = () => {
         }
 
         const data = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
-        console.log("Données des employés reçues:", data);
 
         if (mounted) {
           if (Array.isArray(data)) {

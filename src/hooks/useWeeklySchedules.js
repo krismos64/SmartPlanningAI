@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { WeeklyScheduleService } from "../services/api";
+import { formatDateForAPI } from "../utils/dateUtils";
 import {
   parseScheduleFromApi,
   prepareScheduleForApi,
@@ -89,26 +90,63 @@ const useWeeklySchedules = () => {
     setError(null);
 
     try {
-      console.log(`Récupération des plannings pour la semaine du ${weekStart}`);
-
-      const result = await WeeklyScheduleService.getByWeek(weekStart);
-
-      if (!result.success) {
-        throw new Error(
-          result.message || "Erreur lors du chargement des horaires"
-        );
+      // Vérifier que la date est au bon format
+      if (!weekStart) {
+        throw new Error("Date de début de semaine non spécifiée");
       }
 
-      // Standardiser les données
-      const standardizedSchedules = result.schedules.map((schedule) =>
-        parseScheduleFromApi(schedule)
+      // Vérifier que le token d'authentification est présent
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("Token d'authentification manquant");
+        throw new Error("Vous devez être connecté pour accéder à ces données");
+      }
+
+      // S'assurer que la date est au format YYYY-MM-DD
+      let formattedDate = weekStart;
+      if (weekStart instanceof Date) {
+        formattedDate = formatDateForAPI(weekStart);
+      } else if (typeof weekStart === "string" && weekStart.includes("T")) {
+        // Si la date contient un T (format ISO), extraire seulement la partie date
+        formattedDate = weekStart.split("T")[0];
+      }
+
+      console.error(
+        "Tentative de récupération des plannings pour la semaine du:",
+        formattedDate
       );
 
-      console.log("Plannings récupérés:", standardizedSchedules);
-      setSchedules(standardizedSchedules);
-      return standardizedSchedules;
+      try {
+        const result = await WeeklyScheduleService.getByWeek(formattedDate);
+
+        if (!result.success) {
+          console.error(
+            "Échec de la récupération des plannings:",
+            result.message,
+            result.details || ""
+          );
+          throw new Error(
+            result.message || "Erreur lors du chargement des horaires"
+          );
+        }
+
+        // Standardiser les données
+        const standardizedSchedules = result.schedules.map((schedule) =>
+          parseScheduleFromApi(schedule)
+        );
+
+        setSchedules(standardizedSchedules);
+        return standardizedSchedules;
+      } catch (apiError) {
+        console.error(
+          "Erreur API lors de la récupération des plannings:",
+          apiError
+        );
+        throw apiError;
+      }
     } catch (err) {
       console.error("Erreur lors du chargement des horaires:", err);
+      console.error("Détails de l'erreur:", JSON.stringify(err, null, 2));
       setError(
         "Erreur lors du chargement des horaires: " +
           (err.message || "Erreur inconnue")
@@ -127,13 +165,12 @@ const useWeeklySchedules = () => {
    */
   const createSchedule = useCallback(
     async (scheduleData) => {
+      setLoading(true);
       try {
         // Standardiser et préparer les données pour l'API
         const apiData = prepareScheduleForApi(
           standardizeScheduleData(scheduleData)
         );
-
-        console.log("Données envoyées à l'API:", apiData);
 
         const result = await WeeklyScheduleService.create(apiData);
 
@@ -169,13 +206,12 @@ const useWeeklySchedules = () => {
    */
   const updateSchedule = useCallback(
     async (id, scheduleData) => {
+      setLoading(true);
       try {
         // Standardiser et préparer les données pour l'API
         const apiData = prepareScheduleForApi(
           standardizeScheduleData(scheduleData)
         );
-
-        console.log(`Mise à jour du planning ${id}:`, apiData);
 
         const result = await WeeklyScheduleService.update(id, apiData);
 
@@ -216,9 +252,8 @@ const useWeeklySchedules = () => {
    */
   const deleteSchedule = useCallback(
     async (id) => {
+      setLoading(true);
       try {
-        console.log(`Suppression du planning ${id}`);
-
         const result = await WeeklyScheduleService.delete(id);
 
         if (!result.success) {

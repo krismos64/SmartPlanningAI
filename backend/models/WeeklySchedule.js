@@ -197,18 +197,34 @@ class WeeklySchedule {
    */
   static async findByWeek(weekStart) {
     try {
+      console.log("Recherche des plannings pour la semaine du:", weekStart);
+
+      if (!weekStart) {
+        console.error("Date de début de semaine non spécifiée");
+        return [];
+      }
+
       // Formater la date pour MySQL
       const formattedWeekStart = formatDateForMySQL(weekStart);
+      console.log("Date formatée pour MySQL:", formattedWeekStart);
 
+      if (!formattedWeekStart) {
+        console.error("Format de date invalide:", weekStart);
+        return [];
+      }
+
+      // Utiliser la fonction DATE() de MySQL pour comparer uniquement les dates sans les heures
       const sql = `
-        SELECT ws.*, e.first_name, e.last_name, e.role, e.department, e.contract_hours
+        SELECT ws.*, e.first_name, e.last_name, e.role, e.department, e.contractHours
         FROM weekly_schedules ws
         JOIN employees e ON ws.employee_id = e.id
-        WHERE ws.week_start = ?
+        WHERE DATE(ws.week_start) = DATE(?)
         ORDER BY e.last_name ASC
       `;
 
+      console.log("Exécution de la requête SQL avec date:", formattedWeekStart);
       const [rows] = await db.execute(sql, [formattedWeekStart]);
+      console.log(`${rows.length} plannings trouvés`);
 
       return rows.map((row) => {
         // Convertir les données du planning de JSON en objet si nécessaire
@@ -277,23 +293,56 @@ class WeeklySchedule {
    */
   static async findByEmployeeAndWeek(employeeId, weekStart) {
     try {
+      console.log(
+        "Recherche de planning pour employé:",
+        employeeId,
+        "semaine du:",
+        weekStart
+      );
+
+      if (!employeeId) {
+        console.error("ID employé non spécifié");
+        return null;
+      }
+
+      if (!weekStart) {
+        console.error("Date de début de semaine non spécifiée");
+        return null;
+      }
+
       // Formater la date pour MySQL
       const formattedWeekStart = formatDateForMySQL(weekStart);
+      console.log("Date formatée pour MySQL:", formattedWeekStart);
 
+      if (!formattedWeekStart) {
+        console.error("Format de date invalide:", weekStart);
+        return null;
+      }
+
+      // Utiliser la fonction DATE() de MySQL pour comparer uniquement les dates sans les heures
       const sql = `
-        SELECT ws.*, e.first_name, e.last_name, e.role, e.department
+        SELECT ws.*, e.first_name, e.last_name, e.role, e.department, e.contractHours
         FROM weekly_schedules ws
         JOIN employees e ON ws.employee_id = e.id
-        WHERE ws.employee_id = ? AND ws.week_start = ?
+        WHERE ws.employee_id = ? AND DATE(ws.week_start) = DATE(?)
       `;
 
+      console.log(
+        "Exécution de la requête SQL avec employé:",
+        employeeId,
+        "et date:",
+        formattedWeekStart
+      );
       const [rows] = await db.execute(sql, [employeeId, formattedWeekStart]);
+      console.log("Nombre de résultats:", rows.length);
 
       if (rows.length === 0) {
+        console.log("Aucun planning trouvé pour cet employé et cette semaine");
         return null;
       }
 
       const row = rows[0];
+      console.log("Planning trouvé avec ID:", row.id);
 
       // Convertir les données du planning de JSON en objet si nécessaire
       if (row.schedule_data && typeof row.schedule_data === "string") {

@@ -80,6 +80,10 @@ export const apiRequest = async (
 ) => {
   try {
     const token = localStorage.getItem("token");
+    console.log(
+      `[apiRequest] ${method} ${url} - Token:`,
+      token ? "Présent" : "Manquant"
+    );
 
     const config = {
       method,
@@ -92,24 +96,61 @@ export const apiRequest = async (
       ...(data && { data }),
     };
 
-    const response = await axios(config);
-    return response.data;
+    console.log(`[apiRequest] Configuration:`, {
+      method: config.method,
+      url: config.url,
+      headers: config.headers,
+      hasData: !!data,
+    });
+
+    try {
+      const response = await axios(config);
+      console.log(`[apiRequest] Réponse reçue:`, {
+        status: response.status,
+        statusText: response.statusText,
+        hasData: !!response.data,
+      });
+
+      return response.data;
+    } catch (axiosError) {
+      console.error(
+        `[apiRequest] Erreur Axios lors de la requête ${method} ${url}:`,
+        axiosError
+      );
+
+      // Gérer les erreurs réseau
+      if (!axiosError.response) {
+        console.error("[apiRequest] Erreur réseau:", axiosError.message);
+        throw new Error("Erreur réseau. Veuillez vérifier votre connexion.");
+      }
+
+      // Gérer les erreurs d'authentification
+      if (axiosError.response.status === 401) {
+        console.error("[apiRequest] Erreur d'authentification (401)");
+        // Rediriger vers la page de connexion ou rafraîchir le token
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+      }
+
+      // Propager l'erreur avec les détails
+      const errorMessage =
+        axiosError.response.data.message || "Une erreur est survenue";
+      const errorDetails = axiosError.response.data.details || "";
+      console.error(`[apiRequest] Message d'erreur:`, errorMessage);
+      console.error(`[apiRequest] Détails d'erreur:`, errorDetails);
+
+      const error = new Error(errorMessage);
+      error.details = errorDetails;
+      error.status = axiosError.response.status;
+      throw error;
+    }
   } catch (error) {
-    // Gérer les erreurs réseau
-    if (!error.response) {
-      throw new Error("Erreur réseau. Veuillez vérifier votre connexion.");
-    }
-
-    // Gérer les erreurs d'authentification
-    if (error.response.status === 401) {
-      // Rediriger vers la page de connexion ou rafraîchir le token
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      window.location.href = "/login";
-    }
-
-    // Propager l'erreur avec les détails
-    throw new Error(error.response.data.message || "Une erreur est survenue");
+    console.error(
+      `[apiRequest] Erreur lors de la requête ${method} ${url}:`,
+      error
+    );
+    throw error;
   }
 };
 
