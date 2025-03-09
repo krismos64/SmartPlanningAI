@@ -747,86 +747,75 @@ const WeeklySchedulePage = () => {
                 const employeeSchedule = scheduleData.find(
                   (s) => s.employeeId === employee.id
                 );
-                const days = employeeSchedule
-                  ? employeeSchedule.days.map((day) => ({
-                      isAbsent:
-                        day.type === "absence" &&
-                        day.absence &&
-                        day.absence.trim() !== "",
-                      absenceReason: day.absence || "",
-                      hours: day.hours || "0",
-                      timeSlots: day.timeSlots || [],
-                      notes: day.note || "",
-                    }))
-                  : Array(7)
-                      .fill()
-                      .map(() => ({
-                        isAbsent: false,
-                        absenceReason: "",
-                        hours: "0",
-                        timeSlots: [],
-                        notes: "",
-                      }));
-
-                // Calculer le total des heures
-                const totalHours = days.reduce((sum, day) => {
-                  return sum + (day.isAbsent ? 0 : parseFloat(day.hours || 0));
-                }, 0);
-
-                // Déterminer la couleur du total (rouge si < heures contractuelles, vert si >=)
-                const totalColor =
-                  totalHours < employee.contractHours ? "#ef4444" : "#10b981";
+                const totalHours = employeeSchedule
+                  ? employeeSchedule.days.reduce(
+                      (sum, day) =>
+                        sum +
+                        (day.type === "absence"
+                          ? 0
+                          : parseFloat(day.hours || 0)),
+                      0
+                    )
+                  : 0;
 
                 return `
                 <tr>
-                  <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: bold;">
-                    ${employee.firstName} ${employee.lastName}<br>
-                    <span style="font-weight: normal; font-size: 0.9em;">${
-                      employee.role
-                    }</span>
+                  <td style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">
+                    <strong>${
+                      employee.firstName || employee.first_name || "Inconnu"
+                    } ${
+                  employee.lastName || employee.last_name || "Inconnu"
+                }</strong><br>
+                    <small>${employee.role || "Inconnu"}</small>
                   </td>
-                  ${days
-                    .map((day, index) => {
-                      const dayDate = new Date(currentWeekStart);
-                      dayDate.setDate(dayDate.getDate() + index);
+                  ${getDaysOfWeek(currentWeekStart)
+                    .map((dayDate, index) => {
                       const isWeekendDay = isWeekend(dayDate);
+
+                      // Récupérer les données du jour pour cet employé
+                      const dayData = employeeSchedule
+                        ? employeeSchedule.days[index]
+                        : null;
+
+                      // Déterminer le contenu de la cellule
+                      let cellContent = "-";
+                      if (dayData) {
+                        if (
+                          dayData.type === "absence" &&
+                          dayData.absence &&
+                          dayData.absence.trim() !== ""
+                        ) {
+                          cellContent = `<span style="color: #ef4444;">${
+                            dayData.absence || "Absent"
+                          }</span>`;
+                        } else if (
+                          dayData.timeSlots &&
+                          dayData.timeSlots.length > 0
+                        ) {
+                          cellContent = dayData.timeSlots
+                            .map((slot) => `${slot.start}-${slot.end}`)
+                            .join("<br>");
+
+                          // Ajouter les heures si disponibles
+                          if (dayData.hours) {
+                            cellContent += `<br><small>${dayData.hours}h</small>`;
+                          }
+                        } else if (dayData.hours) {
+                          cellContent = `${dayData.hours}h`;
+                        }
+                      }
 
                       return `
                       <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center; ${
                         isWeekendDay ? "background-color: #f9fafb;" : ""
                       }">
-                        ${
-                          day.isAbsent
-                            ? `<span style="color: #ef4444; font-weight: bold;">${
-                                day.absenceReason || "Absent"
-                              }</span>`
-                            : `
-                            <div style="font-weight: bold; font-size: 1.2em;">${(
-                              day.timeSlots || []
-                            )
-                              .map((slot) => `${slot.start}-${slot.end}`)
-                              .join("<br>")}</div>
-                            <div style="font-size: 0.8em; margin-top: 3px;">${
-                              day.hours
-                            }h</div>
-                            ${
-                              day.notes
-                                ? `<div style="font-style: italic; font-size: 0.8em; color: #6b7280;">${DOMPurify.sanitize(
-                                    day.notes
-                                  )}</div>`
-                                : ""
-                            }
-                          `
-                        }
+                        ${cellContent}
                       </td>
                     `;
                     })
                     .join("")}
-                  <td style="padding: 10px; border: 1px solid #d1d5db; text-align: center; font-weight: bold; color: ${totalColor};">
-                    ${totalHours.toFixed(1)}h<br>
-                    <span style="font-size: 0.8em; font-weight: normal;">(${
-                      employee.contractHours
-                    }h)</span>
+                  <td style="padding: 10px; border: 1px solid #d1d5db; text-align: center; font-weight: bold;">
+                    ${totalHours.toFixed(1)}h
                   </td>
                 </tr>
               `;
@@ -961,7 +950,9 @@ const WeeklySchedulePage = () => {
                 return `
                 <tr>
                   <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: bold;">
-                    ${employee.firstName} ${employee.lastName}<br>
+                    ${employee.firstName || employee.first_name || "Inconnu"} ${
+                  employee.lastName || employee.last_name || "Inconnu"
+                }<br>
                     <span style="font-weight: normal; font-size: 0.9em;">${
                       employee.role
                     }</span>
@@ -1066,7 +1057,9 @@ const WeeklySchedulePage = () => {
 
     if (!employeeSchedule) {
       toast.info(
-        `Aucun planning trouvé pour ${employee.firstName} ${employee.lastName}`
+        `Aucun planning trouvé pour ${
+          employee.firstName || employee.first_name || "Inconnu"
+        } ${employee.lastName || employee.last_name || "Inconnu"}`
       );
       return;
     }
@@ -1111,8 +1104,8 @@ const WeeklySchedulePage = () => {
         
         <div style="margin-bottom: 20px; text-align: center;">
           <h2 style="margin-bottom: 5px; color: #2563eb; font-size: 24px; font-weight: bold;">${
-            employee.firstName
-          } ${employee.lastName}</h2>
+            employee.firstName || employee.first_name || "Inconnu"
+          } ${employee.lastName || employee.last_name || "Inconnu"}</h2>
           <p style="margin: 5px 0;">Poste: ${employee.role}</p>
           <p style="margin: 5px 0;">Département: ${employee.department}</p>
           <p style="margin: 5px 0;">Heures contractuelles: ${
@@ -1197,17 +1190,20 @@ const WeeklySchedulePage = () => {
 
       pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
       pdf.save(
-        `Planning_${employee.firstName}_${employee.lastName}_${formatDate(
-          currentWeekStart,
-          "yyyy-MM-dd"
-        )}.pdf`
+        `Planning_${employee.firstName || employee.first_name || "Inconnu"}_${
+          employee.lastName || employee.last_name || "Inconnu"
+        }_${formatDate(currentWeekStart, "yyyy-MM-dd")}.pdf`
       );
 
       // Nettoyer
       document.body.removeChild(tempElement);
 
       toast.success(
-        `Planning de ${employee.firstName} ${employee.lastName} exporté avec succès`
+        `Planning de ${
+          employee.firstName || employee.first_name || "Inconnu"
+        } ${
+          employee.lastName || employee.last_name || "Inconnu"
+        } exporté avec succès`
       );
     });
   };

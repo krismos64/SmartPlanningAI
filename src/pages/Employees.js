@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeForm from "../components/employees/EmployeeForm";
+import HourBalanceManager from "../components/employees/HourBalanceManager";
 import WorkHoursManager from "../components/employees/WorkHoursManager";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
 import { FormSelect } from "../components/ui/Form";
@@ -587,6 +588,12 @@ const Employees = () => {
               >
                 Gestion des heures
               </TabModal>
+              <TabModal
+                active={activeModalTab === "balance"}
+                onClick={() => setActiveModalTab("balance")}
+              >
+                Solde d'heures
+              </TabModal>
             </TabsModalContainer>
 
             <ModalContent>
@@ -597,10 +604,15 @@ const Employees = () => {
                   onSubmit={handleSubmit}
                   onDelete={handleDeleteEmployee}
                 />
-              ) : (
+              ) : activeModalTab === "hours" ? (
                 <WorkHoursManager
                   employeeId={editingEmployee.id}
                   employeeName={`${editingEmployee.first_name} ${editingEmployee.last_name}`}
+                />
+              ) : (
+                <HourBalanceManager
+                  employeeId={editingEmployee.id}
+                  onBalanceUpdated={fetchEmployees}
                 />
               )}
             </ModalContent>

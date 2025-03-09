@@ -619,9 +619,9 @@ const WeeklyScheduleGrid = ({
     const formattedWeekStart = formatDate(weekStartDate);
     const formattedWeekEnd = formatDate(weekEndDate);
 
-    // Récupérer le prénom et le nom
-    const firstName = employee.first_name || "Inconnu";
-    const lastName = employee.last_name || "Inconnu";
+    // Récupérer le prénom et le nom en tenant compte des différentes structures possibles
+    const firstName = employee.firstName || employee.first_name || "Inconnu";
+    const lastName = employee.lastName || employee.last_name || "Inconnu";
 
     // Calculer le total des heures
     const totalHours = days.reduce((sum, day) => {
