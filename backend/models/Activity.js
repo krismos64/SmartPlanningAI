@@ -289,6 +289,39 @@ class Activity {
         details = {},
       } = activityData;
 
+      console.log("Activity.create appelé avec les données:", {
+        type,
+        entity_type,
+        entity_id,
+        description,
+        user_id,
+        ip_address,
+        user_agent,
+        details:
+          typeof details === "string"
+            ? "String (length: " + details.length + ")"
+            : details,
+      });
+
+      // Préparer les détails pour l'insertion dans la base de données
+      let detailsJson;
+      try {
+        if (typeof details === "string") {
+          // Vérifier si c'est déjà une chaîne JSON valide
+          JSON.parse(details);
+          detailsJson = details;
+        } else {
+          // Convertir l'objet en chaîne JSON
+          detailsJson = JSON.stringify(details || {});
+        }
+      } catch (error) {
+        console.error(
+          "Erreur lors de la conversion des détails en JSON:",
+          error
+        );
+        detailsJson = JSON.stringify({});
+      }
+
       // Enregistrer l'activité dans la base de données
       const query = `
         INSERT INTO activities (
@@ -305,6 +338,18 @@ class Activity {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
+      console.log("Exécution de la requête SQL:", query);
+      console.log("Paramètres:", [
+        type,
+        entity_type,
+        entity_id,
+        description,
+        user_id,
+        ip_address,
+        user_agent,
+        detailsJson,
+      ]);
+
       const [result] = await db.query(query, [
         type,
         entity_type,
@@ -313,11 +358,14 @@ class Activity {
         user_id,
         ip_address,
         user_agent,
-        JSON.stringify(details || {}),
+        detailsJson,
       ]);
+
+      console.log("Résultat de l'insertion:", result);
 
       // Récupérer l'activité créée pour l'envoyer via WebSocket
       const activity = await this.getById(result.insertId);
+      console.log("Activité récupérée:", activity);
 
       // Notifier tous les clients WebSocket connectés
       if (global.wss) {
@@ -612,88 +660,79 @@ class Activity {
    */
   static formatActivityDescription(activity) {
     try {
-      // Si la description est déjà formatée, la retourner telle quelle
-      if (activity.description) {
-        return activity.description;
+      if (!activity) return "";
+
+      const { type, entity_type, entity_id, description, details } = activity;
+
+      // Si une description personnalisée est fournie, l'utiliser directement
+      if (description) {
+        return description;
       }
 
-      let details = {};
-      if (activity.details) {
-        if (typeof activity.details === "string") {
-          try {
-            details = JSON.parse(activity.details);
-          } catch (e) {
-            details = {};
+      // Formater le type d'entité
+      const entityName =
+        {
+          employee: "un employé",
+          schedule: "un planning",
+          vacation: "une demande de congé",
+          shift: "un horaire",
+          user: "un utilisateur",
+        }[entity_type] || entity_type;
+
+      // Formater le type d'action
+      const actionType =
+        {
+          create: "a créé",
+          update: "a modifié",
+          delete: "a supprimé",
+          approve: "a approuvé",
+          reject: "a rejeté",
+        }[type] || type;
+
+      // Construire la description
+      let formattedDescription = `Un utilisateur ${actionType} ${entityName}`;
+
+      // Ajouter des détails si disponibles
+      if (details) {
+        let parsedDetails;
+        try {
+          parsedDetails =
+            typeof details === "string" ? JSON.parse(details) : details;
+        } catch (e) {
+          parsedDetails = details;
+        }
+
+        // Cas spécial pour les modifications de solde d'heures
+        if (
+          entity_type === "employee" &&
+          parsedDetails.action &&
+          (parsedDetails.action === "Ajout d'heures" ||
+            parsedDetails.action === "Soustraction d'heures")
+        ) {
+          const userName = parsedDetails.userName || "Un utilisateur";
+          const employeeName =
+            parsedDetails.employeeName || `Employé #${entity_id}`;
+          const hours = parsedDetails.hours || "?";
+          const action =
+            parsedDetails.action === "Ajout d'heures" ? "ajouté" : "soustrait";
+
+          return `${userName} a ${action} ${hours}h au solde d'heures de ${employeeName}`;
+        }
+
+        // Pour les autres types d'activités
+        if (typeof parsedDetails === "string") {
+          formattedDescription += ` : ${parsedDetails}`;
+        } else if (typeof parsedDetails === "object") {
+          if (parsedDetails.employeeName && entity_type === "employee") {
+            formattedDescription += ` : ${parsedDetails.employeeName}`;
           }
-        } else {
-          details = activity.details;
         }
       }
 
-      // Formater la description en fonction du type d'activité
-      switch (activity.type) {
-        case "create":
-          switch (activity.entity_type) {
-            case "employee":
-              return `Création de l'employé ${
-                details.employeeName || "Inconnu"
-              }`;
-            case "vacation":
-              return `Nouvelle demande de congés ${details.type || ""} du ${
-                details.start_date || "?"
-              } au ${details.end_date || "?"}`;
-            case "planning":
-              return `Création d'un planning pour l'employé #${
-                details.employee_id || "Inconnu"
-              }`;
-            default:
-              return `Création d'un(e) ${activity.entity_type || "élément"}`;
-          }
-        case "update":
-          switch (activity.entity_type) {
-            case "employee":
-              return `Mise à jour de l'employé ${
-                details.employeeName || "Inconnu"
-              }`;
-            case "vacation":
-              return `Mise à jour de la demande de congés pour ${
-                details.employeeName || "Inconnu"
-              }`;
-            case "planning":
-              return `Mise à jour du planning pour l'employé #${
-                details.employee_id || "Inconnu"
-              }`;
-            default:
-              return `Mise à jour d'un(e) ${activity.entity_type || "élément"}`;
-          }
-        case "delete":
-          switch (activity.entity_type) {
-            case "employee":
-              return `Suppression de l'employé ${
-                details.employeeName || "Inconnu"
-              }`;
-            case "vacation":
-              return `Suppression de la demande de congés pour ${
-                details.employeeName || "Inconnu"
-              }`;
-            case "planning":
-              return `Suppression du planning pour l'employé #${
-                details.employee_id || "Inconnu"
-              }`;
-            default:
-              return `Suppression d'un(e) ${activity.entity_type || "élément"}`;
-          }
-        default:
-          return `Action ${activity.type || "inconnue"} sur ${
-            activity.entity_type || "élément"
-          }`;
-      }
+      return formattedDescription;
     } catch (error) {
-      console.error(
-        "Erreur lors du formatage de la description de l'activité:",
-        error
-      );
-      return "Action non spécifiée";
+      console.error("Erreur lors du formatage de la description:", error);
+      return "Activité inconnue";
     }
   }
 }

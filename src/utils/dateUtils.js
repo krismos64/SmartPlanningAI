@@ -7,6 +7,10 @@ import {
   addWeeks as addWeeksDate,
   endOfWeek,
   format,
+  getDay,
+  isAfter,
+  isBefore,
+  isSameDay,
   startOfWeek,
 } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -302,31 +306,13 @@ export const getWorkingDaysCount = (
 };
 
 /**
- * Vérifie si deux dates sont le même jour
- * @param {string|Date} date1 - Première date
- * @param {string|Date} date2 - Deuxième date
- * @returns {boolean} True si c'est le même jour, false sinon
- */
-export const isSameDay = (date1, date2) => {
-  if (!date1 || !date2) return false;
-
-  const d1 = new Date(date1);
-  const d2 = new Date(date2);
-
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-};
-
-/**
  * Vérifie si une date est aujourd'hui
  * @param {string|Date} date - La date à vérifier
  * @returns {boolean} True si c'est aujourd'hui, false sinon
  */
 export const isToday = (date) => {
-  return isSameDay(date, new Date());
+  if (!date) return false;
+  return isSameDay(new Date(date), new Date());
 };
 
 /**
@@ -349,4 +335,157 @@ export const isDateBetween = (date, start, end) => {
   e.setHours(0, 0, 0, 0);
 
   return d >= s && d <= e;
+};
+
+/**
+ * Formate une date pour l'affichage en format français
+ * @param {string|Date} date - La date à formater
+ * @param {string} formatStr - Le format à utiliser (par défaut: 'dd/MM/yyyy')
+ * @returns {string} La date formatée
+ */
+export const formatDateForDisplay = (date, formatStr = "dd/MM/yyyy") => {
+  if (!date) return "";
+
+  try {
+    // Si la date est déjà au format YYYY-MM-DD, la convertir en objet Date
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+
+    // Formater la date selon le format spécifié
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const year = dateObj.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  } catch (error) {
+    console.error("Erreur lors du formatage de la date:", error);
+    return "";
+  }
+};
+
+/**
+ * Vérifie si une date est dans le passé
+ * @param {Date} date - La date à vérifier
+ * @returns {boolean} Vrai si la date est dans le passé
+ */
+export const isPast = (date) => {
+  return isBefore(date, new Date()) && !isToday(date);
+};
+
+/**
+ * Vérifie si une date est dans le futur
+ * @param {Date} date - La date à vérifier
+ * @returns {boolean} Vrai si la date est dans le futur
+ */
+export const isFuture = (date) => {
+  return isAfter(date, new Date());
+};
+
+/**
+ * Génère un tableau des jours de la semaine à partir d'une date de début
+ * @param {Date} startDate - La date de début de la semaine
+ * @returns {Array} Un tableau des jours de la semaine
+ */
+export const getWeekDays = (startDate) => {
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    days.push(addDays(startDate, i));
+  }
+  return days;
+};
+
+/**
+ * Formate une date pour l'affichage dans un format court
+ * @param {Date} date - La date à formater
+ * @returns {string} La date formatée
+ */
+export const formatShortDate = (date) => {
+  return format(date, "EEE dd/MM", { locale: fr });
+};
+
+/**
+ * Formate une date pour l'affichage dans un format long
+ * @param {Date} date - La date à formater
+ * @returns {string} La date formatée
+ */
+export const formatLongDate = (date) => {
+  return format(date, "EEEE dd MMMM yyyy", { locale: fr });
+};
+
+/**
+ * Obtient le jour de la semaine (0-6, où 0 est dimanche)
+ * @param {Date} date - La date
+ * @returns {number} Le jour de la semaine
+ */
+export const getDayOfWeek = (date) => {
+  return getDay(date);
+};
+
+/**
+ * Formate une heure pour l'affichage
+ * @param {number} hours - Les heures
+ * @param {number} minutes - Les minutes
+ * @returns {string} L'heure formatée
+ */
+export const formatTime = (hours, minutes = 0) => {
+  return `${hours.toString().padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+/**
+ * Convertit une chaîne de caractères au format "HH:MM" en minutes
+ * @param {string} timeString - La chaîne de caractères au format "HH:MM"
+ * @returns {number} Le nombre de minutes
+ */
+export const timeStringToMinutes = (timeString) => {
+  if (!timeString) return 0;
+
+  const [hours, minutes] = timeString.split(":").map(Number);
+  return hours * 60 + minutes;
+};
+
+/**
+ * Convertit des minutes en chaîne de caractères au format "HH:MM"
+ * @param {number} minutes - Le nombre de minutes
+ * @returns {string} La chaîne de caractères au format "HH:MM"
+ */
+export const minutesToTimeString = (minutes) => {
+  if (!minutes && minutes !== 0) return "";
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+/**
+ * Vérifie si une date est dans une plage de dates
+ * @param {Date} date - La date à vérifier
+ * @param {Date} start - La date de début de la plage
+ * @param {Date} end - La date de fin de la plage
+ * @returns {boolean} Vrai si la date est dans la plage
+ */
+export const isDateInRange = (date, start, end) => {
+  const d = new Date(date);
+  const s = new Date(start);
+  const e = new Date(end);
+  return d >= s && d <= e;
+};
+
+export default {
+  addWeeks,
+  getWeekStart,
+  isToday,
+  isPast,
+  isFuture,
+  getWeekDays,
+  formatShortDate,
+  formatLongDate,
+  getDayOfWeek,
+  formatTime,
+  timeStringToMinutes,
+  minutesToTimeString,
+  formatDateForDisplay,
+  isDateInRange,
 };

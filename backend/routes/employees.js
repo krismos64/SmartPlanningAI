@@ -49,6 +49,18 @@ router.post("/", auth, async (req, res) => {
   try {
     const employeeData = req.body;
 
+    // Log des données reçues pour le débogage
+    console.log(
+      "Données reçues pour la création de l'employé:",
+      JSON.stringify(employeeData, null, 2)
+    );
+
+    // Supprimer hourlyRate des données reçues pour éviter l'erreur
+    if (employeeData.hourlyRate !== undefined) {
+      console.log("Suppression de hourlyRate des données reçues");
+      delete employeeData.hourlyRate;
+    }
+
     // Validation des données
     if (!employeeData.first_name || !employeeData.last_name) {
       return res.status(400).json({
@@ -60,6 +72,8 @@ router.post("/", auth, async (req, res) => {
     // Créer l'employé
     const employee = new Employee(employeeData);
     await employee.save();
+
+    console.log("Employé créé avec succès:", JSON.stringify(employee, null, 2));
 
     // L'ID est maintenant disponible dans l'objet employee
     const employeeId = employee.id;
@@ -119,6 +133,19 @@ router.post("/", auth, async (req, res) => {
 // @access  Private
 router.put("/:id", auth, async (req, res) => {
   try {
+    // Log des données reçues pour le débogage
+    console.log(
+      "Données reçues pour la mise à jour de l'employé:",
+      req.params.id,
+      JSON.stringify(req.body, null, 2)
+    );
+
+    // Supprimer hourlyRate des données reçues pour éviter l'erreur
+    if (req.body.hourlyRate !== undefined) {
+      console.log("Suppression de hourlyRate des données reçues");
+      delete req.body.hourlyRate;
+    }
+
     // Récupérer l'employé avant la mise à jour pour avoir les anciennes valeurs
     const oldEmployee = await Employee.findById(req.params.id);
     if (!oldEmployee) {
@@ -128,10 +155,20 @@ router.put("/:id", auth, async (req, res) => {
       });
     }
 
+    console.log(
+      "Employé avant mise à jour:",
+      JSON.stringify(oldEmployee, null, 2)
+    );
+
     // Mettre à jour l'employé
     const updatedEmployee = await Employee.findByIdAndUpdate(
       req.params.id,
       req.body
+    );
+
+    console.log(
+      "Employé après mise à jour:",
+      JSON.stringify(updatedEmployee, null, 2)
     );
 
     // Enregistrer l'activité

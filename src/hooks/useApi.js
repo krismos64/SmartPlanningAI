@@ -50,18 +50,22 @@ const useApi = () => {
         // Gérer les erreurs d'authentification (401, 403)
         if (response.status === 401 || response.status === 403) {
           console.error("Erreur d'authentification:", data);
+
+          // Afficher un message d'erreur mais ne pas rediriger
           toast.error(
             "Session expirée ou accès non autorisé. Veuillez vous reconnecter."
           );
 
-          // Supprimer le token et l'utilisateur du localStorage
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          // Ne pas supprimer le token et l'utilisateur du localStorage
+          // Ne pas rediriger vers la page de connexion
 
-          // Rediriger vers la page de connexion après un délai
-          setTimeout(() => {
-            window.location.href = "/login";
-          }, 2000);
+          // Lancer une erreur avec un message clair
+          const error = new Error(
+            "Veuillez vous connecter pour accéder à cette page."
+          );
+          error.status = response.status;
+          error.response = { status: response.status, data };
+          throw error;
         }
 
         // Gérer les erreurs serveur (500)
@@ -100,76 +104,43 @@ const useApi = () => {
   const api = useMemo(() => {
     const get = async (endpoint) => {
       try {
-        console.log(`[API] GET ${endpoint}`);
+        // Vérifier que l'URL est correcte
+        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        console.log(`[API] GET ${apiUrl}${endpoint}`);
+
         const token = localStorage.getItem("token");
+        const headers = {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        };
 
-        if (!token) {
-          console.error(
-            "Token d'authentification manquant pour la requête GET"
-          );
-          toast.error("Vous devez être connecté pour accéder à ces données");
-          setTimeout(() => {
-            window.location.href = "/login";
-          }, 2000);
-          return { ok: false, status: 401, data: [] };
-        }
+        const response = await fetch(`${apiUrl}${endpoint}`, {
+          method: "GET",
+          headers,
+        });
 
-        // Ajouter un timeout pour éviter que les requêtes ne restent bloquées
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondes de timeout
-
-        try {
-          const response = await fetch(`${API_URL}${endpoint}`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            credentials: "include",
-            signal: controller.signal,
-          });
-
-          // Annuler le timeout
-          clearTimeout(timeoutId);
-
-          return await handleResponse(response);
-        } catch (fetchError) {
-          // Gérer spécifiquement les erreurs d'abort
-          if (fetchError.name === "AbortError") {
-            console.warn(`La requête ${endpoint} a été interrompue (timeout)`);
-            throw new Error(`Timeout de la requête après 5 secondes`);
-          }
-          throw fetchError;
-        }
+        return handleResponse(response);
       } catch (error) {
         console.error(`[API] GET ${endpoint} Error:`, error);
-
-        // Si l'erreur est liée à l'authentification, rediriger vers la page de connexion
-        if (error.status === 401 || error.status === 403) {
-          toast.error("Session expirée. Veuillez vous reconnecter.");
-          setTimeout(() => {
-            window.location.href = "/login";
-          }, 2000);
-        } else {
-          // Ne pas afficher de toast pour les erreurs de timeout ou de réseau
-          // pour éviter de surcharger l'interface
-          if (
-            !error.message.includes("Timeout") &&
-            !error.message.includes("fetch")
-          ) {
-            toast.error(
-              error.message || "Erreur lors de la récupération des données"
-            );
-          }
-        }
-
         throw error;
       }
     };
 
     // Fonction utilitaire pour convertir camelCase en snake_case
     const camelToSnakeCase = (str) => {
-      return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+      // Cas spécial pour zipCode qui doit devenir zip_code
+      if (str === "zipCode") {
+        console.log(`Conversion spéciale: ${str} -> zip_code`);
+        return "zip_code";
+      }
+
+      // Conversion normale
+      const result = str.replace(
+        /[A-Z]/g,
+        (letter) => `_${letter.toLowerCase()}`
+      );
+      console.log(`Conversion camelCase -> snake_case: ${str} -> ${result}`);
+      return result;
     };
 
     const post = async (endpoint, data) => {
@@ -180,20 +151,35 @@ const useApi = () => {
           throw new Error("Données invalides pour la requête POST");
         }
 
-        // Convertir les données en snake_case pour le backend
-        const snakeCaseData = {};
-        for (const key in data) {
-          snakeCaseData[camelToSnakeCase(key)] = data[key];
-        }
+        // Vérifier que l'URL est correcte
+        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        console.log(`[API] POST ${apiUrl}${endpoint}`);
 
-        // Récupérer le token d'authentification
+        // Vérifier si le token est présent
         const token = localStorage.getItem("token");
         if (!token) {
           console.error("Token d'authentification manquant");
-          throw new Error(
-            "Vous devez être connecté pour effectuer cette action"
-          );
+          throw new Error("Veuillez vous connecter pour accéder à cette page.");
         }
+
+        // S'assurer que les données sont sérialisables
+        const cleanData = JSON.parse(JSON.stringify(data));
+
+        // Supprimer hourlyRate des données pour éviter l'erreur
+        if (cleanData.hourlyRate !== undefined) {
+          console.log("Suppression de hourlyRate des données");
+          delete cleanData.hourlyRate;
+        }
+
+        // Convertir les données en snake_case pour le backend
+        const snakeCaseData = {};
+        for (const key in cleanData) {
+          snakeCaseData[camelToSnakeCase(key)] = cleanData[key];
+        }
+        console.log(
+          "Données converties en snake_case pour POST:",
+          snakeCaseData
+        );
 
         // Configurer les en-têtes de la requête
         const headers = {
@@ -212,7 +198,7 @@ const useApi = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(`${apiUrl}${endpoint}`, {
           method: "POST",
           headers,
           body: JSON.stringify(snakeCaseData),
@@ -222,6 +208,12 @@ const useApi = () => {
         // Annuler le timeout
         clearTimeout(timeoutId);
 
+        // Vérifier si la réponse est une erreur d'authentification
+        if (response.status === 401 || response.status === 403) {
+          console.error("Erreur d'authentification:", response.status);
+          throw new Error("Veuillez vous connecter pour accéder à cette page.");
+        }
+
         // Traiter la réponse
         return handleResponse(response);
       } catch (error) {
@@ -229,7 +221,7 @@ const useApi = () => {
         if (error.name === "AbortError") {
           console.error("La requête a été interrompue (timeout):", error);
           throw new Error(
-            "La requête a pris trop de temps, veuillez réessayer"
+            "La requête a pris trop de temps. Veuillez réessayer."
           );
         }
 
@@ -251,35 +243,62 @@ const useApi = () => {
 
     const put = async (endpoint, data) => {
       try {
-        console.log(`[API] PUT ${endpoint}`, data);
+        // Vérifier que l'URL est correcte
+        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        console.log(`[API] PUT ${apiUrl}${endpoint}`, data);
+
         const token = localStorage.getItem("token");
+
+        // Vérifier si le token est présent
+        if (!token) {
+          console.error("Token d'authentification manquant");
+          throw new Error("Veuillez vous connecter pour accéder à cette page.");
+        }
 
         // S'assurer que les données sont sérialisables
         const cleanData = JSON.parse(JSON.stringify(data));
+        console.log("Données nettoyées:", cleanData);
+
+        // Supprimer hourlyRate des données pour éviter l'erreur
+        if (cleanData.hourlyRate !== undefined) {
+          console.log("Suppression de hourlyRate des données");
+          delete cleanData.hourlyRate;
+        }
 
         // Convertir les données en snake_case pour le backend
         const snakeCaseData = {};
         for (const key in cleanData) {
           snakeCaseData[camelToSnakeCase(key)] = cleanData[key];
         }
+        console.log("Données converties en snake_case:", snakeCaseData);
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(`${apiUrl}${endpoint}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(snakeCaseData),
         });
+
+        // Vérifier si la réponse est une erreur d'authentification
+        if (response.status === 401 || response.status === 403) {
+          console.error("Erreur d'authentification:", response.status);
+          throw new Error("Veuillez vous connecter pour accéder à cette page.");
+        }
 
         const result = await handleResponse(response);
         console.log(`[API] PUT ${endpoint} Response:`, result);
         return result;
       } catch (error) {
         console.error(`[API] PUT ${endpoint} Error:`, error);
+
+        // Ne pas rediriger automatiquement vers la page de connexion
+        // Laisser le composant gérer l'erreur
+
         return {
           ok: false,
-          status: 0,
+          status: error.status || 0,
           data: { message: error.message || "Erreur lors de la requête PUT" },
           headers: new Headers(),
         };
@@ -288,16 +307,29 @@ const useApi = () => {
 
     const del = async (endpoint) => {
       try {
-        console.log(`[API] DELETE ${endpoint}`);
+        // Vérifier que l'URL est correcte
+        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        console.log(`[API] DELETE ${apiUrl}${endpoint}`);
+
         const token = localStorage.getItem("token");
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        if (!token) {
+          console.error("Token d'authentification manquant");
+          throw new Error("Veuillez vous connecter pour accéder à cette page.");
+        }
+
+        const response = await fetch(`${apiUrl}${endpoint}`, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
+            Authorization: `Bearer ${token}`,
           },
-          credentials: "include",
         });
+
+        // Vérifier si la réponse est une erreur d'authentification
+        if (response.status === 401 || response.status === 403) {
+          console.error("Erreur d'authentification:", response.status);
+          throw new Error("Veuillez vous connecter pour accéder à cette page.");
+        }
 
         const result = await handleResponse(response);
         console.log(`[API] DELETE ${endpoint} Response:`, result);
@@ -306,7 +338,7 @@ const useApi = () => {
         console.error(`[API] DELETE ${endpoint} Error:`, error);
         return {
           ok: false,
-          status: 0,
+          status: error.status || 0,
           data: {
             message: error.message || "Erreur lors de la requête DELETE",
           },

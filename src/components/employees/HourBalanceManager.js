@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import styled from "styled-components";
-import { API_ENDPOINTS } from "../../config/api";
+import { API_ENDPOINTS, API_URL } from "../../config/api";
+import { useAuth } from "../../contexts/AuthContext";
 import useApi from "../../hooks/useApi";
 
 const Container = styled.div`
@@ -143,7 +144,24 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
   const [hours, setHours] = useState("1");
   const [currentBalance, setCurrentBalance] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [employeeData, setEmployeeData] = useState(null);
   const api = useApi();
+  const { token, user } = useAuth();
+
+  // Charger les données de l'employé
+  const fetchEmployeeData = useCallback(async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.EMPLOYEES.BY_ID(employeeId));
+      if (response) {
+        setEmployeeData(response);
+      }
+    } catch (error) {
+      console.error(
+        "Erreur lors de la récupération des données de l'employé:",
+        error
+      );
+    }
+  }, [employeeId, api]);
 
   // Charger le solde actuel
   const fetchCurrentBalance = useCallback(async () => {
@@ -175,12 +193,13 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
     }
   }, [employeeId, api]);
 
-  // Charger le solde au montage du composant
+  // Charger le solde et les données de l'employé au montage du composant
   useEffect(() => {
     if (employeeId) {
       fetchCurrentBalance();
+      fetchEmployeeData();
     }
-  }, [employeeId, fetchCurrentBalance]);
+  }, [employeeId, fetchCurrentBalance, fetchEmployeeData]);
 
   // Ajuster la valeur des heures
   const adjustHours = (increment) => {
@@ -188,6 +207,92 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
     const newValue = Math.max(0.25, currentValue + increment);
     setHours(newValue.toFixed(2));
   };
+
+  // Ajouter une activité récente
+  const logActivity = useCallback(
+    async (operation, hoursValue) => {
+      try {
+        console.log("Tentative d'enregistrement d'une activité...");
+        console.log("URL de l'API utilisée:", API_URL);
+        console.log("Token d'authentification disponible:", !!token);
+        console.log("Utilisateur connecté:", user);
+
+        if (!employeeData) {
+          console.warn("Données de l'employé non disponibles, récupération...");
+          await fetchEmployeeData();
+        }
+
+        const employeeName = employeeData
+          ? `${employeeData.first_name} ${employeeData.last_name}`
+          : `Employé #${employeeId}`;
+
+        const userName = user
+          ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+          : "Un utilisateur";
+
+        console.log("Nom de l'employé pour l'activité:", employeeName);
+        console.log("Nom de l'utilisateur pour l'activité:", userName);
+
+        // Créer une description claire pour l'activité
+        const description = `${userName} a ${
+          operation === "add" ? "ajouté" : "soustrait"
+        } ${hoursValue}h au solde d'heures de ${employeeName}`;
+
+        // Préparer les données de l'activité selon le format attendu par le serveur
+        const activityData = {
+          type: "update",
+          entity_type: "employee",
+          entity_id: employeeId,
+          description: description,
+          details: {
+            userName,
+            employeeName,
+            action:
+              operation === "add" ? "Ajout d'heures" : "Soustraction d'heures",
+            hours: hoursValue,
+            oldBalance: currentBalance,
+            newBalance:
+              operation === "add"
+                ? currentBalance + parseFloat(hoursValue)
+                : currentBalance - parseFloat(hoursValue),
+          },
+        };
+
+        console.log("Données de l'activité à enregistrer:", activityData);
+
+        // Utiliser directement l'API pour créer l'activité
+        const response = await api.post(
+          API_ENDPOINTS.ACTIVITIES.BASE,
+          activityData
+        );
+
+        console.log("Réponse de l'enregistrement d'activité:", response);
+
+        if (response && response.success) {
+          console.log("Activité enregistrée avec succès");
+          return true;
+        } else {
+          console.warn(
+            "Réponse inattendue lors de l'enregistrement de l'activité:",
+            response
+          );
+          return false;
+        }
+      } catch (error) {
+        console.error("Erreur lors de l'enregistrement de l'activité:", error);
+        return false;
+      }
+    },
+    [
+      api,
+      employeeId,
+      employeeData,
+      currentBalance,
+      fetchEmployeeData,
+      token,
+      user,
+    ]
+  );
 
   // Mettre à jour le solde d'heures
   const updateBalance = async (operation) => {
@@ -215,6 +320,20 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
       if (response && response.success) {
         // Récupérer le solde mis à jour
         await fetchCurrentBalance();
+
+        // Enregistrer l'activité
+        try {
+          await logActivity(operation, hours);
+          console.log(
+            "Activité enregistrée avec succès après mise à jour du solde"
+          );
+        } catch (activityError) {
+          console.error(
+            "Erreur lors de l'enregistrement de l'activité:",
+            activityError
+          );
+          // Ne pas bloquer le flux principal en cas d'erreur d'enregistrement d'activité
+        }
 
         // Notifier le parent que le solde a été mis à jour
         if (onBalanceUpdated) {

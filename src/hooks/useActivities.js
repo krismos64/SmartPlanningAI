@@ -156,17 +156,15 @@ const useActivities = () => {
   const formatActivityDescription = useCallback((activity) => {
     if (!activity) return "";
 
+    // Si l'activité a une description, l'utiliser directement
+    if (activity.description) {
+      return activity.description;
+    }
+
     const { type, entity_type, entity_id, user_id, details, user } = activity;
 
     // Obtenir le nom de l'utilisateur qui a effectué l'action
     const userName = user && user.name ? user.name : "Un utilisateur";
-
-    // Pour les activités de type "update" sur les employés, utiliser un format spécifique
-    if (type === "update" && entity_type === "employee" && details) {
-      if (details.employeeName) {
-        return `${userName} a modifié l'employé ${details.employeeName}`;
-      }
-    }
 
     // Formater le type d'entité
     const entityName =
@@ -193,12 +191,20 @@ const useActivities = () => {
 
     // Ajouter des détails si disponibles
     if (details) {
-      if (typeof details === "string") {
-        description += ` : ${details}`;
-      } else if (typeof details === "object") {
+      let parsedDetails;
+      try {
+        parsedDetails =
+          typeof details === "string" ? JSON.parse(details) : details;
+      } catch (e) {
+        parsedDetails = details;
+      }
+
+      if (typeof parsedDetails === "string") {
+        description += ` : ${parsedDetails}`;
+      } else if (typeof parsedDetails === "object") {
         // Ne pas ajouter les détails sous forme d'objet pour éviter [object Object]
-        if (details.employeeName && entity_type === "employee") {
-          description += ` : ${details.employeeName}`;
+        if (parsedDetails.employeeName && entity_type === "employee") {
+          description += ` : ${parsedDetails.employeeName}`;
         }
       }
     }

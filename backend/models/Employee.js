@@ -10,13 +10,16 @@ class Employee {
     this.first_name = data.first_name || null;
     this.last_name = data.last_name || null;
     this.email = data.email || null;
+    this.phone = data.phone || null;
+    this.address = data.address || null;
+    this.city = data.city || null;
+    this.zip_code = data.zip_code || data.zipCode || null;
     this.role = data.role || null;
     this.department = data.department || null;
     this.contractHours = data.contract_hours || data.contractHours || 35; // Support des deux formats
     this.birthdate = data.birthdate || null;
     this.hire_date = data.hire_date || null;
     this.status = data.status || "active";
-    this.hourlyRate = data.hourly_rate || data.hourlyRate || 0; // Support des deux formats
     this.hour_balance = data.hour_balance || 0; // Ajout du solde d'heures
     this.created_at = data.created_at || new Date();
     this.updated_at = data.updated_at || new Date(); // Ajout du champ updated_at
@@ -51,6 +54,31 @@ class Employee {
 
   async save() {
     try {
+      // Log des données de l'employé pour le débogage
+      console.log(
+        "Données de l'employé à enregistrer:",
+        JSON.stringify(
+          {
+            id: this.id,
+            first_name: this.first_name,
+            last_name: this.last_name,
+            email: this.email,
+            phone: this.phone,
+            address: this.address,
+            city: this.city,
+            zip_code: this.zip_code,
+            role: this.role,
+            department: this.department,
+            contractHours: this.contractHours,
+            birthdate: this.birthdate,
+            hire_date: this.hire_date,
+            status: this.status,
+          },
+          null,
+          2
+        )
+      );
+
       // Formater les dates pour MySQL
       const birth_date = this.birthdate
         ? new Date(this.birthdate).toISOString().split("T")[0]
@@ -70,21 +98,48 @@ class Employee {
             this.first_name || null,
             this.last_name || null,
             this.email,
+            this.phone,
+            this.address,
+            this.city,
+            this.zip_code,
             this.role,
             this.department,
             this.contractHours !== undefined ? this.contractHours : 35,
             birth_date,
             start_date,
             this.status || "active",
-            this.hourlyRate !== undefined ? this.hourlyRate : 0,
             this.updated_at,
             this.id,
           ];
 
-          await connectDB.execute(
-            "UPDATE employees SET first_name = ?, last_name = ?, email = ?, role = ?, department = ?, contractHours = ?, birthdate = ?, hire_date = ?, status = ?, hourlyRate = ?, updated_at = ? WHERE id = ?",
-            params
+          console.log(
+            "Paramètres SQL pour la mise à jour:",
+            JSON.stringify(params, null, 2)
           );
+
+          // Requête SQL explicite sans hourlyRate
+          const updateQuery = `
+            UPDATE employees 
+            SET first_name = ?, 
+                last_name = ?, 
+                email = ?, 
+                phone = ?, 
+                address = ?, 
+                city = ?, 
+                zip_code = ?, 
+                role = ?, 
+                department = ?, 
+                contractHours = ?, 
+                birthdate = ?, 
+                hire_date = ?, 
+                status = ?, 
+                updated_at = ? 
+            WHERE id = ?
+          `;
+
+          console.log("Requête SQL pour la mise à jour:", updateQuery);
+
+          await connectDB.execute(updateQuery, params);
         } catch (updateError) {
           console.error(
             `Erreur SQL lors de la mise à jour de l'employé ID ${this.id}:`,
@@ -96,36 +151,76 @@ class Employee {
       } else {
         // Création
         try {
-          console.log("Données pour insertion:", {
-            first_name: this.first_name,
-            last_name: this.last_name,
-            email: this.email,
-            role: this.role,
-            department: this.department,
-            contractHours: this.contractHours,
-            birthdate: birth_date,
-            hire_date: start_date,
-            status: this.status,
-            hourlyRate: this.hourlyRate,
-          });
-
-          const [result] = await connectDB.execute(
-            "INSERT INTO employees (first_name, last_name, email, role, department, contractHours, birthdate, hire_date, status, hourlyRate, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-              this.first_name || null,
-              this.last_name || null,
-              this.email || null,
-              this.role,
-              this.department,
-              this.contractHours !== undefined ? this.contractHours : 35,
-              birth_date,
-              start_date,
-              this.status || "active",
-              this.hourlyRate !== undefined ? this.hourlyRate : 0,
-              this.created_at,
-              this.updated_at,
-            ]
+          console.log(
+            "Données pour insertion:",
+            JSON.stringify(
+              {
+                first_name: this.first_name,
+                last_name: this.last_name,
+                email: this.email,
+                phone: this.phone,
+                address: this.address,
+                city: this.city,
+                zip_code: this.zip_code,
+                role: this.role,
+                department: this.department,
+                contractHours: this.contractHours,
+                birthdate: birth_date,
+                hire_date: start_date,
+                status: this.status,
+              },
+              null,
+              2
+            )
           );
+
+          const params = [
+            this.first_name || null,
+            this.last_name || null,
+            this.email || null,
+            this.phone || null,
+            this.address || null,
+            this.city || null,
+            this.zip_code || null,
+            this.role,
+            this.department,
+            this.contractHours !== undefined ? this.contractHours : 35,
+            birth_date,
+            start_date,
+            this.status || "active",
+            this.created_at,
+            this.updated_at,
+          ];
+
+          console.log(
+            "Paramètres SQL pour l'insertion:",
+            JSON.stringify(params, null, 2)
+          );
+
+          // Requête SQL explicite sans hourlyRate
+          const insertQuery = `
+            INSERT INTO employees (
+              first_name, 
+              last_name, 
+              email, 
+              phone, 
+              address, 
+              city, 
+              zip_code, 
+              role, 
+              department, 
+              contractHours, 
+              birthdate, 
+              hire_date, 
+              status, 
+              created_at, 
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `;
+
+          console.log("Requête SQL pour l'insertion:", insertQuery);
+
+          const [result] = await connectDB.execute(insertQuery, params);
           this.id = result.insertId;
           return this;
         } catch (insertError) {
@@ -166,10 +261,33 @@ class Employee {
         throw new Error("ID d'employé non valide");
       }
 
+      console.log(
+        "Données brutes reçues pour la mise à jour:",
+        JSON.stringify(updateData, null, 2)
+      );
+
       const employee = await this.findById(id);
       if (!employee) {
         return null;
       }
+
+      console.log(
+        "Employé avant mise à jour:",
+        JSON.stringify(
+          {
+            id: employee.id,
+            first_name: employee.first_name,
+            last_name: employee.last_name,
+            email: employee.email,
+            phone: employee.phone,
+            address: employee.address,
+            city: employee.city,
+            zip_code: employee.zip_code,
+          },
+          null,
+          2
+        )
+      );
 
       // Vérifier et nettoyer les données avant la mise à jour
       // Utiliser les valeurs existantes comme fallback
@@ -178,6 +296,11 @@ class Employee {
         last_name: updateData.last_name || employee.last_name,
         email:
           updateData.email !== undefined ? updateData.email : employee.email,
+        // Correction pour les champs problématiques
+        phone: updateData.phone || null,
+        address: updateData.address || null,
+        city: updateData.city || null,
+        zip_code: updateData.zip_code || null,
         role: updateData.role !== undefined ? updateData.role : employee.role,
         department:
           updateData.department !== undefined
@@ -190,12 +313,13 @@ class Employee {
         birthdate: updateData.birthdate,
         hire_date: updateData.hire_date,
         status: updateData.status || employee.status || "active",
-        hourlyRate:
-          updateData.hourlyRate !== undefined
-            ? updateData.hourlyRate
-            : employee.hourlyRate,
         updated_at: new Date(), // Mettre à jour la date de modification
       };
+
+      console.log(
+        "Données nettoyées pour la mise à jour:",
+        JSON.stringify(cleanedData, null, 2)
+      );
 
       // Formater les dates correctement pour MySQL
       if (cleanedData.birthdate) {
@@ -229,6 +353,24 @@ class Employee {
 
       // Enregistrer les modifications
       await employee.save();
+
+      console.log(
+        "Employé après mise à jour:",
+        JSON.stringify(
+          {
+            id: employee.id,
+            first_name: employee.first_name,
+            last_name: employee.last_name,
+            email: employee.email,
+            phone: employee.phone,
+            address: employee.address,
+            city: employee.city,
+            zip_code: employee.zip_code,
+          },
+          null,
+          2
+        )
+      );
 
       return employee;
     } catch (error) {

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "react-hot-toast";
-import { API_ENDPOINTS } from "../config/api";
+import { API_ENDPOINTS, API_URL } from "../config/api";
 import useApi from "./useApi";
 
 /**
@@ -13,187 +12,302 @@ const useEmployees = () => {
   const api = useApi();
 
   /**
-   * Récupère tous les employés
+   * Récupère tous les employés depuis l'API
    */
   const fetchEmployees = useCallback(async () => {
-    if (!loading) setLoading(true);
+    setLoading(true);
     try {
-      const response = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
+      // Forcer l'URL correcte
+      const apiUrl = API_URL || "http://localhost:5004";
+      console.log(`[fetchEmployees] Utilisation de l'URL: ${apiUrl}`);
 
-      if (response.ok) {
-        // S'assurer que les données sont un tableau
-        const employeesData = Array.isArray(response.data) ? response.data : [];
-        setEmployees(employeesData);
-        setError(null);
-      } else {
+      // Vérifier si le token est présent
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Veuillez vous connecter pour accéder à cette page.");
+      }
+
+      // Utiliser fetch directement avec l'URL correcte
+      const response = await fetch(`${apiUrl}/api/employees`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
         throw new Error(
-          response.data?.message || "Erreur lors du chargement des employés"
+          errorData.message || "Erreur lors du chargement des employés"
         );
       }
-    } catch (err) {
-      console.error("Erreur lors du chargement des employés:", err);
-      setError("Erreur lors du chargement des employés");
-      toast.error("Erreur lors du chargement des employés");
-      // En cas d'erreur, s'assurer que employees reste un tableau vide
-      setEmployees([]);
+
+      const data = await response.json();
+      setEmployees(Array.isArray(data) ? data : []);
+      setError(null);
+      return data;
+    } catch (error) {
+      console.error("Erreur lors du chargement des employés:", error);
+      setError(error.message);
+      throw error;
     } finally {
       setLoading(false);
     }
-  }, [api, loading]);
+  }, []);
 
   /**
    * Récupère un employé par son ID
    */
-  const fetchEmployeeById = useCallback(
-    async (id) => {
-      setLoading(true);
-      setError(null);
+  const fetchEmployeeById = useCallback(async (id) => {
+    setLoading(true);
+    try {
+      // Forcer l'URL correcte
+      const apiUrl = API_URL || "http://localhost:5004";
+      console.log(`[fetchEmployeeById] Utilisation de l'URL: ${apiUrl}`);
 
-      try {
-        const response = await api.get(API_ENDPOINTS.EMPLOYEES.BY_ID(id));
-
-        if (response.ok) {
-          return response.data;
-        } else {
-          throw new Error(
-            response.data?.message ||
-              "Erreur lors de la récupération de l'employé"
-          );
-        }
-      } catch (err) {
-        console.error(
-          `Erreur lors de la récupération de l'employé #${id}:`,
-          err
-        );
-        setError(err.message || "Erreur lors de la récupération de l'employé");
-        toast.error("Erreur lors de la récupération de l'employé");
-        return null;
-      } finally {
-        setLoading(false);
+      // Vérifier si le token est présent
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Veuillez vous connecter pour accéder à cette page.");
       }
-    },
-    [api]
-  );
+
+      // Utiliser fetch directement avec l'URL correcte
+      const response = await fetch(`${apiUrl}/api/employees/${id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Erreur lors du chargement de l'employé"
+        );
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération de l'employé ${id}:`,
+        error
+      );
+      setError(error.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Crée un nouvel employé
    */
-  const createEmployee = useCallback(
-    async (employeeData) => {
-      setLoading(true);
-      try {
-        const response = await api.post(
-          API_ENDPOINTS.EMPLOYEES.BASE,
-          employeeData
-        );
+  const createEmployee = useCallback(async (employeeData) => {
+    setLoading(true);
+    try {
+      // Supprimer hourlyRate des données pour éviter l'erreur
+      const { hourlyRate, ...cleanedData } = employeeData;
 
-        if (response && response.id) {
-          // Mettre à jour la liste des employés
-          setEmployees((prevEmployees) => [...prevEmployees, response]);
-          setError(null);
-          return response;
-        } else {
-          // Si la réponse est un objet mais ne contient pas d'employé, vérifier s'il y a un message d'erreur
-          if (response && typeof response === "object") {
-            if (response.message && response.message.includes("erreur")) {
-              return { success: false, error: response.message };
-            }
+      // Forcer l'URL correcte
+      const apiUrl = API_URL || "http://localhost:5004";
+      console.log(`[createEmployee] Utilisation de l'URL: ${apiUrl}`);
 
-            // Si la réponse est l'employé lui-même
-            if (response.id) {
-              setEmployees((prev) => [...prev, response]);
-              return { success: true, employee: response };
-            }
-          }
-
-          // Fallback pour les anciennes API qui renvoient directement l'employé
-          setEmployees((prev) => [...prev, response]);
-          return { success: true, employee: response };
-        }
-      } catch (err) {
-        console.error("Erreur lors de la création de l'employé:", err);
-
-        // Extraire un message d'erreur plus précis si possible
-        let errorMessage = "Erreur lors de la création de l'employé";
-
-        if (err.response && err.response.data) {
-          errorMessage = err.response.data.message || errorMessage;
-        } else if (err.message) {
-          errorMessage = err.message;
-        }
-
-        return { success: false, error: errorMessage };
-      } finally {
-        setLoading(false);
+      // Vérifier si le token est présent
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Veuillez vous connecter pour accéder à cette page.");
       }
-    },
-    [api]
-  );
+
+      // S'assurer que les données sont sérialisables
+      const jsonData = JSON.parse(JSON.stringify(cleanedData));
+
+      // Convertir les données en snake_case pour le backend
+      const snakeCaseData = {};
+      for (const key in jsonData) {
+        if (key === "zipCode") {
+          snakeCaseData["zip_code"] = jsonData[key];
+        } else {
+          snakeCaseData[
+            key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+          ] = jsonData[key];
+        }
+      }
+
+      // Utiliser fetch directement avec l'URL correcte
+      const response = await fetch(`${apiUrl}/api/employees`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(snakeCaseData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Erreur lors de la création de l'employé"
+        );
+      }
+
+      const data = await response.json();
+
+      // Mettre à jour la liste des employés
+      setEmployees((prevEmployees) => [
+        ...prevEmployees,
+        data.employee || data,
+      ]);
+      setError(null);
+
+      return {
+        success: true,
+        employee: data.employee || data,
+        message: "Employé créé avec succès",
+      };
+    } catch (error) {
+      console.error("Erreur lors de la création de l'employé:", error);
+      setError(error.message);
+      return {
+        success: false,
+        error: error.message || "Erreur lors de la création de l'employé",
+      };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Met à jour un employé existant
    */
-  const updateEmployee = useCallback(
-    async (id, employeeData) => {
-      setLoading(true);
-      try {
-        const response = await api.put(
-          `${API_ENDPOINTS.EMPLOYEES.BASE}/${id}`,
-          employeeData
-        );
+  const updateEmployee = useCallback(async (id, employeeData) => {
+    setLoading(true);
+    try {
+      // Supprimer hourlyRate des données pour éviter l'erreur
+      const { hourlyRate, ...cleanedData } = employeeData;
 
-        if (response) {
-          // Mettre à jour la liste des employés
-          setEmployees((prevEmployees) =>
-            prevEmployees.map((emp) =>
-              emp.id === id ? { ...emp, ...response.data } : emp
-            )
-          );
-          setError(null);
-          return response.data;
-        }
-      } catch (err) {
-        console.error("Erreur lors de la mise à jour de l'employé:", err);
-        return { success: false, error: err.message || "Erreur inconnue" };
-      } finally {
-        setLoading(false);
+      // Forcer l'URL correcte
+      const apiUrl = API_URL || "http://localhost:5004";
+      console.log(`[updateEmployee] Utilisation de l'URL: ${apiUrl}`);
+
+      // Vérifier si le token est présent
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Veuillez vous connecter pour accéder à cette page.");
       }
-    },
-    [api]
-  );
+
+      // S'assurer que les données sont sérialisables
+      const jsonData = JSON.parse(JSON.stringify(cleanedData));
+
+      // Convertir les données en snake_case pour le backend
+      const snakeCaseData = {};
+      for (const key in jsonData) {
+        if (key === "zipCode") {
+          snakeCaseData["zip_code"] = jsonData[key];
+        } else {
+          snakeCaseData[
+            key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+          ] = jsonData[key];
+        }
+      }
+
+      // Utiliser fetch directement avec l'URL correcte
+      const response = await fetch(`${apiUrl}/api/employees/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(snakeCaseData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Erreur lors de la mise à jour de l'employé"
+        );
+      }
+
+      const data = await response.json();
+
+      // Mettre à jour la liste des employés
+      setEmployees((prevEmployees) =>
+        prevEmployees.map((emp) =>
+          emp.id === id ? { ...emp, ...(data.employee || data) } : emp
+        )
+      );
+
+      return {
+        success: true,
+        message: "Employé mis à jour avec succès",
+        data: data.employee || data,
+      };
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de l'employé:", error);
+      setError(error.message);
+      return {
+        success: false,
+        error: error.message || "Erreur lors de la mise à jour de l'employé",
+      };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Supprime un employé
    */
-  const deleteEmployee = useCallback(
-    async (id) => {
-      setLoading(true);
-      try {
-        const response = await api.delete(
-          `${API_ENDPOINTS.EMPLOYEES.BASE}/${id}`
-        );
+  const deleteEmployee = useCallback(async (id) => {
+    setLoading(true);
+    try {
+      // Forcer l'URL correcte
+      const apiUrl = API_URL || "http://localhost:5004";
+      console.log(`[deleteEmployee] Utilisation de l'URL: ${apiUrl}`);
 
-        if (response) {
-          // Mettre à jour la liste des employés
-          setEmployees((prevEmployees) =>
-            prevEmployees.filter((emp) => emp.id !== id)
-          );
-          return { success: true };
-        } else {
-          const errorMessage =
-            response?.message || "Erreur lors de la suppression de l'employé";
-          console.error("Erreur API:", errorMessage);
-          return { success: false, error: errorMessage };
-        }
-      } catch (err) {
-        console.error("Erreur lors de la suppression de l'employé:", err);
-        return { success: false, error: err.message || "Erreur inconnue" };
-      } finally {
-        setLoading(false);
+      // Vérifier si le token est présent
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Veuillez vous connecter pour accéder à cette page.");
       }
-    },
-    [api]
-  );
+
+      // Utiliser fetch directement avec l'URL correcte
+      const response = await fetch(`${apiUrl}/api/employees/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Erreur lors de la suppression de l'employé"
+        );
+      }
+
+      // Mettre à jour la liste des employés
+      setEmployees((prevEmployees) =>
+        prevEmployees.filter((emp) => emp.id !== id)
+      );
+
+      return {
+        success: true,
+        message: "Employé supprimé avec succès",
+      };
+    } catch (error) {
+      console.error(`Erreur lors de la suppression de l'employé ${id}:`, error);
+      setError(error.message);
+      return {
+        success: false,
+        error: error.message || "Erreur lors de la suppression de l'employé",
+      };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Filtre les employés par statut

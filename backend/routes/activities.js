@@ -115,6 +115,11 @@ router.get("/:id", auth, async (req, res) => {
  */
 router.post("/", auth, async (req, res) => {
   try {
+    console.log("Requête POST /api/activities reçue:", {
+      body: req.body,
+      user: req.user ? { id: req.user.id, role: req.user.role } : null,
+    });
+
     const { type, entity_type, entity_id, description, details } = req.body;
 
     const userId = req.user.id;
@@ -124,6 +129,7 @@ router.post("/", auth, async (req, res) => {
 
     // Valider les données
     if (!type || !entity_type || !description) {
+      console.log("Validation échouée:", { type, entity_type, description });
       return res.status(400).json({
         success: false,
         message: "Le type, le type d'entité et la description sont requis",
@@ -131,6 +137,17 @@ router.post("/", auth, async (req, res) => {
     }
 
     // Enregistrer l'activité
+    console.log("Tentative d'enregistrement de l'activité avec les données:", {
+      type,
+      entity_type,
+      entity_id,
+      description,
+      user_id: userId,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      details,
+    });
+
     const activityId = await Activity.create({
       type,
       entity_type,
@@ -142,6 +159,8 @@ router.post("/", auth, async (req, res) => {
       details,
     });
 
+    console.log("Activité enregistrée avec succès, ID:", activityId);
+
     res.status(201).json({
       success: true,
       message: "Activité enregistrée avec succès",
@@ -149,6 +168,7 @@ router.post("/", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de l'enregistrement de l'activité:", error);
+    console.error("Stack trace:", error.stack);
     res.status(500).json({
       success: false,
       message: "Erreur lors de l'enregistrement de l'activité",

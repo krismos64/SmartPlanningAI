@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
+import { EMPLOYEE_STATUSES } from "../../config/constants";
 
 // Composants stylisés
 const TableContainer = styled.div`
@@ -154,6 +155,25 @@ const Td = styled.td`
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 200px;
+  vertical-align: middle;
+
+  &.clickable {
+    position: relative;
+
+    &:hover {
+      background-color: ${({ theme }) => `${theme.colors.primary}11`};
+
+      &::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: ${({ theme }) => theme.colors.primary};
+      }
+    }
+  }
 `;
 
 const StatusBadge = styled.span`
@@ -429,6 +449,25 @@ const EmptyIcon = () => (
   </svg>
 );
 
+// Icône d'édition pour les cellules cliquables
+const EditIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginLeft: "5px", opacity: 0.6 }}
+  >
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+  </svg>
+);
+
 // Composant principal
 const DataTable = ({
   title,
@@ -438,6 +477,7 @@ const DataTable = ({
   pagination = true,
   pageSize = 10,
   onRowClick,
+  onCellClick,
   emptyStateTitle = "Aucune donnée disponible",
   emptyStateMessage = "Il n'y a pas de données à afficher pour le moment.",
 }) => {
@@ -532,40 +572,33 @@ const DataTable = ({
 
   // Formater les valeurs de cellule
   const formatCellValue = (column, value) => {
-    if (value === null || value === undefined) return "-";
+    if (!value && value !== 0) return "-";
 
-    if (column.format) {
-      return column.format(value);
-    }
-
+    // Gérer les différents types de colonnes
     if (column.type === "status") {
-      return <StatusBadge status={value}>{value}</StatusBadge>;
-    }
-
-    if (column.type === "date") {
-      return new Date(value).toLocaleDateString("fr-FR");
-    }
-
-    if (column.type === "number") {
-      if (column.id === "hourCounter") {
-        return (
-          <HourCounter value={value}>
-            {value > 0 ? `+${value}` : value}
-          </HourCounter>
-        );
-      }
-      return value.toString();
+      const status = EMPLOYEE_STATUSES.find((s) => s.value === value);
+      return (
+        <StatusBadge status={value}>
+          {status ? status.label : value}
+        </StatusBadge>
+      );
     }
 
     if (column.type === "hour_balance") {
       return (
         <HourBalanceBadge isPositive={value.isPositive}>
           {value.display}
+          {column.id === "hour_balance" && <EditIcon />}
         </HourBalanceBadge>
       );
     }
 
-    return value;
+    if (column.type === "date") {
+      return value;
+    }
+
+    // Valeur par défaut
+    return value.toString();
   };
 
   // Générer les boutons de pagination
@@ -703,7 +736,26 @@ const DataTable = ({
                   style={{ cursor: onRowClick ? "pointer" : "default" }}
                 >
                   {columns.map((column) => (
-                    <Td key={`${rowIndex}-${column.id}`}>
+                    <Td
+                      key={`${rowIndex}-${column.id}`}
+                      onClick={(e) => {
+                        if (onCellClick && column.id === "hour_balance") {
+                          e.stopPropagation(); // Empêcher le déclenchement du onRowClick
+                          onCellClick(row, column.id);
+                        }
+                      }}
+                      className={
+                        onCellClick && column.id === "hour_balance"
+                          ? "clickable"
+                          : ""
+                      }
+                      style={{
+                        cursor:
+                          onCellClick && column.id === "hour_balance"
+                            ? "pointer"
+                            : "inherit",
+                      }}
+                    >
                       {formatCellValue(column, column.accessor(row))}
                     </Td>
                   ))}

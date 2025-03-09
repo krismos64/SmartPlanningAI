@@ -49,6 +49,15 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cors(corsOptions));
 
+// Middleware de logging pour le débogage
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  if (req.method === "POST" || req.method === "PUT") {
+    console.log("Body:", JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 // Créer le dossier de logs s'il n'existe pas
 const logsDir = path.join(__dirname, "logs");
 if (!fs.existsSync(logsDir)) {

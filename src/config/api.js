@@ -4,8 +4,11 @@
 
 import axios from "axios";
 
-// URL de base de l'API
-export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
+// URL de base de l'API - Forcer la mise à jour en ajoutant un commentaire
+export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001"; // Mise à jour pour pointer vers le port correct
+
+// Fonction pour vérifier si l'URL est correcte
+console.log("API_URL configurée:", API_URL);
 
 // Routes de l'API
 export const API_ENDPOINTS = {

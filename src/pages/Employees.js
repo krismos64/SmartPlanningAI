@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
+import EmployeeCard from "../components/employees/EmployeeCard";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import HourBalanceManager from "../components/employees/HourBalanceManager";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
@@ -183,6 +184,8 @@ const Employees = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [viewingEmployee, setViewingEmployee] = useState(null);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [filters, setFilters] = useState({
     department: "",
     role: "",
@@ -371,6 +374,12 @@ const Employees = () => {
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
+    // Réinitialiser après la fermeture du modal
+    setTimeout(() => {
+      setEditingEmployee(null);
+      setViewingEmployee(null);
+      setShowEditForm(false);
+    }, 300);
   }, []);
 
   const handleSubmit = useCallback(
@@ -403,12 +412,26 @@ const Employees = () => {
   const countByStatus = getEmployeesByStatus();
 
   const handleEditEmployee = useCallback((employee) => {
-    if (employee && employee.id) {
-      console.log("Sélection de l'employé pour édition:", employee);
+    console.log("Sélection de l'employé pour édition:", employee);
+    setEditingEmployee(employee);
+    setViewingEmployee(employee);
+    setShowEditForm(false);
+    setShowModal(true);
+  }, []);
+
+  const handleStartEditing = useCallback(() => {
+    setShowEditForm(true);
+  }, []);
+
+  // Nouvelle fonction pour gérer le clic sur une cellule spécifique du tableau
+  const handleCellClick = useCallback((employee, columnId) => {
+    // Cette fonction ne sera appelée que pour la colonne hour_balance grâce à la modification dans DataTable
+    if (columnId === "hour_balance") {
+      console.log("Clic sur le solde d'heures de l'employé:", employee.id);
       setEditingEmployee(employee);
+      setViewingEmployee(employee);
+      setActiveModalTab("balance");
       setShowModal(true);
-    } else {
-      console.error("Employé invalide sélectionné:", employee);
     }
   }, []);
 
@@ -556,6 +579,7 @@ const Employees = () => {
             pagination={true}
             pageSize={10}
             onRowClick={handleEditEmployee}
+            onCellClick={handleCellClick}
             emptyStateTitle="Aucun employé trouvé"
             emptyStateMessage="Aucun employé ne correspond à vos critères de recherche."
           />
@@ -564,49 +588,37 @@ const Employees = () => {
 
       <Modal
         isOpen={showModal}
-        title={
-          editingEmployee
-            ? `Modifier un employé (${editingEmployee.first_name} ${editingEmployee.last_name})`
-            : "Ajouter un employé"
-        }
         onClose={handleCloseModal}
-        size={editingEmployee ? "large" : "medium"}
+        title={
+          !editingEmployee
+            ? "Ajouter un employé"
+            : showEditForm
+            ? `Modifier ${editingEmployee.first_name} ${editingEmployee.last_name}`
+            : activeModalTab === "balance"
+            ? `Gestion du solde d'heures - ${editingEmployee.first_name} ${editingEmployee.last_name}`
+            : `Détails de ${editingEmployee.first_name} ${editingEmployee.last_name}`
+        }
+        size="large"
       >
-        {editingEmployee ? (
-          <>
-            <TabsModalContainer>
-              <TabModal
-                active={activeModalTab === "infos"}
-                onClick={() => setActiveModalTab("infos")}
-              >
-                Informations
-              </TabModal>
-              <TabModal
-                active={activeModalTab === "balance"}
-                onClick={() => setActiveModalTab("balance")}
-              >
-                Solde d'heures
-              </TabModal>
-            </TabsModalContainer>
-
-            <ModalContent>
-              {activeModalTab === "infos" ? (
-                <EmployeeForm
-                  key={editingEmployee.id}
-                  employee={editingEmployee}
-                  onSubmit={handleSubmit}
-                  onDelete={handleDeleteEmployee}
-                />
-              ) : (
-                <HourBalanceManager
-                  employeeId={editingEmployee.id}
-                  onBalanceUpdated={fetchEmployees}
-                />
-              )}
-            </ModalContent>
-          </>
+        {editingEmployee && !showEditForm && activeModalTab !== "balance" ? (
+          <EmployeeCard
+            employee={viewingEmployee}
+            onEdit={handleStartEditing}
+            onClose={handleCloseModal}
+          />
         ) : (
-          <EmployeeForm key="new" employee={null} onSubmit={handleSubmit} />
+          <>
+            {activeModalTab === "infos" && (
+              <EmployeeForm
+                employee={editingEmployee}
+                onSubmit={handleSubmit}
+                onDelete={editingEmployee ? handleDeleteEmployee : undefined}
+              />
+            )}
+            {activeModalTab === "balance" && editingEmployee && (
+              <HourBalanceManager employeeId={editingEmployee.id} />
+            )}
+          </>
         )}
       </Modal>
     </PageContainer>
