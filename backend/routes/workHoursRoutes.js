@@ -85,7 +85,15 @@ router.get("/:id", auth, async (req, res) => {
 // @access  Private
 router.post("/", auth, async (req, res) => {
   try {
-    const { employee_id, date, expected_hours, actual_hours } = req.body;
+    const {
+      employee_id,
+      date,
+      expected_hours,
+      actual_hours,
+      hours,
+      balance,
+      description,
+    } = req.body;
 
     // Validation des données
     if (!employee_id || !date) {
@@ -105,16 +113,26 @@ router.post("/", auth, async (req, res) => {
       employee_id,
       date,
       expected_hours: expected_hours || 7.0,
-      actual_hours: actual_hours || 0.0,
+      actual_hours: actual_hours || hours || 0.0,
+      balance:
+        balance !== undefined
+          ? balance
+          : (actual_hours || hours || 0) - (expected_hours || 7.0),
+      description: description || "Ajout manuel",
     });
 
+    // Mettre à jour le solde d'heures de l'employé
+    await Employee.updateHourBalance(employee_id);
+
     res.status(201).json({
+      success: true,
       message: "Heures travaillées enregistrées avec succès",
       workHours,
     });
   } catch (error) {
     console.error("Erreur lors de la création des heures travaillées:", error);
     res.status(500).json({
+      success: false,
       message: "Erreur lors de la création des heures travaillées",
       error: error.message,
     });
