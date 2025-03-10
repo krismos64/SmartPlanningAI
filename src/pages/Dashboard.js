@@ -1,10 +1,24 @@
+import { motion } from "framer-motion";
 import Lottie from "lottie-react";
+import { useEffect, useState } from "react";
+import {
+  FiArrowRight,
+  FiBarChart2,
+  FiCalendar,
+  FiClock,
+  FiPieChart,
+  FiSun,
+  FiUsers,
+} from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import robotAnimation from "../assets/animations/robot.json";
-import DashboardStats from "../components/dashboard/DashboardStats";
 import RecentActivities from "../components/dashboard/RecentActivities";
 import SearchBar from "../components/ui/SearchBar";
 import { useAuth } from "../contexts/AuthContext";
+import useEmployees from "../hooks/useEmployees";
+import useVacations from "../hooks/useVacations";
+import { formatDate } from "../utils/dateUtils";
 
 // Composants stylisés
 const DashboardContainer = styled.div`
@@ -55,45 +69,71 @@ const PageDescription = styled.p`
   margin: 0.5rem 0 0 0;
 `;
 
-const WelcomeSection = styled.div`
+const WelcomeSection = styled(motion.div)`
   margin-bottom: 2rem;
 `;
 
-const WelcomeCard = styled.div`
-  background-color: ${({ theme }) => theme.colors.surface};
+const WelcomeCard = styled(motion.div)`
+  background: linear-gradient(
+    135deg,
+    ${({ theme }) => theme.colors.primary},
+    ${({ theme }) => theme.colors.primary}dd
+  );
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   padding: 2rem;
   box-shadow: ${({ theme }) => theme.shadows.medium};
+  color: white;
+  position: relative;
+  overflow: hidden;
 
   h1 {
     font-size: 1.5rem;
-    color: ${({ theme }) => theme.colors.text.primary};
     margin: 0 0 1rem 0;
+    font-weight: 600;
   }
 
   p {
-    color: ${({ theme }) => theme.colors.text.secondary};
     margin: 0;
     line-height: 1.5;
+    opacity: 0.9;
+    max-width: 80%;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    z-index: 1;
   }
 `;
 
-const SearchSection = styled.div`
+const SearchSection = styled(motion.div)`
   margin-bottom: 2rem;
 `;
 
-const StatsGrid = styled.div`
+const StatsGrid = styled(motion.div)`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 `;
 
-const StatCard = styled.div`
+const StatCard = styled(motion.div)`
   background-color: ${({ theme }) => theme.colors.surface};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   padding: 1.5rem;
   box-shadow: ${({ theme }) => theme.shadows.medium};
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: ${({ theme }) => theme.shadows.large};
+  }
 `;
 
 const StatHeader = styled.div`
@@ -127,60 +167,119 @@ const StatValue = styled.div`
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
-const StatEmployeesList = styled.div`
-  margin-top: 0.75rem;
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
+const StatInfo = styled.div`
+  font-size: 0.875rem;
+  color: ${({ theme, positive }) =>
+    positive
+      ? theme.colors.success
+      : positive === false
+      ? theme.colors.error
+      : theme.colors.text.secondary};
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
 `;
 
-const EmployeeItem = styled.div`
-  padding: 0.25rem 0;
-  border-bottom: 1px solid ${({ theme }) => `${theme.colors.border}44`};
-
-  &:last-child {
-    border-bottom: none;
-  }
+const DashboardSections = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
 `;
 
 const SectionTitle = styled.h2`
   font-size: 1.25rem;
   color: ${({ theme }) => theme.colors.text.primary};
   margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 `;
 
-const LoadingIndicator = styled.div`
-  text-align: center;
-  padding: 2rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
+const QuickActionsSection = styled(motion.div)`
+  margin-bottom: 2rem;
 `;
 
-const ActivitiesSection = styled.div`
+const QuickActionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+`;
+
+const QuickActionCard = styled(motion.div)`
   background-color: ${({ theme }) => theme.colors.surface};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   padding: 1.5rem;
   box-shadow: ${({ theme }) => theme.shadows.medium};
-  margin-bottom: 2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: ${({ theme }) => theme.shadows.large};
+    background-color: ${({ theme, color }) =>
+      color ? `${color}11` : theme.colors.backgroundAlt};
+  }
 `;
 
-const ActivityList = styled.div`
+const ActionIcon = styled.div`
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: ${({ color }) => `${color}22`};
+  color: ${({ color }) => color};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+`;
+
+const ActionTitle = styled.h3`
+  font-size: 1rem;
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin: 0 0 0.5rem 0;
+`;
+
+const ActionDescription = styled.p`
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin: 0;
+`;
+
+const UpcomingSection = styled(motion.div)`
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  padding: 1.5rem;
+  box-shadow: ${({ theme }) => theme.shadows.medium};
+  height: fit-content;
+`;
+
+const UpcomingList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
 `;
 
-const ActivityItem = styled.div`
+const UpcomingItem = styled.div`
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   padding: 0.75rem;
   border-radius: ${({ theme }) => theme.borderRadius.small};
-  transition: background-color 0.2s ease;
+  background-color: ${({ theme, color }) =>
+    color ? `${color}11` : theme.colors.backgroundAlt};
+  transition: all 0.2s ease;
 
   &:hover {
-    background-color: ${({ theme }) => `${theme.colors.primary}11`};
+    transform: translateX(5px);
   }
 `;
 
-const ActivityIcon = styled.div`
+const UpcomingIcon = styled.div`
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -191,78 +290,94 @@ const ActivityIcon = styled.div`
   justify-content: center;
   font-size: 1rem;
   margin-right: 1rem;
+  flex-shrink: 0;
 `;
 
-const ActivityContent = styled.div`
+const UpcomingContent = styled.div`
   flex: 1;
 `;
 
-const ActivityTitle = styled.div`
+const UpcomingTitle = styled.div`
   font-size: 0.875rem;
   color: ${({ theme }) => theme.colors.text.primary};
   margin-bottom: 0.25rem;
+  font-weight: 500;
 `;
 
-const ActivityMeta = styled.div`
-  display: flex;
-  align-items: center;
+const UpcomingDate = styled.div`
   font-size: 0.75rem;
   color: ${({ theme }) => theme.colors.text.secondary};
-`;
-
-const ActivityTime = styled.span`
   display: flex;
   align-items: center;
-  margin-right: 1rem;
+  gap: 0.25rem;
 `;
 
-const ActivityUser = styled.span`
+const ViewAllLink = styled.div`
   display: flex;
   align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.primary};
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
-const ClockIcon = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    style={{ marginRight: "4px" }}
-  >
-    <circle cx="12" cy="12" r="10" />
-    <polyline points="12 6 12 12 16 14" />
-  </svg>
-);
+const ChartSection = styled(motion.div)`
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  padding: 1.5rem;
+  box-shadow: ${({ theme }) => theme.shadows.medium};
+  margin-bottom: 2rem;
+`;
 
-const UserIcon = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    style={{ marginRight: "4px" }}
-  >
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 2rem 0;
+const ChartPlaceholder = styled.div`
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: ${({ theme }) => theme.colors.backgroundAlt};
+  border-radius: ${({ theme }) => theme.borderRadius.small};
   color: ${({ theme }) => theme.colors.text.secondary};
+  font-size: 0.875rem;
 `;
+
+// Animations
+const fadeInUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+    },
+  },
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { employees, loading: employeesLoading } = useEmployees();
+  const { vacations, loading: vacationsLoading } = useVacations();
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    pendingVacations: 0,
+    upcomingVacations: [],
+    todayAbsent: 0,
+  });
 
   // Fonction pour obtenir le prénom et le nom de l'utilisateur
   const getUserFullName = () => {
@@ -276,6 +391,55 @@ const Dashboard = () => {
   const handleSearch = (query) => {
     // Implémentation de la recherche à ajouter
     console.log("Recherche:", query);
+  };
+
+  // Calculer les statistiques
+  useEffect(() => {
+    if (!employeesLoading && !vacationsLoading) {
+      // Total des employés
+      const totalEmployees = employees?.length || 0;
+
+      // Demandes de congés en attente
+      const pendingVacations =
+        vacations?.filter((v) => v.status === "pending")?.length || 0;
+
+      // Prochains congés (approuvés, à venir)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const upcomingVacations =
+        vacations
+          ?.filter((v) => {
+            const startDate = new Date(v.start_date);
+            return v.status === "approved" && startDate >= today;
+          })
+          ?.sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+          ?.slice(0, 5) || [];
+
+      // Employés absents aujourd'hui
+      const todayAbsent =
+        vacations?.filter((v) => {
+          const startDate = new Date(v.start_date);
+          const endDate = new Date(v.end_date);
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+          return (
+            v.status === "approved" && today >= startDate && today <= endDate
+          );
+        })?.length || 0;
+
+      setStats({
+        totalEmployees,
+        pendingVacations,
+        upcomingVacations,
+        todayAbsent,
+      });
+    }
+  }, [employees, vacations, employeesLoading, vacationsLoading]);
+
+  // Naviguer vers différentes pages
+  const navigateTo = (path) => {
+    navigate(path);
   };
 
   return (
@@ -298,23 +462,177 @@ const Dashboard = () => {
         </HeaderLeft>
       </DashboardHeader>
 
-      <WelcomeSection>
+      <WelcomeSection initial="hidden" animate="visible" variants={fadeInUp}>
         <WelcomeCard>
           <h1>Bonjour, {getUserFullName()}!</h1>
           <p>
             Bienvenue sur votre tableau de bord. Voici un aperçu de votre
-            activité récente.
+            activité récente et des tâches à venir.
           </p>
         </WelcomeCard>
       </WelcomeSection>
-      <SearchSection>
+
+      <SearchSection initial="hidden" animate="visible" variants={fadeInUp}>
         <SearchBar
           placeholder="Rechercher un employé, un événement..."
           onSearch={handleSearch}
         />
       </SearchSection>
 
-      <DashboardStats />
+      <StatsGrid initial="hidden" animate="visible" variants={staggerContainer}>
+        <StatCard variants={fadeInUp}>
+          <StatHeader>
+            <StatTitle>Total employés</StatTitle>
+            <StatIcon color="#4F46E5">
+              <FiUsers />
+            </StatIcon>
+          </StatHeader>
+          <StatValue>{stats.totalEmployees}</StatValue>
+          <StatInfo>Équipe complète</StatInfo>
+        </StatCard>
+
+        <StatCard variants={fadeInUp}>
+          <StatHeader>
+            <StatTitle>Demandes en attente</StatTitle>
+            <StatIcon color="#F59E0B">
+              <FiClock />
+            </StatIcon>
+          </StatHeader>
+          <StatValue>{stats.pendingVacations}</StatValue>
+          <StatInfo positive={stats.pendingVacations === 0}>
+            {stats.pendingVacations === 0
+              ? "Aucune demande en attente"
+              : "Nécessite votre attention"}
+          </StatInfo>
+        </StatCard>
+
+        <StatCard variants={fadeInUp}>
+          <StatHeader>
+            <StatTitle>Absents aujourd'hui</StatTitle>
+            <StatIcon color="#EC4899">
+              <FiSun />
+            </StatIcon>
+          </StatHeader>
+          <StatValue>{stats.todayAbsent}</StatValue>
+          <StatInfo>
+            {stats.todayAbsent === 0
+              ? "Tout le monde est présent"
+              : `${stats.todayAbsent} employé(s) absent(s)`}
+          </StatInfo>
+        </StatCard>
+      </StatsGrid>
+
+      <QuickActionsSection
+        initial="hidden"
+        animate="visible"
+        variants={fadeInUp}
+      >
+        <SectionTitle>
+          <FiBarChart2 size={18} color="#4F46E5" />
+          Actions rapides
+        </SectionTitle>
+        <QuickActionsGrid>
+          <QuickActionCard
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigateTo("/employees")}
+            color="#4F46E5"
+          >
+            <ActionIcon color="#4F46E5">
+              <FiUsers />
+            </ActionIcon>
+            <ActionTitle>Gérer les employés</ActionTitle>
+            <ActionDescription>
+              Ajouter, modifier ou supprimer des employés
+            </ActionDescription>
+          </QuickActionCard>
+
+          <QuickActionCard
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigateTo("/vacations")}
+            color="#EC4899"
+          >
+            <ActionIcon color="#EC4899">
+              <FiSun />
+            </ActionIcon>
+            <ActionTitle>Gérer les congés</ActionTitle>
+            <ActionDescription>
+              Approuver ou rejeter les demandes de congés
+            </ActionDescription>
+          </QuickActionCard>
+
+          <QuickActionCard
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigateTo("/schedule")}
+            color="#10B981"
+          >
+            <ActionIcon color="#10B981">
+              <FiCalendar />
+            </ActionIcon>
+            <ActionTitle>Planning</ActionTitle>
+            <ActionDescription>
+              Consulter et modifier le planning
+            </ActionDescription>
+          </QuickActionCard>
+
+          <QuickActionCard
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigateTo("/stats")}
+            color="#F59E0B"
+          >
+            <ActionIcon color="#F59E0B">
+              <FiPieChart />
+            </ActionIcon>
+            <ActionTitle>Statistiques</ActionTitle>
+            <ActionDescription>
+              Consulter les statistiques de l'entreprise
+            </ActionDescription>
+          </QuickActionCard>
+        </QuickActionsGrid>
+      </QuickActionsSection>
+
+      <DashboardSections>
+        <UpcomingSection initial="hidden" animate="visible" variants={fadeInUp}>
+          <SectionTitle>
+            <FiCalendar size={18} color="#EC4899" />
+            Prochains congés
+          </SectionTitle>
+
+          {stats.upcomingVacations.length === 0 ? (
+            <ChartPlaceholder>Aucun congé à venir</ChartPlaceholder>
+          ) : (
+            <UpcomingList>
+              {stats.upcomingVacations.map((vacation, index) => (
+                <UpcomingItem key={index} color="#EC4899">
+                  <UpcomingIcon color="#EC4899">
+                    <FiSun />
+                  </UpcomingIcon>
+                  <UpcomingContent>
+                    <UpcomingTitle>
+                      {vacation.employee_name ||
+                        `Employé #${vacation.employee_id}`}
+                    </UpcomingTitle>
+                    <UpcomingDate>
+                      <FiCalendar size={12} />
+                      {formatDate(vacation.start_date)} -{" "}
+                      {formatDate(vacation.end_date)}
+                    </UpcomingDate>
+                  </UpcomingContent>
+                </UpcomingItem>
+              ))}
+
+              <ViewAllLink onClick={() => navigateTo("/vacations")}>
+                Voir tous les congés{" "}
+                <FiArrowRight size={14} style={{ marginLeft: "4px" }} />
+              </ViewAllLink>
+            </UpcomingList>
+          )}
+        </UpcomingSection>
+      </DashboardSections>
+
       <RecentActivities />
     </DashboardContainer>
   );
