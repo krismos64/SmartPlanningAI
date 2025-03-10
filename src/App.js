@@ -22,6 +22,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Employees = lazy(() => import("./pages/Employees"));
 const WeeklySchedule = lazy(() => import("./pages/WeeklySchedule"));
 const Vacations = lazy(() => import("./pages/Vacations"));
+const Activities = lazy(() => import("./pages/Activities"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -124,6 +125,7 @@ const App = () => {
                     }
                   />
                   <Route path="/vacations" element={<Vacations />} />
+                  <Route path="/activities" element={<Activities />} />
                   <Route path="/stats" element={<Stats />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/profile" element={<Profile />} />

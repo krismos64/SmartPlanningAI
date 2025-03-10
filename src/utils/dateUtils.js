@@ -473,6 +473,62 @@ export const isDateInRange = (date, start, end) => {
   return d >= s && d <= e;
 };
 
+/**
+ * Formate une date et une heure au format français
+ * @param {string|Date} date - La date à formater
+ * @returns {Object} - Un objet contenant la date et l'heure formatées
+ */
+export const formatDateTime = (timestamp) => {
+  if (!timestamp) return { date: "", time: "" };
+
+  try {
+    const date = new Date(timestamp);
+
+    return {
+      date: format(date, "dd MMMM yyyy", { locale: fr }),
+      time: format(date, "HH:mm:ss", { locale: fr }),
+    };
+  } catch (error) {
+    console.error("Erreur lors du formatage de la date et de l'heure:", error);
+    return { date: "", time: "" };
+  }
+};
+
+/**
+ * Formate une date relative (il y a X minutes, etc.)
+ * @param {string|Date} date - La date à formater
+ * @returns {string} - La date relative formatée
+ */
+export const formatRelativeDate = (timestamp) => {
+  if (!timestamp) return "";
+
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    // Formater la date en fonction de son ancienneté
+    if (diffSec < 60) {
+      return "à l'instant";
+    } else if (diffMin < 60) {
+      return `il y a ${diffMin} minute${diffMin > 1 ? "s" : ""}`;
+    } else if (diffHour < 24) {
+      return `il y a ${diffHour} heure${diffHour > 1 ? "s" : ""}`;
+    } else if (diffDay < 7) {
+      return `il y a ${diffDay} jour${diffDay > 1 ? "s" : ""}`;
+    } else {
+      return format(date, "dd/MM/yyyy", { locale: fr });
+    }
+  } catch (error) {
+    console.error("Erreur lors du formatage de la date relative:", error);
+    return "";
+  }
+};
+
 export default {
   addWeeks,
   getWeekStart,
@@ -488,4 +544,6 @@ export default {
   minutesToTimeString,
   formatDateForDisplay,
   isDateInRange,
+  formatDateTime,
+  formatRelativeDate,
 };

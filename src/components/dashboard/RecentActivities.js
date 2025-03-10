@@ -14,6 +14,7 @@ import {
   FiUser,
   FiX,
 } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import useActivities from "../../hooks/useActivities";
 
@@ -423,6 +424,7 @@ const translateVacationStatus = (status) => {
 };
 
 const RecentActivities = () => {
+  const navigate = useNavigate();
   const {
     activities,
     loading,
@@ -434,6 +436,10 @@ const RecentActivities = () => {
 
   const handleRefresh = () => {
     fetchActivities(true);
+  };
+
+  const handleViewAllActivities = () => {
+    navigate("/activities");
   };
 
   // S'assurer que activities est un tableau
@@ -589,7 +595,7 @@ const RecentActivities = () => {
           </motion.div>
 
           {activitiesList.length > 5 && (
-            <ViewAllButton>
+            <ViewAllButton onClick={handleViewAllActivities}>
               Voir toutes les activités ({activitiesList.length})
             </ViewAllButton>
           )}
