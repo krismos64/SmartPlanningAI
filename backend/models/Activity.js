@@ -687,6 +687,7 @@ class Activity {
           delete: "a supprimé",
           approve: "a approuvé",
           reject: "a rejeté",
+          vacation_status_update: "a mis à jour le statut de",
         }[type] || type;
 
       // Construire la description
@@ -717,6 +718,62 @@ class Activity {
             parsedDetails.action === "Ajout d'heures" ? "ajouté" : "soustrait";
 
           return `${userName} a ${action} ${hours}h au solde d'heures de ${employeeName}`;
+        }
+
+        // Cas spécial pour les demandes de congés
+        if (entity_type === "vacation") {
+          const userName =
+            activity.first_name && activity.last_name
+              ? `${activity.first_name} ${activity.last_name}`
+              : "Un utilisateur";
+
+          // Pour la création de congés
+          if (
+            type === "create" &&
+            parsedDetails.employee_id &&
+            parsedDetails.start_date &&
+            parsedDetails.end_date
+          ) {
+            const employeeName =
+              parsedDetails.employee_name ||
+              `Employé #${parsedDetails.employee_id}`;
+            const typeConge = parsedDetails.type || "non spécifié";
+            const startDate = new Date(
+              parsedDetails.start_date
+            ).toLocaleDateString("fr-FR");
+            const endDate = new Date(parsedDetails.end_date).toLocaleDateString(
+              "fr-FR"
+            );
+
+            return `${userName} a créé une demande de congé ${typeConge} pour ${employeeName} du ${startDate} au ${endDate}`;
+          }
+
+          // Pour la mise à jour du statut des congés
+          if (
+            type === "vacation_status_update" &&
+            parsedDetails.previous_status &&
+            parsedDetails.new_status
+          ) {
+            const previousStatus = parsedDetails.previous_status;
+            const newStatus = parsedDetails.new_status;
+
+            let statusText = "";
+            if (newStatus === "approved") statusText = "approuvé";
+            else if (newStatus === "rejected") statusText = "rejeté";
+            else if (newStatus === "pending") statusText = "remis en attente";
+
+            return `${userName} a ${statusText} la demande de congé #${entity_id}`;
+          }
+
+          // Pour la mise à jour générale des congés
+          if (type === "update") {
+            return `${userName} a modifié la demande de congé #${entity_id}`;
+          }
+
+          // Pour la suppression des congés
+          if (type === "delete") {
+            return `${userName} a supprimé la demande de congé #${entity_id}`;
+          }
         }
 
         // Pour les autres types d'activités

@@ -89,12 +89,54 @@ class VacationRequest {
   async save() {
     try {
       // Formater les dates pour MySQL
-      const start_date = this.start_date
-        ? new Date(this.start_date).toISOString().split("T")[0]
-        : null;
-      const end_date = this.end_date
-        ? new Date(this.end_date).toISOString().split("T")[0]
-        : null;
+      let start_date = null;
+      if (this.start_date) {
+        if (this.start_date instanceof Date) {
+          start_date = this.start_date.toISOString().split("T")[0];
+        } else if (typeof this.start_date === "string") {
+          // Si c'est déjà une chaîne, vérifier si c'est au format YYYY-MM-DD
+          if (/^\d{4}-\d{2}-\d{2}$/.test(this.start_date)) {
+            start_date = this.start_date;
+          } else {
+            // Sinon, essayer de convertir
+            start_date = new Date(this.start_date).toISOString().split("T")[0];
+          }
+        }
+      }
+
+      let end_date = null;
+      if (this.end_date) {
+        if (this.end_date instanceof Date) {
+          end_date = this.end_date.toISOString().split("T")[0];
+        } else if (typeof this.end_date === "string") {
+          // Si c'est déjà une chaîne, vérifier si c'est au format YYYY-MM-DD
+          if (/^\d{4}-\d{2}-\d{2}$/.test(this.end_date)) {
+            end_date = this.end_date;
+          } else {
+            // Sinon, essayer de convertir
+            end_date = new Date(this.end_date).toISOString().split("T")[0];
+          }
+        }
+      }
+
+      // Formater les dates d'approbation/rejet
+      let approved_at = null;
+      if (this.approved_at) {
+        if (this.approved_at instanceof Date) {
+          approved_at = this.approved_at;
+        } else if (typeof this.approved_at === "string") {
+          approved_at = new Date(this.approved_at);
+        }
+      }
+
+      let rejected_at = null;
+      if (this.rejected_at) {
+        if (this.rejected_at instanceof Date) {
+          rejected_at = this.rejected_at;
+        } else if (typeof this.rejected_at === "string") {
+          rejected_at = new Date(this.rejected_at);
+        }
+      }
 
       // Validation: vérifier que la date de début est antérieure ou égale à la date de fin
       if (start_date && end_date) {
@@ -116,12 +158,16 @@ class VacationRequest {
         end_date,
         reason: this.reason,
         status: this.status,
+        approved_by: this.approved_by,
+        approved_at: approved_at,
+        rejected_by: this.rejected_by,
+        rejected_at: rejected_at,
+        rejection_reason: this.rejection_reason,
       });
 
       if (this.id) {
         // Mise à jour avec updated_at
-        const [result] = await connectDB.execute(
-          `UPDATE vacation_requests 
+        const query = `UPDATE vacation_requests 
            SET employee_id = ?, 
                type = ?, 
                start_date = ?, 
@@ -134,31 +180,68 @@ class VacationRequest {
                rejected_at = ?,
                rejection_reason = ?,
                updated_at = NOW()
-           WHERE id = ?`,
-          [
-            this.employee_id,
-            this.type,
-            start_date,
-            end_date,
-            this.reason,
-            this.status,
-            this.approved_by,
-            this.approved_at,
-            this.rejected_by,
-            this.rejected_at,
-            this.rejection_reason,
-            this.id,
-          ]
-        );
+           WHERE id = ?`;
+
+        // S'assurer que employee_id est un nombre
+        let employeeId;
+        try {
+          employeeId = parseInt(this.employee_id, 10);
+          if (isNaN(employeeId)) {
+            throw new Error("L'ID de l'employé doit être un nombre valide");
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la conversion de l'ID de l'employé:",
+            error
+          );
+          throw new Error("L'ID de l'employé doit être un nombre valide");
+        }
+
+        const params = [
+          employeeId, // Utiliser la version convertie en nombre
+          this.type,
+          start_date,
+          end_date,
+          this.reason,
+          this.status,
+          this.approved_by,
+          approved_at,
+          this.rejected_by,
+          rejected_at,
+          this.rejection_reason,
+          this.id,
+        ];
+
+        console.log("Exécution de la requête SQL:", query);
+        console.log("Paramètres:", params);
+
+        const [result] = await connectDB.execute(query, params);
+        console.log("Résultat de la mise à jour:", result);
+
         return this;
       } else {
         // Création
+        // S'assurer que employee_id est un nombre
+        let employeeId;
+        try {
+          employeeId = parseInt(this.employee_id, 10);
+          if (isNaN(employeeId)) {
+            throw new Error("L'ID de l'employé doit être un nombre valide");
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la conversion de l'ID de l'employé:",
+            error
+          );
+          throw new Error("L'ID de l'employé doit être un nombre valide");
+        }
+
         const [result] = await connectDB.execute(
           `INSERT INTO vacation_requests 
            (employee_id, type, start_date, end_date, reason, status, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
           [
-            this.employee_id,
+            employeeId, // Utiliser la version convertie en nombre
             this.type,
             start_date,
             end_date,

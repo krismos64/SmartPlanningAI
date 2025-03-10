@@ -143,15 +143,25 @@ router.post("/", auth, async (req, res) => {
         type: "create",
         entity_type: "vacation",
         entity_id: vacationRequest.id.toString(),
-        description: `Nouvelle demande de congés ${vacationRequest.type} du ${vacationRequest.start_date} au ${vacationRequest.end_date}`,
+        description: `Nouvelle demande de congés ${
+          vacationRequest.type
+        } du ${new Date(vacationRequest.start_date).toLocaleDateString(
+          "fr-FR"
+        )} au ${new Date(vacationRequest.end_date).toLocaleDateString(
+          "fr-FR"
+        )}`,
         user_id: req.user.id,
         details: {
           vacation_id: vacationRequest.id,
           employee_id: vacationRequest.employee_id,
+          employee_name:
+            vacationRequest.employee_name ||
+            `Employé #${vacationRequest.employee_id}`,
           type: vacationRequest.type,
           start_date: vacationRequest.start_date,
           end_date: vacationRequest.end_date,
           status: vacationRequest.status,
+          reason: vacationRequest.reason || "",
         },
       };
 
@@ -269,7 +279,55 @@ router.put("/:id", auth, async (req, res) => {
         req.params.id,
         updateData
       );
-      return res.json(updatedVacationRequest);
+
+      // Journaliser l'activité de mise à jour
+      if (global.Activity) {
+        try {
+          // Récupérer les informations de l'employé concerné par la demande de congé
+          const Employee = require("../models/Employee");
+          const employee = await Employee.findById(
+            updatedVacationRequest.employee_id
+          );
+          const employeeName = employee
+            ? `${employee.first_name} ${employee.last_name}`.trim()
+            : `Employé #${updatedVacationRequest.employee_id}`;
+
+          // Utiliser la méthode logActivity qui existe dans le modèle
+          await global.Activity.logActivity({
+            type: "update",
+            entity_type: "vacation",
+            entity_id: req.params.id,
+            description: `Mise à jour de la demande de congé #${req.params.id}`,
+            user_id: req.user.id,
+            details: {
+              employee_id: updatedVacationRequest.employee_id,
+              employee_name: employeeName,
+              vacation_type: updatedVacationRequest.type,
+              start_date: updatedVacationRequest.start_date,
+              end_date: updatedVacationRequest.end_date,
+              reason: updatedVacationRequest.reason || "",
+              status: updatedVacationRequest.status,
+              previous_data: {
+                employee_id: vacationRequest.employee_id,
+                type: vacationRequest.type,
+                start_date: vacationRequest.start_date,
+                end_date: vacationRequest.end_date,
+                reason: vacationRequest.reason || "",
+                status: vacationRequest.status,
+              },
+            },
+          });
+          console.log(`Activité de mise à jour journalisée avec succès`);
+        } catch (logError) {
+          console.error(
+            "Erreur lors de la journalisation de l'activité de mise à jour:",
+            logError
+          );
+          // Ne pas bloquer la mise à jour si la journalisation échoue
+        }
+      }
+
+      res.json(updatedVacationRequest);
     }
 
     const updatedVacationRequest = await VacationRequest.findByIdAndUpdate(
@@ -282,8 +340,22 @@ router.put("/:id", auth, async (req, res) => {
       `Erreur lors de la mise à jour de la demande de congé ${req.params.id}:`,
       error
     );
+
+    // Vérifier si c'est une erreur de contrainte de clé étrangère
+    if (
+      error.code === "ER_NO_REFERENCED_ROW_2" &&
+      error.sqlMessage &&
+      error.sqlMessage.includes("employee_id")
+    ) {
+      return res.status(400).json({
+        message: "L'employé spécifié n'existe pas dans la base de données",
+        details: "Veuillez sélectionner un employé valide",
+      });
+    }
+
     res.status(500).json({
       message: "Erreur lors de la mise à jour de la demande de congé",
+      details: error.message,
     });
   }
 });
@@ -316,6 +388,39 @@ router.delete("/:id", auth, async (req, res) => {
     }
 
     await VacationRequest.delete(req.params.id);
+
+    // Journaliser l'activité de suppression
+    if (global.Activity) {
+      try {
+        // Utiliser la méthode logActivity qui existe dans le modèle
+        await global.Activity.logActivity({
+          type: "delete",
+          entity_type: "vacation",
+          entity_id: req.params.id,
+          description: `Suppression de la demande de congé #${req.params.id}`,
+          user_id: req.user.id,
+          details: {
+            employee_id: vacationRequest.employee_id,
+            employee_name:
+              vacationRequest.employee_name ||
+              `Employé #${vacationRequest.employee_id}`,
+            vacation_type: vacationRequest.type,
+            start_date: vacationRequest.start_date,
+            end_date: vacationRequest.end_date,
+            reason: vacationRequest.reason || "",
+            status: vacationRequest.status,
+          },
+        });
+        console.log(`Activité de suppression journalisée avec succès`);
+      } catch (logError) {
+        console.error(
+          "Erreur lors de la journalisation de l'activité de suppression:",
+          logError
+        );
+        // Ne pas bloquer la suppression si la journalisation échoue
+      }
+    }
+
     res.json({ message: "Demande de congé supprimée avec succès" });
   } catch (error) {
     console.error(
@@ -459,8 +564,13 @@ router.put("/:id/status", auth, async (req, res) => {
     const { id } = req.params;
     const { status, comment } = req.body;
 
+    console.log(
+      `Tentative de mise à jour du statut de la demande de congé ${id} à "${status}"`
+    );
+
     // Vérifier que le statut est valide
     if (!["approved", "rejected", "pending"].includes(status)) {
+      console.log(`Statut invalide: ${status}`);
       return res.status(400).json({
         message:
           "Statut invalide. Les valeurs acceptées sont: approved, rejected, pending",
@@ -469,6 +579,7 @@ router.put("/:id/status", auth, async (req, res) => {
 
     // Vérifier que l'utilisateur est un admin ou un manager
     if (req.user.role !== "admin" && req.user.role !== "manager") {
+      console.log(`Utilisateur non autorisé: ${req.user.role}`);
       return res.status(403).json({
         message:
           "Vous n'êtes pas autorisé à modifier le statut des demandes de congé",
@@ -478,8 +589,11 @@ router.put("/:id/status", auth, async (req, res) => {
     // Récupérer la demande de congé
     const vacationRequest = await VacationRequest.findById(id);
     if (!vacationRequest) {
+      console.log(`Demande de congé non trouvée: ${id}`);
       return res.status(404).json({ message: "Demande de congé non trouvée" });
     }
+
+    console.log(`Demande de congé trouvée:`, vacationRequest);
 
     // Récupérer les informations de l'utilisateur qui approuve/rejette
     const Employee = require("../models/Employee");
@@ -489,6 +603,8 @@ router.put("/:id/status", auth, async (req, res) => {
     const approverName = approver
       ? `${approver.first_name} ${approver.last_name}`.trim()
       : "Admin Système";
+
+    console.log(`Approbateur: ${approverName} (ID: ${req.user.id})`);
 
     // Préparer les données de mise à jour
     const updateData = { status };
@@ -518,43 +634,112 @@ router.put("/:id/status", auth, async (req, res) => {
       updateData.rejection_reason = null;
     }
 
-    // Mettre à jour la demande de congé
-    const updatedVacationRequest = await VacationRequest.findByIdAndUpdate(
-      id,
-      updateData
-    );
+    console.log(`Données de mise à jour:`, updateData);
 
-    // Journaliser l'activité
-    if (global.Activity) {
-      try {
-        // Utiliser la méthode logActivity qui existe dans le modèle
-        await global.Activity.logActivity({
-          type: "vacation_status_update",
-          entity_type: "vacation",
-          entity_id: id,
-          description: `Statut de la demande de congé mis à jour: ${status}`,
-          user_id: req.user.id,
-          details: {
-            previous_status: vacationRequest.status,
-            new_status: status,
-            comment: comment || null,
-          },
+    try {
+      // Mettre à jour la demande de congé
+      const updatedVacationRequest = await VacationRequest.findByIdAndUpdate(
+        id,
+        updateData
+      );
+
+      if (!updatedVacationRequest) {
+        console.log(`Échec de la mise à jour de la demande de congé ${id}`);
+        return res.status(500).json({
+          message:
+            "Erreur lors de la mise à jour du statut de la demande de congé",
+          details: "La mise à jour a échoué",
         });
-      } catch (logError) {
-        console.error(
-          "Erreur lors de la journalisation de l'activité:",
-          logError
-        );
-        // Ne pas bloquer la mise à jour si la journalisation échoue
       }
-    }
 
-    res.json(updatedVacationRequest);
+      console.log(
+        `Demande de congé mise à jour avec succès:`,
+        updatedVacationRequest
+      );
+
+      // Journaliser l'activité
+      if (global.Activity) {
+        try {
+          // Récupérer les informations de l'employé concerné par la demande de congé
+          const Employee = require("../models/Employee");
+          const employee = await Employee.findById(vacationRequest.employee_id);
+          const employeeName = employee
+            ? `${employee.first_name} ${employee.last_name}`.trim()
+            : `Employé #${vacationRequest.employee_id}`;
+
+          // Utiliser la méthode logActivity qui existe dans le modèle
+          await global.Activity.logActivity({
+            type: "vacation_status_update",
+            entity_type: "vacation",
+            entity_id: id,
+            description: `Statut de la demande de congé mis à jour: ${status}`,
+            user_id: req.user.id,
+            details: {
+              previous_status: vacationRequest.status,
+              new_status: status,
+              comment: comment || null,
+              employee_id: vacationRequest.employee_id,
+              employee_name: employeeName,
+              vacation_type: vacationRequest.type,
+              start_date: vacationRequest.start_date,
+              end_date: vacationRequest.end_date,
+              reason: vacationRequest.reason || "",
+              approver_name: approverName,
+            },
+          });
+          console.log(`Activité journalisée avec succès`);
+        } catch (logError) {
+          console.error(
+            "Erreur lors de la journalisation de l'activité:",
+            logError
+          );
+          // Ne pas bloquer la mise à jour si la journalisation échoue
+        }
+      }
+
+      res.json(updatedVacationRequest);
+    } catch (updateError) {
+      console.error(
+        `Erreur lors de la mise à jour de la demande de congé ${id}:`,
+        updateError
+      );
+
+      // Vérifier si c'est une erreur de contrainte de clé étrangère
+      if (
+        updateError.code === "ER_NO_REFERENCED_ROW_2" &&
+        updateError.sqlMessage &&
+        updateError.sqlMessage.includes("employee_id")
+      ) {
+        return res.status(400).json({
+          message: "L'employé spécifié n'existe pas dans la base de données",
+          details: "Veuillez sélectionner un employé valide",
+        });
+      }
+
+      res.status(500).json({
+        message:
+          "Erreur lors de la mise à jour du statut de la demande de congé",
+        details: updateError.message,
+      });
+    }
   } catch (error) {
     console.error(
       `Erreur lors de la mise à jour du statut de la demande de congé ${req.params.id}:`,
       error
     );
+
+    // Vérifier si c'est une erreur de contrainte de clé étrangère
+    if (
+      error.code === "ER_NO_REFERENCED_ROW_2" &&
+      error.sqlMessage &&
+      error.sqlMessage.includes("employee_id")
+    ) {
+      return res.status(400).json({
+        message: "L'employé spécifié n'existe pas dans la base de données",
+        details: "Veuillez sélectionner un employé valide",
+      });
+    }
+
     res.status(500).json({
       message: "Erreur lors de la mise à jour du statut de la demande de congé",
       details: error.message,

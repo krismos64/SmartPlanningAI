@@ -369,14 +369,20 @@ const useVacations = () => {
             vacationData
           );
 
-          if (!response.ok) {
+          // Vérifier si la réponse est un objet avec une propriété ok
+          if (
+            response &&
+            typeof response === "object" &&
+            "ok" in response &&
+            !response.ok
+          ) {
             throw new Error(
               response.data?.message ||
                 "Erreur lors de la mise à jour de la demande de congé"
             );
           }
 
-          return response.data;
+          return response;
         };
 
         // Utiliser la fonction de retry
@@ -417,14 +423,20 @@ const useVacations = () => {
         const apiCall = async () => {
           const response = await api.delete(`${API_ENDPOINTS.VACATIONS}/${id}`);
 
-          if (!response.ok) {
+          // Vérifier si la réponse est un objet avec une propriété ok
+          if (
+            response &&
+            typeof response === "object" &&
+            "ok" in response &&
+            !response.ok
+          ) {
             throw new Error(
               response.data?.message ||
                 "Erreur lors de la suppression de la demande de congé"
             );
           }
 
-          return response.data;
+          return response;
         };
 
         // Utiliser la fonction de retry
@@ -469,7 +481,13 @@ const useVacations = () => {
             }
           );
 
-          if (!response.ok) {
+          // Vérifier si la réponse est un objet avec une propriété ok
+          if (
+            response &&
+            typeof response === "object" &&
+            "ok" in response &&
+            !response.ok
+          ) {
             throw new Error(
               response.data?.message ||
                 `Erreur lors de la ${
@@ -478,7 +496,7 @@ const useVacations = () => {
             );
           }
 
-          return response.data;
+          return response;
         };
 
         // Utiliser la fonction de retry

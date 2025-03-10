@@ -9,7 +9,9 @@ import {
   FiInfo,
   FiPlus,
   FiRefreshCw,
+  FiSun,
   FiTrash2,
+  FiUser,
   FiX,
 } from "react-icons/fi";
 import styled, { keyframes } from "styled-components";
@@ -180,6 +182,14 @@ const ActivityDate = styled.div`
   gap: 0.25rem;
 `;
 
+const ActivityEmployee = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.primary};
+`;
+
 const LoadingIndicator = styled.div`
   text-align: center;
   padding: 2rem 0;
@@ -257,7 +267,13 @@ const Badge = styled.span`
 `;
 
 // Fonction pour obtenir la couleur en fonction du type d'activité
-const getActivityColor = (type) => {
+const getActivityColor = (type, entity_type) => {
+  // Si c'est une activité liée aux congés, utiliser une couleur spécifique
+  if (entity_type === "vacation") {
+    return "#6366F1"; // indigo pour les congés
+  }
+
+  // Sinon, utiliser la couleur en fonction du type d'activité
   switch (type) {
     case "create":
       return "#10B981"; // vert
@@ -271,13 +287,21 @@ const getActivityColor = (type) => {
       return "#EC4899"; // rose
     case "system":
       return "#8B5CF6"; // violet
+    case "vacation_status_update":
+      return "#6366F1"; // indigo
     default:
       return "#4F46E5"; // indigo (par défaut)
   }
 };
 
 // Fonction pour obtenir l'icône en fonction du type d'activité
-const getActivityIcon = (type) => {
+const getActivityIcon = (type, entity_type) => {
+  // Si c'est une activité liée aux congés, utiliser une icône spécifique
+  if (entity_type === "vacation") {
+    return <FiSun />;
+  }
+
+  // Sinon, utiliser l'icône en fonction du type d'activité
   switch (type) {
     case "create":
       return <FiPlus />;
@@ -291,13 +315,51 @@ const getActivityIcon = (type) => {
       return <FiX />;
     case "system":
       return <FiInfo />;
+    case "vacation_status_update":
+      return <FiSun />;
     default:
       return <FiInfo />;
   }
 };
 
 // Fonction pour obtenir le libellé en fonction du type d'activité
-const getActivityTypeLabel = (type) => {
+const getActivityTypeLabel = (type, entity_type, details) => {
+  // Si c'est une activité liée aux congés, utiliser un libellé spécifique
+  if (entity_type === "vacation") {
+    // Récupérer le type de congé si disponible
+    let vacationType = "";
+    if (details && typeof details === "object") {
+      if (details.type) {
+        vacationType = translateVacationType(details.type);
+      } else if (details.vacation_type) {
+        vacationType = translateVacationType(details.vacation_type);
+      }
+    }
+
+    switch (type) {
+      case "create":
+        return `Nouvelle demande${vacationType ? " " + vacationType : ""}`;
+      case "update":
+        return `Modification congé${vacationType ? " " + vacationType : ""}`;
+      case "delete":
+        return `Suppression congé${vacationType ? " " + vacationType : ""}`;
+      case "approve":
+        return `Approbation congé${vacationType ? " " + vacationType : ""}`;
+      case "reject":
+        return `Rejet congé${vacationType ? " " + vacationType : ""}`;
+      case "vacation_status_update":
+        // Récupérer le nouveau statut si disponible
+        let statusText = "";
+        if (details && typeof details === "object" && details.new_status) {
+          statusText = translateVacationStatus(details.new_status);
+        }
+        return `Congé ${statusText}${vacationType ? " " + vacationType : ""}`;
+      default:
+        return `Congé${vacationType ? " " + vacationType : ""}`;
+    }
+  }
+
+  // Sinon, utiliser le libellé en fonction du type d'activité
   switch (type) {
     case "create":
       return "Création";
@@ -311,6 +373,8 @@ const getActivityTypeLabel = (type) => {
       return "Rejet";
     case "system":
       return "Système";
+    case "vacation_status_update":
+      return "Mise à jour statut";
     default:
       return "Information";
   }
@@ -326,6 +390,36 @@ const formatDateTime = (timestamp) => {
     date: format(date, "dd MMMM yyyy", { locale: fr }),
     time: format(date, "HH:mm:ss", { locale: fr }),
   };
+};
+
+// Fonction pour traduire le type de congé en français
+const translateVacationType = (type) => {
+  switch (type) {
+    case "paid":
+      return "payé";
+    case "unpaid":
+      return "non payé";
+    case "sick":
+      return "maladie";
+    case "other":
+      return "autre";
+    default:
+      return type || "non spécifié";
+  }
+};
+
+// Fonction pour traduire le statut de congé en français
+const translateVacationStatus = (status) => {
+  switch (status) {
+    case "approved":
+      return "approuvé";
+    case "rejected":
+      return "rejeté";
+    case "pending":
+      return "en attente";
+    default:
+      return status || "non spécifié";
+  }
 };
 
 const RecentActivities = () => {
@@ -369,6 +463,31 @@ const RecentActivities = () => {
     },
   };
 
+  // Fonction pour extraire les détails pertinents d'une activité
+  const extractActivityDetails = (activity) => {
+    if (!activity || !activity.details) return {};
+
+    let details = activity.details;
+    if (typeof details === "string") {
+      try {
+        details = JSON.parse(details);
+      } catch (e) {
+        return {};
+      }
+    }
+
+    // Extraire les informations pertinentes
+    return {
+      employeeName: details.employee_name || "",
+      employeeId: details.employee_id || "",
+      vacationType: details.type || details.vacation_type || "",
+      startDate: details.start_date || "",
+      endDate: details.end_date || "",
+      status: details.status || details.new_status || "",
+      previousStatus: details.previous_status || "",
+    };
+  };
+
   return (
     <ActivitiesContainer>
       <ActivitiesHeader>
@@ -408,8 +527,24 @@ const RecentActivities = () => {
           >
             <ActivitiesList>
               {activitiesList.slice(0, 5).map((activity, index) => {
-                const color = getActivityColor(activity.type);
+                const color = getActivityColor(
+                  activity.type,
+                  activity.entity_type
+                );
                 const { date, time } = formatDateTime(activity.timestamp);
+                const details = extractActivityDetails(activity);
+
+                // Traduire le type et le statut de congé si c'est une activité liée aux congés
+                let typeLabel = "";
+                let statusLabel = "";
+                if (activity.entity_type === "vacation") {
+                  typeLabel = details.vacationType
+                    ? translateVacationType(details.vacationType)
+                    : "";
+                  statusLabel = details.status
+                    ? translateVacationStatus(details.status)
+                    : "";
+                }
 
                 return (
                   <ActivityItem
@@ -419,13 +554,17 @@ const RecentActivities = () => {
                     whileHover={{ scale: 1.01 }}
                   >
                     <ActivityIcon color={color}>
-                      {getActivityIcon(activity.type)}
+                      {getActivityIcon(activity.type, activity.entity_type)}
                     </ActivityIcon>
                     <ActivityContent>
                       <ActivityDescription>
                         {formatActivityDescription(activity)}
                         <Badge color={color}>
-                          {getActivityTypeLabel(activity.type)}
+                          {getActivityTypeLabel(
+                            activity.type,
+                            activity.entity_type,
+                            activity.details
+                          )}
                         </Badge>
                       </ActivityDescription>
                       <ActivityMeta>
@@ -435,6 +574,12 @@ const RecentActivities = () => {
                         <ActivityDate>
                           <FiCalendar size={12} /> {date}
                         </ActivityDate>
+                        {activity.entity_type === "vacation" &&
+                          details.employeeName && (
+                            <ActivityEmployee>
+                              <FiUser size={12} /> {details.employeeName}
+                            </ActivityEmployee>
+                          )}
                       </ActivityMeta>
                     </ActivityContent>
                   </ActivityItem>

@@ -149,68 +149,240 @@ const useActivities = () => {
   );
 
   /**
+   * Traduit le type de congé en français
+   * @param {string} type - Le type de congé en anglais
+   * @returns {string} - Le type de congé en français
+   */
+  const translateVacationType = useCallback((type) => {
+    switch (type) {
+      case "paid":
+        return "payé";
+      case "unpaid":
+        return "non payé";
+      case "sick":
+        return "maladie";
+      case "other":
+        return "autre";
+      default:
+        return type || "non spécifié";
+    }
+  }, []);
+
+  /**
+   * Traduit le statut de congé en français
+   * @param {string} status - Le statut de congé en anglais
+   * @returns {string} - Le statut de congé en français
+   */
+  const translateVacationStatus = useCallback((status) => {
+    switch (status) {
+      case "approved":
+        return "approuvé";
+      case "rejected":
+        return "rejeté";
+      case "pending":
+        return "en attente";
+      default:
+        return status || "non spécifié";
+    }
+  }, []);
+
+  /**
+   * Formate les dates de début et de fin d'un congé
+   * @param {string} startDate - La date de début
+   * @param {string} endDate - La date de fin
+   * @returns {string} - Les dates formatées
+   */
+  const formatVacationDates = useCallback((startDate, endDate) => {
+    if (!startDate || !endDate) return "";
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Formater les dates
+    const startFormatted = start.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    const endFormatted = end.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    return `du ${startFormatted} au ${endFormatted}`;
+  }, []);
+
+  /**
    * Formate la description d'une activité
    * @param {Object} activity - L'activité à formater
    * @returns {string} - La description formatée
    */
-  const formatActivityDescription = useCallback((activity) => {
-    if (!activity) return "";
+  const formatActivityDescription = useCallback(
+    (activity) => {
+      if (!activity) return "";
 
-    // Si l'activité a une description, l'utiliser directement
-    if (activity.description) {
-      return activity.description;
-    }
-
-    const { type, entity_type, entity_id, user_id, details, user } = activity;
-
-    // Obtenir le nom de l'utilisateur qui a effectué l'action
-    const userName = user && user.name ? user.name : "Un utilisateur";
-
-    // Formater le type d'entité
-    const entityName =
-      {
-        employee: "un employé",
-        schedule: "un planning",
-        vacation: "une demande de congé",
-        shift: "un horaire",
-        user: "un utilisateur",
-      }[entity_type] || entity_type;
-
-    // Formater le type d'action
-    const actionType =
-      {
-        create: "a créé",
-        update: "a modifié",
-        delete: "a supprimé",
-        approve: "a approuvé",
-        reject: "a rejeté",
-      }[type] || type;
-
-    // Construire la description
-    let description = `${userName} ${actionType} ${entityName}`;
-
-    // Ajouter des détails si disponibles
-    if (details) {
-      let parsedDetails;
-      try {
-        parsedDetails =
-          typeof details === "string" ? JSON.parse(details) : details;
-      } catch (e) {
-        parsedDetails = details;
+      // Si l'activité a une description, l'utiliser directement
+      if (activity.description) {
+        return activity.description;
       }
 
-      if (typeof parsedDetails === "string") {
-        description += ` : ${parsedDetails}`;
-      } else if (typeof parsedDetails === "object") {
-        // Ne pas ajouter les détails sous forme d'objet pour éviter [object Object]
-        if (parsedDetails.employeeName && entity_type === "employee") {
-          description += ` : ${parsedDetails.employeeName}`;
+      const { type, entity_type, entity_id, user_id, details, user } = activity;
+
+      // Obtenir le nom de l'utilisateur qui a effectué l'action
+      const userName = user && user.name ? user.name : "Un utilisateur";
+
+      // Formater le type d'entité
+      const entityName =
+        {
+          employee: "un employé",
+          schedule: "un planning",
+          vacation: "une demande de congé",
+          shift: "un horaire",
+          user: "un utilisateur",
+        }[entity_type] || entity_type;
+
+      // Formater le type d'action
+      const actionType =
+        {
+          create: "a créé",
+          update: "a modifié",
+          delete: "a supprimé",
+          approve: "a approuvé",
+          reject: "a rejeté",
+          vacation_status_update: "a mis à jour le statut de",
+        }[type] || type;
+
+      // Construire la description
+      let description = `${userName} ${actionType} ${entityName}`;
+
+      // Ajouter des détails si disponibles
+      if (details) {
+        let parsedDetails;
+        try {
+          parsedDetails =
+            typeof details === "string" ? JSON.parse(details) : details;
+        } catch (e) {
+          parsedDetails = details;
+        }
+
+        // Cas spécial pour les demandes de congés
+        if (entity_type === "vacation") {
+          // Pour la création de congés
+          if (
+            type === "create" &&
+            parsedDetails.employee_name &&
+            parsedDetails.start_date &&
+            parsedDetails.end_date
+          ) {
+            const employeeName = parsedDetails.employee_name;
+            const typeConge = translateVacationType(parsedDetails.type);
+            const dateRange = formatVacationDates(
+              parsedDetails.start_date,
+              parsedDetails.end_date
+            );
+
+            return `${userName} a créé une demande de congé ${typeConge} pour ${employeeName} ${dateRange}`;
+          }
+
+          // Pour la mise à jour du statut des congés
+          if (type === "vacation_status_update" && parsedDetails.new_status) {
+            const newStatus = parsedDetails.new_status;
+            const employeeName =
+              parsedDetails.employee_name ||
+              `Employé #${parsedDetails.employee_id || entity_id}`;
+            const dateRange =
+              parsedDetails.start_date && parsedDetails.end_date
+                ? formatVacationDates(
+                    parsedDetails.start_date,
+                    parsedDetails.end_date
+                  )
+                : "";
+            const typeConge = parsedDetails.vacation_type
+              ? translateVacationType(parsedDetails.vacation_type)
+              : "";
+
+            let statusText = translateVacationStatus(newStatus);
+
+            return `${userName} a ${statusText} la demande de congé${
+              typeConge ? " " + typeConge : ""
+            } de ${employeeName}${dateRange ? " " + dateRange : ""}`;
+          }
+
+          // Pour la mise à jour générale des congés
+          if (type === "update") {
+            const employeeName =
+              parsedDetails.employee_name ||
+              `Employé #${parsedDetails.employee_id || entity_id}`;
+            const dateRange =
+              parsedDetails.start_date && parsedDetails.end_date
+                ? formatVacationDates(
+                    parsedDetails.start_date,
+                    parsedDetails.end_date
+                  )
+                : "";
+            const typeConge = parsedDetails.vacation_type
+              ? translateVacationType(parsedDetails.vacation_type)
+              : "";
+
+            return `${userName} a modifié la demande de congé${
+              typeConge ? " " + typeConge : ""
+            } de ${employeeName}${dateRange ? " " + dateRange : ""}`;
+          }
+
+          // Pour la suppression des congés
+          if (type === "delete") {
+            const employeeName =
+              parsedDetails.employee_name ||
+              `Employé #${parsedDetails.employee_id || entity_id}`;
+            const dateRange =
+              parsedDetails.start_date && parsedDetails.end_date
+                ? formatVacationDates(
+                    parsedDetails.start_date,
+                    parsedDetails.end_date
+                  )
+                : "";
+            const typeConge = parsedDetails.vacation_type
+              ? translateVacationType(parsedDetails.vacation_type)
+              : "";
+
+            return `${userName} a supprimé la demande de congé${
+              typeConge ? " " + typeConge : ""
+            } de ${employeeName}${dateRange ? " " + dateRange : ""}`;
+          }
+        }
+
+        // Cas spécial pour les modifications de solde d'heures
+        if (
+          entity_type === "employee" &&
+          parsedDetails.action &&
+          (parsedDetails.action === "Ajout d'heures" ||
+            parsedDetails.action === "Soustraction d'heures")
+        ) {
+          const employeeName =
+            parsedDetails.employeeName || `Employé #${entity_id}`;
+          const hours = parsedDetails.hours || "?";
+          const action =
+            parsedDetails.action === "Ajout d'heures" ? "ajouté" : "soustrait";
+
+          return `${userName} a ${action} ${hours}h au solde d'heures de ${employeeName}`;
+        }
+
+        if (typeof parsedDetails === "string") {
+          description += ` : ${parsedDetails}`;
+        } else if (typeof parsedDetails === "object") {
+          // Ne pas ajouter les détails sous forme d'objet pour éviter [object Object]
+          if (parsedDetails.employeeName && entity_type === "employee") {
+            description += ` : ${parsedDetails.employeeName}`;
+          }
         }
       }
-    }
 
-    return description;
-  }, []);
+      return description;
+    },
+    [formatVacationDates, translateVacationType, translateVacationStatus]
+  );
 
   /**
    * Formate la date d'une activité
@@ -353,6 +525,9 @@ const useActivities = () => {
     getActivityIcon,
     formatActivityDescription,
     formatActivityDate,
+    formatVacationDates,
+    translateVacationType,
+    translateVacationStatus,
   };
 };
 
