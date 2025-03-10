@@ -449,4 +449,117 @@ router.get("/test-stats", async (req, res) => {
   }
 });
 
+/**
+ * @route   PUT /api/vacations/:id/status
+ * @desc    Mettre à jour le statut d'une demande de congé (approuver/rejeter)
+ * @access  Private (Admin, Manager)
+ */
+router.put("/:id/status", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, comment } = req.body;
+
+    // Vérifier que le statut est valide
+    if (!["approved", "rejected", "pending"].includes(status)) {
+      return res.status(400).json({
+        message:
+          "Statut invalide. Les valeurs acceptées sont: approved, rejected, pending",
+      });
+    }
+
+    // Vérifier que l'utilisateur est un admin ou un manager
+    if (req.user.role !== "admin" && req.user.role !== "manager") {
+      return res.status(403).json({
+        message:
+          "Vous n'êtes pas autorisé à modifier le statut des demandes de congé",
+      });
+    }
+
+    // Récupérer la demande de congé
+    const vacationRequest = await VacationRequest.findById(id);
+    if (!vacationRequest) {
+      return res.status(404).json({ message: "Demande de congé non trouvée" });
+    }
+
+    // Récupérer les informations de l'utilisateur qui approuve/rejette
+    const Employee = require("../models/Employee");
+    const approver = await Employee.findById(req.user.id);
+
+    // Définir le nom de l'approbateur
+    const approverName = approver
+      ? `${approver.first_name} ${approver.last_name}`.trim()
+      : "Admin Système";
+
+    // Préparer les données de mise à jour
+    const updateData = { status };
+
+    if (status === "approved") {
+      // Stocker les informations sur l'approbateur
+      updateData.approved_by = approverName;
+      updateData.approved_at = new Date();
+      // Réinitialiser les informations de rejet si la demande était précédemment rejetée
+      updateData.rejected_by = null;
+      updateData.rejected_at = null;
+      updateData.rejection_reason = null;
+    } else if (status === "rejected") {
+      // Stocker les informations sur le rejeteur
+      updateData.rejected_by = approverName;
+      updateData.rejected_at = new Date();
+      updateData.rejection_reason = comment || null;
+      // Réinitialiser les informations d'approbation si la demande était précédemment approuvée
+      updateData.approved_by = null;
+      updateData.approved_at = null;
+    } else if (status === "pending") {
+      // Remettre en attente - réinitialiser les informations d'approbation/rejet
+      updateData.approved_by = null;
+      updateData.approved_at = null;
+      updateData.rejected_by = null;
+      updateData.rejected_at = null;
+      updateData.rejection_reason = null;
+    }
+
+    // Mettre à jour la demande de congé
+    const updatedVacationRequest = await VacationRequest.findByIdAndUpdate(
+      id,
+      updateData
+    );
+
+    // Journaliser l'activité
+    if (global.Activity) {
+      try {
+        // Utiliser la méthode logActivity qui existe dans le modèle
+        await global.Activity.logActivity({
+          type: "vacation_status_update",
+          entity_type: "vacation",
+          entity_id: id,
+          description: `Statut de la demande de congé mis à jour: ${status}`,
+          user_id: req.user.id,
+          details: {
+            previous_status: vacationRequest.status,
+            new_status: status,
+            comment: comment || null,
+          },
+        });
+      } catch (logError) {
+        console.error(
+          "Erreur lors de la journalisation de l'activité:",
+          logError
+        );
+        // Ne pas bloquer la mise à jour si la journalisation échoue
+      }
+    }
+
+    res.json(updatedVacationRequest);
+  } catch (error) {
+    console.error(
+      `Erreur lors de la mise à jour du statut de la demande de congé ${req.params.id}:`,
+      error
+    );
+    res.status(500).json({
+      message: "Erreur lors de la mise à jour du statut de la demande de congé",
+      details: error.message,
+    });
+  }
+});
+
 module.exports = router;

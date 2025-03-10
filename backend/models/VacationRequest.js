@@ -128,6 +128,11 @@ class VacationRequest {
                end_date = ?, 
                reason = ?, 
                status = ?,
+               approved_by = ?,
+               approved_at = ?,
+               rejected_by = ?,
+               rejected_at = ?,
+               rejection_reason = ?,
                updated_at = NOW()
            WHERE id = ?`,
           [
@@ -137,6 +142,11 @@ class VacationRequest {
             end_date,
             this.reason,
             this.status,
+            this.approved_by,
+            this.approved_at,
+            this.rejected_by,
+            this.rejected_at,
+            this.rejection_reason,
             this.id,
           ]
         );
