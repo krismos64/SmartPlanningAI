@@ -918,6 +918,52 @@ const Navbar = () => {
     </svg>
   );
 
+  const StatsIcon = () => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M16 8V16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 4V20"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 12V16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 12V16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 8V16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
   const UserIcon = () => (
     <svg
       width="24"
@@ -949,6 +995,7 @@ const Navbar = () => {
     { to: "/employees", icon: <EmployeesIcon />, label: "Employés" },
     { to: "/weekly-schedule", icon: <PlanningIcon />, label: "Planning Hebdo" },
     { to: "/vacations", icon: <VacationsIcon />, label: "Congés" },
+    { to: "/stats", icon: <StatsIcon />, label: "Statistiques" },
     { to: "/settings", icon: <SettingsIcon />, label: "Paramètres" },
   ];
 

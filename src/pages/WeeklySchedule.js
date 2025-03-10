@@ -488,9 +488,11 @@ const WeeklySchedulePage = () => {
 
   // Filtrer les employés en fonction des critères
   const filteredEmployees = useMemo(() => {
-    if (!employees) return [];
+    if (!employees || !Array.isArray(employees)) {
+      return [];
+    }
 
-    let filtered = Array.isArray(employees) ? [...employees] : [];
+    let filtered = employees;
 
     // Filtrer par département si sélectionné
     if (selectedDepartment) {
@@ -509,8 +511,8 @@ const WeeklySchedulePage = () => {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (emp) =>
-          emp.firstName.toLowerCase().includes(query) ||
-          emp.lastName.toLowerCase().includes(query) ||
+          (emp.firstName && emp.firstName.toLowerCase().includes(query)) ||
+          (emp.lastName && emp.lastName.toLowerCase().includes(query)) ||
           (emp.email && emp.email.toLowerCase().includes(query))
       );
     }
@@ -1284,13 +1286,6 @@ const WeeklySchedulePage = () => {
             </WeekNavigation>
           </div>
         </ScheduleHeader>
-
-        <InfoMessage>
-          <strong>Note:</strong> Les plannings sont spécifiques à chaque
-          semaine. Lorsque vous changez de semaine, vous verrez un planning
-          différent. Les modifications apportées à une semaine n'affectent pas
-          les autres semaines.
-        </InfoMessage>
 
         {!editingEmployeeId && (
           <>

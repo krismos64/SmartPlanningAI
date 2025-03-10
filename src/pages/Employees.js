@@ -146,41 +146,10 @@ const EmptyStateDescription = styled.p`
   margin-bottom: 2rem;
 `;
 
-const ModalContent = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const TabsModalContainer = styled.div`
-  display: flex;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  margin-bottom: 1rem;
-`;
-
-const TabModal = styled.button`
-  padding: 0.75rem 1.25rem;
-  font-size: 0.875rem;
-  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
-  color: ${({ theme, active }) =>
-    active ? theme.colors.primary : theme.colors.text.secondary};
-  background: none;
-  border: none;
-  border-bottom: 2px solid
-    ${({ theme, active }) => (active ? theme.colors.primary : "transparent")};
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    color: ${({ theme, active }) =>
-      active ? theme.colors.primary : theme.colors.text.primary};
-  }
-`;
-
 // Composant principal
 const Employees = () => {
   const { showNotification } = useNotification();
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
