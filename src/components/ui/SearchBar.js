@@ -1,4 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  FiCalendar,
+  FiCheckCircle,
+  FiClock,
+  FiSearch,
+  FiSun,
+  FiUser,
+  FiX,
+  FiXCircle,
+} from "react-icons/fi";
 import styled from "styled-components";
 
 // Composants stylisés
@@ -254,229 +264,23 @@ const FilterButton = styled.button`
   `}
 `;
 
-// Icônes
-const SearchSvg = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const ClearSvg = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M18 6L6 18M6 6L18 18"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const ChevronSvg = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M19 9L12 16L5 9"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-// Données fictives pour les résultats de recherche
-const getSearchResults = (query, filters) => {
-  if (!query) return [];
-
-  const employees = [
-    {
-      id: 1,
-      type: "employee",
-      name: "Sophie Martin",
-      role: "Designer",
-      icon: "👩‍🎨",
-      color: "#4F46E5",
-    },
-    {
-      id: 2,
-      type: "employee",
-      name: "Thomas Dubois",
-      role: "Développeur",
-      icon: "👨‍💻",
-      color: "#4F46E5",
-    },
-    {
-      id: 3,
-      type: "employee",
-      name: "Julie Lefebvre",
-      role: "Marketing",
-      icon: "👩‍💼",
-      color: "#4F46E5",
-    },
-    {
-      id: 4,
-      type: "employee",
-      name: "Nicolas Moreau",
-      role: "Comptable",
-      icon: "👨‍💼",
-      color: "#4F46E5",
-    },
-  ];
-
-  const events = [
-    {
-      id: 1,
-      type: "event",
-      name: "Réunion d'équipe",
-      date: "15 Mars 2023",
-      icon: "📅",
-      color: "#10B981",
-    },
-    {
-      id: 2,
-      type: "event",
-      name: "Présentation client",
-      date: "22 Mars 2023",
-      icon: "📊",
-      color: "#10B981",
-    },
-    {
-      id: 3,
-      type: "event",
-      name: "Formation Excel",
-      date: "5 Avril 2023",
-      icon: "📚",
-      color: "#10B981",
-    },
-  ];
-
-  const vacations = [
-    {
-      id: 1,
-      type: "vacation",
-      name: "Congés d'été",
-      employee: "Sophie Martin",
-      icon: "🏖️",
-      color: "#F59E0B",
-    },
-    {
-      id: 2,
-      type: "vacation",
-      name: "RTT",
-      employee: "Thomas Dubois",
-      icon: "🏖️",
-      color: "#F59E0B",
-    },
-    {
-      id: 3,
-      type: "vacation",
-      name: "Congé maladie",
-      employee: "Julie Lefebvre",
-      icon: "🏖️",
-      color: "#F59E0B",
-    },
-  ];
-
-  // Filtrer les résultats en fonction de la requête
-  const lowercaseQuery = query.toLowerCase();
-
-  let filteredEmployees = employees.filter(
-    (employee) =>
-      employee.name.toLowerCase().includes(lowercaseQuery) ||
-      employee.role.toLowerCase().includes(lowercaseQuery)
-  );
-
-  let filteredEvents = events.filter(
-    (event) =>
-      event.name.toLowerCase().includes(lowercaseQuery) ||
-      event.date.toLowerCase().includes(lowercaseQuery)
-  );
-
-  let filteredVacations = vacations.filter(
-    (vacation) =>
-      vacation.name.toLowerCase().includes(lowercaseQuery) ||
-      vacation.employee.toLowerCase().includes(lowercaseQuery)
-  );
-
-  // Appliquer les filtres avancés
-  if (filters.type !== "all") {
-    if (filters.type === "employees") {
-      filteredEvents = [];
-      filteredVacations = [];
-    } else if (filters.type === "events") {
-      filteredEmployees = [];
-      filteredVacations = [];
-    } else if (filters.type === "vacations") {
-      filteredEmployees = [];
-      filteredEvents = [];
-    }
-  }
-
-  // Regrouper les résultats
-  const results = [];
-
-  if (filteredEmployees.length > 0) {
-    results.push({
-      title: "Employés",
-      items: filteredEmployees,
-    });
-  }
-
-  if (filteredEvents.length > 0) {
-    results.push({
-      title: "Événements",
-      items: filteredEvents,
-    });
-  }
-
-  if (filteredVacations.length > 0) {
-    results.push({
-      title: "Congés",
-      items: filteredVacations,
-    });
-  }
-
-  return results;
+// Fonction de recherche par défaut (utilisée uniquement si customGetResults n'est pas fourni)
+const getSearchResults = (query) => {
+  // Cette fonction est un placeholder et ne sera utilisée que si customGetResults n'est pas fourni
+  return [];
 };
 
 // Composant principal
-const SearchBar = ({ placeholder = "Rechercher...", onSearch }) => {
+const SearchBar = ({
+  placeholder = "Rechercher...",
+  onSearch,
+  initialResults = [],
+  customGetResults,
+}) => {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [results, setResults] = useState([]);
-  const [filters, setFilters] = useState({
-    type: "all",
-    date: "all",
-    status: "all",
-  });
+  const [results, setResults] = useState(initialResults);
 
   const searchRef = useRef(null);
   const inputRef = useRef(null);
@@ -496,17 +300,33 @@ const SearchBar = ({ placeholder = "Rechercher...", onSearch }) => {
     };
   }, []);
 
-  // Mettre à jour les résultats lorsque la requête ou les filtres changent
+  // Mettre à jour les résultats lorsque la requête change
   useEffect(() => {
-    if (query.length > 0) {
-      const searchResults = getSearchResults(query, filters);
-      setResults(searchResults);
+    if (query.length > 1) {
+      if (customGetResults) {
+        // Utiliser la fonction personnalisée si fournie
+        onSearch(query);
+      } else {
+        // Utiliser la fonction par défaut
+        const searchResults = getSearchResults(query);
+        setResults(searchResults);
+      }
       setShowResults(true);
     } else {
       setResults([]);
       setShowResults(false);
     }
-  }, [query, filters]);
+  }, [query, customGetResults, onSearch]);
+
+  // Mettre à jour les résultats lorsque initialResults change
+  useEffect(() => {
+    if (initialResults && initialResults.length > 0) {
+      setResults(initialResults);
+      if (query.length > 1) {
+        setShowResults(true);
+      }
+    }
+  }, [initialResults, query]);
 
   const handleInputChange = (e) => {
     setQuery(e.target.value);
@@ -514,34 +334,16 @@ const SearchBar = ({ placeholder = "Rechercher...", onSearch }) => {
 
   const handleInputFocus = () => {
     setFocused(true);
-    if (query.length > 0) {
+    if (query.length > 1) {
       setShowResults(true);
     }
   };
 
   const handleClear = () => {
     setQuery("");
+    setResults([]);
+    setShowResults(false);
     inputRef.current.focus();
-  };
-
-  const toggleAdvanced = () => {
-    setExpanded(!expanded);
-    setShowFilters(!showFilters);
-  };
-
-  const handleFilterChange = (e) => {
-    setFilters({
-      ...filters,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      type: "all",
-      date: "all",
-      status: "all",
-    });
   };
 
   const handleResultClick = (item) => {
@@ -553,7 +355,7 @@ const SearchBar = ({ placeholder = "Rechercher...", onSearch }) => {
 
   // Mettre en surbrillance les termes de recherche
   const highlightText = (text, query) => {
-    if (!query) return text;
+    if (!query || !text) return text;
 
     const parts = text.split(new RegExp(`(${query})`, "gi"));
     return parts.map((part, index) =>
@@ -567,10 +369,10 @@ const SearchBar = ({ placeholder = "Rechercher...", onSearch }) => {
 
   return (
     <div ref={searchRef}>
-      <SearchContainer expanded={expanded}>
+      <SearchContainer>
         <SearchInputWrapper focused={focused}>
           <SearchIcon>
-            <SearchSvg />
+            <FiSearch />
           </SearchIcon>
           <SearchInput
             ref={inputRef}
@@ -585,103 +387,60 @@ const SearchBar = ({ placeholder = "Rechercher...", onSearch }) => {
             onClick={handleClear}
             aria-label="Effacer la recherche"
           >
-            <ClearSvg />
+            <FiX />
           </ClearButton>
-          <AdvancedButton
-            expanded={expanded}
-            onClick={toggleAdvanced}
-            aria-label="Recherche avancée"
-          >
-            <ChevronSvg />
-          </AdvancedButton>
         </SearchInputWrapper>
 
-        <AdvancedFilters visible={showFilters}>
-          <FiltersGrid>
-            <FilterGroup>
-              <FilterLabel htmlFor="type">Type</FilterLabel>
-              <FilterSelect
-                id="type"
-                name="type"
-                value={filters.type}
-                onChange={handleFilterChange}
-              >
-                <option value="all">Tous</option>
-                <option value="employees">Employés</option>
-                <option value="events">Événements</option>
-                <option value="vacations">Congés</option>
-              </FilterSelect>
-            </FilterGroup>
-
-            <FilterGroup>
-              <FilterLabel htmlFor="date">Date</FilterLabel>
-              <FilterSelect
-                id="date"
-                name="date"
-                value={filters.date}
-                onChange={handleFilterChange}
-              >
-                <option value="all">Toutes les dates</option>
-                <option value="today">Aujourd'hui</option>
-                <option value="week">Cette semaine</option>
-                <option value="month">Ce mois</option>
-                <option value="year">Cette année</option>
-              </FilterSelect>
-            </FilterGroup>
-
-            <FilterGroup>
-              <FilterLabel htmlFor="status">Statut</FilterLabel>
-              <FilterSelect
-                id="status"
-                name="status"
-                value={filters.status}
-                onChange={handleFilterChange}
-              >
-                <option value="all">Tous les statuts</option>
-                <option value="active">Actif</option>
-                <option value="pending">En attente</option>
-                <option value="completed">Terminé</option>
-              </FilterSelect>
-            </FilterGroup>
-          </FiltersGrid>
-
-          <FilterActions>
-            <FilterButton onClick={resetFilters}>Réinitialiser</FilterButton>
-            <FilterButton primary>Appliquer</FilterButton>
-          </FilterActions>
-        </AdvancedFilters>
-
         <SearchResults visible={showResults && results.length > 0}>
-          {results.map((group, groupIndex) => (
-            <ResultGroup key={groupIndex}>
-              <ResultGroupTitle>{group.title}</ResultGroupTitle>
-              {group.items.map((item, itemIndex) => (
-                <ResultItem
-                  key={`${groupIndex}-${itemIndex}`}
-                  onClick={() => handleResultClick(item)}
-                >
-                  <ResultIcon color={item.color}>{item.icon}</ResultIcon>
-                  <ResultContent>
-                    <ResultTitle>{highlightText(item.name, query)}</ResultTitle>
-                    <ResultDescription>
-                      {item.type === "employee" &&
-                        highlightText(item.role, query)}
-                      {item.type === "event" && highlightText(item.date, query)}
-                      {item.type === "vacation" &&
-                        highlightText(item.employee, query)}
-                    </ResultDescription>
-                  </ResultContent>
-                </ResultItem>
-              ))}
-            </ResultGroup>
-          ))}
-        </SearchResults>
-
-        {showResults && query.length > 0 && results.length === 0 && (
-          <SearchResults visible={true}>
+          {results.length === 0 ? (
             <NoResults>Aucun résultat trouvé pour "{query}"</NoResults>
-          </SearchResults>
-        )}
+          ) : (
+            results.map((group, groupIndex) => (
+              <ResultGroup key={groupIndex}>
+                <ResultGroupTitle>{group.title}</ResultGroupTitle>
+                {group.items.map((item, itemIndex) => (
+                  <ResultItem
+                    key={itemIndex}
+                    onClick={() => handleResultClick(item)}
+                  >
+                    <ResultIcon color={item.color}>
+                      {item.type === "employee" ? (
+                        <FiUser />
+                      ) : item.type === "vacation" ? (
+                        <FiSun />
+                      ) : (
+                        <FiCalendar />
+                      )}
+                    </ResultIcon>
+                    <ResultContent>
+                      <ResultTitle>
+                        {highlightText(item.name, query)}
+                        {item.status && (
+                          <span style={{ marginLeft: "8px" }}>
+                            {item.status === "approved" ? (
+                              <FiCheckCircle color="#10B981" />
+                            ) : item.status === "rejected" ? (
+                              <FiXCircle color="#EF4444" />
+                            ) : (
+                              <FiClock color="#F59E0B" />
+                            )}
+                          </span>
+                        )}
+                      </ResultTitle>
+                      <ResultDescription>
+                        {item.type === "employee"
+                          ? item.role
+                          : item.type === "vacation"
+                          ? `${item.employee} (${item.dates})`
+                          : item.date}
+                      </ResultDescription>
+                    </ResultContent>
+                  </ResultItem>
+                ))}
+              </ResultGroup>
+            ))
+          )}
+        </SearchResults>
       </SearchContainer>
     </div>
   );

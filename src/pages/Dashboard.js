@@ -370,14 +370,15 @@ const staggerContainer = {
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { employees, loading: employeesLoading } = useEmployees();
-  const { vacations, loading: vacationsLoading } = useVacations();
+  const { employees, isLoading: isLoadingEmployees } = useEmployees();
+  const { vacations, isLoading: isLoadingVacations } = useVacations();
   const [stats, setStats] = useState({
     totalEmployees: 0,
     pendingVacations: 0,
     upcomingVacations: [],
     todayAbsent: 0,
   });
+  const [searchResults, setSearchResults] = useState([]);
 
   // Fonction pour obtenir le prénom et le nom de l'utilisateur
   const getUserFullName = () => {
@@ -388,14 +389,113 @@ const Dashboard = () => {
     return user.username || "Utilisateur";
   };
 
+  // Fonction pour obtenir les résultats de recherche
+  const getSearchResults = (query) => {
+    if (!query || query.length < 2) return [];
+
+    const lowercaseQuery = query.toLowerCase();
+
+    // Filtrer les employés
+    let filteredEmployees = employees.filter(
+      (employee) =>
+        employee.first_name.toLowerCase().includes(lowercaseQuery) ||
+        employee.last_name.toLowerCase().includes(lowercaseQuery) ||
+        employee.email.toLowerCase().includes(lowercaseQuery) ||
+        (employee.department &&
+          employee.department.toLowerCase().includes(lowercaseQuery))
+    );
+
+    // Filtrer les congés
+    let filteredVacations = vacations.filter((vacation) => {
+      const employeeName =
+        `${vacation.employee_first_name} ${vacation.employee_last_name}`.toLowerCase();
+      const startDate = new Date(vacation.start_date).toLocaleDateString(
+        "fr-FR"
+      );
+      const endDate = new Date(vacation.end_date).toLocaleDateString("fr-FR");
+      const dateRange = `${startDate} - ${endDate}`;
+
+      return (
+        employeeName.includes(lowercaseQuery) ||
+        (vacation.type &&
+          vacation.type.toLowerCase().includes(lowercaseQuery)) ||
+        dateRange.includes(lowercaseQuery)
+      );
+    });
+
+    // Préparer les résultats
+    const results = [];
+
+    if (filteredEmployees.length > 0) {
+      results.push({
+        title: "Employés",
+        items: filteredEmployees.map((employee) => ({
+          id: employee.id,
+          type: "employee",
+          name: `${employee.first_name} ${employee.last_name}`,
+          role: employee.department || "Non spécifié",
+          color: "#4F46E5",
+        })),
+      });
+    }
+
+    if (filteredVacations.length > 0) {
+      results.push({
+        title: "Congés",
+        items: filteredVacations.map((vacation) => {
+          // Déterminer la couleur et l'icône en fonction du statut
+          let color = "#F59E0B"; // Par défaut (pending)
+
+          if (vacation.status === "approved") {
+            color = "#10B981";
+          } else if (vacation.status === "rejected") {
+            color = "#EF4444";
+          }
+
+          const startDate = new Date(vacation.start_date).toLocaleDateString(
+            "fr-FR"
+          );
+          const endDate = new Date(vacation.end_date).toLocaleDateString(
+            "fr-FR"
+          );
+
+          return {
+            id: vacation.id,
+            type: "vacation",
+            name: vacation.type || "Congé",
+            employee: `${vacation.employee_first_name} ${vacation.employee_last_name}`,
+            dates: `${startDate} - ${endDate}`,
+            status: vacation.status,
+            color: color,
+          };
+        }),
+      });
+    }
+
+    return results;
+  };
+
+  // Gérer la recherche
   const handleSearch = (query) => {
-    // Implémentation de la recherche à ajouter
-    console.log("Recherche:", query);
+    if (typeof query === "string") {
+      const results = getSearchResults(query);
+      setSearchResults(results);
+    } else {
+      // Si un élément de résultat est cliqué
+      console.log("Élément sélectionné:", query);
+
+      // Rediriger vers la page appropriée en fonction du type
+      if (query.type === "employee") {
+        navigate(`/employees/${query.id}`);
+      } else if (query.type === "vacation") {
+        navigate(`/vacations/${query.id}`);
+      }
+    }
   };
 
   // Calculer les statistiques
   useEffect(() => {
-    if (!employeesLoading && !vacationsLoading) {
+    if (!isLoadingEmployees && !isLoadingVacations) {
       // Total des employés
       const totalEmployees = employees?.length || 0;
 
@@ -435,7 +535,7 @@ const Dashboard = () => {
         todayAbsent,
       });
     }
-  }, [employees, vacations, employeesLoading, vacationsLoading]);
+  }, [employees, vacations, isLoadingEmployees, isLoadingVacations]);
 
   // Naviguer vers différentes pages
   const navigateTo = (path) => {
@@ -474,8 +574,10 @@ const Dashboard = () => {
 
       <SearchSection initial="hidden" animate="visible" variants={fadeInUp}>
         <SearchBar
-          placeholder="Rechercher un employé, un événement..."
+          placeholder="Rechercher un employé, un congé..."
           onSearch={handleSearch}
+          initialResults={searchResults}
+          customGetResults={true}
         />
       </SearchSection>
 

@@ -1,6 +1,6 @@
 import Lottie from "lottie-react";
-import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeCard from "../components/employees/EmployeeCard";
@@ -205,6 +205,26 @@ const Employees = () => {
   } = useEmployees();
 
   const navigate = useNavigate();
+  const { employeeId } = useParams();
+
+  // Vérifier si un ID d'employé est présent dans l'URL et afficher les détails
+  useEffect(() => {
+    if (employeeId && employees.length > 0) {
+      const employee = employees.find((emp) => emp.id === parseInt(employeeId));
+      if (employee) {
+        setViewingEmployee(employee);
+        setEditingEmployee(employee);
+        setShowModal(true);
+      } else {
+        // Si l'employé n'existe pas, rediriger vers la liste des employés
+        navigate("/employees");
+        showNotification({
+          type: "error",
+          message: `L'employé avec l'ID ${employeeId} n'existe pas.`,
+        });
+      }
+    }
+  }, [employeeId, employees, navigate, showNotification]);
 
   // Filtrer les employés avec useMemo pour éviter les recalculs inutiles
   const filteredEmployees = useMemo(() => {
@@ -374,13 +394,15 @@ const Employees = () => {
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
-    // Réinitialiser après la fermeture du modal
-    setTimeout(() => {
-      setEditingEmployee(null);
-      setViewingEmployee(null);
-      setShowEditForm(false);
-    }, 300);
-  }, []);
+    setViewingEmployee(null);
+    setEditingEmployee(null);
+    setShowEditForm(false);
+
+    // Si on est sur une page de détail d'employé, revenir à la liste
+    if (employeeId) {
+      navigate("/employees");
+    }
+  }, [employeeId, navigate]);
 
   const handleSubmit = useCallback(
     async (formData) => {
