@@ -88,7 +88,7 @@ const generateToken = (userId) => {
   return jwt.sign(
     { userId },
     JWT_SECRET,
-    { expiresIn: "24h" } // Le token expire après 24 heures
+    { expiresIn: "7d" } // Le token expire après 7 jours (au lieu de 24h)
   );
 };
 

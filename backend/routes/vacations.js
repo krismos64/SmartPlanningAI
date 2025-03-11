@@ -183,6 +183,18 @@ router.post("/", auth, async (req, res) => {
     res.status(201).json(vacationRequest);
   } catch (error) {
     console.error("Erreur lors de la création de la demande de congé:", error);
+
+    // Vérifier si l'erreur est due à une contrainte de clé étrangère
+    if (
+      error.code === "ER_NO_REFERENCED_ROW_2" &&
+      error.message.includes("employee_id")
+    ) {
+      return res.status(400).json({
+        message: "L'employé spécifié n'existe pas dans la base de données",
+        error: error.message,
+      });
+    }
+
     res.status(500).json({
       message: "Erreur lors de la création de la demande de congé",
       error: error.message,
@@ -221,6 +233,18 @@ router.put("/:id", auth, async (req, res) => {
         return res.status(403).json({
           message:
             "Vous ne pouvez pas changer le statut d'une demande de congé",
+        });
+      }
+    }
+
+    // Si l'employé est modifié, vérifier qu'il existe
+    if (req.body.employee_id) {
+      const Employee = require("../models/Employee");
+      const employee = await Employee.findById(req.body.employee_id);
+
+      if (!employee) {
+        return res.status(404).json({
+          message: "Employé non trouvé",
         });
       }
     }
