@@ -674,3 +674,90 @@ export const HourBalanceService = {
     }
   },
 };
+
+export const NotificationService = {
+  getNotifications: async (params = {}) => {
+    try {
+      return await apiRequest({
+        endpoint: "/notifications",
+        method: "GET",
+        params,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la récupération des notifications:", error);
+      throw error;
+    }
+  },
+
+  getUnreadCount: async () => {
+    try {
+      return await apiRequest({
+        endpoint: "/notifications/unread-count",
+        method: "GET",
+      });
+    } catch (error) {
+      console.error(
+        "Erreur lors de la récupération du nombre de notifications non lues:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  markAsRead: async (notificationId) => {
+    try {
+      return await apiRequest({
+        endpoint: `/notifications/${notificationId}/read`,
+        method: "PUT",
+      });
+    } catch (error) {
+      console.error(
+        "Erreur lors du marquage de la notification comme lue:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  markAllAsRead: async () => {
+    try {
+      return await apiRequest({
+        endpoint: "/notifications/mark-all-read",
+        method: "PUT",
+      });
+    } catch (error) {
+      console.error(
+        "Erreur lors du marquage de toutes les notifications comme lues:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  deleteNotification: async (notificationId) => {
+    try {
+      return await apiRequest({
+        endpoint: `/notifications/${notificationId}`,
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Erreur lors de la suppression de la notification:", error);
+      throw error;
+    }
+  },
+
+  deleteAllNotifications: async () => {
+    try {
+      return await apiRequest({
+        endpoint: "/notifications",
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error(
+        "Erreur lors de la suppression de toutes les notifications:",
+        error
+      );
+      throw error;
+    }
+  },
+};

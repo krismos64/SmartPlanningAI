@@ -6,10 +6,8 @@ import planningAnimation from "../../assets/animations/planning-animation.json";
 import robotAnimation from "../../assets/animations/robot.json";
 import { useTheme } from "../../components/ThemeProvider";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  NotificationBell,
-  useRealTimeNotifications,
-} from "../ui/RealTimeNotification";
+import NotificationCenter from "../ui/NotificationCenter";
+import { useRealTimeNotifications } from "../ui/RealTimeNotification";
 
 // Composants stylisés
 const NavbarContainer = styled.nav`
@@ -1037,52 +1035,10 @@ const Navbar = () => {
       </NavLinks>
 
       <NavActions>
-        <div style={{ position: "relative" }}>
-          <div onClick={toggleNotificationsPanel}>
-            <NotificationBell />
-          </div>
-
-          <NotificationsPanel isOpen={notificationsPanelOpen}>
-            <NotificationsPanelHeader>
-              <NotificationsPanelTitle>Notifications</NotificationsPanelTitle>
-              <ClearButton onClick={markAllAsRead}>Tout effacer</ClearButton>
-            </NotificationsPanelHeader>
-
-            <NotificationsList>
-              {notifications.length === 0 ? (
-                <EmptyNotifications>
-                  Aucune notification pour le moment
-                </EmptyNotifications>
-              ) : (
-                notifications.map((notification) => (
-                  <NotificationItem
-                    key={notification.id}
-                    read={notification.read}
-                    onClick={() => handleNotificationClick(notification.id)}
-                  >
-                    <NotificationHeader>
-                      <NotificationTitle>
-                        {notification.title}
-                      </NotificationTitle>
-                      <NotificationTime>
-                        {new Date(notification.timestamp).toLocaleTimeString(
-                          [],
-                          { hour: "2-digit", minute: "2-digit" }
-                        )}
-                      </NotificationTime>
-                    </NotificationHeader>
-                    <NotificationMessage>
-                      {notification.message}
-                    </NotificationMessage>
-                  </NotificationItem>
-                ))
-              )}
-            </NotificationsList>
-          </NotificationsPanel>
-        </div>
+        <NotificationCenter />
 
         <ThemeToggle onClick={toggleTheme}>
-          {theme === "light" ? <MoonIcon /> : <SunIcon />}
+          {theme.mode === "light" ? <MoonIcon /> : <SunIcon />}
         </ThemeToggle>
 
         <UserProfile onClick={toggleUserMenu}>

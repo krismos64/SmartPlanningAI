@@ -1,5 +1,6 @@
 const WebSocket = require("ws");
 const Activity = require("../models/Activity");
+const Notification = require("../models/Notification");
 
 const setupWebSocket = (server) => {
   // Créer un serveur WebSocket
@@ -30,6 +31,29 @@ const setupWebSocket = (server) => {
           case "IDENTIFY":
             ws.userId = data.userId;
             console.log(`Client identifié avec l'ID: ${data.userId}`);
+
+            // Envoyer les notifications non lues à l'utilisateur qui vient de s'identifier
+            if (ws.userId) {
+              try {
+                const result = await Notification.getByUserId(ws.userId, {
+                  unreadOnly: true,
+                });
+                if (result.success && result.notifications.length > 0) {
+                  ws.send(
+                    JSON.stringify({
+                      type: "NOTIFICATIONS",
+                      notifications: result.notifications,
+                      timestamp: new Date().toISOString(),
+                    })
+                  );
+                }
+              } catch (error) {
+                console.error(
+                  "Erreur lors de la récupération des notifications:",
+                  error
+                );
+              }
+            }
             break;
 
           case "REQUEST_ACTIVITIES":
@@ -88,6 +112,164 @@ const setupWebSocket = (server) => {
                   message:
                     "Erreur lors de la récupération des activités: " +
                     (error.message || "Erreur inconnue"),
+                  timestamp: new Date().toISOString(),
+                })
+              );
+            }
+            break;
+
+          case "REQUEST_NOTIFICATIONS":
+            try {
+              if (!ws.userId) {
+                ws.send(
+                  JSON.stringify({
+                    type: "ERROR",
+                    message: "Utilisateur non identifié",
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+                return;
+              }
+
+              const options = {
+                limit: data.limit || 20,
+                offset: data.offset || 0,
+                unreadOnly: data.unreadOnly || false,
+              };
+
+              const result = await Notification.getByUserId(ws.userId, options);
+
+              if (result.success) {
+                ws.send(
+                  JSON.stringify({
+                    type: "NOTIFICATIONS",
+                    notifications: result.notifications,
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+              } else {
+                ws.send(
+                  JSON.stringify({
+                    type: "ERROR",
+                    message:
+                      "Erreur lors de la récupération des notifications: " +
+                      result.error,
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+              }
+            } catch (error) {
+              console.error(
+                "Erreur lors de la récupération des notifications:",
+                error
+              );
+              ws.send(
+                JSON.stringify({
+                  type: "ERROR",
+                  message:
+                    "Erreur lors de la récupération des notifications: " +
+                    error.message,
+                  timestamp: new Date().toISOString(),
+                })
+              );
+            }
+            break;
+
+          case "MARK_NOTIFICATION_READ":
+            try {
+              if (!data.notificationId) {
+                ws.send(
+                  JSON.stringify({
+                    type: "ERROR",
+                    message: "ID de notification manquant",
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+                return;
+              }
+
+              const result = await Notification.markAsRead(data.notificationId);
+
+              if (result.success) {
+                ws.send(
+                  JSON.stringify({
+                    type: "NOTIFICATION_MARKED_READ",
+                    notificationId: data.notificationId,
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+              } else {
+                ws.send(
+                  JSON.stringify({
+                    type: "ERROR",
+                    message:
+                      "Erreur lors du marquage de la notification: " +
+                      result.error,
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+              }
+            } catch (error) {
+              console.error(
+                "Erreur lors du marquage de la notification:",
+                error
+              );
+              ws.send(
+                JSON.stringify({
+                  type: "ERROR",
+                  message:
+                    "Erreur lors du marquage de la notification: " +
+                    error.message,
+                  timestamp: new Date().toISOString(),
+                })
+              );
+            }
+            break;
+
+          case "MARK_ALL_NOTIFICATIONS_READ":
+            try {
+              if (!ws.userId) {
+                ws.send(
+                  JSON.stringify({
+                    type: "ERROR",
+                    message: "Utilisateur non identifié",
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+                return;
+              }
+
+              const result = await Notification.markAllAsRead(ws.userId);
+
+              if (result.success) {
+                ws.send(
+                  JSON.stringify({
+                    type: "ALL_NOTIFICATIONS_MARKED_READ",
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+              } else {
+                ws.send(
+                  JSON.stringify({
+                    type: "ERROR",
+                    message:
+                      "Erreur lors du marquage des notifications: " +
+                      result.error,
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+              }
+            } catch (error) {
+              console.error(
+                "Erreur lors du marquage des notifications:",
+                error
+              );
+              ws.send(
+                JSON.stringify({
+                  type: "ERROR",
+                  message:
+                    "Erreur lors du marquage des notifications: " +
+                    error.message,
                   timestamp: new Date().toISOString(),
                 })
               );
@@ -169,6 +351,25 @@ const setupWebSocket = (server) => {
           );
         } catch (error) {
           console.error("Erreur lors de la diffusion du message:", error);
+        }
+      }
+    });
+  };
+
+  // Fonction utilitaire pour envoyer une notification à un utilisateur spécifique
+  wss.sendNotificationToUser = (userId, notification) => {
+    wss.clients.forEach((client) => {
+      if (client.userId === userId && client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(
+            JSON.stringify({
+              type: "NEW_NOTIFICATION",
+              notification,
+              timestamp: new Date().toISOString(),
+            })
+          );
+        } catch (error) {
+          console.error("Erreur lors de l'envoi de la notification:", error);
         }
       }
     });

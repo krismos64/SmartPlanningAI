@@ -934,7 +934,14 @@ const Vacations = () => {
               </CloseButton>
             </ModalHeader>
 
-            <RejectForm onSubmit={(e) => e.preventDefault()}>
+            <RejectForm
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (selectedVacation) {
+                  handleReject(selectedVacation.id, rejectionReason);
+                }
+              }}
+            >
               <RejectTextarea
                 placeholder="Veuillez indiquer le motif du refus..."
                 value={rejectionReason}
@@ -950,7 +957,11 @@ const Vacations = () => {
                 >
                   Annuler
                 </Button>
-                <Button type="submit" variant="primary">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={!rejectionReason.trim()}
+                >
                   Confirmer le refus
                 </Button>
               </ButtonGroup>

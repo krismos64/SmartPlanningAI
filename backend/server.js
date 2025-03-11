@@ -24,6 +24,7 @@ const scheduleStatsRoutes = require("./routes/scheduleStats");
 const workHoursRoutes = require("./routes/workHoursRoutes");
 const hourBalanceRoutes = require("./routes/hourBalance");
 const departmentsRoutes = require("./routes/departments");
+const notificationsRoutes = require("./routes/notifications");
 
 const app = express();
 
@@ -148,6 +149,7 @@ app.use("/api/schedule-stats", scheduleStatsRoutes);
 app.use("/api/work-hours", workHoursRoutes);
 app.use("/api/hour-balance", hourBalanceRoutes);
 app.use("/api/departments", departmentsRoutes);
+app.use("/api/notifications", notificationsRoutes);
 
 // Route de base
 app.get("/", (req, res) => {
