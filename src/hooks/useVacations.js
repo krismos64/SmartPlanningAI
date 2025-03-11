@@ -115,7 +115,31 @@ const useVacations = () => {
   // Fonction pour charger les congés
   const fetchVacations = useCallback(async () => {
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 2;
+
+    // Vérifier si les données sont déjà en cache et récentes (moins de 5 minutes)
+    const cachedData = localStorage.getItem("cachedVacations");
+    const cachedTimestamp = localStorage.getItem("cachedVacationsTimestamp");
+
+    if (cachedData && cachedTimestamp) {
+      const now = new Date().getTime();
+      const cacheTime = parseInt(cachedTimestamp);
+      const fiveMinutes = 5 * 60 * 1000;
+
+      // Si le cache est récent (moins de 5 minutes), utiliser les données en cache
+      if (now - cacheTime < fiveMinutes) {
+        try {
+          const parsedData = JSON.parse(cachedData);
+          console.log("Utilisation des données en cache pour les congés");
+          setVacations(parsedData);
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.error("Erreur lors de la lecture du cache:", e);
+          // Continuer avec le chargement normal si le cache est invalide
+        }
+      }
+    }
 
     const loadVacations = async () => {
       if (retryCount >= maxRetries) {
@@ -204,6 +228,22 @@ const useVacations = () => {
 
           console.log("Données des congés formatées:", formattedData);
           setVacations(formattedData);
+
+          // Mettre en cache les données formatées
+          try {
+            localStorage.setItem(
+              "cachedVacations",
+              JSON.stringify(formattedData)
+            );
+            localStorage.setItem(
+              "cachedVacationsTimestamp",
+              new Date().getTime().toString()
+            );
+          } catch (e) {
+            console.error("Erreur lors de la mise en cache des données:", e);
+            // Continuer même si la mise en cache échoue
+          }
+
           setError(null);
         } else {
           console.error("Format de données invalide:", data);
@@ -214,9 +254,13 @@ const useVacations = () => {
         console.error("Erreur lors du chargement des congés:", err);
         setError(err.message || "Erreur lors du chargement des congés");
 
-        // Réessayer avec un délai exponentiel
+        // Réessayer avec un délai exponentiel mais plus court
         retryCount++;
-        setTimeout(loadVacations, 1000 * Math.pow(2, retryCount));
+        const retryDelay = 500 * Math.pow(2, retryCount); // Délai plus court
+        console.log(
+          `Nouvelle tentative dans ${retryDelay}ms (${retryCount}/${maxRetries})`
+        );
+        setTimeout(loadVacations, retryDelay);
       }
     };
 

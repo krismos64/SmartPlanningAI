@@ -1,6 +1,12 @@
 import Lottie from "lottie-react";
-import { useCallback, useState } from "react";
-import { FaCalendarAlt, FaList, FaPlus } from "react-icons/fa";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  FaCalendarAlt,
+  FaChevronLeft,
+  FaChevronRight,
+  FaList,
+  FaPlus,
+} from "react-icons/fa";
 import styled from "styled-components";
 import holidaysAnimation from "../assets/animations/holidays.json";
 import { useNotification } from "../components/ui/Notification";
@@ -333,6 +339,37 @@ const ButtonGroup = styled.div`
   margin-top: 1rem;
 `;
 
+const PaginationContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2rem;
+  gap: 0.5rem;
+`;
+
+const PageButton = styled.button`
+  padding: 0.5rem 0.75rem;
+  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
+  background-color: ${({ active, theme }) =>
+    active ? theme.colors?.primary || "#4F46E5" : "white"};
+  color: ${({ active }) => (active ? "white" : "inherit")};
+  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: ${({ active, theme }) =>
+      active
+        ? theme.colors?.primary || "#4F46E5"
+        : theme.colors?.background?.hover || "#F3F4F6"};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
 // Composant Vacations
 const Vacations = () => {
   const { user } = useAuth();
@@ -358,10 +395,35 @@ const Vacations = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Réinitialiser la pagination lors du changement d'onglet
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
   // Filtrer les demandes en fonction de l'onglet actif
-  const filteredVacations = getVacationsByStatus(
+  const allFilteredVacations = getVacationsByStatus(
     activeTab === "all" ? null : activeTab
   );
+
+  // Calculer les indices pour la pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const filteredVacations = allFilteredVacations.slice(
+    indexOfFirstItem,
+    indexOfLastItem
+  );
+  const totalPages = Math.ceil(allFilteredVacations.length / itemsPerPage);
+
+  // Fonction pour changer de page
+  const paginate = (pageNumber) => {
+    if (pageNumber > 0 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+    }
+  };
 
   // Formater la date
   const formatDate = (dateString) => {
@@ -603,6 +665,65 @@ const Vacations = () => {
     setShowModal(true);
     // Le formulaire sera pré-rempli avec cette date
   }, []);
+
+  // Ajouter ce rendu de pagination après le tableau des congés
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <PaginationContainer>
+        <PageButton
+          onClick={() => paginate(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          <FaChevronLeft />
+        </PageButton>
+
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter((page) => {
+            // Afficher seulement les pages proches de la page actuelle
+            return (
+              page === 1 ||
+              page === totalPages ||
+              Math.abs(page - currentPage) <= 1
+            );
+          })
+          .map((page, index, array) => {
+            // Ajouter des points de suspension si nécessaire
+            if (index > 0 && array[index - 1] !== page - 1) {
+              return (
+                <React.Fragment key={`ellipsis-${page}`}>
+                  <span>...</span>
+                  <PageButton
+                    active={currentPage === page}
+                    onClick={() => paginate(page)}
+                  >
+                    {page}
+                  </PageButton>
+                </React.Fragment>
+              );
+            }
+
+            return (
+              <PageButton
+                key={page}
+                active={currentPage === page}
+                onClick={() => paginate(page)}
+              >
+                {page}
+              </PageButton>
+            );
+          })}
+
+        <PageButton
+          onClick={() => paginate(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          <FaChevronRight />
+        </PageButton>
+      </PaginationContainer>
+    );
+  };
 
   return (
     <VacationsContainer>
@@ -969,6 +1090,12 @@ const Vacations = () => {
           </RejectModalContent>
         </RejectModal>
       )}
+
+      {/* Après le tableau des congés */}
+      {viewMode === "list" &&
+        !loading &&
+        filteredVacations.length > 0 &&
+        renderPagination()}
     </VacationsContainer>
   );
 };
