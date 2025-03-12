@@ -3,6 +3,9 @@ const router = express.Router();
 const VacationRequest = require("../models/VacationRequest");
 const { auth } = require("../middleware/auth");
 const db = require("../config/db");
+const Employee = require("../models/Employee");
+const Activity = require("../models/Activity");
+const Notification = require("../models/Notification");
 
 // Récupérer toutes les demandes de congés
 router.get("/", auth, async (req, res) => {
@@ -103,7 +106,6 @@ router.post("/", auth, async (req, res) => {
     }
 
     // Récupérer les informations de l'employé pour avoir son nom complet
-    const Employee = require("../models/Employee");
     const employee = await Employee.findById(req.body.employee_id);
 
     if (!employee) {
@@ -130,57 +132,63 @@ router.post("/", auth, async (req, res) => {
 
     console.log("Données filtrées pour la création de congé:", vacationData);
 
-    const vacationRequest = new VacationRequest(vacationData);
-    await vacationRequest.save();
+    const result = await VacationRequest.create(vacationData);
 
-    // Enregistrer l'activité
-    try {
-      console.log(
-        "Tentative d'enregistrement de l'activité pour la demande de congés"
-      );
-
-      const activityData = {
-        type: "create",
-        entity_type: "vacation",
-        entity_id: vacationRequest.id.toString(),
-        description: `Nouvelle demande de congés ${
-          vacationRequest.type
-        } du ${new Date(vacationRequest.start_date).toLocaleDateString(
-          "fr-FR"
-        )} au ${new Date(vacationRequest.end_date).toLocaleDateString(
-          "fr-FR"
-        )}`,
+    if (result.success) {
+      // Enregistrer l'activité
+      await Activity.log({
         user_id: req.user.id,
-        details: {
-          vacation_id: vacationRequest.id,
-          employee_id: vacationRequest.employee_id,
-          employee_name:
-            vacationRequest.employee_name ||
-            `Employé #${vacationRequest.employee_id}`,
-          type: vacationRequest.type,
-          start_date: vacationRequest.start_date,
-          end_date: vacationRequest.end_date,
-          status: vacationRequest.status,
-          reason: vacationRequest.reason || "",
-        },
-      };
+        action: "create",
+        entity_type: "vacation_request",
+        entity_id: result.id,
+        details: `Demande de congés créée pour l'employé ${
+          req.body.employee_id
+        } du ${new Date(
+          req.body.start_date
+        ).toLocaleDateString()} au ${new Date(
+          req.body.end_date
+        ).toLocaleDateString()}`,
+      });
 
-      console.log("Données de l'activité:", activityData);
-
-      const activitiesRouter = require("./activities");
-      await activitiesRouter.recordActivity(activityData);
-
-      console.log("Activité enregistrée avec succès");
-    } catch (activityError) {
-      console.error(
-        "Erreur lors de l'enregistrement de l'activité:",
-        activityError
+      // Créer une notification pour les administrateurs et managers
+      // Les employés n'ont pas accès à l'application, donc on notifie uniquement les utilisateurs avec rôle admin/manager
+      const users = await db.query(
+        "SELECT id FROM users WHERE role IN ('admin', 'manager')"
       );
-      console.error("Stack trace:", activityError.stack);
-      // Ne pas bloquer la création si l'enregistrement de l'activité échoue
-    }
 
-    res.status(201).json(vacationRequest);
+      if (users && users[0] && users[0].length > 0) {
+        for (const user of users[0]) {
+          await Notification.createAndBroadcast({
+            user_id: user.id,
+            title: "Nouvelle demande de congés",
+            message: `Une nouvelle demande de congés a été soumise par ${
+              employee.first_name
+            } ${employee.last_name} du ${new Date(
+              req.body.start_date
+            ).toLocaleDateString()} au ${new Date(
+              req.body.end_date
+            ).toLocaleDateString()}.`,
+            type: "info",
+            entity_type: "vacation_request",
+            entity_id: result.id,
+            link: `/vacations/${result.id}`,
+          });
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        id: result.id,
+        message: "Demande de congés créée avec succès",
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message:
+          result.message ||
+          "Erreur lors de la création de la demande de congés",
+      });
+    }
   } catch (error) {
     console.error("Erreur lors de la création de la demande de congé:", error);
 
@@ -718,6 +726,62 @@ router.put("/:id/status", auth, async (req, res) => {
             logError
           );
           // Ne pas bloquer la mise à jour si la journalisation échoue
+        }
+      }
+
+      // Notifier les autres administrateurs et managers du changement de statut
+      // (sauf celui qui a fait la modification)
+      const users = await db.query(
+        "SELECT id FROM users WHERE role IN ('admin', 'manager') AND id != ?",
+        [req.user.id]
+      );
+
+      if (users && users[0] && users[0].length > 0) {
+        // Récupérer les informations de l'employé
+        const employee = await Employee.findById(vacationRequest.employee_id);
+        const employeeName = employee
+          ? `${employee.first_name} ${employee.last_name}`.trim()
+          : `Employé #${vacationRequest.employee_id}`;
+
+        let notificationTitle = "";
+        let notificationMessage = "";
+        let notificationType = "info";
+
+        if (status === "approved") {
+          notificationTitle = "Demande de congés approuvée";
+          notificationMessage = `La demande de congés de ${employeeName} du ${new Date(
+            vacationRequest.start_date
+          ).toLocaleDateString()} au ${new Date(
+            vacationRequest.end_date
+          ).toLocaleDateString()} a été approuvée par ${approverName}.`;
+          notificationType = "success";
+        } else if (status === "rejected") {
+          notificationTitle = "Demande de congés refusée";
+          notificationMessage = `La demande de congés de ${employeeName} du ${new Date(
+            vacationRequest.start_date
+          ).toLocaleDateString()} au ${new Date(
+            vacationRequest.end_date
+          ).toLocaleDateString()} a été refusée par ${approverName}.`;
+          notificationType = "error";
+        } else {
+          notificationTitle = "Statut de demande de congés mis à jour";
+          notificationMessage = `Le statut de la demande de congés de ${employeeName} du ${new Date(
+            vacationRequest.start_date
+          ).toLocaleDateString()} au ${new Date(
+            vacationRequest.end_date
+          ).toLocaleDateString()} a été remis en attente par ${approverName}.`;
+        }
+
+        for (const user of users[0]) {
+          await Notification.createAndBroadcast({
+            user_id: user.id,
+            title: notificationTitle,
+            message: notificationMessage,
+            type: notificationType,
+            entity_type: "vacation_request",
+            entity_id: id,
+            link: `/vacations/${id}`,
+          });
         }
       }
 
