@@ -362,6 +362,40 @@ class VacationRequest {
       throw error;
     }
   }
+
+  /**
+   * Crée une nouvelle demande de congé
+   * @param {Object} data - Données de la demande de congé
+   * @returns {Object} Résultat de la création
+   */
+  static async create(data) {
+    try {
+      console.log(
+        "Création d'une nouvelle demande de congé avec les données:",
+        data
+      );
+
+      const vacationRequest = new VacationRequest(data);
+      await vacationRequest.save();
+
+      return {
+        success: true,
+        id: vacationRequest.id,
+        message: "Demande de congé créée avec succès",
+        vacationRequest,
+      };
+    } catch (error) {
+      console.error(
+        "Erreur lors de la création de la demande de congé:",
+        error
+      );
+      return {
+        success: false,
+        message:
+          error.message || "Erreur lors de la création de la demande de congé",
+      };
+    }
+  }
 }
 
 module.exports = VacationRequest;
