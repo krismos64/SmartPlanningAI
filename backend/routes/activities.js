@@ -2,6 +2,10 @@ const express = require("express");
 const router = express.Router();
 const Activity = require("../models/Activity");
 const { auth } = require("../middleware/auth");
+const jwt = require("jsonwebtoken");
+const WebSocket = require("ws");
+const Notification = require("../models/Notification");
+const db = require("../config/database");
 
 /**
  * Fonction utilitaire pour enregistrer une activité et notifier les clients WebSocket
@@ -161,6 +165,64 @@ router.post("/", auth, async (req, res) => {
 
     console.log("Activité enregistrée avec succès, ID:", activityId);
 
+    // Créer une notification pour les activités importantes
+    if (
+      type === "create" ||
+      type === "update" ||
+      type === "delete" ||
+      type === "approve" ||
+      type === "reject"
+    ) {
+      try {
+        // Créer une notification uniquement pour l'utilisateur qui a créé l'activité
+        if (userId) {
+          console.log(
+            `Création d'une notification pour l'utilisateur ${userId}`
+          );
+
+          const notificationData = {
+            user_id: userId,
+            title: `Nouvelle activité: ${type}`,
+            message: description,
+            type: "info",
+            entity_type,
+            entity_id: req.body.entity_id || null,
+            link: "/",
+          };
+
+          const notification = new Notification(notificationData);
+          const notifResult = await notification.save();
+
+          if (notifResult.success && global.wss) {
+            // Envoyer la notification via WebSocket
+            global.wss.sendNotificationToUser(userId, notifResult.notification);
+            console.log(`Notification envoyée à l'utilisateur ${userId}`);
+          }
+        } else {
+          console.log(
+            "Aucun utilisateur connecté pour envoyer une notification"
+          );
+        }
+      } catch (error) {
+        console.error("Erreur lors de la création de la notification:", error);
+      }
+    }
+
+    // Envoyer une notification WebSocket pour informer les clients
+    if (global.wss) {
+      global.wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(
+            JSON.stringify({
+              type: "ACTIVITY_LOGGED",
+              activity: { id: activityId },
+              timestamp: new Date().toISOString(),
+            })
+          );
+        }
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: "Activité enregistrée avec succès",
@@ -261,69 +323,140 @@ router.delete("/cleanup", auth, async (req, res) => {
  */
 router.post("/log", async (req, res) => {
   try {
-    console.log("Requête POST /api/activities/log reçue:", {
-      body: req.body,
-    });
+    console.log("Requête d'enregistrement d'activité reçue:", req.body);
 
-    const {
-      type,
-      entity_type,
-      entity_id,
-      description,
-      userId,
-      userName,
-      details,
-      timestamp,
-    } = req.body;
-
-    // Valider les données
+    // Vérifier les champs requis
+    const { type, entity_type, description } = req.body;
     if (!type || !entity_type || !description) {
-      console.log("Validation échouée:", { type, entity_type, description });
       return res.status(400).json({
         success: false,
-        message: "Le type, le type d'entité et la description sont requis",
+        message: "Les champs type, entity_type et description sont requis",
       });
     }
 
-    const ipAddress =
-      req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const userAgent = req.headers["user-agent"];
+    // Récupérer les informations de l'utilisateur à partir du token (si présent)
+    let userId = null;
+    let userName = "Utilisateur inconnu";
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(
+          token,
+          process.env.JWT_SECRET || "smartplanningai_secret_key"
+        );
+        userId = decoded.userId;
+
+        // Récupérer le nom de l'utilisateur depuis la base de données
+        const [users] = await db.query(
+          "SELECT first_name, last_name FROM users WHERE id = ?",
+          [userId]
+        );
+        if (users.length > 0) {
+          userName = `${users[0].first_name} ${users[0].last_name}`.trim();
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification du token:", error);
+      }
+    }
+
+    // Créer l'objet activité
+    const activity = {
+      type,
+      entity_type,
+      entity_id: req.body.entity_id || null,
+      description,
+      userId,
+      userName,
+      details: req.body.details || {},
+      ipAddress: req.body.ipAddress || req.ip,
+      userAgent: req.body.userAgent || req.headers["user-agent"],
+      timestamp: new Date().toISOString(),
+    };
 
     // Enregistrer l'activité
-    console.log("Tentative d'enregistrement de l'activité avec les données:", {
-      type,
-      entity_type,
-      entity_id,
-      description,
-      user_id: userId,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-      details,
-    });
+    const result = await Activity.logActivity(activity);
 
-    const activityId = await Activity.logActivity({
-      type,
-      entity_type,
-      entity_id,
-      description,
-      user_id: userId,
-      user_name: userName,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-      details,
-      timestamp: timestamp || new Date().toISOString(),
-    });
+    if (result.success) {
+      // Créer une notification pour les activités importantes
+      if (
+        type === "create" ||
+        type === "update" ||
+        type === "delete" ||
+        type === "approve" ||
+        type === "reject"
+      ) {
+        try {
+          // Créer une notification uniquement pour l'utilisateur qui a créé l'activité
+          if (userId) {
+            console.log(
+              `Création d'une notification pour l'utilisateur ${userId}`
+            );
 
-    console.log("Activité enregistrée avec succès, ID:", activityId);
+            const notificationData = {
+              user_id: userId,
+              title: `Nouvelle activité: ${type}`,
+              message: description,
+              type: "info",
+              entity_type,
+              entity_id: req.body.entity_id || null,
+              link: "/",
+            };
 
-    res.status(201).json({
-      success: true,
-      message: "Activité enregistrée avec succès",
-      activityId,
-    });
+            const notification = new Notification(notificationData);
+            const notifResult = await notification.save();
+
+            if (notifResult.success && global.wss) {
+              // Envoyer la notification via WebSocket
+              global.wss.sendNotificationToUser(
+                userId,
+                notifResult.notification
+              );
+              console.log(`Notification envoyée à l'utilisateur ${userId}`);
+            }
+          } else {
+            console.log(
+              "Aucun utilisateur connecté pour envoyer une notification"
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la création de la notification:",
+            error
+          );
+        }
+      }
+
+      // Envoyer une notification WebSocket pour informer les clients
+      if (global.wss) {
+        global.wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "ACTIVITY_LOGGED",
+                activity: result.activity,
+                timestamp: new Date().toISOString(),
+              })
+            );
+          }
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: "Activité enregistrée avec succès",
+        activityId: result.activity.id,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Erreur lors de l'enregistrement de l'activité",
+        error: result.error,
+      });
+    }
   } catch (error) {
     console.error("Erreur lors de l'enregistrement de l'activité:", error);
-    console.error("Stack trace:", error.stack);
     res.status(500).json({
       success: false,
       message: "Erreur lors de l'enregistrement de l'activité",

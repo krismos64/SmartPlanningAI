@@ -288,43 +288,18 @@ const useNotifications = () => {
               if (data.notification.link) {
                 window.location.href = data.notification.link;
               }
-              markAsRead(data.notification.id);
             };
           }
-        } else if (
-          data.type === "NOTIFICATIONS" &&
-          Array.isArray(data.notifications)
-        ) {
-          // Mettre à jour la liste des notifications
-          setNotifications(data.notifications);
-
-          // Mettre à jour le compteur de notifications non lues
-          const unreadNotifications = data.notifications.filter((n) => !n.read);
-          setUnreadCount(unreadNotifications.length);
-        } else if (
-          data.type === "NOTIFICATION_MARKED_READ" &&
-          data.notificationId
-        ) {
-          // Mettre à jour la notification marquée comme lue
-          setNotifications((prev) =>
-            prev.map((n) =>
-              n.id === data.notificationId ? { ...n, read: true } : n
-            )
-          );
-
-          // Mettre à jour le compteur de notifications non lues
-          setUnreadCount((prev) => Math.max(0, prev - 1));
-        } else if (data.type === "ALL_NOTIFICATIONS_MARKED_READ") {
-          // Mettre à jour toutes les notifications comme lues
-          setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-          setUnreadCount(0);
+        } else if (data.type === "ACTIVITY_LOGGED") {
+          // Rafraîchir les notifications lorsqu'une activité est enregistrée
+          fetchNotifications();
+          fetchUnreadCount();
         }
       } catch (error) {
         console.error("Erreur lors du traitement du message WebSocket:", error);
       }
     };
 
-    // Ajouter l'écouteur d'événements
     socket.addEventListener("message", handleWebSocketMessage);
 
     // Demander les notifications non lues au serveur
@@ -338,7 +313,27 @@ const useNotifications = () => {
     return () => {
       socket.removeEventListener("message", handleWebSocketMessage);
     };
-  }, [socket, isConnected, sendMessage, markAsRead]);
+  }, [socket, isConnected, sendMessage, fetchNotifications, fetchUnreadCount]);
+
+  // Rafraîchir les notifications périodiquement
+  useEffect(() => {
+    if (!user) return;
+
+    // Rafraîchir les notifications toutes les 30 secondes
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 30000);
+
+    // Rafraîchir les notifications complètes toutes les 2 minutes
+    const fullRefreshInterval = setInterval(() => {
+      fetchNotifications();
+    }, 120000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(fullRefreshInterval);
+    };
+  }, [user, fetchNotifications, fetchUnreadCount]);
 
   // Demander la permission pour les notifications système
   useEffect(() => {

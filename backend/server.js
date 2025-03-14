@@ -41,7 +41,17 @@ const corsOptions = {
     "http://localhost:5007",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Sec-WebSocket-Key",
+    "Sec-WebSocket-Version",
+    "Sec-WebSocket-Extensions",
+    "Sec-WebSocket-Protocol",
+    "Upgrade",
+    "Connection",
+  ],
+  exposedHeaders: ["Sec-WebSocket-Accept"],
   credentials: true,
   optionsSuccessStatus: 200,
 };

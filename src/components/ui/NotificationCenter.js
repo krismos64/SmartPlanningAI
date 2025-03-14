@@ -29,6 +29,33 @@ const pulse = keyframes`
   }
 `;
 
+const bellRing = keyframes`
+  0% {
+    transform: rotate(0);
+  }
+  10% {
+    transform: rotate(15deg);
+  }
+  20% {
+    transform: rotate(-15deg);
+  }
+  30% {
+    transform: rotate(10deg);
+  }
+  40% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+  60% {
+    transform: rotate(-5deg);
+  }
+  70%, 100% {
+    transform: rotate(0);
+  }
+`;
+
 const slideIn = keyframes`
   from {
     transform: translateX(100%);
@@ -55,11 +82,21 @@ const NotificationBellContainer = styled.div`
   &:hover {
     background-color: ${({ theme }) => `${theme.colors.primary}11`};
   }
+
+  ${({ $hasUnread }) =>
+    $hasUnread &&
+    css`
+      animation: ${bellRing} 1s ease-in-out;
+      animation-iteration-count: 1;
+      animation-delay: 0.5s;
+    `}
 `;
 
 const BellIcon = styled(FiBell)`
   font-size: 1.5rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: ${({ theme, $hasUnread }) =>
+    $hasUnread ? theme.colors.primary : theme.colors.text.secondary};
+  transition: color 0.3s ease;
 `;
 
 const NotificationBadge = styled.div`
@@ -76,8 +113,8 @@ const NotificationBadge = styled.div`
   align-items: center;
   justify-content: center;
 
-  ${({ hasUnread }) =>
-    hasUnread &&
+  ${({ $hasUnread }) =>
+    $hasUnread &&
     css`
       animation: ${pulse} 2s infinite;
     `}
@@ -163,8 +200,8 @@ const NotificationItem = styled.div`
   gap: 1rem;
   position: relative;
 
-  ${({ read, theme }) =>
-    !read &&
+  ${({ $read, theme }) =>
+    !$read &&
     css`
       background-color: ${`${theme.colors.primary}08`};
 
@@ -195,8 +232,8 @@ const NotificationIcon = styled.div`
   justify-content: center;
   flex-shrink: 0;
 
-  ${({ type, theme }) => {
-    switch (type) {
+  ${({ $type, theme }) => {
+    switch ($type) {
       case "success":
         return css`
           background-color: ${`${theme.colors.success}15`};
@@ -296,7 +333,9 @@ const EmptyText = styled.p`
 // Composant principal
 const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasNewNotifications, setHasNewNotifications] = useState(false);
   const panelRef = useRef(null);
+  const prevUnreadCountRef = useRef(0);
   const {
     notifications,
     unreadCount,
@@ -305,7 +344,24 @@ const NotificationCenter = () => {
     markAllAsRead,
     deleteNotification,
     deleteAllNotifications,
+    fetchNotifications,
   } = useNotifications();
+
+  // Détecter les nouvelles notifications
+  useEffect(() => {
+    if (unreadCount > prevUnreadCountRef.current) {
+      setHasNewNotifications(true);
+
+      // Réinitialiser l'animation après 3 secondes
+      const timer = setTimeout(() => {
+        setHasNewNotifications(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount]);
 
   // Fermer le panneau lorsqu'on clique en dehors
   useEffect(() => {
@@ -325,6 +381,49 @@ const NotificationCenter = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
+
+  // Écouter les événements WebSocket pour les notifications
+  useEffect(() => {
+    const handleNewNotification = (event) => {
+      console.log("Nouvelle notification reçue via WebSocket:", event.detail);
+      // Rafraîchir les notifications
+      fetchNotifications();
+      // Indiquer qu'il y a de nouvelles notifications
+      setHasNewNotifications(true);
+      // Réinitialiser l'animation après 3 secondes
+      setTimeout(() => {
+        setHasNewNotifications(false);
+      }, 3000);
+    };
+
+    const handleNotificationUpdate = (event) => {
+      console.log(
+        "Mise à jour de notification reçue via WebSocket:",
+        event.detail
+      );
+      // Rafraîchir les notifications
+      fetchNotifications();
+    };
+
+    // Ajouter les écouteurs d'événements
+    window.addEventListener("websocket:notification", handleNewNotification);
+    window.addEventListener(
+      "websocket:notification_update",
+      handleNotificationUpdate
+    );
+
+    // Nettoyer les écouteurs d'événements
+    return () => {
+      window.removeEventListener(
+        "websocket:notification",
+        handleNewNotification
+      );
+      window.removeEventListener(
+        "websocket:notification_update",
+        handleNotificationUpdate
+      );
+    };
+  }, [fetchNotifications]);
 
   // Formater la date relative
   const formatRelativeTime = (dateString) => {
@@ -364,10 +463,13 @@ const NotificationCenter = () => {
 
   return (
     <>
-      <NotificationBellContainer onClick={() => setIsOpen(!isOpen)}>
-        <BellIcon />
+      <NotificationBellContainer
+        onClick={() => setIsOpen(!isOpen)}
+        $hasUnread={hasNewNotifications}
+      >
+        <BellIcon $hasUnread={unreadCount > 0} />
         {unreadCount > 0 && (
-          <NotificationBadge hasUnread={unreadCount > 0}>
+          <NotificationBadge $hasUnread={unreadCount > 0}>
             {unreadCount > 9 ? "9+" : unreadCount}
           </NotificationBadge>
         )}
@@ -423,10 +525,10 @@ const NotificationCenter = () => {
                 notifications.map((notification) => (
                   <NotificationItem
                     key={notification.id}
-                    read={notification.read}
+                    $read={notification.read}
                     onClick={() => handleNotificationClick(notification)}
                   >
-                    <NotificationIcon type={notification.type}>
+                    <NotificationIcon $type={notification.type}>
                       {getNotificationIcon(notification.type)}
                     </NotificationIcon>
                     <NotificationContent>

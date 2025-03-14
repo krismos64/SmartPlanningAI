@@ -1,4 +1,4 @@
-import { API_ENDPOINTS, apiRequest } from "../config/api";
+import { API_ENDPOINTS, API_URL, apiRequest } from "../config/api";
 import { formatDateForAPI } from "../utils/dateUtils";
 
 export const AuthService = {
@@ -678,11 +678,23 @@ export const HourBalanceService = {
 export const NotificationService = {
   getNotifications: async (params = {}) => {
     try {
-      return await apiRequest({
-        endpoint: "/notifications",
-        method: "GET",
-        params,
-      });
+      // Construire l'URL avec les paramètres de requête
+      let endpoint = API_ENDPOINTS.NOTIFICATIONS.BASE;
+      if (params) {
+        const queryParams = new URLSearchParams();
+        for (const key in params) {
+          if (params[key] !== undefined) {
+            queryParams.append(key, params[key]);
+          }
+        }
+        const queryString = queryParams.toString();
+        if (queryString) {
+          endpoint += `?${queryString}`;
+        }
+      }
+
+      const url = `${API_URL}${endpoint}`;
+      return await apiRequest(url, "GET");
     } catch (error) {
       console.error("Erreur lors de la récupération des notifications:", error);
       throw error;
@@ -691,11 +703,8 @@ export const NotificationService = {
 
   createNotification: async (notificationData) => {
     try {
-      return await apiRequest({
-        endpoint: "/notifications",
-        method: "POST",
-        data: notificationData,
-      });
+      const url = `${API_URL}${API_ENDPOINTS.NOTIFICATIONS.BASE}`;
+      return await apiRequest(url, "POST", notificationData);
     } catch (error) {
       console.error("Erreur lors de la création de la notification:", error);
       throw error;
@@ -704,11 +713,8 @@ export const NotificationService = {
 
   createBroadcastNotification: async (notificationData) => {
     try {
-      return await apiRequest({
-        endpoint: "/notifications/broadcast",
-        method: "POST",
-        data: notificationData,
-      });
+      const url = `${API_URL}${API_ENDPOINTS.NOTIFICATIONS.BASE}/broadcast`;
+      return await apiRequest(url, "POST", notificationData);
     } catch (error) {
       console.error("Erreur lors de la diffusion des notifications:", error);
       throw error;
@@ -717,10 +723,8 @@ export const NotificationService = {
 
   getUnreadCount: async () => {
     try {
-      return await apiRequest({
-        endpoint: "/notifications/unread-count",
-        method: "GET",
-      });
+      const url = `${API_URL}${API_ENDPOINTS.NOTIFICATIONS.BASE}/unread-count`;
+      return await apiRequest(url, "GET");
     } catch (error) {
       console.error(
         "Erreur lors de la récupération du nombre de notifications non lues:",
@@ -732,10 +736,10 @@ export const NotificationService = {
 
   markAsRead: async (notificationId) => {
     try {
-      return await apiRequest({
-        endpoint: `/notifications/${notificationId}/read`,
-        method: "PUT",
-      });
+      const url = `${API_URL}${API_ENDPOINTS.NOTIFICATIONS.MARK_READ(
+        notificationId
+      )}`;
+      return await apiRequest(url, "PUT");
     } catch (error) {
       console.error(
         "Erreur lors du marquage de la notification comme lue:",
@@ -747,10 +751,8 @@ export const NotificationService = {
 
   markAllAsRead: async () => {
     try {
-      return await apiRequest({
-        endpoint: "/notifications/mark-all-read",
-        method: "PUT",
-      });
+      const url = `${API_URL}${API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ}`;
+      return await apiRequest(url, "PUT");
     } catch (error) {
       console.error(
         "Erreur lors du marquage de toutes les notifications comme lues:",
@@ -762,10 +764,10 @@ export const NotificationService = {
 
   deleteNotification: async (notificationId) => {
     try {
-      return await apiRequest({
-        endpoint: `/notifications/${notificationId}`,
-        method: "DELETE",
-      });
+      const url = `${API_URL}${API_ENDPOINTS.NOTIFICATIONS.BY_ID(
+        notificationId
+      )}`;
+      return await apiRequest(url, "DELETE");
     } catch (error) {
       console.error("Erreur lors de la suppression de la notification:", error);
       throw error;
@@ -774,10 +776,8 @@ export const NotificationService = {
 
   deleteAllNotifications: async () => {
     try {
-      return await apiRequest({
-        endpoint: "/notifications",
-        method: "DELETE",
-      });
+      const url = `${API_URL}${API_ENDPOINTS.NOTIFICATIONS.BASE}`;
+      return await apiRequest(url, "DELETE");
     } catch (error) {
       console.error(
         "Erreur lors de la suppression de toutes les notifications:",

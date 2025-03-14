@@ -3,15 +3,59 @@ const Activity = require("../models/Activity");
 const Notification = require("../models/Notification");
 
 const setupWebSocket = (server) => {
-  // Créer un serveur WebSocket
-  const wss = new WebSocket.Server({ server });
+  // Créer un serveur WebSocket avec des options de timeout plus longues
+  const wss = new WebSocket.Server({
+    server,
+    // Augmenter le délai d'attente pour éviter les déconnexions prématurées
+    clientTracking: true,
+    // Permettre les connexions non authentifiées initialement
+    verifyClient: () => true,
+  });
 
   // Rendre le WebSocket accessible globalement
   global.wss = wss;
 
+  // Fonction pour vérifier si les clients sont toujours connectés
+  const heartbeat = function () {
+    this.isAlive = true;
+  };
+
+  // Intervalle pour vérifier les connexions actives
+  const interval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws.isAlive === false) {
+        console.log("Client inactif détecté, fermeture de la connexion");
+        return ws.terminate();
+      }
+
+      ws.isAlive = false;
+      try {
+        ws.ping();
+      } catch (error) {
+        console.error("Erreur lors de l'envoi du ping:", error);
+        ws.terminate();
+      }
+    });
+  }, 30000); // Vérifier toutes les 30 secondes
+
+  // Nettoyer l'intervalle à la fermeture du serveur
+  wss.on("close", () => {
+    clearInterval(interval);
+    console.log("Serveur WebSocket fermé, intervalle de ping nettoyé");
+  });
+
   // Gérer les connexions WebSocket
-  wss.on("connection", (ws) => {
+  wss.on("connection", (ws, req) => {
     console.log("Client connecté via WebSocket");
+
+    // Initialiser le statut de la connexion
+    ws.isAlive = true;
+
+    // Répondre aux pings du client
+    ws.on("ping", heartbeat);
+
+    // Répondre aux pongs du client
+    ws.on("pong", heartbeat);
 
     // Envoyer un message de bienvenue
     ws.send(
@@ -25,7 +69,14 @@ const setupWebSocket = (server) => {
     ws.on("message", async (message) => {
       try {
         const data = JSON.parse(message);
-        console.log("Message WebSocket reçu:", data);
+
+        // Ne pas logger les messages PING/PONG pour éviter de polluer les logs
+        if (data.type !== "PING" && data.type !== "PONG") {
+          console.log("Message WebSocket reçu:", data);
+        }
+
+        // Réinitialiser le statut de la connexion à chaque message
+        ws.isAlive = true;
 
         switch (data.type) {
           case "IDENTIFY":
@@ -294,6 +345,7 @@ const setupWebSocket = (server) => {
             break;
 
           case "PING":
+            // Répondre avec un PONG pour maintenir la connexion active
             ws.send(
               JSON.stringify({
                 type: "PONG",

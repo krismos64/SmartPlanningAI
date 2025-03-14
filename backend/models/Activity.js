@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const WebSocket = require("ws");
+const { v4: uuidv4 } = require("uuid");
 
 /**
  * Modèle pour gérer les activités dans l'application
@@ -335,7 +336,7 @@ class Activity {
           details, 
           timestamp
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
       console.log("Exécution de la requête SQL:", query);
@@ -394,119 +395,75 @@ class Activity {
   }
 
   /**
-   * Enregistre une activité et la diffuse via WebSocket
+   * Enregistre une nouvelle activité
    * @param {Object} activityData - Données de l'activité
-   * @returns {Promise<number>} - ID de l'activité créée
+   * @returns {Promise<Object>} - Résultat de l'opération
    */
   static async logActivity(activityData) {
     try {
+      // Préparer les données
       const {
         type,
         entity_type,
         entity_id,
         description,
-        user_id,
-        details = {},
+        userId,
+        userName,
+        details,
+        ipAddress,
+        userAgent,
       } = activityData;
 
-      if (!type || !entity_type || !description) {
-        throw new Error(
-          "Les champs type, entity_type et description sont obligatoires"
-        );
-      }
+      // Préparer les détails avec le nom d'utilisateur
+      const detailsWithUserName = {
+        ...(typeof details === "object" ? details : {}),
+        userName: userName || "Utilisateur inconnu",
+      };
 
-      // Assurer que entity_id est une chaîne de caractères
-      const safeEntityId = entity_id ? String(entity_id) : null;
+      // Convertir les détails en JSON
+      const detailsJson = JSON.stringify(detailsWithUserName);
 
-      console.log("Enregistrement d'une nouvelle activité:", {
-        type,
-        entity_type,
-        entity_id: safeEntityId,
-        description,
-        user_id,
-      });
-
-      // Insérer directement l'activité dans la base de données
-      const query = `
+      // Insérer l'activité dans la base de données en utilisant NOW() pour le timestamp
+      const sql = `
         INSERT INTO activities (
-          type, 
-          entity_type, 
-          entity_id, 
-          description, 
-          user_id, 
-          details, 
-          timestamp
-        )
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
+          type, entity_type, entity_id, description, 
+          user_id, details, ip_address, user_agent, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
-      const [result] = await db.query(query, [
+      const params = [
         type,
         entity_type,
-        safeEntityId,
+        entity_id,
         description,
-        user_id,
-        JSON.stringify(details || {}),
-      ]);
+        userId,
+        detailsJson,
+        ipAddress,
+        userAgent,
+      ];
 
+      const [result] = await db.query(sql, params);
       const activityId = result.insertId;
-      console.log(`Activité enregistrée avec l'ID: ${activityId}`);
 
-      // Récupérer l'activité créée
-      const newActivity = await this.getById(activityId);
+      // Récupérer l'activité créée avec la date formatée correctement
+      const [[createdActivity]] = await db.query(
+        "SELECT * FROM activities WHERE id = ?",
+        [activityId]
+      );
 
-      // Récupérer les 10 dernières activités pour mise à jour en temps réel
-      const recentActivities = await this.getAll({
-        limit: 10,
-        excludeSystemActivities: true, // Exclure les activités système
-      });
+      console.log("Activité enregistrée avec succès:", createdActivity);
 
-      // Vérifier si WebSocket est actif et diffuser les activités
-      if (global.wss) {
-        let clientCount = 0;
-        global.wss.clients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            try {
-              // Envoyer la nouvelle activité
-              client.send(
-                JSON.stringify({
-                  type: "NEW_ACTIVITY",
-                  activity: newActivity,
-                  timestamp: new Date().toISOString(),
-                })
-              );
-
-              // Envoyer la liste mise à jour des activités
-              client.send(
-                JSON.stringify({
-                  type: "ACTIVITIES",
-                  data: recentActivities.activities,
-                  pagination: recentActivities.pagination,
-                  timestamp: new Date().toISOString(),
-                })
-              );
-
-              clientCount++;
-            } catch (error) {
-              console.error(
-                "Erreur lors de l'envoi des activités au client:",
-                error
-              );
-            }
-          }
-        });
-
-        console.log(`Activités diffusées à ${clientCount} clients WebSocket`);
-      } else {
-        console.warn(
-          "WebSocket non disponible pour la diffusion des activités"
-        );
-      }
-
-      return activityId;
+      // Retourner le résultat
+      return {
+        success: true,
+        activity: createdActivity,
+      };
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de l'activité:", error);
-      throw error;
+      return {
+        success: false,
+        error: error.message || "Erreur lors de l'enregistrement de l'activité",
+      };
     }
   }
 

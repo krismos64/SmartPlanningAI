@@ -21,7 +21,7 @@ class Notification {
       const query = `
         INSERT INTO notifications (
           id, user_id, title, message, type, \`read\`, link, entity_type, entity_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
       const params = [
@@ -34,10 +34,20 @@ class Notification {
         this.link,
         this.entity_type,
         this.entity_id,
-        this.created_at,
       ];
 
       const result = await db.query(query, params);
+
+      // Récupérer la notification créée avec la date correcte
+      const [rows] = await db.query(
+        "SELECT * FROM notifications WHERE id = ?",
+        [this.id]
+      );
+
+      // Mettre à jour l'objet avec les données de la base de données
+      if (rows && rows.length > 0) {
+        this.created_at = rows[0].created_at;
+      }
 
       return {
         success: true,
