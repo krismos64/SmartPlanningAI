@@ -254,4 +254,82 @@ router.delete("/cleanup", auth, async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/activities/log
+ * @desc Enregistrer une activité depuis le frontend
+ * @access Public (avec token optionnel)
+ */
+router.post("/log", async (req, res) => {
+  try {
+    console.log("Requête POST /api/activities/log reçue:", {
+      body: req.body,
+    });
+
+    const {
+      type,
+      entity_type,
+      entity_id,
+      description,
+      userId,
+      userName,
+      details,
+      timestamp,
+    } = req.body;
+
+    // Valider les données
+    if (!type || !entity_type || !description) {
+      console.log("Validation échouée:", { type, entity_type, description });
+      return res.status(400).json({
+        success: false,
+        message: "Le type, le type d'entité et la description sont requis",
+      });
+    }
+
+    const ipAddress =
+      req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    const userAgent = req.headers["user-agent"];
+
+    // Enregistrer l'activité
+    console.log("Tentative d'enregistrement de l'activité avec les données:", {
+      type,
+      entity_type,
+      entity_id,
+      description,
+      user_id: userId,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      details,
+    });
+
+    const activityId = await Activity.logActivity({
+      type,
+      entity_type,
+      entity_id,
+      description,
+      user_id: userId,
+      user_name: userName,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      details,
+      timestamp: timestamp || new Date().toISOString(),
+    });
+
+    console.log("Activité enregistrée avec succès, ID:", activityId);
+
+    res.status(201).json({
+      success: true,
+      message: "Activité enregistrée avec succès",
+      activityId,
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement de l'activité:", error);
+    console.error("Stack trace:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'enregistrement de l'activité",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

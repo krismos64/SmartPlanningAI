@@ -294,20 +294,12 @@ const VacationForm = ({ vacation, onSubmit, onCancel, currentUser }) => {
       const endDate = new Date(formData.endDate);
       if (isNaN(endDate.getTime())) {
         newErrors.endDate = "Date de fin invalide";
-      }
-    }
-
-    // Vérifier que la date de fin est après la date de début
-    if (formData.startDate && formData.endDate) {
-      const startDate = new Date(formData.startDate);
-      const endDate = new Date(formData.endDate);
-
-      if (
-        !isNaN(startDate.getTime()) &&
-        !isNaN(endDate.getTime()) &&
-        endDate < startDate
-      ) {
-        newErrors.endDate = "La date de fin doit être après la date de début";
+      } else if (formData.startDate) {
+        // Vérifier que la date de fin est après la date de début
+        const startDate = new Date(formData.startDate);
+        if (!isNaN(startDate.getTime()) && endDate < startDate) {
+          newErrors.endDate = "La date de fin doit être après la date de début";
+        }
       }
     }
 
@@ -316,6 +308,7 @@ const VacationForm = ({ vacation, onSubmit, onCancel, currentUser }) => {
       newErrors.reason = "Une raison est requise pour les congés sans solde";
     }
 
+    console.log("Erreurs de validation:", newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -330,7 +323,21 @@ const VacationForm = ({ vacation, onSubmit, onCancel, currentUser }) => {
 
     // Valider le formulaire
     if (!validateForm()) {
-      console.error("Validation du formulaire échouée:", errors);
+      console.log("Validation du formulaire échouée:", errors);
+
+      // Afficher un message d'erreur
+      toast.error("Veuillez corriger les erreurs dans le formulaire");
+
+      // Faire défiler jusqu'à la première erreur
+      const firstErrorField = Object.keys(errors)[0];
+      if (firstErrorField) {
+        const element = document.getElementById(firstErrorField);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          element.focus();
+        }
+      }
+
       return;
     }
 

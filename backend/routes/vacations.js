@@ -136,18 +136,26 @@ router.post("/", auth, async (req, res) => {
 
     if (result.success) {
       // Enregistrer l'activité
-      await Activity.log({
+      await Activity.logActivity({
         user_id: req.user.id,
         action: "create",
         entity_type: "vacation_request",
         entity_id: result.id,
-        details: `Demande de congés créée pour l'employé ${
+        description: `Demande de congés créée pour l'employé ${
           req.body.employee_id
         } du ${new Date(
           req.body.start_date
         ).toLocaleDateString()} au ${new Date(
           req.body.end_date
         ).toLocaleDateString()}`,
+        type: "create",
+        details: {
+          employee_id: req.body.employee_id,
+          start_date: req.body.start_date,
+          end_date: req.body.end_date,
+          type: req.body.type,
+          reason: req.body.reason || "",
+        },
       });
 
       // Créer une notification pour les administrateurs et managers

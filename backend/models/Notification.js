@@ -20,7 +20,7 @@ class Notification {
     try {
       const query = `
         INSERT INTO notifications (
-          id, user_id, title, message, type, read, link, entity_type, entity_id, created_at
+          id, user_id, title, message, type, \`read\`, link, entity_type, entity_id, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
