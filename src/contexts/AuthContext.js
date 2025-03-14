@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loginError, setLoginError] = useState(null);
-  const { notifyDataChange } = useWebSocket();
+  const { notifyDataChange, disconnect } = useWebSocket();
 
   // Fonction pour définir l'utilisateur avec le rôle admin
   const setUserWithAdminRole = (userData) => {
@@ -298,15 +298,26 @@ export const AuthProvider = ({ children }) => {
 
   // Fonction pour se déconnecter
   const logout = () => {
-    // Notifier le WebSocket de la déconnexion
+    // Notifier le WebSocket de la déconnexion et fermer proprement la connexion
     if (user) {
-      notifyDataChange("auth", "logout", user.id);
+      try {
+        notifyDataChange("auth", "logout", user.id);
+        // Déconnecter proprement le WebSocket
+        disconnect();
+      } catch (error) {
+        console.error("Erreur lors de la déconnexion WebSocket:", error);
+      }
     }
 
-    localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
-    window.location.href = "/login";
+    // Attendre un court instant pour permettre au WebSocket de se fermer proprement
+    setTimeout(() => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      window.location.href = "/login";
+    }, 300);
   };
 
   const value = {

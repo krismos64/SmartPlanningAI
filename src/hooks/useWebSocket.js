@@ -20,23 +20,29 @@ const useWebSocket = (customUrl = null) => {
   const [fallbackMode, setFallbackMode] = useState(false);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
-  const MAX_RECONNECT_ATTEMPTS = 10; // Augmenter le nombre de tentatives
-  const RECONNECT_INTERVAL = 5000; // 5 secondes
-  const CONNECTION_TIMEOUT = 10000; // Augmenter le timeout à 10 secondes
+  const MAX_RECONNECT_ATTEMPTS = 5; // Réduire le nombre de tentatives pour éviter les cycles
+  const RECONNECT_INTERVAL = 10000; // Augmenter à 10 secondes pour donner plus de temps au serveur
+  const CONNECTION_TIMEOUT = 15000; // Augmenter le timeout à 15 secondes
   const { user } = useAuth();
   const wsServerAvailableRef = useRef(true);
   const pingIntervalRef = useRef(null);
-  const PING_INTERVAL = 15000; // Réduire l'intervalle de ping à 15 secondes
+  const PING_INTERVAL = 30000; // Augmenter l'intervalle de ping à 30 secondes pour réduire le trafic
   const pongTimeoutRef = useRef(null);
-  const PONG_TIMEOUT = 10000; // 10 secondes d'attente pour un PONG
+  const PONG_TIMEOUT = 15000; // 15 secondes d'attente pour un PONG
   const lastPongRef = useRef(Date.now());
+  const isCleaningUpRef = useRef(false); // Nouvel état pour éviter les nettoyages multiples
 
   // Fonction pour se connecter au serveur WebSocket
   const connect = useCallback(() => {
     // Ne pas tenter de se connecter si nous sommes en mode de secours permanent
-    if (fallbackMode || !wsServerAvailableRef.current) {
+    // ou si un nettoyage est en cours
+    if (
+      fallbackMode ||
+      !wsServerAvailableRef.current ||
+      isCleaningUpRef.current
+    ) {
       console.log(
-        "Mode de secours actif ou serveur indisponible, connexion WebSocket ignorée"
+        "Mode de secours actif, serveur indisponible ou nettoyage en cours, connexion WebSocket ignorée"
       );
       return null;
     }
@@ -47,7 +53,7 @@ const useWebSocket = (customUrl = null) => {
 
       // Définir un timeout pour la connexion
       const connectionTimeout = setTimeout(() => {
-        if (ws.readyState !== WebSocket.OPEN) {
+        if (ws && ws.readyState !== WebSocket.OPEN) {
           console.log("Timeout de connexion WebSocket");
           ws.close();
         }
@@ -67,32 +73,39 @@ const useWebSocket = (customUrl = null) => {
         }
 
         pingIntervalRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
+          if (ws && ws.readyState === WebSocket.OPEN) {
             // Envoyer un ping
-            ws.send(
-              JSON.stringify({
-                type: "PING",
-                timestamp: new Date().toISOString(),
-              })
-            );
+            try {
+              ws.send(
+                JSON.stringify({
+                  type: "PING",
+                  timestamp: new Date().toISOString(),
+                })
+              );
 
-            // Définir un timeout pour vérifier si on reçoit un pong
-            if (pongTimeoutRef.current) {
-              clearTimeout(pongTimeoutRef.current);
-            }
-
-            pongTimeoutRef.current = setTimeout(() => {
-              // Si aucun pong n'a été reçu dans le délai imparti
-              const now = Date.now();
-              const timeSinceLastPong = now - lastPongRef.current;
-
-              if (timeSinceLastPong > PONG_TIMEOUT) {
-                console.log(
-                  `Aucun PONG reçu depuis ${timeSinceLastPong}ms, fermeture de la connexion`
-                );
-                ws.close();
+              // Définir un timeout pour vérifier si on reçoit un pong
+              if (pongTimeoutRef.current) {
+                clearTimeout(pongTimeoutRef.current);
               }
-            }, PONG_TIMEOUT);
+
+              pongTimeoutRef.current = setTimeout(() => {
+                // Si aucun pong n'a été reçu dans le délai imparti
+                const now = Date.now();
+                const timeSinceLastPong = now - lastPongRef.current;
+
+                if (timeSinceLastPong > PONG_TIMEOUT) {
+                  console.log(
+                    `Aucun PONG reçu depuis ${timeSinceLastPong}ms, fermeture de la connexion`
+                  );
+                  if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                  }
+                }
+              }, PONG_TIMEOUT);
+            } catch (pingError) {
+              console.error("Erreur lors de l'envoi du ping:", pingError);
+              // Ne pas fermer la connexion ici, laissez le mécanisme de pong s'en charger
+            }
           }
         }, PING_INTERVAL);
 
@@ -187,12 +200,14 @@ const useWebSocket = (customUrl = null) => {
 
             // Demander les dernières activités lorsque les données sont mises à jour
             try {
-              ws.send(
-                JSON.stringify({
-                  type: "REQUEST_ACTIVITIES",
-                  timestamp: new Date().toISOString(),
-                })
-              );
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(
+                  JSON.stringify({
+                    type: "REQUEST_ACTIVITIES",
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+              }
             } catch (error) {
               console.error(
                 "Erreur lors de la demande d'activités après mise à jour:",
@@ -248,6 +263,12 @@ const useWebSocket = (customUrl = null) => {
           pingIntervalRef.current = null;
         }
 
+        // Nettoyer le timeout de pong
+        if (pongTimeoutRef.current) {
+          clearTimeout(pongTimeoutRef.current);
+          pongTimeoutRef.current = null;
+        }
+
         console.log(
           `WebSocket déconnecté: ${event.code} ${event.reason || ""}`
         );
@@ -256,7 +277,11 @@ const useWebSocket = (customUrl = null) => {
 
         // Tenter de se reconnecter si la connexion a été perdue de manière inattendue
         // et que nous ne sommes pas en mode de secours permanent
-        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        // et qu'un nettoyage n'est pas en cours
+        if (
+          reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS &&
+          !isCleaningUpRef.current
+        ) {
           console.log(
             `Tentative de reconnexion dans ${
               RECONNECT_INTERVAL / 1000
@@ -274,9 +299,12 @@ const useWebSocket = (customUrl = null) => {
             reconnectAttemptsRef.current += 1;
             connect();
           }, RECONNECT_INTERVAL);
-        } else {
+        } else if (
+          reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS &&
+          !isCleaningUpRef.current
+        ) {
           console.log(
-            `Passage en mode de secours permanent après ${MAX_RECONNECT_ATTEMPTS} tentatives`
+            `Passage en mode de secours après ${MAX_RECONNECT_ATTEMPTS} tentatives`
           );
           setFallbackMode(true);
           wsServerAvailableRef.current = false;
@@ -288,8 +316,11 @@ const useWebSocket = (customUrl = null) => {
         // Ne pas fermer la connexion ici, laissez onclose s'en charger
         reconnectAttemptsRef.current += 1;
 
-        if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          console.log("Trop d'erreurs, passage en mode de secours permanent");
+        if (
+          reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS &&
+          !isCleaningUpRef.current
+        ) {
+          console.log("Trop d'erreurs, passage en mode de secours");
           setFallbackMode(true);
           wsServerAvailableRef.current = false;
         }
@@ -313,7 +344,7 @@ const useWebSocket = (customUrl = null) => {
         return false;
       }
 
-      if (socket && isConnected) {
+      if (socket && isConnected && socket.readyState === WebSocket.OPEN) {
         try {
           socket.send(JSON.stringify(data));
           return true;
@@ -336,7 +367,7 @@ const useWebSocket = (customUrl = null) => {
       return false;
     }
 
-    if (socket && isConnected) {
+    if (socket && isConnected && socket.readyState === WebSocket.OPEN) {
       try {
         socket.send(
           JSON.stringify({
@@ -366,7 +397,7 @@ const useWebSocket = (customUrl = null) => {
         return false;
       }
 
-      if (socket && isConnected) {
+      if (socket && isConnected && socket.readyState === WebSocket.OPEN) {
         try {
           socket.send(
             JSON.stringify({
@@ -393,8 +424,20 @@ const useWebSocket = (customUrl = null) => {
 
   // Fonction pour se déconnecter manuellement
   const disconnect = useCallback(() => {
-    if (socket) {
-      socket.close();
+    isCleaningUpRef.current = true;
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(
+          JSON.stringify({
+            type: "DISCONNECT",
+            timestamp: new Date().toISOString(),
+          })
+        );
+        socket.close();
+      } catch (error) {
+        console.error("Erreur lors de la déconnexion WebSocket:", error);
+      }
     }
 
     if (reconnectTimeoutRef.current) {
@@ -402,22 +445,37 @@ const useWebSocket = (customUrl = null) => {
       reconnectTimeoutRef.current = null;
     }
 
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+
+    if (pongTimeoutRef.current) {
+      clearTimeout(pongTimeoutRef.current);
+      pongTimeoutRef.current = null;
+    }
+
     setIsConnected(false);
     setSocket(null);
+
+    // Réinitialiser l'état de nettoyage après un court délai
+    setTimeout(() => {
+      isCleaningUpRef.current = false;
+    }, 1000);
   }, [socket]);
 
   // Fonction pour réinitialiser le mode de secours et tenter une nouvelle connexion
   const resetFallbackMode = useCallback(() => {
     setFallbackMode(false);
     reconnectAttemptsRef.current = 0;
-    wsServerAvailableRef.current = false;
+    wsServerAvailableRef.current = true;
     connect();
   }, [connect]);
 
   // Nettoyer lors du démontage du composant
   useEffect(() => {
     // Tentative de connexion initiale
-    if (!socket && !fallbackMode) {
+    if (!socket && !fallbackMode && !isCleaningUpRef.current) {
       console.log("Tentative de connexion WebSocket initiale...");
       const newSocket = connect();
       if (newSocket) {
@@ -427,6 +485,7 @@ const useWebSocket = (customUrl = null) => {
 
     // Nettoyage lors du démontage
     return () => {
+      isCleaningUpRef.current = true;
       console.log("Nettoyage de la connexion WebSocket");
 
       // Nettoyer l'intervalle de ping
@@ -449,14 +508,29 @@ const useWebSocket = (customUrl = null) => {
 
       // Fermer la connexion WebSocket
       if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close();
+        try {
+          socket.send(
+            JSON.stringify({
+              type: "DISCONNECT",
+              timestamp: new Date().toISOString(),
+            })
+          );
+          socket.close();
+        } catch (error) {
+          console.error("Erreur lors de la fermeture du WebSocket:", error);
+        }
       }
+
+      // Réinitialiser l'état de nettoyage après un court délai
+      setTimeout(() => {
+        isCleaningUpRef.current = false;
+      }, 1000);
     };
   }, [connect, fallbackMode, socket]);
 
   // Reconnecter lorsque l'utilisateur change, sauf en mode de secours permanent
   useEffect(() => {
-    if (user && !fallbackMode) {
+    if (user && !fallbackMode && !isCleaningUpRef.current) {
       // Réinitialiser les tentatives de reconnexion
       const userChangeTimeout = setTimeout(() => {
         reconnectAttemptsRef.current = 0;
@@ -471,7 +545,7 @@ const useWebSocket = (customUrl = null) => {
   useEffect(() => {
     const handleBeforeUnload = () => {
       // Envoyer un message de déconnexion propre
-      if (socket && isConnected) {
+      if (socket && isConnected && socket.readyState === WebSocket.OPEN) {
         try {
           socket.send(
             JSON.stringify({

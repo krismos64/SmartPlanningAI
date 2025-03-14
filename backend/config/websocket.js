@@ -10,6 +10,8 @@ const setupWebSocket = (server) => {
     clientTracking: true,
     // Permettre les connexions non authentifiées initialement
     verifyClient: () => true,
+    // Augmenter le délai d'attente pour la fermeture de la connexion
+    closeTimeout: 5000,
   });
 
   // Rendre le WebSocket accessible globalement
@@ -18,14 +20,37 @@ const setupWebSocket = (server) => {
   // Fonction pour vérifier si les clients sont toujours connectés
   const heartbeat = function () {
     this.isAlive = true;
+    // Réinitialiser le compteur de tentatives de ping échouées
+    this.failedPings = 0;
   };
 
   // Intervalle pour vérifier les connexions actives
   const interval = setInterval(() => {
     wss.clients.forEach((ws) => {
+      // Augmenter la tolérance aux échecs de ping
       if (ws.isAlive === false) {
-        console.log("Client inactif détecté, fermeture de la connexion");
-        return ws.terminate();
+        // Incrémenter le compteur d'échecs
+        ws.failedPings = (ws.failedPings || 0) + 1;
+
+        // Fermer la connexion seulement après 3 échecs consécutifs
+        if (ws.failedPings >= 3) {
+          console.log(
+            "Client inactif détecté après 3 tentatives, fermeture de la connexion"
+          );
+          return ws.terminate();
+        } else {
+          console.log(`Client non réactif, tentative ${ws.failedPings}/3`);
+          // Réessayer de pinger
+          try {
+            ws.ping();
+          } catch (error) {
+            console.error(
+              "Erreur lors de l'envoi du ping de récupération:",
+              error
+            );
+          }
+          return;
+        }
       }
 
       ws.isAlive = false;
@@ -33,10 +58,11 @@ const setupWebSocket = (server) => {
         ws.ping();
       } catch (error) {
         console.error("Erreur lors de l'envoi du ping:", error);
-        ws.terminate();
+        // Ne pas terminer immédiatement, donner une chance de récupération
+        ws.isAlive = false;
       }
     });
-  }, 30000); // Vérifier toutes les 30 secondes
+  }, 45000); // Augmenter l'intervalle à 45 secondes pour réduire la fréquence des pings
 
   // Nettoyer l'intervalle à la fermeture du serveur
   wss.on("close", () => {
@@ -50,6 +76,7 @@ const setupWebSocket = (server) => {
 
     // Initialiser le statut de la connexion
     ws.isAlive = true;
+    ws.failedPings = 0;
 
     // Répondre aux pings du client
     ws.on("ping", heartbeat);
@@ -58,12 +85,16 @@ const setupWebSocket = (server) => {
     ws.on("pong", heartbeat);
 
     // Envoyer un message de bienvenue
-    ws.send(
-      JSON.stringify({
-        type: "WELCOME",
-        message: "Connexion WebSocket établie avec succès",
-      })
-    );
+    try {
+      ws.send(
+        JSON.stringify({
+          type: "WELCOME",
+          message: "Connexion WebSocket établie avec succès",
+        })
+      );
+    } catch (error) {
+      console.error("Erreur lors de l'envoi du message de bienvenue:", error);
+    }
 
     // Gérer les messages reçus
     ws.on("message", async (message) => {
@@ -77,6 +108,22 @@ const setupWebSocket = (server) => {
 
         // Réinitialiser le statut de la connexion à chaque message
         ws.isAlive = true;
+        ws.failedPings = 0;
+
+        // Répondre immédiatement aux PING pour maintenir la connexion active
+        if (data.type === "PING") {
+          try {
+            ws.send(
+              JSON.stringify({
+                type: "PONG",
+                timestamp: new Date().toISOString(),
+              })
+            );
+          } catch (error) {
+            console.error("Erreur lors de l'envoi du PONG:", error);
+          }
+          return;
+        }
 
         switch (data.type) {
           case "IDENTIFY":
@@ -249,12 +296,36 @@ const setupWebSocket = (server) => {
                     timestamp: new Date().toISOString(),
                   })
                 );
+
+                // Diffuser la mise à jour à tous les clients de cet utilisateur
+                wss.clients.forEach((client) => {
+                  if (
+                    client.userId === ws.userId &&
+                    client !== ws &&
+                    client.readyState === WebSocket.OPEN
+                  ) {
+                    try {
+                      client.send(
+                        JSON.stringify({
+                          type: "NOTIFICATION_MARKED_READ",
+                          notificationId: data.notificationId,
+                          timestamp: new Date().toISOString(),
+                        })
+                      );
+                    } catch (error) {
+                      console.error(
+                        "Erreur lors de la diffusion de la mise à jour de notification:",
+                        error
+                      );
+                    }
+                  }
+                });
               } else {
                 ws.send(
                   JSON.stringify({
                     type: "ERROR",
                     message:
-                      "Erreur lors du marquage de la notification: " +
+                      "Erreur lors du marquage de la notification comme lue: " +
                       result.error,
                     timestamp: new Date().toISOString(),
                   })
@@ -262,14 +333,14 @@ const setupWebSocket = (server) => {
               }
             } catch (error) {
               console.error(
-                "Erreur lors du marquage de la notification:",
+                "Erreur lors du marquage de la notification comme lue:",
                 error
               );
               ws.send(
                 JSON.stringify({
                   type: "ERROR",
                   message:
-                    "Erreur lors du marquage de la notification: " +
+                    "Erreur lors du marquage de la notification comme lue: " +
                     error.message,
                   timestamp: new Date().toISOString(),
                 })
@@ -296,15 +367,40 @@ const setupWebSocket = (server) => {
                 ws.send(
                   JSON.stringify({
                     type: "ALL_NOTIFICATIONS_MARKED_READ",
+                    userId: ws.userId,
                     timestamp: new Date().toISOString(),
                   })
                 );
+
+                // Diffuser la mise à jour à tous les clients de cet utilisateur
+                wss.clients.forEach((client) => {
+                  if (
+                    client.userId === ws.userId &&
+                    client !== ws &&
+                    client.readyState === WebSocket.OPEN
+                  ) {
+                    try {
+                      client.send(
+                        JSON.stringify({
+                          type: "ALL_NOTIFICATIONS_MARKED_READ",
+                          userId: ws.userId,
+                          timestamp: new Date().toISOString(),
+                        })
+                      );
+                    } catch (error) {
+                      console.error(
+                        "Erreur lors de la diffusion de la mise à jour des notifications:",
+                        error
+                      );
+                    }
+                  }
+                });
               } else {
                 ws.send(
                   JSON.stringify({
                     type: "ERROR",
                     message:
-                      "Erreur lors du marquage des notifications: " +
+                      "Erreur lors du marquage de toutes les notifications comme lues: " +
                       result.error,
                     timestamp: new Date().toISOString(),
                   })
@@ -312,14 +408,14 @@ const setupWebSocket = (server) => {
               }
             } catch (error) {
               console.error(
-                "Erreur lors du marquage des notifications:",
+                "Erreur lors du marquage de toutes les notifications comme lues:",
                 error
               );
               ws.send(
                 JSON.stringify({
                   type: "ERROR",
                   message:
-                    "Erreur lors du marquage des notifications: " +
+                    "Erreur lors du marquage de toutes les notifications comme lues: " +
                     error.message,
                   timestamp: new Date().toISOString(),
                 })
@@ -327,31 +423,37 @@ const setupWebSocket = (server) => {
             }
             break;
 
+          case "DISCONNECT":
+            console.log(
+              `Client avec l'ID ${
+                ws.userId || "inconnu"
+              } a demandé une déconnexion`
+            );
+            // La connexion sera fermée par le client
+            break;
+
           case "DATA_CHANGED":
             // Diffuser le changement à tous les clients connectés
             wss.clients.forEach((client) => {
               if (client !== ws && client.readyState === WebSocket.OPEN) {
-                client.send(
-                  JSON.stringify({
-                    type: "DATA_UPDATED",
-                    dataType: data.dataType,
-                    action: data.action,
-                    entityId: data.entityId,
-                    timestamp: data.timestamp || new Date().toISOString(),
-                  })
-                );
+                try {
+                  client.send(
+                    JSON.stringify({
+                      type: "DATA_UPDATED",
+                      dataType: data.dataType,
+                      action: data.action,
+                      entityId: data.entityId,
+                      timestamp: data.timestamp || new Date().toISOString(),
+                    })
+                  );
+                } catch (error) {
+                  console.error(
+                    "Erreur lors de la diffusion du changement de données:",
+                    error
+                  );
+                }
               }
             });
-            break;
-
-          case "PING":
-            // Répondre avec un PONG pour maintenir la connexion active
-            ws.send(
-              JSON.stringify({
-                type: "PONG",
-                timestamp: new Date().toISOString(),
-              })
-            );
             break;
 
           default:

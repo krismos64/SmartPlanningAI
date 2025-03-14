@@ -384,10 +384,22 @@ const NotificationCenter = () => {
 
   // Écouter les événements WebSocket pour les notifications
   useEffect(() => {
+    // Utiliser un debounce pour éviter les appels API trop fréquents
+    let fetchTimeoutId = null;
+
+    const debouncedFetchNotifications = () => {
+      if (fetchTimeoutId) {
+        clearTimeout(fetchTimeoutId);
+      }
+      fetchTimeoutId = setTimeout(() => {
+        fetchNotifications();
+      }, 300); // Attendre 300ms avant de déclencher l'appel API
+    };
+
     const handleNewNotification = (event) => {
       console.log("Nouvelle notification reçue via WebSocket:", event.detail);
-      // Rafraîchir les notifications
-      fetchNotifications();
+      // Rafraîchir les notifications avec debounce
+      debouncedFetchNotifications();
       // Indiquer qu'il y a de nouvelles notifications
       setHasNewNotifications(true);
       // Réinitialiser l'animation après 3 secondes
@@ -401,8 +413,8 @@ const NotificationCenter = () => {
         "Mise à jour de notification reçue via WebSocket:",
         event.detail
       );
-      // Rafraîchir les notifications
-      fetchNotifications();
+      // Rafraîchir les notifications avec debounce
+      debouncedFetchNotifications();
     };
 
     // Ajouter les écouteurs d'événements
@@ -412,8 +424,11 @@ const NotificationCenter = () => {
       handleNotificationUpdate
     );
 
-    // Nettoyer les écouteurs d'événements
+    // Nettoyer les écouteurs d'événements et le timeout
     return () => {
+      if (fetchTimeoutId) {
+        clearTimeout(fetchTimeoutId);
+      }
       window.removeEventListener(
         "websocket:notification",
         handleNewNotification
