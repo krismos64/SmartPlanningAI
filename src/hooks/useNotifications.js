@@ -218,6 +218,46 @@ const useNotifications = () => {
     }
   }, [user, fetchNotifications, fetchUnreadCount]);
 
+  // Créer une nouvelle notification
+  const createNotification = useCallback(
+    async (notificationData) => {
+      if (!user) return { success: false, message: "Utilisateur non connecté" };
+
+      try {
+        return await NotificationService.createNotification(notificationData);
+      } catch (error) {
+        console.error("Erreur lors de la création de la notification:", error);
+        return {
+          success: false,
+          message:
+            error.message || "Erreur lors de la création de la notification",
+        };
+      }
+    },
+    [user]
+  );
+
+  // Créer et diffuser une notification à plusieurs utilisateurs
+  const createBroadcastNotification = useCallback(
+    async (notificationData) => {
+      if (!user) return { success: false, message: "Utilisateur non connecté" };
+
+      try {
+        return await NotificationService.createBroadcastNotification(
+          notificationData
+        );
+      } catch (error) {
+        console.error("Erreur lors de la diffusion des notifications:", error);
+        return {
+          success: false,
+          message:
+            error.message || "Erreur lors de la diffusion des notifications",
+        };
+      }
+    },
+    [user]
+  );
+
   // Gérer les messages WebSocket
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -329,6 +369,8 @@ const useNotifications = () => {
     markAllAsRead,
     deleteNotification,
     deleteAllNotifications,
+    createNotification,
+    createBroadcastNotification,
   };
 };
 

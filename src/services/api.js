@@ -689,6 +689,32 @@ export const NotificationService = {
     }
   },
 
+  createNotification: async (notificationData) => {
+    try {
+      return await apiRequest({
+        endpoint: "/notifications",
+        method: "POST",
+        data: notificationData,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la création de la notification:", error);
+      throw error;
+    }
+  },
+
+  createBroadcastNotification: async (notificationData) => {
+    try {
+      return await apiRequest({
+        endpoint: "/notifications/broadcast",
+        method: "POST",
+        data: notificationData,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la diffusion des notifications:", error);
+      throw error;
+    }
+  },
+
   getUnreadCount: async () => {
     try {
       return await apiRequest({
