@@ -1,79 +1,35 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { API_ENDPOINTS } from "../config/api";
 import useApi from "./useApi";
-import useWebSocket from "./useWebSocket";
 
 /**
  * Hook personnalisé pour gérer les congés
+ * Version sans WebSocket pour éviter les problèmes de navigation
  */
 const useVacations = () => {
   const [vacations, setVacations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const api = useApi();
+  const isComponentMountedRef = useRef(true);
+  const pollingIntervalRef = useRef(null);
+  const POLLING_INTERVAL = 60000; // 60 secondes entre chaque vérification
 
-  // Intégration WebSocket pour les mises à jour en temps réel
-  const { socket, isConnected, notifyDataChange, fallbackMode } =
-    useWebSocket();
-
-  // Écouter les mises à jour WebSocket
+  // Marquer le composant comme monté/démonté
   useEffect(() => {
-    if (socket && isConnected) {
-      // Fonction pour traiter les messages WebSocket
-      const handleWebSocketMessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
+    isComponentMountedRef.current = true;
 
-          // Si le message concerne une mise à jour de congé
-          if (data.type === "VACATION_UPDATED" && data.vacation) {
-            setVacations((prevVacations) => {
-              // Vérifier si le congé existe déjà
-              const exists = prevVacations.some(
-                (vacation) => vacation.id === data.vacation.id
-              );
+    return () => {
+      isComponentMountedRef.current = false;
 
-              if (exists) {
-                // Mettre à jour le congé existant
-                return prevVacations.map((vacation) =>
-                  vacation.id === data.vacation.id ? data.vacation : vacation
-                );
-              } else {
-                // Ajouter le nouveau congé
-                return [...prevVacations, data.vacation];
-              }
-            });
-
-            toast.info("Demande de congé mise à jour en temps réel");
-          }
-
-          // Si le message concerne une suppression de congé
-          if (data.type === "VACATION_DELETED" && data.vacationId) {
-            setVacations((prevVacations) =>
-              prevVacations.filter(
-                (vacation) => vacation.id !== data.vacationId
-              )
-            );
-
-            toast.info("Demande de congé supprimée en temps réel");
-          }
-        } catch (error) {
-          console.error(
-            "Erreur lors du traitement du message WebSocket:",
-            error
-          );
-        }
-      };
-
-      // Ajouter l'écouteur d'événements
-      socket.addEventListener("message", handleWebSocketMessage);
-
-      // Nettoyer l'écouteur lors du démontage
-      return () => {
-        socket.removeEventListener("message", handleWebSocketMessage);
-      };
-    }
-  }, [socket, isConnected]);
+      // Nettoyer l'intervalle de polling lors du démontage
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   /**
    * Fonction utilitaire pour réessayer une requête API
@@ -113,165 +69,217 @@ const useVacations = () => {
   );
 
   // Fonction pour charger les congés
-  const fetchVacations = useCallback(async () => {
-    let retryCount = 0;
-    const maxRetries = 2;
+  const fetchVacations = useCallback(
+    async (forceRefresh = false) => {
+      if (!isComponentMountedRef.current) return;
 
-    // Vérifier si les données sont déjà en cache et récentes (moins de 5 minutes)
-    const cachedData = localStorage.getItem("cachedVacations");
-    const cachedTimestamp = localStorage.getItem("cachedVacationsTimestamp");
+      let retryCount = 0;
+      const maxRetries = 2;
 
-    if (cachedData && cachedTimestamp) {
-      const now = new Date().getTime();
-      const cacheTime = parseInt(cachedTimestamp);
-      const fiveMinutes = 5 * 60 * 1000;
+      // Vérifier si les données sont déjà en cache et récentes (moins de 5 minutes)
+      const cachedData = localStorage.getItem("cachedVacations");
+      const cachedTimestamp = localStorage.getItem("cachedVacationsTimestamp");
 
-      // Si le cache est récent (moins de 5 minutes), utiliser les données en cache
-      if (now - cacheTime < fiveMinutes) {
-        try {
-          const parsedData = JSON.parse(cachedData);
-          console.log("Utilisation des données en cache pour les congés");
-          setVacations(parsedData);
-          setLoading(false);
-          return;
-        } catch (e) {
-          console.error("Erreur lors de la lecture du cache:", e);
-          // Continuer avec le chargement normal si le cache est invalide
-        }
-      }
-    }
+      if (!forceRefresh && cachedData && cachedTimestamp) {
+        const now = new Date().getTime();
+        const cacheTime = parseInt(cachedTimestamp);
+        const fiveMinutes = 5 * 60 * 1000;
 
-    const loadVacations = async () => {
-      if (retryCount >= maxRetries) {
-        setError(
-          "Erreur lors du chargement des congés après plusieurs tentatives"
-        );
-        setLoading(false);
-        return;
-      }
-
-      try {
-        console.log("Chargement des congés...");
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          console.error("Token d'authentification manquant");
-          setError("Vous devez être connecté pour accéder à ces données");
-          setLoading(false);
-          return;
-        }
-
-        const data = await api.get(API_ENDPOINTS.VACATIONS);
-        console.log("Données des congés reçues:", data);
-
-        if (Array.isArray(data)) {
-          // Convertir les propriétés de snake_case à camelCase
-          const formattedData = data.map((vacation) => {
-            // Convertir les dates pour le calcul de la durée
-            const startDate = vacation.start_date || vacation.startDate;
-            const endDate = vacation.end_date || vacation.endDate;
-
-            // Calculer la durée en jours ouvrables selon la législation française
-            let duration = "-";
-            if (startDate && endDate) {
-              const start = new Date(startDate);
-              const end = new Date(endDate);
-
-              // Réinitialiser les heures pour éviter les problèmes de comparaison
-              start.setHours(0, 0, 0, 0);
-              end.setHours(0, 0, 0, 0);
-
-              // Compter les jours ouvrables (lundi au samedi, hors jours fériés)
-              let workableDays = 0;
-              const currentDate = new Date(start);
-
-              while (currentDate <= end) {
-                // Si ce n'est pas un dimanche (0 = dimanche, 1-6 = lundi-samedi)
-                if (currentDate.getDay() !== 0) {
-                  workableDays++;
-                }
-
-                // Passer au jour suivant
-                currentDate.setDate(currentDate.getDate() + 1);
-              }
-
-              duration = `${workableDays} jour${
-                workableDays > 1 ? "s" : ""
-              } ouvrable${workableDays > 1 ? "s" : ""}`;
-            }
-
-            // Créer un nouvel objet avec les propriétés converties
-            return {
-              ...vacation,
-              // Assurer que employeeName est défini, même si employee_name ne l'est pas
-              employeeName:
-                vacation.employee_name ||
-                vacation.employeeName ||
-                "Employé inconnu",
-              // Convertir les dates si nécessaire
-              startDate: startDate,
-              endDate: endDate,
-              // Ajouter la durée calculée
-              duration: duration,
-              // Autres propriétés qui pourraient être en snake_case
-              employeeId: vacation.employee_id || vacation.employeeId,
-              approvedAt: vacation.approved_at || vacation.approvedAt,
-              approvedBy: vacation.approved_by || vacation.approvedBy,
-              rejectedAt: vacation.rejected_at || vacation.rejectedAt,
-              rejectedBy: vacation.rejected_by || vacation.rejectedBy,
-              rejectionReason:
-                vacation.rejection_reason || vacation.rejectionReason,
-              createdAt: vacation.created_at || vacation.createdAt,
-              updatedAt: vacation.updated_at || vacation.updatedAt,
-            };
-          });
-
-          console.log("Données des congés formatées:", formattedData);
-          setVacations(formattedData);
-
-          // Mettre en cache les données formatées
+        // Si le cache est récent (moins de 5 minutes), utiliser les données en cache
+        if (now - cacheTime < fiveMinutes) {
           try {
-            localStorage.setItem(
-              "cachedVacations",
-              JSON.stringify(formattedData)
-            );
-            localStorage.setItem(
-              "cachedVacationsTimestamp",
-              new Date().getTime().toString()
-            );
+            const parsedData = JSON.parse(cachedData);
+            console.log("Utilisation des données en cache pour les congés");
+            if (isComponentMountedRef.current) {
+              setVacations(parsedData);
+              setLoading(false);
+            }
+            return;
           } catch (e) {
-            console.error("Erreur lors de la mise en cache des données:", e);
-            // Continuer même si la mise en cache échoue
+            console.error("Erreur lors de la lecture du cache:", e);
+            // Continuer avec le chargement normal si le cache est invalide
+          }
+        }
+      }
+
+      const loadVacations = async () => {
+        if (retryCount >= maxRetries || !isComponentMountedRef.current) {
+          if (isComponentMountedRef.current) {
+            setError(
+              "Erreur lors du chargement des congés après plusieurs tentatives"
+            );
+            setLoading(false);
+          }
+          return;
+        }
+
+        try {
+          console.log("Chargement des congés...");
+          const token = localStorage.getItem("token");
+
+          if (!token) {
+            console.error("Token d'authentification manquant");
+            if (isComponentMountedRef.current) {
+              setError("Vous devez être connecté pour accéder à ces données");
+              setLoading(false);
+            }
+            return;
           }
 
-          setError(null);
-        } else {
-          console.error("Format de données invalide:", data);
-          setError("Format de données invalide");
-        }
-        setLoading(false);
-      } catch (err) {
-        console.error("Erreur lors du chargement des congés:", err);
-        setError(err.message || "Erreur lors du chargement des congés");
+          const data = await api.get(API_ENDPOINTS.VACATIONS);
+          console.log("Données des congés reçues:", data);
 
-        // Réessayer avec un délai exponentiel mais plus court
-        retryCount++;
-        const retryDelay = 500 * Math.pow(2, retryCount); // Délai plus court
-        console.log(
-          `Nouvelle tentative dans ${retryDelay}ms (${retryCount}/${maxRetries})`
-        );
-        setTimeout(loadVacations, retryDelay);
+          if (!isComponentMountedRef.current) return;
+
+          if (Array.isArray(data)) {
+            // Convertir les propriétés de snake_case à camelCase
+            const formattedData = data.map((vacation) => {
+              // Convertir les dates pour le calcul de la durée
+              const startDate = vacation.start_date || vacation.startDate;
+              const endDate = vacation.end_date || vacation.endDate;
+
+              // Calculer la durée en jours ouvrables selon la législation française
+              let duration = "-";
+              if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+
+                // Réinitialiser les heures pour éviter les problèmes de comparaison
+                start.setHours(0, 0, 0, 0);
+                end.setHours(0, 0, 0, 0);
+
+                // Compter les jours ouvrables (lundi au samedi, hors jours fériés)
+                let workableDays = 0;
+                const currentDate = new Date(start);
+
+                while (currentDate <= end) {
+                  // Si ce n'est pas un dimanche (0 = dimanche, 1-6 = lundi-samedi)
+                  if (currentDate.getDay() !== 0) {
+                    workableDays++;
+                  }
+
+                  // Passer au jour suivant
+                  currentDate.setDate(currentDate.getDate() + 1);
+                }
+
+                duration = `${workableDays} jour${
+                  workableDays > 1 ? "s" : ""
+                } ouvrable${workableDays > 1 ? "s" : ""}`;
+              }
+
+              // Créer un nouvel objet avec les propriétés converties
+              return {
+                ...vacation,
+                // Assurer que employeeName est défini, même si employee_name ne l'est pas
+                employeeName:
+                  vacation.employee_name ||
+                  vacation.employeeName ||
+                  "Employé inconnu",
+                // Convertir les dates si nécessaire
+                startDate: startDate,
+                endDate: endDate,
+                // Ajouter la durée calculée
+                duration: duration,
+                // Autres propriétés qui pourraient être en snake_case
+                employeeId: vacation.employee_id || vacation.employeeId,
+                approvedAt: vacation.approved_at || vacation.approvedAt,
+                approvedBy: vacation.approved_by || vacation.approvedBy,
+                rejectedAt: vacation.rejected_at || vacation.rejectedAt,
+                rejectedBy: vacation.rejected_by || vacation.rejectedBy,
+                rejectionReason:
+                  vacation.rejection_reason || vacation.rejectionReason,
+                createdAt: vacation.created_at || vacation.createdAt,
+                updatedAt: vacation.updated_at || vacation.updatedAt,
+              };
+            });
+
+            console.log("Données des congés formatées:", formattedData);
+
+            if (isComponentMountedRef.current) {
+              setVacations(formattedData);
+              setError(null);
+            }
+
+            // Mettre en cache les données formatées
+            try {
+              localStorage.setItem(
+                "cachedVacations",
+                JSON.stringify(formattedData)
+              );
+              localStorage.setItem(
+                "cachedVacationsTimestamp",
+                new Date().getTime().toString()
+              );
+            } catch (e) {
+              console.error("Erreur lors de la mise en cache des données:", e);
+              // Continuer même si la mise en cache échoue
+            }
+          } else {
+            console.error("Format de données invalide:", data);
+            if (isComponentMountedRef.current) {
+              setError("Format de données invalide");
+            }
+          }
+
+          if (isComponentMountedRef.current) {
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error("Erreur lors du chargement des congés:", err);
+
+          if (isComponentMountedRef.current) {
+            setError(err.message || "Erreur lors du chargement des congés");
+          }
+
+          // Réessayer avec un délai exponentiel mais plus court
+          retryCount++;
+          const retryDelay = 500 * Math.pow(2, retryCount); // Délai plus court
+          console.log(
+            `Nouvelle tentative dans ${retryDelay}ms (${retryCount}/${maxRetries})`
+          );
+
+          // Utiliser setTimeout avec une vérification du montage
+          const timeoutId = setTimeout(() => {
+            if (isComponentMountedRef.current) {
+              loadVacations();
+            }
+          }, retryDelay);
+
+          // Nettoyer le timeout si le composant est démonté
+          return () => clearTimeout(timeoutId);
+        }
+      };
+
+      if (isComponentMountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
+
+      await loadVacations();
+    },
+    [api]
+  );
+
+  // Charger les congés au montage du composant et configurer le polling
+  useEffect(() => {
+    // Charger les données initiales
+    fetchVacations();
+
+    // Configurer un intervalle pour rafraîchir les données périodiquement
+    pollingIntervalRef.current = setInterval(() => {
+      if (isComponentMountedRef.current) {
+        console.log("Rafraîchissement périodique des données de congés");
+        fetchVacations(true); // forceRefresh = true pour ignorer le cache
+      }
+    }, POLLING_INTERVAL);
+
+    // Nettoyer lors du démontage
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
-
-    setLoading(true);
-    setError(null);
-    await loadVacations();
-  }, [api]);
-
-  // Charger les congés au montage du composant
-  useEffect(() => {
-    fetchVacations();
   }, [fetchVacations]);
 
   /**
@@ -351,16 +359,6 @@ const useVacations = () => {
             // Notifier le succès
             toast.success("Demande de congé créée avec succès");
 
-            // Envoyer une notification WebSocket
-            if (socket && socket.readyState === WebSocket.OPEN) {
-              socket.send(
-                JSON.stringify({
-                  type: "VACATION_CREATED",
-                  data: response,
-                })
-              );
-            }
-
             return { success: true, data: response };
           } catch (error) {
             console.error(
@@ -385,6 +383,10 @@ const useVacations = () => {
         // Exécuter l'appel API avec retry
         const result = await retryApiCall(apiCall, 2, 1000);
         setLoading(false);
+
+        // Rafraîchir les données après création
+        fetchVacations(true);
+
         return result;
       } catch (error) {
         console.error(
@@ -398,7 +400,7 @@ const useVacations = () => {
         return { success: false, error: error.message };
       }
     },
-    [api, retryApiCall, socket]
+    [api, retryApiCall, fetchVacations]
   );
 
   /**
@@ -436,12 +438,11 @@ const useVacations = () => {
           prev.map((vacation) => (vacation.id === id ? data : vacation))
         );
 
-        // Notifier les autres clients via WebSocket
-        if (!fallbackMode && isConnected) {
-          notifyDataChange("vacation", "update", id);
-        }
-
         toast.success("Demande de congé mise à jour avec succès");
+
+        // Rafraîchir les données après mise à jour
+        fetchVacations(true);
+
         return { success: true, vacation: data };
       } catch (err) {
         console.error(
@@ -455,7 +456,7 @@ const useVacations = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [api, retryApiCall, fallbackMode, isConnected, notifyDataChange]
+    [api, retryApiCall, fetchVacations]
   );
 
   /**
@@ -488,12 +489,11 @@ const useVacations = () => {
 
         setVacations((prev) => prev.filter((vacation) => vacation.id !== id));
 
-        // Notifier les autres clients via WebSocket
-        if (!fallbackMode && isConnected) {
-          notifyDataChange("vacation", "delete", id);
-        }
-
         toast.success("Demande de congé supprimée avec succès");
+
+        // Rafraîchir les données après suppression
+        fetchVacations(true);
+
         return { success: true };
       } catch (err) {
         console.error(
@@ -507,7 +507,7 @@ const useVacations = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [api, retryApiCall, fallbackMode, isConnected, notifyDataChange]
+    [api, retryApiCall, fetchVacations]
   );
 
   /**
@@ -550,16 +550,15 @@ const useVacations = () => {
           prev.map((vacation) => (vacation.id === id ? data : vacation))
         );
 
-        // Notifier les autres clients via WebSocket
-        if (!fallbackMode && isConnected) {
-          notifyDataChange("vacation", "update", id);
-        }
-
         toast.success(
           `Demande de congé ${
             status === "approved" ? "approuvée" : "rejetée"
           } avec succès`
         );
+
+        // Rafraîchir les données après mise à jour du statut
+        fetchVacations(true);
+
         return { success: true, vacation: data };
       } catch (err) {
         console.error(
@@ -577,7 +576,7 @@ const useVacations = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [api, retryApiCall, fallbackMode, isConnected, notifyDataChange]
+    [api, retryApiCall, fetchVacations]
   );
 
   /**
@@ -593,11 +592,17 @@ const useVacations = () => {
     [vacations]
   );
 
+  // Fonction pour forcer un rafraîchissement des données
+  const refreshVacations = useCallback(() => {
+    return fetchVacations(true);
+  }, [fetchVacations]);
+
   return {
     vacations,
     loading,
     error,
     fetchVacations,
+    refreshVacations,
     createVacation,
     updateVacation,
     deleteVacation,

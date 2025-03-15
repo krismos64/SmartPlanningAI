@@ -1,377 +1,39 @@
-import Lottie from "lottie-react";
-import React, { useCallback, useEffect, useState } from "react";
+import { Add, Refresh } from "@mui/icons-material";
 import {
-  FaCalendarAlt,
-  FaChevronLeft,
-  FaChevronRight,
-  FaList,
-  FaPlus,
-} from "react-icons/fa";
-import styled from "styled-components";
-import holidaysAnimation from "../assets/animations/holidays.json";
-import { useNotification } from "../components/ui/Notification";
-import VacationCalendar from "../components/vacations/VacationCalendar";
-import VacationExport from "../components/vacations/VacationExport";
+  alpha,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  Grid,
+  Paper,
+  Tab,
+  Tabs,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
+import { useTheme as useThemeProvider } from "../components/ThemeProvider";
+import ErrorDisplay from "../components/ui/ErrorDisplay";
+import LoadingScreen from "../components/ui/LoadingScreen";
+import PageHeader from "../components/ui/PageHeader";
 import VacationForm from "../components/vacations/VacationForm";
+import VacationList from "../components/vacations/VacationList";
 import { useAuth } from "../contexts/AuthContext";
 import useVacations from "../hooks/useVacations";
-import ActivityLogger from "../utils/activityLogger";
 
-// Composants stylisés
-const VacationsContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const PageHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-
-  @media (max-width: ${({ theme }) => theme.breakpoints?.md || "768px"}) {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-`;
-
-const HeaderLeft = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-`;
-
-const AnimationContainer = styled.div`
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
-`;
-
-const TitleContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const PageTitle = styled.h1`
-  font-size: 2rem;
-  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
-  margin-bottom: 0.5rem;
-`;
-
-const PageDescription = styled.p`
-  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
-  font-size: 1.1rem;
-`;
-
-const Button = styled.button`
-  padding: 0.75rem 1.5rem;
-  background-color: ${({ theme, variant }) =>
-    variant === "primary" ? theme.colors?.primary || "#4F46E5" : "transparent"};
-  color: ${({ theme, variant }) =>
-    variant === "primary" ? "white" : theme.colors?.text?.primary || "#111827"};
-  border: ${({ theme, variant }) =>
-    variant === "outline"
-      ? `1px solid ${theme.colors?.border || "#E5E7EB"}`
-      : "none"};
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-
-  &:hover {
-    background-color: ${({ theme, variant }) =>
-      variant === "primary"
-        ? `${theme.colors?.primary || "#4F46E5"}dd`
-        : `${theme.colors?.border || "#E5E7EB"}33`};
-  }
-`;
-
-const TabsContainer = styled.div`
-  display: flex;
-  border-bottom: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
-  margin-bottom: 1.5rem;
-`;
-
-const Tab = styled.button`
-  padding: 0.75rem 1.5rem;
-  background: none;
-  border: none;
-  border-bottom: 2px solid
-    ${({ active, theme }) =>
-      active ? theme.colors?.primary || "#4F46E5" : "transparent"};
-  color: ${({ active, theme }) =>
-    active
-      ? theme.colors?.primary || "#4F46E5"
-      : theme.colors?.text?.secondary || "#6B7280"};
-  font-weight: ${({ active }) => (active ? 500 : 400)};
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors?.primary || "#4F46E5"};
-  }
-`;
-
-const ViewToggle = styled.div`
-  display: flex;
-  margin-bottom: 1.5rem;
-`;
-
-const ViewToggleButton = styled.button`
-  padding: 0.5rem 1rem;
-  background-color: ${({ active, theme }) =>
-    active
-      ? theme.colors?.primary || "#4F46E5"
-      : theme.colors?.background || "#F9FAFB"};
-  color: ${({ active, theme }) =>
-    active ? "white" : theme.colors?.text?.primary || "#111827"};
-  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-
-  &:first-child {
-    border-top-left-radius: ${({ theme }) =>
-      theme.borderRadius?.small || "0.25rem"};
-    border-bottom-left-radius: ${({ theme }) =>
-      theme.borderRadius?.small || "0.25rem"};
-  }
-
-  &:last-child {
-    border-top-right-radius: ${({ theme }) =>
-      theme.borderRadius?.small || "0.25rem"};
-    border-bottom-right-radius: ${({ theme }) =>
-      theme.borderRadius?.small || "0.25rem"};
-  }
-
-  &:hover {
-    background-color: ${({ active, theme }) =>
-      active
-        ? theme.colors?.primary || "#4F46E5"
-        : theme.colors?.background || "#F9FAFB"};
-  }
-`;
-
-const VacationCard = styled.div`
-  background-color: ${({ theme }) => theme.colors?.surface || "#FFFFFF"};
-  border-radius: ${({ theme }) => theme.borderRadius?.medium || "0.375rem"};
-  padding: 1.5rem;
-  box-shadow: ${({ theme }) =>
-    theme.shadows?.small || "0 1px 2px 0 rgba(0, 0, 0, 0.05)"};
-  margin-bottom: 1rem;
-  border-left: 4px solid
-    ${({ status, theme }) =>
-      status === "approved"
-        ? theme.colors?.success || "#10B981"
-        : status === "rejected"
-        ? theme.colors?.danger || "#EF4444"
-        : theme.colors?.warning || "#F59E0B"};
-`;
-
-const VacationHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-
-  @media (max-width: ${({ theme }) => theme.breakpoints?.sm || "640px"}) {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-`;
-
-const VacationTitle = styled.h3`
-  font-size: 1.25rem;
-  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
-  margin: 0;
-`;
-
-const VacationStatus = styled.span`
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  font-size: 0.875rem;
-  font-weight: 500;
-  background-color: ${({ status, theme }) =>
-    status === "approved"
-      ? `${theme.colors?.success || "#10B981"}22`
-      : status === "rejected"
-      ? `${theme.colors?.danger || "#EF4444"}22`
-      : `${theme.colors?.warning || "#F59E0B"}22`};
-  color: ${({ status, theme }) =>
-    status === "approved"
-      ? theme.colors?.success || "#10B981"
-      : status === "rejected"
-      ? theme.colors?.danger || "#EF4444"
-      : theme.colors?.warning || "#F59E0B"};
-`;
-
-const VacationDetails = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-`;
-
-const VacationDetail = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const DetailLabel = styled.div`
-  font-size: 0.875rem;
-  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
-  margin-bottom: 0.25rem;
-`;
-
-const DetailValue = styled.div`
-  font-weight: 500;
-  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
-`;
-
-const VacationActions = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1rem;
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 3rem 1rem;
-  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
-`;
-
-const Modal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-`;
-
-const ModalContent = styled.div`
-  background-color: ${({ theme }) => theme.colors?.surface || "#FFFFFF"};
-  border-radius: ${({ theme }) => theme.borderRadius?.medium || "0.375rem"};
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: ${({ theme }) =>
-    theme.shadows?.large || "0 10px 15px -3px rgba(0, 0, 0, 0.1)"};
-`;
-
-const ModalHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-`;
-
-const ModalTitle = styled.h2`
-  font-size: 1.5rem;
-  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
-  margin: 0;
-`;
-
-const CloseButton = styled.button`
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.colors?.text?.secondary || "#6B7280"};
-  font-size: 1.5rem;
-  cursor: pointer;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
-  }
-`;
-
-const RejectModal = styled(Modal)``;
-
-const RejectModalContent = styled(ModalContent)`
-  max-width: 400px;
-`;
-
-const RejectForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const RejectTextarea = styled.textarea`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  font-size: 1rem;
-  min-height: 100px;
-  resize: vertical;
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors?.primary || "#4F46E5"};
-  }
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-`;
-
-const PaginationContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 2rem;
-  gap: 0.5rem;
-`;
-
-const PageButton = styled.button`
-  padding: 0.5rem 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
-  background-color: ${({ active, theme }) =>
-    active ? theme.colors?.primary || "#4F46E5" : "white"};
-  color: ${({ active }) => (active ? "white" : "inherit")};
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background-color: ${({ active, theme }) =>
-      active
-        ? theme.colors?.primary || "#4F46E5"
-        : theme.colors?.background?.hover || "#F3F4F6"};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-// Composant Vacations
+/**
+ * Page de gestion des congés
+ */
 const Vacations = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [tabValue, setTabValue] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedVacation, setSelectedVacation] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
   const {
     vacations,
@@ -379,724 +41,255 @@ const Vacations = () => {
     error,
     createVacation,
     updateVacation,
-    approveVacation,
-    rejectVacation,
     deleteVacation,
+    updateVacationStatus,
     getVacationsByStatus,
-    refetch: fetchVacations,
+    refreshVacations,
   } = useVacations();
-  const { showNotification } = useNotification();
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
 
-  const [activeTab, setActiveTab] = useState("all");
-  const [viewMode, setViewMode] = useState("list");
-  const [showModal, setShowModal] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedVacation, setSelectedVacation] = useState(null);
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  // Réinitialiser la pagination lors du changement d'onglet
+  // Nettoyer les ressources lors du démontage du composant
   useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
+    return () => {
+      // Aucun nettoyage spécifique nécessaire, tout est géré dans le hook useVacations
+    };
+  }, []);
 
-  // Filtrer les demandes en fonction de l'onglet actif
-  const allFilteredVacations = getVacationsByStatus(
-    activeTab === "all" ? null : activeTab
-  );
-
-  // Calculer les indices pour la pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const filteredVacations = allFilteredVacations.slice(
-    indexOfFirstItem,
-    indexOfLastItem
-  );
-  const totalPages = Math.ceil(allFilteredVacations.length / itemsPerPage);
-
-  // Fonction pour changer de page
-  const paginate = (pageNumber) => {
-    if (pageNumber > 0 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
+  // Fonction pour rafraîchir manuellement les données
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshVacations();
+      toast.success("Données des congés rafraîchies");
+    } catch (error) {
+      toast.error("Erreur lors du rafraîchissement des données");
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  // Formater la date
-  const formatDate = (dateString) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+  // Gérer le changement d'onglet
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
 
-  // Traduire le type de congé
-  const translateType = (type) => {
-    const types = {
-      paid: "Congés payés",
-      rtt: "RTT",
-      unpaid: "Congés sans solde",
-      sick: "Maladie",
-      exceptional: "Absence exceptionnelle",
-      recovery: "Récupération",
-    };
-    return types[type] || type;
-  };
-
-  // Gérer la soumission du formulaire
-  const handleSubmit = useCallback(
-    async (vacationData) => {
-      setIsLoading(true);
-      try {
-        console.log("Données du formulaire soumises:", vacationData);
-
-        // Vérifier que l'utilisateur est authentifié
-        if (!user) {
-          console.error("Erreur: utilisateur non authentifié");
-          showNotification(
-            "Vous devez être connecté pour créer une demande de congé",
-            "error"
-          );
-          setTimeout(() => {
-            window.location.href = "/login";
-          }, 2000);
-          return;
-        }
-
-        // Vérifier que les données requises sont présentes
-        if (!vacationData.employeeId) {
-          throw new Error("L'identifiant de l'employé est requis");
-        }
-
-        if (!vacationData.startDate || !vacationData.endDate) {
-          throw new Error("Les dates de début et de fin sont requises");
-        }
-
-        if (selectedVacation) {
-          // Mise à jour d'un congé existant
-          console.log("Mise à jour d'un congé existant:", selectedVacation.id);
-          const response = await updateVacation(
-            selectedVacation.id,
-            vacationData
-          );
-
-          console.log("Réponse de mise à jour:", response);
-
-          if (response.success) {
-            // Enregistrer l'activité de mise à jour
-            await ActivityLogger.logUpdate(
-              "vacation",
-              selectedVacation.id,
-              `Mise à jour d'une demande de congé du ${formatDate(
-                vacationData.startDate
-              )} au ${formatDate(vacationData.endDate)}`,
-              user
-            );
-
-            setSelectedVacation(null);
-            setShowModal(false);
-            showNotification(
-              "Demande de congé mise à jour avec succès",
-              "success"
-            );
-          } else {
-            // Vérifier si l'erreur est liée à l'authentification
-            if (
-              response.error === "Authentification requise" ||
-              response.error === "Session expirée"
-            ) {
-              showNotification(
-                "Session expirée. Veuillez vous reconnecter.",
-                "error"
-              );
-              setTimeout(() => {
-                window.location.href = "/login";
-              }, 2000);
-              return;
-            }
-            throw new Error(response.error || "Erreur lors de la mise à jour");
-          }
-        } else {
-          // Création d'un nouveau congé
-          console.log("Création d'un nouveau congé");
-          const response = await createVacation(vacationData);
-
-          console.log("Réponse de création:", response);
-
-          if (response.success) {
-            // Enregistrer l'activité de création
-            await ActivityLogger.logCreation(
-              "vacation",
-              response.data.id,
-              `Nouvelle demande de congé du ${formatDate(
-                vacationData.startDate
-              )} au ${formatDate(vacationData.endDate)}`,
-              user
-            );
-
-            setSelectedVacation(null);
-            setShowModal(false);
-            showNotification("Demande de congé créée avec succès", "success");
-          } else {
-            // Vérifier si l'erreur est liée à l'authentification
-            if (
-              response.error === "Authentification requise" ||
-              response.error === "Session expirée"
-            ) {
-              showNotification(
-                "Session expirée. Veuillez vous reconnecter.",
-                "error"
-              );
-              setTimeout(() => {
-                window.location.href = "/login";
-              }, 2000);
-              return;
-            }
-            throw new Error(response.error || "Erreur lors de la création");
-          }
-        }
-      } catch (error) {
-        console.error("Erreur détaillée lors de la soumission:", error);
-        showNotification(error.message || "Une erreur est survenue", "error");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      selectedVacation,
-      createVacation,
-      updateVacation,
-      user,
-      formatDate,
-      showNotification,
-    ]
-  );
-
-  // Gérer l'approbation d'une demande
-  const handleApprove = useCallback(
-    async (id) => {
-      try {
-        await approveVacation(id);
-        showNotification("Demande de congé approuvée", "success");
-      } catch (error) {
-        showNotification("Erreur lors de l'approbation de la demande", "error");
-      }
-    },
-    [approveVacation, showNotification]
-  );
-
-  // Gérer le rejet d'une demande
-  const handleReject = useCallback(
-    async (id, reason) => {
-      try {
-        await rejectVacation(id, reason);
-        showNotification("Demande de congé rejetée", "success");
-        setShowRejectModal(false);
-        setRejectionReason("");
-      } catch (error) {
-        showNotification("Erreur lors du rejet de la demande", "error");
-      }
-    },
-    [rejectVacation, showNotification]
-  );
-
-  // Ouvrir le modal de rejet
-  const openRejectModal = useCallback((vacation) => {
-    setSelectedVacation(vacation);
-    setShowRejectModal(true);
-  }, []);
-
-  // Gérer la suppression d'une demande
-  const handleDelete = useCallback(
-    async (id) => {
-      if (!id) return;
-
-      setIsLoading(true);
-      try {
-        const vacationToDelete = vacations.find((v) => v.id === id);
-        if (!vacationToDelete) {
-          throw new Error("Demande de congé introuvable");
-        }
-
-        const response = await deleteVacation(id);
-        if (response.success) {
-          // Enregistrer l'activité de suppression
-          await ActivityLogger.logDeletion(
-            "vacation",
-            id,
-            `Suppression d'une demande de congé du ${formatDate(
-              vacationToDelete.startDate
-            )} au ${formatDate(vacationToDelete.endDate)}`,
-            user
-          );
-
-          setSelectedVacation(null);
-          showNotification("Demande de congé supprimée avec succès", "success");
-        }
-      } catch (error) {
-        console.error("Erreur lors de la suppression:", error);
-        showNotification(
-          error.message || "Une erreur est survenue lors de la suppression",
-          "error"
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [vacations, deleteVacation, user]
-  );
-
-  // Ouvrir le modal d'édition
-  const handleEdit = useCallback((vacation) => {
-    setSelectedVacation(vacation);
-    setShowModal(true);
-  }, []);
-
-  // Gérer le clic sur un jour du calendrier
-  const handleDayClick = useCallback((date) => {
-    // Créer une nouvelle demande de congé avec la date sélectionnée
+  // Ouvrir le formulaire pour créer un nouveau congé
+  const handleOpenCreateForm = () => {
     setSelectedVacation(null);
-    setShowModal(true);
-    // Le formulaire sera pré-rempli avec cette date
-  }, []);
-
-  // Ajouter ce rendu de pagination après le tableau des congés
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-
-    return (
-      <PaginationContainer>
-        <PageButton
-          onClick={() => paginate(currentPage - 1)}
-          disabled={currentPage === 1}
-        >
-          <FaChevronLeft />
-        </PageButton>
-
-        {Array.from({ length: totalPages }, (_, i) => i + 1)
-          .filter((page) => {
-            // Afficher seulement les pages proches de la page actuelle
-            return (
-              page === 1 ||
-              page === totalPages ||
-              Math.abs(page - currentPage) <= 1
-            );
-          })
-          .map((page, index, array) => {
-            // Ajouter des points de suspension si nécessaire
-            if (index > 0 && array[index - 1] !== page - 1) {
-              return (
-                <React.Fragment key={`ellipsis-${page}`}>
-                  <span>...</span>
-                  <PageButton
-                    active={currentPage === page}
-                    onClick={() => paginate(page)}
-                  >
-                    {page}
-                  </PageButton>
-                </React.Fragment>
-              );
-            }
-
-            return (
-              <PageButton
-                key={page}
-                active={currentPage === page}
-                onClick={() => paginate(page)}
-              >
-                {page}
-              </PageButton>
-            );
-          })}
-
-        <PageButton
-          onClick={() => paginate(currentPage + 1)}
-          disabled={currentPage === totalPages}
-        >
-          <FaChevronRight />
-        </PageButton>
-      </PaginationContainer>
-    );
+    setShowForm(true);
   };
+
+  // Ouvrir le formulaire pour éditer un congé existant
+  const handleOpenEditForm = (vacation) => {
+    setSelectedVacation(vacation);
+    setShowForm(true);
+  };
+
+  // Fermer le formulaire
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedVacation(null);
+  };
+
+  // Soumettre le formulaire
+  const handleSubmitForm = async (data) => {
+    try {
+      if (selectedVacation) {
+        // Mise à jour d'un congé existant
+        await updateVacation(selectedVacation.id, data);
+      } else {
+        // Création d'un nouveau congé
+        await createVacation(data);
+      }
+      handleCloseForm();
+    } catch (error) {
+      console.error("Erreur lors de la soumission du formulaire:", error);
+      toast.error(
+        "Une erreur est survenue lors de la soumission du formulaire"
+      );
+    }
+  };
+
+  // Supprimer un congé
+  const handleDeleteVacation = async (id) => {
+    try {
+      await deleteVacation(id);
+    } catch (error) {
+      console.error("Erreur lors de la suppression du congé:", error);
+      toast.error("Une erreur est survenue lors de la suppression du congé");
+    }
+  };
+
+  // Approuver un congé
+  const handleApproveVacation = async (id) => {
+    try {
+      await updateVacationStatus(id, "approved");
+    } catch (error) {
+      console.error("Erreur lors de l'approbation du congé:", error);
+      toast.error("Une erreur est survenue lors de l'approbation du congé");
+    }
+  };
+
+  // Rejeter un congé
+  const handleRejectVacation = async (id, comment) => {
+    try {
+      await updateVacationStatus(id, "rejected", comment);
+    } catch (error) {
+      console.error("Erreur lors du rejet du congé:", error);
+      toast.error("Une erreur est survenue lors du rejet du congé");
+    }
+  };
+
+  // Filtrer les congés en fonction de l'onglet sélectionné
+  const getFilteredVacations = () => {
+    switch (tabValue) {
+      case 0:
+        return vacations; // Tous les congés
+      case 1:
+        return getVacationsByStatus("pending"); // Congés en attente
+      case 2:
+        return getVacationsByStatus("approved"); // Congés approuvés
+      case 3:
+        return getVacationsByStatus("rejected"); // Congés rejetés
+      default:
+        return vacations;
+    }
+  };
+
+  // Afficher un écran de chargement pendant le chargement des données
+  if (loading && !refreshing) {
+    return <LoadingScreen message="Chargement des congés..." />;
+  }
+
+  // Afficher un message d'erreur en cas d'erreur
+  if (error && !refreshing) {
+    return <ErrorDisplay message={error} />;
+  }
 
   return (
-    <VacationsContainer>
-      <PageHeader>
-        <HeaderLeft>
-          <AnimationContainer>
-            <Lottie
-              animationData={holidaysAnimation}
-              loop={true}
-              autoplay={true}
-              style={{ height: 80, width: 80 }}
-            />
-          </AnimationContainer>
-          <TitleContainer>
-            <PageTitle>Gestion des congés</PageTitle>
-            <PageDescription>
-              Gérez les demandes de congés de vos employés
-            </PageDescription>
-          </TitleContainer>
-        </HeaderLeft>
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <PageHeader
+        title="Gestion des congés"
+        subtitle="Consultez et gérez les demandes de congés"
+        icon="🏖️"
+      />
 
-        <Button variant="primary" onClick={() => setShowModal(true)}>
-          <FaPlus /> Nouvelle demande
-        </Button>
-      </PageHeader>
-
-      <TabsContainer>
-        <Tab active={activeTab === "all"} onClick={() => setActiveTab("all")}>
-          Tous
-        </Tab>
-        <Tab
-          active={activeTab === "pending"}
-          onClick={() => setActiveTab("pending")}
-        >
-          En attente
-        </Tab>
-        <Tab
-          active={activeTab === "approved"}
-          onClick={() => setActiveTab("approved")}
-        >
-          Approuvés
-        </Tab>
-        <Tab
-          active={activeTab === "rejected"}
-          onClick={() => setActiveTab("rejected")}
-        >
-          Refusés
-        </Tab>
-      </TabsContainer>
-
-      <ViewToggle>
-        <ViewToggleButton
-          active={viewMode === "list"}
-          onClick={() => setViewMode("list")}
-        >
-          <FaList /> Liste
-        </ViewToggleButton>
-        <ViewToggleButton
-          active={viewMode === "calendar"}
-          onClick={() => setViewMode("calendar")}
-        >
-          <FaCalendarAlt /> Calendrier
-        </ViewToggleButton>
-      </ViewToggle>
-
-      {/* Bouton d'export PDF */}
-      {filteredVacations.length > 0 && (
-        <VacationExport vacations={filteredVacations} isGlobal={true} />
-      )}
-
-      {/* Vue calendrier */}
-      {viewMode === "calendar" && (
-        <VacationCalendar
-          vacations={filteredVacations}
-          onDayClick={handleDayClick}
-        />
-      )}
-
-      {/* Vue liste */}
-      {viewMode === "list" && (
-        <>
-          {filteredVacations.length > 0 ? (
-            filteredVacations.map((vacation) => (
-              <VacationCard key={vacation.id} status={vacation.status}>
-                <VacationHeader>
-                  <VacationTitle>
-                    {vacation.employeeName ||
-                      vacation.employee_name ||
-                      "Employé inconnu"}
-                  </VacationTitle>
-                  <VacationStatus status={vacation.status}>
-                    {vacation.status === "approved"
-                      ? "Approuvé"
-                      : vacation.status === "rejected"
-                      ? "Refusé"
-                      : "En attente"}
-                  </VacationStatus>
-                </VacationHeader>
-
-                <VacationDetails>
-                  <VacationDetail>
-                    <DetailLabel>Type</DetailLabel>
-                    <DetailValue>{translateType(vacation.type)}</DetailValue>
-                  </VacationDetail>
-
-                  <VacationDetail>
-                    <DetailLabel>Date de début</DetailLabel>
-                    <DetailValue>{formatDate(vacation.startDate)}</DetailValue>
-                  </VacationDetail>
-
-                  <VacationDetail>
-                    <DetailLabel>Date de fin</DetailLabel>
-                    <DetailValue>{formatDate(vacation.endDate)}</DetailValue>
-                  </VacationDetail>
-
-                  <VacationDetail>
-                    <DetailLabel>Durée</DetailLabel>
-                    <DetailValue>{vacation.duration}</DetailValue>
-                  </VacationDetail>
-                </VacationDetails>
-
-                <VacationDetail>
-                  <DetailLabel>Motif</DetailLabel>
-                  <DetailValue>{vacation.reason || "-"}</DetailValue>
-                </VacationDetail>
-
-                {vacation.status === "approved" && (
-                  <VacationDetail>
-                    <DetailLabel>Approuvé le</DetailLabel>
-                    <DetailValue>
-                      {formatDate(vacation.approvedAt)}{" "}
-                      {vacation.approvedAt
-                        ? new Date(vacation.approvedAt).toLocaleTimeString(
-                            "fr-FR",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )
-                        : ""}
-                    </DetailValue>
-                  </VacationDetail>
-                )}
-
-                {vacation.status === "rejected" && (
-                  <VacationDetail>
-                    <DetailLabel>Refusé le</DetailLabel>
-                    <DetailValue>
-                      {formatDate(vacation.rejectedAt)}{" "}
-                      {vacation.rejectedAt
-                        ? new Date(vacation.rejectedAt).toLocaleTimeString(
-                            "fr-FR",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )
-                        : ""}
-                    </DetailValue>
-                  </VacationDetail>
-                )}
-
-                {vacation.status === "rejected" && vacation.rejectionReason && (
-                  <VacationDetail>
-                    <DetailLabel>Motif du refus</DetailLabel>
-                    <DetailValue>{vacation.rejectionReason}</DetailValue>
-                  </VacationDetail>
-                )}
-
-                {/* Actions selon le statut et le rôle de l'utilisateur */}
-                <VacationActions>
-                  {/* Actions pour les employés sur leurs propres demandes en attente */}
-                  {vacation.employeeId === user.id &&
-                    vacation.status === "pending" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleDelete(vacation.id)}
-                        >
-                          Supprimer
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleEdit(vacation)}
-                        >
-                          Modifier
-                        </Button>
-                      </>
-                    )}
-
-                  {/* Actions pour les admins et managers sur les demandes en attente */}
-                  {(user.role === "admin" || user.role === "manager") &&
-                    vacation.status === "pending" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => openRejectModal(vacation)}
-                        >
-                          Refuser
-                        </Button>
-                        <Button
-                          variant="primary"
-                          onClick={() => handleApprove(vacation.id)}
-                        >
-                          Approuver
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleDelete(vacation.id)}
-                        >
-                          Supprimer
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleEdit(vacation)}
-                        >
-                          Modifier
-                        </Button>
-                      </>
-                    )}
-
-                  {/* Actions pour les admins et managers sur les demandes approuvées */}
-                  {(user.role === "admin" || user.role === "manager") &&
-                    vacation.status === "approved" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            // Mettre la demande en attente
-                            updateVacation(vacation.id, { status: "pending" });
-                          }}
-                        >
-                          Remettre en attente
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleDelete(vacation.id)}
-                        >
-                          Supprimer
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleEdit(vacation)}
-                        >
-                          Modifier
-                        </Button>
-                      </>
-                    )}
-
-                  {/* Actions pour les admins et managers sur les demandes rejetées */}
-                  {(user.role === "admin" || user.role === "manager") &&
-                    vacation.status === "rejected" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            // Mettre la demande en attente
-                            updateVacation(vacation.id, { status: "pending" });
-                          }}
-                        >
-                          Remettre en attente
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleDelete(vacation.id)}
-                        >
-                          Supprimer
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleEdit(vacation)}
-                        >
-                          Modifier
-                        </Button>
-                      </>
-                    )}
-                </VacationActions>
-              </VacationCard>
-            ))
-          ) : (
-            <EmptyState>
-              Aucune demande de congés{" "}
-              {activeTab !== "all"
-                ? `${
-                    activeTab === "pending"
-                      ? "en attente"
-                      : activeTab === "approved"
-                      ? "approuvée"
-                      : "refusée"
-                  }`
-                : ""}{" "}
-              trouvée.
-            </EmptyState>
-          )}
-        </>
-      )}
-
-      {/* Modal de création/édition de demande */}
-      {showModal && (
-        <Modal onClick={() => setShowModal(false)}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>
-                {selectedVacation
-                  ? "Modifier la demande"
-                  : "Nouvelle demande de congés"}
-              </ModalTitle>
-              <CloseButton onClick={() => setShowModal(false)}>×</CloseButton>
-            </ModalHeader>
-
-            <VacationForm
-              vacation={selectedVacation}
-              onSubmit={handleSubmit}
-              onCancel={() => setShowModal(false)}
-              currentUser={user}
-            />
-          </ModalContent>
-        </Modal>
-      )}
-
-      {/* Modal de rejet */}
-      {showRejectModal && (
-        <RejectModal onClick={() => setShowRejectModal(false)}>
-          <RejectModalContent onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>Motif du refus</ModalTitle>
-              <CloseButton onClick={() => setShowRejectModal(false)}>
-                ×
-              </CloseButton>
-            </ModalHeader>
-
-            <RejectForm
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (selectedVacation) {
-                  handleReject(selectedVacation.id, rejectionReason);
-                }
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Paper
+            elevation={3}
+            sx={{
+              p: 3,
+              mb: 3,
+              backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+              color: isDarkMode ? "#D1D5DB" : "inherit",
+              borderRadius: 2,
+              boxShadow: isDarkMode
+                ? `0 4px 20px ${alpha("#000", 0.4)}`
+                : `0 4px 20px ${alpha("#000", 0.1)}`,
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
               }}
             >
-              <RejectTextarea
-                placeholder="Veuillez indiquer le motif du refus..."
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                required
+              <Typography
+                variant="h5"
+                color={isDarkMode ? "#F9FAFB" : "inherit"}
+              >
+                Liste des demandes de congés
+              </Typography>
+              <Box>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<Refresh />}
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  sx={{
+                    mr: 1,
+                    color: isDarkMode ? "#F9FAFB" : undefined,
+                    borderColor: isDarkMode ? "#6366F1" : undefined,
+                    "&:hover": {
+                      borderColor: isDarkMode ? "#818CF8" : undefined,
+                    },
+                  }}
+                >
+                  {refreshing ? "Rafraîchissement..." : "Rafraîchir"}
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Add />}
+                  onClick={handleOpenCreateForm}
+                  sx={{
+                    transition: "all 0.2s ease",
+                    "&:hover": { transform: "scale(1.05)" },
+                  }}
+                >
+                  Nouvelle demande
+                </Button>
+              </Box>
+            </Box>
+
+            <Tabs
+              value={tabValue}
+              onChange={handleTabChange}
+              indicatorColor="primary"
+              textColor="primary"
+              variant={isMobile ? "scrollable" : "fullWidth"}
+              scrollButtons={isMobile ? "auto" : false}
+              sx={{
+                mb: 2,
+                "& .MuiTab-root": {
+                  color: isDarkMode ? "#9CA3AF" : undefined,
+                  "&.Mui-selected": {
+                    color: isDarkMode ? "#F9FAFB" : undefined,
+                  },
+                },
+                "& .MuiTabs-indicator": {
+                  backgroundColor: isDarkMode ? "#6366F1" : undefined,
+                },
+              }}
+            >
+              <Tab label="Tous" />
+              <Tab label="En attente" />
+              <Tab label="Approuvés" />
+              <Tab label="Rejetés" />
+            </Tabs>
+
+            {loading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <VacationList
+                vacations={getFilteredVacations()}
+                onEdit={handleOpenEditForm}
+                onDelete={handleDeleteVacation}
+                onApprove={handleApproveVacation}
+                onReject={handleRejectVacation}
+                currentUser={user}
               />
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
 
-              <ButtonGroup>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowRejectModal(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={!rejectionReason.trim()}
-                >
-                  Confirmer le refus
-                </Button>
-              </ButtonGroup>
-            </RejectForm>
-          </RejectModalContent>
-        </RejectModal>
-      )}
-
-      {/* Après le tableau des congés */}
-      {viewMode === "list" &&
-        !loading &&
-        filteredVacations.length > 0 &&
-        renderPagination()}
-    </VacationsContainer>
+      {/* Formulaire de création/édition de congé */}
+      <VacationForm
+        open={showForm}
+        onClose={handleCloseForm}
+        onSubmit={handleSubmitForm}
+        vacation={selectedVacation}
+        currentUser={user}
+      />
+    </Container>
   );
 };
 

@@ -13,6 +13,9 @@ module.exports = {
         util: require.resolve("util"),
         buffer: require.resolve("buffer"),
         assert: require.resolve("assert"),
+        http: require.resolve("stream-http"),
+        https: require.resolve("https-browserify"),
+        crypto: require.resolve("crypto-browserify"),
       };
 
       // Fournir Buffer et process globalement

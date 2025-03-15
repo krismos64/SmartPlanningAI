@@ -248,61 +248,77 @@ export const formatDateForAPI = (date) => {
 
 /**
  * Vérifie si une date est un jour férié
- * @param {string|Date} date - La date à vérifier
- * @param {Array} holidays - Liste des jours fériés (par défaut: jours fériés français 2024)
- * @returns {boolean} True si c'est un jour férié, false sinon
+ * @param {Date} date - La date à vérifier
+ * @returns {boolean} - True si la date est un jour férié, false sinon
  */
-export const isHoliday = (date, holidays = FRENCH_HOLIDAYS_2024) => {
-  if (!date) return false;
-
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return false;
-
-  const formattedDate = formatDateForAPI(d);
-  return holidays.some((holiday) => holiday.date === formattedDate);
+export const isHoliday = (date) => {
+  const dateString = date.toISOString().split("T")[0];
+  return FRENCH_HOLIDAYS_2024.some((holiday) => holiday.date === dateString);
 };
 
 /**
- * Vérifie si une date est un jour ouvré (ni week-end, ni jour férié)
- * @param {string|Date} date - La date à vérifier
- * @param {Array} holidays - Liste des jours fériés
- * @returns {boolean} True si c'est un jour ouvré, false sinon
+ * Vérifie si une date est un jour ouvré (lundi au vendredi, hors jours fériés)
+ * @param {Date} date - La date à vérifier
+ * @returns {boolean} - True si la date est un jour ouvré, false sinon
  */
-export const isWorkingDay = (date, holidays = FRENCH_HOLIDAYS_2024) => {
-  return !isWeekend(date) && !isHoliday(date, holidays);
+export const isWorkingDay = (date) => {
+  const day = date.getDay();
+  // 0 = dimanche, 6 = samedi
+  return day !== 0 && day !== 6 && !isHoliday(date);
 };
 
 /**
  * Calcule le nombre de jours ouvrés entre deux dates
- * @param {string|Date} startDate - Date de début
- * @param {string|Date} endDate - Date de fin
- * @param {Array} holidays - Liste des jours fériés
- * @returns {number} Nombre de jours ouvrés
+ * @param {Date} startDate - Date de début
+ * @param {Date} endDate - Date de fin
+ * @returns {number} - Nombre de jours ouvrés
  */
-export const getWorkingDaysCount = (
-  startDate,
-  endDate,
-  holidays = FRENCH_HOLIDAYS_2024
-) => {
-  if (!startDate || !endDate) return 0;
-
+export const getWorkingDaysCount = (startDate, endDate) => {
+  // Cloner les dates pour ne pas modifier les originales
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
-  if (end < start) return 0;
+  // Réinitialiser les heures pour éviter les problèmes de comparaison
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
 
+  // Si la date de fin est avant la date de début, retourner 0
+  if (end < start) {
+    return 0;
+  }
+
+  // Compter les jours ouvrés
   let count = 0;
-  const currentDate = new Date(start);
+  const current = new Date(start);
 
-  while (currentDate <= end) {
-    if (isWorkingDay(currentDate, holidays)) {
+  while (current <= end) {
+    if (isWorkingDay(current)) {
       count++;
     }
-    currentDate.setDate(currentDate.getDate() + 1);
+    current.setDate(current.getDate() + 1);
   }
 
   return count;
+};
+
+/**
+ * Ajoute un nombre de jours ouvrés à une date
+ * @param {Date} date - Date de départ
+ * @param {number} days - Nombre de jours ouvrés à ajouter
+ * @returns {Date} - Nouvelle date
+ */
+export const addWorkingDays = (date, days) => {
+  const result = new Date(date);
+  let daysAdded = 0;
+
+  while (daysAdded < days) {
+    result.setDate(result.getDate() + 1);
+    if (isWorkingDay(result)) {
+      daysAdded++;
+    }
+  }
+
+  return result;
 };
 
 /**

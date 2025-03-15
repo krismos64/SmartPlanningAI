@@ -20,36 +20,51 @@ export const EMPLOYEE_STATUSES = [
   { value: "inactive", label: "Inactif" },
 ];
 
-// Constantes pour les congés
+/**
+ * Types de congés disponibles
+ */
 export const VACATION_TYPES = [
-  { value: "paid", label: "Congés payés", color: "#4CAF50", defaultQuota: 25 },
-  { value: "rtt", label: "RTT", color: "#2196F3", defaultQuota: 11 },
-  {
-    value: "unpaid",
-    label: "Congés sans solde",
-    color: "#9E9E9E",
-    defaultQuota: null,
-  },
-  { value: "sick", label: "Maladie", color: "#F44336", defaultQuota: null },
-  {
-    value: "exceptional",
-    label: "Absence exceptionnelle",
-    color: "#FF9800",
-    defaultQuota: null,
-  },
-  {
-    value: "recovery",
-    label: "Récupération",
-    color: "#9C27B0",
-    defaultQuota: null,
-  },
+  { value: "paid", label: "Congé payé" },
+  { value: "unpaid", label: "Congé sans solde" },
+  { value: "sick", label: "Congé maladie" },
+  { value: "parental", label: "Congé parental" },
+  { value: "other", label: "Autre" },
 ];
 
-export const VACATION_STATUSES = [
-  { value: "pending", label: "En attente", color: "#FFC107" },
-  { value: "approved", label: "Approuvé", color: "#4CAF50" },
-  { value: "rejected", label: "Refusé", color: "#F44336" },
-];
+/**
+ * Statuts des congés
+ */
+export const VACATION_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+};
+
+/**
+ * Rôles des utilisateurs
+ */
+export const USER_ROLES = {
+  ADMIN: "admin",
+  MANAGER: "manager",
+  EMPLOYEE: "employee",
+};
+
+/**
+ * Formats de date
+ */
+export const DATE_FORMATS = {
+  DEFAULT: "dd/MM/yyyy",
+  DISPLAY: "dd MMMM yyyy",
+  API: "yyyy-MM-dd",
+};
+
+/**
+ * Constantes pour la pagination
+ */
+export const PAGINATION = {
+  DEFAULT_PAGE_SIZE: 10,
+  PAGE_SIZE_OPTIONS: [5, 10, 25, 50],
+};
 
 // Jours fériés en France pour 2024 (à mettre à jour chaque année)
 export const FRENCH_HOLIDAYS_2024 = [

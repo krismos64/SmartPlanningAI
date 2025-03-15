@@ -1,188 +1,271 @@
-import { memo, useCallback, useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
-import styled from "styled-components";
+import styled from "@emotion/styled";
+import {
+  AccessTime,
+  CalendarMonth,
+  EventNote,
+  Person,
+} from "@mui/icons-material";
+import {
+  alpha,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Fade,
+  FormControl,
+  FormHelperText,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Select,
+  Slide,
+  TextField,
+  Typography,
+  useTheme as useMuiTheme,
+  Zoom,
+} from "@mui/material";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { fr } from "date-fns/locale";
+import { useEffect, useState } from "react";
+import { useTheme } from "../../components/ThemeProvider";
 import { VACATION_TYPES } from "../../config/constants";
 import { useAuth } from "../../contexts/AuthContext";
 import useEmployees from "../../hooks/useEmployees";
 import { getWorkingDaysCount } from "../../utils/dateUtils";
 
-const FormContainer = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-`;
+// Composants stylisés pour améliorer l'apparence
+const StyledDialogTitle = styled(DialogTitle)(({ theme }) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+  return {
+    background: isDarkMode ? alpha("#6366F1", 0.8) : alpha("#4F46E5", 0.8),
+    color: "#FFFFFF",
+    borderBottom: `1px solid ${isDarkMode ? "#374151" : "#E5E7EB"}`,
+    padding: theme?.spacing?.(2) || "16px",
+    transition: "all 0.3s ease",
+  };
+});
 
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
+const StyledDialogContent = styled(DialogContent)(({ theme }) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+  return {
+    padding: theme?.spacing?.(3) || "24px",
+    background: isDarkMode ? "#1F2937" : "#FFFFFF",
+    color: isDarkMode ? "#D1D5DB" : "inherit",
+    transition: "all 0.3s ease",
+  };
+});
 
-const Label = styled.label`
-  font-weight: 500;
-  color: ${({ theme }) => theme.colors.text.primary};
-`;
+const StyledDialogActions = styled(DialogActions)(({ theme }) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+  return {
+    borderTop: `1px solid ${isDarkMode ? "#374151" : "#E5E7EB"}`,
+    padding: theme?.spacing?.(2) || "16px",
+    background: isDarkMode ? "#1F2937" : "#FFFFFF",
+    transition: "all 0.3s ease",
+  };
+});
 
-const Input = styled.input`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  font-size: 1rem;
-  background-color: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text.primary};
+const InfoChip = styled(Chip)(({ theme }) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+  return {
+    margin: theme?.spacing?.(1, 0) || "8px 0",
+    background: isDarkMode ? alpha("#60A5FA", 0.2) : alpha("#3B82F6", 0.1),
+    color: isDarkMode ? "#93C5FD" : "#2563EB",
+    border: isDarkMode ? `1px solid ${alpha("#60A5FA", 0.3)}` : "none",
+    transition: "all 0.3s ease",
+    "&:hover": {
+      background: isDarkMode ? alpha("#60A5FA", 0.3) : alpha("#3B82F6", 0.2),
+    },
+  };
+});
 
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px ${({ theme }) => `${theme.colors.primary}33`};
-  }
-`;
+const WarningChip = styled(Chip)(({ theme }) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+  return {
+    margin: theme?.spacing?.(1, 0) || "8px 0",
+    background: isDarkMode ? alpha("#F59E0B", 0.2) : alpha("#F59E0B", 0.1),
+    color: isDarkMode ? "#FBBF24" : "#D97706",
+    border: isDarkMode ? `1px solid ${alpha("#F59E0B", 0.3)}` : "none",
+    transition: "all 0.3s ease",
+  };
+});
 
-const Select = styled.select`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  font-size: 1rem;
-  background-color: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text.primary};
+const AnimatedFormControl = styled(FormControl)(({ theme }) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+  return {
+    transition: "all 0.3s ease",
+    transform: "translateZ(0)",
+    "& .MuiInputBase-root": {
+      color: isDarkMode ? "#D1D5DB" : undefined,
+    },
+    "& .MuiInputLabel-root": {
+      color: isDarkMode ? "#9CA3AF" : undefined,
+      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+      padding: "0 8px",
+    },
+    "& .MuiOutlinedInput-root": {
+      "& fieldset": {
+        borderColor: isDarkMode ? "#4B5563" : undefined,
+      },
+      "&:hover fieldset": {
+        borderColor: isDarkMode ? "#6B7280" : undefined,
+      },
+      "&.Mui-focused fieldset": {
+        borderColor: isDarkMode ? "#6366F1" : undefined,
+      },
+    },
+    "& .MuiMenuItem-root": {
+      color: isDarkMode ? "#D1D5DB" : undefined,
+    },
+    "&:hover": {
+      transform: "translateY(-2px)",
+      boxShadow: isDarkMode
+        ? `0 4px 8px ${alpha("#000", 0.3)}`
+        : `0 4px 8px ${alpha("#000", 0.1)}`,
+    },
+  };
+});
 
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px ${({ theme }) => `${theme.colors.primary}33`};
-  }
-`;
-
-const Textarea = styled.textarea`
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  font-size: 1rem;
-  background-color: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text.primary};
-  min-height: 100px;
-  resize: vertical;
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px ${({ theme }) => `${theme.colors.primary}33`};
-  }
-`;
-
-const FileInput = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const FileInputLabel = styled.label`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  background-color: ${({ theme }) => theme.colors.background.secondary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  color: ${({ theme }) => theme.colors.text.primary};
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  max-width: fit-content;
-
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.background.hover};
-  }
-`;
-
-const HiddenFileInput = styled.input`
-  display: none;
-`;
-
-const FileName = styled.div`
-  font-size: 0.875rem;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  margin-top: 0.5rem;
-`;
-
-const ErrorMessage = styled.div`
-  color: ${({ theme }) => theme.colors.error};
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
-`;
-
-const FormActions = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-`;
-
-const Button = styled.button`
-  padding: 0.75rem 1.5rem;
-  background-color: ${({ theme, variant }) =>
-    variant === "primary"
-      ? theme.colors.primary
-      : variant === "error"
-      ? theme.colors.error
-      : "transparent"};
-  color: ${({ theme, variant }) =>
-    variant === "primary" || variant === "error"
-      ? "white"
-      : theme.colors.text.primary};
-  border: ${({ theme, variant }) =>
-    variant === "outline" ? `1px solid ${theme.colors.border}` : "none"};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background-color: ${({ theme, variant }) =>
-      variant === "primary"
-        ? `${theme.colors.primary}dd`
-        : variant === "error"
-        ? `${theme.colors.error}dd`
-        : `${theme.colors.border}33`};
-  }
-`;
-
-const DaysCount = styled.div`
-  background-color: ${({ theme }) => `${theme.colors.info}22`};
-  color: ${({ theme }) => theme.colors.info};
-  padding: 1rem;
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  margin-top: 1rem;
-  font-size: 0.875rem;
-  border-left: 3px solid ${({ theme }) => theme.colors.info};
-`;
-
-const QuotaWarning = styled.div`
-  background-color: ${({ theme }) => `${theme.colors.warning}22`};
-  color: ${({ theme }) => theme.colors.warning};
-  padding: 1rem;
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  margin-top: 1rem;
-  font-size: 0.875rem;
-  border-left: 3px solid ${({ theme }) => theme.colors.warning};
-`;
-
-const VacationForm = ({ vacation, onSubmit, onCancel, currentUser }) => {
+/**
+ * Formulaire de création/édition de congé
+ */
+const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
   const { user } = useAuth();
   const { employees, loading: loadingEmployees } = useEmployees();
+  const theme = useMuiTheme();
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
   const [formData, setFormData] = useState({
-    employeeId: vacation?.employeeId || user?.id || "",
-    type: vacation?.type || "paid",
-    startDate: vacation?.startDate || "",
-    endDate: vacation?.endDate || "",
-    reason: vacation?.reason || "",
-    attachment: vacation?.attachment || null,
+    employeeId: "",
+    startDate: null,
+    endDate: null,
+    type: "paid",
+    reason: "",
   });
   const [errors, setErrors] = useState({});
-  const [fileName, setFileName] = useState("");
   const [daysCount, setDaysCount] = useState(0);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Vérifier si l'utilisateur est admin
+  useEffect(() => {
+    if (user && user.role === "admin") {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
+
+  // Initialiser le formulaire avec les données du congé à éditer
+  useEffect(() => {
+    if (vacation) {
+      setFormData({
+        employeeId: vacation.employeeId || "",
+        startDate: vacation.startDate ? new Date(vacation.startDate) : null,
+        endDate: vacation.endDate ? new Date(vacation.endDate) : null,
+        type: vacation.type || "paid",
+        reason: vacation.reason || "",
+      });
+    } else {
+      // Initialiser avec l'ID de l'utilisateur courant pour une nouvelle demande
+      setFormData({
+        employeeId: currentUser?.id || "",
+        startDate: null,
+        endDate: null,
+        type: "paid",
+        reason: "",
+      });
+    }
+    setErrors({});
+  }, [vacation, currentUser]);
+
+  // Gérer les changements dans les champs du formulaire
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    // Effacer l'erreur pour ce champ
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: null,
+      }));
+    }
+  };
+
+  // Gérer les changements de date
+  const handleDateChange = (name, date) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: date,
+    }));
+    // Effacer l'erreur pour ce champ
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: null,
+      }));
+    }
+  };
+
+  // Valider le formulaire
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.employeeId) {
+      newErrors.employeeId = "L'identifiant de l'employé est requis";
+    }
+
+    if (!formData.startDate) {
+      newErrors.startDate = "La date de début est requise";
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = "La date de fin est requise";
+    }
+
+    if (
+      formData.startDate &&
+      formData.endDate &&
+      formData.startDate > formData.endDate
+    ) {
+      newErrors.endDate =
+        "La date de fin doit être postérieure à la date de début";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Soumettre le formulaire
+  const handleSubmit = () => {
+    if (validateForm()) {
+      // Formater les dates au format ISO (YYYY-MM-DD)
+      const formattedData = {
+        ...formData,
+        startDate: formData.startDate
+          ? formData.startDate.toISOString().split("T")[0]
+          : null,
+        endDate: formData.endDate
+          ? formData.endDate.toISOString().split("T")[0]
+          : null,
+      };
+      onSubmit(formattedData);
+    }
+  };
 
   // Calculer le nombre de jours entre les dates sélectionnées
   useEffect(() => {
@@ -226,273 +309,427 @@ const VacationForm = ({ vacation, onSubmit, onCancel, currentUser }) => {
     }
   }, [formData.startDate, formData.endDate, formData.type]);
 
-  const handleChange = useCallback(
-    (e) => {
-      const { name, value } = e.target;
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-
-      // Effacer l'erreur lorsque l'utilisateur modifie le champ
-      if (errors[name]) {
-        setErrors((prev) => ({
-          ...prev,
-          [name]: null,
-        }));
-      }
-    },
-    [errors]
-  );
-
-  const handleFileChange = useCallback((e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Vérifier la taille du fichier (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Le fichier est trop volumineux (max 5MB)");
-        return;
-      }
-
-      setFileName(file.name);
-      setFormData((prev) => ({
-        ...prev,
-        attachment: file,
-      }));
-    }
-  }, []);
-
-  // Valider le formulaire avant soumission
-  const validateForm = () => {
-    const newErrors = {};
-
-    // Vérifier l'employé
-    if (!formData.employeeId) {
-      newErrors.employeeId = "Veuillez sélectionner un employé";
-    }
-
-    // Vérifier le type de congé
-    if (!formData.type) {
-      newErrors.type = "Veuillez sélectionner un type de congé";
-    }
-
-    // Vérifier les dates
-    if (!formData.startDate) {
-      newErrors.startDate = "La date de début est requise";
-    } else {
-      // Vérifier que la date est valide
-      const startDate = new Date(formData.startDate);
-      if (isNaN(startDate.getTime())) {
-        newErrors.startDate = "Date de début invalide";
-      }
-    }
-
-    if (!formData.endDate) {
-      newErrors.endDate = "La date de fin est requise";
-    } else {
-      // Vérifier que la date est valide
-      const endDate = new Date(formData.endDate);
-      if (isNaN(endDate.getTime())) {
-        newErrors.endDate = "Date de fin invalide";
-      } else if (formData.startDate) {
-        // Vérifier que la date de fin est après la date de début
-        const startDate = new Date(formData.startDate);
-        if (!isNaN(startDate.getTime()) && endDate < startDate) {
-          newErrors.endDate = "La date de fin doit être après la date de début";
-        }
-      }
-    }
-
-    // Vérifier la raison si c'est un congé sans solde
-    if (formData.type === "unpaid" && !formData.reason) {
-      newErrors.reason = "Une raison est requise pour les congés sans solde";
-    }
-
-    console.log("Erreurs de validation:", newErrors);
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Gérer la soumission du formulaire
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log(
-      "Tentative de soumission du formulaire avec les données:",
-      formData
-    );
-
-    // Valider le formulaire
-    if (!validateForm()) {
-      console.log("Validation du formulaire échouée:", errors);
-
-      // Afficher un message d'erreur
-      toast.error("Veuillez corriger les erreurs dans le formulaire");
-
-      // Faire défiler jusqu'à la première erreur
-      const firstErrorField = Object.keys(errors)[0];
-      if (firstErrorField) {
-        const element = document.getElementById(firstErrorField);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "center" });
-          element.focus();
-        }
-      }
-
-      return;
-    }
-
-    // Vérifier que l'utilisateur est authentifié
-    if (!currentUser) {
-      console.error("Erreur: utilisateur non authentifié");
-      toast.error("Vous devez être connecté pour soumettre ce formulaire");
-      return;
-    }
-
-    // Formater les données pour l'API
-    const formattedData = {
-      ...formData,
-      // Convertir l'ID en nombre si nécessaire
-      employeeId: formData.employeeId ? String(formData.employeeId) : "",
-      // S'assurer que les dates sont au format YYYY-MM-DD
-      startDate: formData.startDate,
-      endDate: formData.endDate,
-      // S'assurer que le type est une chaîne valide
-      type: formData.type || "paid",
-      // S'assurer que la raison est une chaîne
-      reason: formData.reason || "",
-    };
-
-    console.log("Données soumises:", formattedData);
-    onSubmit(formattedData);
-  };
-
   return (
-    <FormContainer onSubmit={handleSubmit}>
-      {user?.role !== "employee" && (
-        <FormGroup>
-          <Label htmlFor="employeeId">Employé</Label>
-          <Select
-            id="employeeId"
-            name="employeeId"
-            value={formData.employeeId}
-            onChange={handleChange}
-            disabled={loadingEmployees}
-          >
-            <option value="">Sélectionner un employé</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.first_name} {employee.last_name}
-              </option>
-            ))}
-          </Select>
-          {errors.employeeId && (
-            <ErrorMessage>{errors.employeeId}</ErrorMessage>
-          )}
-        </FormGroup>
-      )}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="vacation-form-dialog-title"
+      TransitionComponent={Zoom}
+      transitionDuration={400}
+      PaperProps={{
+        elevation: 8,
+        sx: {
+          borderRadius: 2,
+          overflow: "hidden",
+          transition: "all 0.3s ease",
+          background: isDarkMode ? "#1F2937" : "#FFFFFF",
+        },
+      }}
+    >
+      <StyledDialogTitle id="vacation-form-dialog-title">
+        <Fade in={open} timeout={500}>
+          <Typography variant="h6" component="div">
+            {vacation
+              ? "✏️ Modifier la demande de congé"
+              : "🏖️ Nouvelle demande de congé"}
+          </Typography>
+        </Fade>
+      </StyledDialogTitle>
+      <StyledDialogContent>
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+          <Grid container spacing={3} sx={{ mt: 1 }}>
+            {/* Sélection de l'employé (visible uniquement pour les admins) */}
+            {isAdmin && (
+              <Grid item xs={12}>
+                <Slide direction="right" in={open} timeout={500}>
+                  <AnimatedFormControl fullWidth error={!!errors.employeeId}>
+                    <InputLabel id="employee-label">
+                      <Person
+                        fontSize="small"
+                        sx={{ mr: 1, verticalAlign: "middle" }}
+                      />
+                      Employé
+                    </InputLabel>
+                    <Select
+                      labelId="employee-label"
+                      id="employeeId"
+                      name="employeeId"
+                      value={formData.employeeId}
+                      onChange={handleChange}
+                      label="Employé"
+                      disabled={loadingEmployees}
+                      MenuProps={{
+                        PaperProps: {
+                          sx: {
+                            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+                            color: isDarkMode ? "#D1D5DB" : "inherit",
+                            "& .MuiMenuItem-root": {
+                              color: isDarkMode ? "#D1D5DB" : "inherit",
+                              "&:hover": {
+                                backgroundColor: isDarkMode
+                                  ? alpha("#374151", 0.5)
+                                  : undefined,
+                              },
+                              "&.Mui-selected": {
+                                backgroundColor: isDarkMode
+                                  ? alpha("#6366F1", 0.2)
+                                  : undefined,
+                                "&:hover": {
+                                  backgroundColor: isDarkMode
+                                    ? alpha("#6366F1", 0.3)
+                                    : undefined,
+                                },
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    >
+                      {employees &&
+                        employees.map((employee) => (
+                          <MenuItem key={employee.id} value={employee.id}>
+                            {employee.first_name} {employee.last_name}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                    {errors.employeeId && (
+                      <FormHelperText
+                        sx={{ color: isDarkMode ? "#F87171" : undefined }}
+                      >
+                        {errors.employeeId}
+                      </FormHelperText>
+                    )}
+                  </AnimatedFormControl>
+                </Slide>
+              </Grid>
+            )}
 
-      <FormGroup>
-        <Label htmlFor="type">Type de congé</Label>
-        <Select
-          id="type"
-          name="type"
-          value={formData.type}
-          onChange={handleChange}
+            <Grid item xs={12}>
+              <Slide direction="right" in={open} timeout={600}>
+                <AnimatedFormControl fullWidth error={!!errors.type}>
+                  <InputLabel id="type-label">
+                    <EventNote
+                      fontSize="small"
+                      sx={{ mr: 1, verticalAlign: "middle" }}
+                    />
+                    Type de congé
+                  </InputLabel>
+                  <Select
+                    labelId="type-label"
+                    id="type"
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
+                    label="Type de congé"
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+                          color: isDarkMode ? "#D1D5DB" : "inherit",
+                          "& .MuiMenuItem-root": {
+                            color: isDarkMode ? "#D1D5DB" : "inherit",
+                            "&:hover": {
+                              backgroundColor: isDarkMode
+                                ? alpha("#374151", 0.5)
+                                : undefined,
+                            },
+                            "&.Mui-selected": {
+                              backgroundColor: isDarkMode
+                                ? alpha("#6366F1", 0.2)
+                                : undefined,
+                              "&:hover": {
+                                backgroundColor: isDarkMode
+                                  ? alpha("#6366F1", 0.3)
+                                  : undefined,
+                              },
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    {VACATION_TYPES.map((type) => (
+                      <MenuItem key={type.value} value={type.value}>
+                        {type.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.type && (
+                    <FormHelperText
+                      sx={{ color: isDarkMode ? "#F87171" : undefined }}
+                    >
+                      {errors.type}
+                    </FormHelperText>
+                  )}
+                </AnimatedFormControl>
+              </Slide>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Slide direction="right" in={open} timeout={700}>
+                <Box>
+                  <DatePicker
+                    label={
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <CalendarMonth fontSize="small" sx={{ mr: 1 }} />
+                        Date de début
+                      </Box>
+                    }
+                    value={formData.startDate}
+                    onChange={(date) => handleDateChange("startDate", date)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.startDate,
+                        helperText: errors.startDate,
+                        sx: {
+                          transition: "all 0.3s ease",
+                          "& .MuiInputBase-root": {
+                            color: isDarkMode ? "#D1D5DB" : undefined,
+                          },
+                          "& .MuiInputLabel-root": {
+                            color: isDarkMode ? "#9CA3AF" : undefined,
+                            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+                            padding: "0 8px",
+                          },
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": {
+                              borderColor: isDarkMode ? "#4B5563" : undefined,
+                            },
+                            "&:hover fieldset": {
+                              borderColor: isDarkMode ? "#6B7280" : undefined,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: isDarkMode ? "#6366F1" : undefined,
+                            },
+                          },
+                          "& .MuiFormHelperText-root": {
+                            color:
+                              isDarkMode && !!errors.startDate
+                                ? "#F87171"
+                                : undefined,
+                          },
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            boxShadow: isDarkMode
+                              ? `0 4px 8px ${alpha("#000", 0.3)}`
+                              : `0 4px 8px ${alpha("#000", 0.1)}`,
+                          },
+                        },
+                      },
+                      popper: {
+                        sx: {
+                          "& .MuiPaper-root": {
+                            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+                            color: isDarkMode ? "#D1D5DB" : "inherit",
+                            "& .MuiPickersDay-root": {
+                              color: isDarkMode ? "#D1D5DB" : undefined,
+                              "&:hover": {
+                                backgroundColor: isDarkMode
+                                  ? alpha("#374151", 0.5)
+                                  : undefined,
+                              },
+                              "&.Mui-selected": {
+                                backgroundColor: isDarkMode
+                                  ? "#6366F1"
+                                  : undefined,
+                                color: "#FFFFFF",
+                              },
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+              </Slide>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Slide direction="left" in={open} timeout={700}>
+                <Box>
+                  <DatePicker
+                    label={
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <CalendarMonth fontSize="small" sx={{ mr: 1 }} />
+                        Date de fin
+                      </Box>
+                    }
+                    value={formData.endDate}
+                    onChange={(date) => handleDateChange("endDate", date)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.endDate,
+                        helperText: errors.endDate,
+                        sx: {
+                          transition: "all 0.3s ease",
+                          "& .MuiInputBase-root": {
+                            color: isDarkMode ? "#D1D5DB" : undefined,
+                          },
+                          "& .MuiInputLabel-root": {
+                            color: isDarkMode ? "#9CA3AF" : undefined,
+                            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+                            padding: "0 8px",
+                          },
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": {
+                              borderColor: isDarkMode ? "#4B5563" : undefined,
+                            },
+                            "&:hover fieldset": {
+                              borderColor: isDarkMode ? "#6B7280" : undefined,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: isDarkMode ? "#6366F1" : undefined,
+                            },
+                          },
+                          "& .MuiFormHelperText-root": {
+                            color:
+                              isDarkMode && !!errors.endDate
+                                ? "#F87171"
+                                : undefined,
+                          },
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            boxShadow: isDarkMode
+                              ? `0 4px 8px ${alpha("#000", 0.3)}`
+                              : `0 4px 8px ${alpha("#000", 0.1)}`,
+                          },
+                        },
+                      },
+                      popper: {
+                        sx: {
+                          "& .MuiPaper-root": {
+                            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+                            color: isDarkMode ? "#D1D5DB" : "inherit",
+                            "& .MuiPickersDay-root": {
+                              color: isDarkMode ? "#D1D5DB" : undefined,
+                              "&:hover": {
+                                backgroundColor: isDarkMode
+                                  ? alpha("#374151", 0.5)
+                                  : undefined,
+                              },
+                              "&.Mui-selected": {
+                                backgroundColor: isDarkMode
+                                  ? "#6366F1"
+                                  : undefined,
+                                color: "#FFFFFF",
+                              },
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+              </Slide>
+            </Grid>
+
+            {daysCount > 0 && (
+              <Grid item xs={12}>
+                <Fade in={daysCount > 0} timeout={800}>
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", my: 1 }}
+                  >
+                    <InfoChip
+                      icon={<AccessTime />}
+                      label={`Durée: ${daysCount} jour${
+                        daysCount > 1 ? "s" : ""
+                      } ouvré${daysCount > 1 ? "s" : ""}`}
+                    />
+                    {quotaExceeded && (
+                      <WarningChip
+                        color="warning"
+                        label="Quota dépassé"
+                        sx={{ ml: 1 }}
+                      />
+                    )}
+                  </Box>
+                </Fade>
+              </Grid>
+            )}
+
+            <Grid item xs={12}>
+              <Slide direction="up" in={open} timeout={800}>
+                <TextField
+                  id="reason"
+                  name="reason"
+                  label="Motif (optionnel)"
+                  multiline
+                  rows={3}
+                  fullWidth
+                  value={formData.reason}
+                  onChange={handleChange}
+                  error={!!errors.reason}
+                  helperText={errors.reason}
+                  sx={{
+                    transition: "all 0.3s ease",
+                    "& .MuiInputBase-root": {
+                      color: isDarkMode ? "#D1D5DB" : undefined,
+                    },
+                    "& .MuiInputLabel-root": {
+                      color: isDarkMode ? "#9CA3AF" : undefined,
+                      backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+                      padding: "0 8px",
+                    },
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: isDarkMode ? "#4B5563" : undefined,
+                      },
+                      "&:hover fieldset": {
+                        borderColor: isDarkMode ? "#6B7280" : undefined,
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: isDarkMode ? "#6366F1" : undefined,
+                      },
+                    },
+                    "& .MuiFormHelperText-root": {
+                      color:
+                        isDarkMode && !!errors.reason ? "#F87171" : undefined,
+                    },
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: isDarkMode
+                        ? `0 4px 8px ${alpha("#000", 0.3)}`
+                        : `0 4px 8px ${alpha("#000", 0.1)}`,
+                    },
+                  }}
+                />
+              </Slide>
+            </Grid>
+          </Grid>
+        </LocalizationProvider>
+      </StyledDialogContent>
+      <StyledDialogActions>
+        <Button
+          onClick={onClose}
+          sx={{
+            transition: "all 0.2s ease",
+            color: isDarkMode ? "#D1D5DB" : undefined,
+            "&:hover": {
+              transform: "scale(1.05)",
+              color: isDarkMode ? "#FFFFFF" : undefined,
+            },
+          }}
         >
-          {VACATION_TYPES.map((type) => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </Select>
-        {errors.type && <ErrorMessage>{errors.type}</ErrorMessage>}
-      </FormGroup>
-
-      <FormGroup>
-        <Label htmlFor="startDate">Date de début</Label>
-        <Input
-          id="startDate"
-          name="startDate"
-          type="date"
-          value={formData.startDate}
-          onChange={handleChange}
-        />
-        {errors.startDate && <ErrorMessage>{errors.startDate}</ErrorMessage>}
-      </FormGroup>
-
-      <FormGroup>
-        <Label htmlFor="endDate">Date de fin</Label>
-        <Input
-          id="endDate"
-          name="endDate"
-          type="date"
-          value={formData.endDate}
-          onChange={handleChange}
-        />
-        {errors.endDate && <ErrorMessage>{errors.endDate}</ErrorMessage>}
-      </FormGroup>
-
-      {daysCount > 0 && (
-        <DaysCount>
-          Cette demande représente{" "}
-          <strong>
-            {daysCount} jour{daysCount > 1 ? "s" : ""} ouvré
-            {daysCount > 1 ? "s" : ""}
-          </strong>{" "}
-          de congé.
-        </DaysCount>
-      )}
-
-      {quotaExceeded && (
-        <QuotaWarning>
-          Attention : cette demande dépasse votre quota de congés disponibles.
-        </QuotaWarning>
-      )}
-
-      <FormGroup>
-        <Label htmlFor="reason">Motif (facultatif)</Label>
-        <Textarea
-          id="reason"
-          name="reason"
-          value={formData.reason}
-          onChange={handleChange}
-          placeholder="Précisez le motif de votre demande de congé..."
-        />
-      </FormGroup>
-
-      <FormGroup>
-        <Label>
-          Pièce jointe (facultatif
-          {formData.type === "sick" ? " mais recommandé" : ""})
-        </Label>
-        <FileInput>
-          <FileInputLabel htmlFor="attachment">
-            Choisir un fichier
-          </FileInputLabel>
-          <HiddenFileInput
-            id="attachment"
-            name="attachment"
-            type="file"
-            onChange={handleFileChange}
-            accept=".pdf,.jpg,.jpeg,.png"
-          />
-          {fileName && <FileName>{fileName}</FileName>}
-          {errors.attachment && (
-            <ErrorMessage>{errors.attachment}</ErrorMessage>
-          )}
-        </FileInput>
-      </FormGroup>
-
-      <FormActions>
-        <Button type="button" variant="outline" onClick={onCancel}>
           Annuler
         </Button>
-        <Button type="submit" variant="primary">
-          {vacation ? "Modifier" : "Soumettre"}
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          color="primary"
+          sx={{
+            transition: "all 0.2s ease",
+            "&:hover": { transform: "scale(1.05)" },
+          }}
+        >
+          {vacation ? "Mettre à jour" : "Créer"}
         </Button>
-      </FormActions>
-    </FormContainer>
+      </StyledDialogActions>
+    </Dialog>
   );
 };
 
-export default memo(VacationForm);
+export default VacationForm;

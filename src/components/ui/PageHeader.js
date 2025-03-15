@@ -1,54 +1,76 @@
-import PropTypes from "prop-types";
-import styled from "styled-components";
-
-const HeaderContainer = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border || "#e0e0e0"};
-`;
-
-const Title = styled.h1`
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin: 0;
-  color: ${({ theme }) => theme.colors.text?.primary || "#333"};
-`;
-
-const Description = styled.p`
-  margin: 0.5rem 0 0 0;
-  color: ${({ theme }) => theme.colors.text?.secondary || "#666"};
-  font-size: 0.875rem;
-`;
-
-const ActionsContainer = styled.div`
-  display: flex;
-  gap: 0.75rem;
-`;
+import { Box, Divider, Typography } from "@mui/material";
+import { useTheme } from "../ThemeProvider";
 
 /**
- * Composant d'en-tête de page avec titre, description et actions
+ * Composant d'en-tête de page avec titre, sous-titre et icône
+ * @param {Object} props - Les propriétés du composant
+ * @param {string} props.title - Le titre principal de la page
+ * @param {string} props.subtitle - Le sous-titre de la page
+ * @param {string} props.icon - L'icône à afficher (emoji ou composant)
+ * @param {Object} props.action - Un élément d'action à afficher (bouton, etc.)
  */
-const PageHeader = ({ title, description, actions, children }) => {
-  return (
-    <HeaderContainer>
-      <div>
-        <Title>{title}</Title>
-        {description && <Description>{description}</Description>}
-        {children}
-      </div>
-      {actions && <ActionsContainer>{actions}</ActionsContainer>}
-    </HeaderContainer>
-  );
-};
+const PageHeader = ({ title, subtitle, icon, action }) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = themeMode === "dark";
 
-PageHeader.propTypes = {
-  title: PropTypes.string.isRequired,
-  description: PropTypes.string,
-  actions: PropTypes.node,
-  children: PropTypes.node,
+  return (
+    <Box sx={{ mb: 4 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 1,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          {icon && (
+            <Box
+              sx={{
+                fontSize: { xs: "2rem", md: "2.5rem" },
+                mr: 2,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              {icon}
+            </Box>
+          )}
+
+          <Box>
+            <Typography
+              variant="h4"
+              component="h1"
+              sx={{
+                fontWeight: "bold",
+                fontSize: { xs: "1.5rem", sm: "2rem", md: "2.25rem" },
+                color: isDarkMode ? "#F9FAFB" : "inherit",
+              }}
+            >
+              {title}
+            </Typography>
+
+            {subtitle && (
+              <Typography
+                variant="subtitle1"
+                color={isDarkMode ? "#F9FAFB" : "text.secondary"}
+                sx={{
+                  mt: 0.5,
+                  ml: icon ? 7 : 0,
+                }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+
+        {action && <Box sx={{ ml: 2 }}>{action}</Box>}
+      </Box>
+
+      <Divider sx={{ mt: 2, mb: 3 }} />
+    </Box>
+  );
 };
 
 export default PageHeader;
