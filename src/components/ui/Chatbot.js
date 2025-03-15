@@ -62,6 +62,24 @@ const shimmer = keyframes`
   }
 `;
 
+const bounce = keyframes`
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+`;
+
+const float = keyframes`
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+`;
+
+const glow = keyframes`
+  0% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
+`;
+
 // Composants stylisés
 const ChatbotContainer = styled.div`
   position: fixed;
@@ -409,40 +427,74 @@ const TypingIndicator = styled.div`
   }
 `;
 
+const HelpBubble = styled.div`
+  position: absolute;
+  top: -60px;
+  right: 0;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  padding: 10px 15px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  font-size: 16px;
+  font-weight: 500;
+  max-width: 200px;
+  z-index: 1001;
+  animation: ${fadeIn} 0.5s ease-out, ${float} 3s infinite ease-in-out,
+    ${glow} 2s infinite;
+  display: ${({ show }) => (show ? "block" : "none")};
+  text-align: center;
+
+  &:after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    right: 30px;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #4f46e5;
+  }
+`;
+
+const EmojiSpan = styled.span`
+  display: inline-block;
+  animation: ${bounce} 2s infinite;
+  margin-right: 5px;
+`;
+
 const Chatbot = () => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
-  // État non utilisé - commenté pour éviter les avertissements ESLint
-  // const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKey] = useState("Mtj4YyKWVol6Km2iLeCCtAF4Y1nNlbbE");
+  const [showHelpBubble, setShowHelpBubble] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [personalizedMode, setPersonalizedMode] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
-  // État pour le consentement RGPD
   const [hasUserConsent, setHasUserConsent] = useState(
     localStorage.getItem("chatbot_data_consent") === "true"
   );
   const [showConsentModal, setShowConsentModal] = useState(false);
+  const [apiKey] = useState("Mtj4YyKWVol6Km2iLeCCtAF4Y1nNlbbE");
 
-  // Stocker les préférences dans localStorage
   useEffect(() => {
-    // Vérifier si l'utilisateur a déjà donné son consentement
     if (user && !localStorage.getItem("chatbot_data_consent")) {
       setShowConsentModal(true);
     }
   }, [user]);
 
-  // Faire défiler vers le bas lorsque de nouveaux messages sont ajoutés
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Mettre le focus sur l'input lorsque le chat s'ouvre
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => {
@@ -451,20 +503,44 @@ const Chatbot = () => {
     }
   }, [isOpen]);
 
-  // Masquer le message de bienvenue après 5 secondes
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowWelcome(false);
-    }, 5000);
+    if (!isOpen) {
+      const initialTimeout = setTimeout(() => {
+        setShowHelpBubble(true);
+      }, 5000);
 
-    return () => clearTimeout(timer);
-  }, []);
+      const hideTimeout = setTimeout(() => {
+        setShowHelpBubble(false);
+      }, 12000);
+
+      const interval = setInterval(() => {
+        setShowHelpBubble(true);
+        setTimeout(() => {
+          setShowHelpBubble(false);
+        }, 7000);
+      }, 30000);
+
+      return () => {
+        clearTimeout(initialTimeout);
+        clearTimeout(hideTimeout);
+        clearInterval(interval);
+      };
+    } else {
+      setShowHelpBubble(false);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    console.log("Auth context user:", user);
+    if (user && !user.firstName && !user.first_name && !user.name) {
+      console.log("Tentative de récupération des données utilisateur...");
+    }
+  }, [user]);
 
   const toggleChat = () => {
     setIsOpen(!isOpen);
     setShowWelcome(false);
 
-    // Ajouter un message de bienvenue si c'est la première ouverture
     if (!isOpen && messages.length === 0) {
       setMessages([
         {
@@ -475,7 +551,6 @@ const Chatbot = () => {
     }
   };
 
-  // Réponses prédéfinies pour le mode local
   const localResponses = {
     bonjour:
       "Bonjour ! Comment puis-je vous aider avec la gestion de votre planning ?",
@@ -497,18 +572,15 @@ const Chatbot = () => {
       "Vous pouvez configurer l'application dans la section 'Paramètres'. Vous y trouverez les options pour personnaliser l'application selon vos besoins.",
   };
 
-  // Fonction pour obtenir une réponse locale basée sur les mots-clés
   const getLocalResponse = (query) => {
     const normalizedQuery = query.toLowerCase().trim();
 
-    // Vérifier les correspondances exactes
     for (const [keyword, response] of Object.entries(localResponses)) {
       if (normalizedQuery.includes(keyword)) {
         return response;
       }
     }
 
-    // Réponses pour des questions spécifiques
     if (
       normalizedQuery.includes("comment") &&
       normalizedQuery.includes("ajouter") &&
@@ -532,13 +604,10 @@ const Chatbot = () => {
       return "Pour modifier un planning, allez dans la section 'Planning Hebdomadaire', trouvez l'employé concerné et cliquez sur le bouton 'Éditer' à droite de son nom. Vous pourrez alors modifier ses horaires et absences.";
     }
 
-    // Réponse par défaut si aucune correspondance n'est trouvée
     return "Je ne suis pas sûr de comprendre votre demande. Pourriez-vous reformuler ou me demander de l'aide sur la gestion des plannings, des employés ou des congés ?";
   };
 
-  // Fonction pour obtenir des informations personnalisées sur l'utilisateur (conforme RGPD)
   const getUserPersonalizedInfo = () => {
-    // Ne retourner des informations personnelles que si le consentement a été donné
     if (!hasUserConsent || !user) return null;
 
     return {
@@ -546,13 +615,10 @@ const Chatbot = () => {
       prenom: user.firstName || user.first_name || "",
       email: user.email || "",
       role: user.role || "",
-      // Autres données personnelles disponibles dans le contexte utilisateur
     };
   };
 
-  // Fonction pour ajouter des emojis aux réponses du bot
   const enhanceResponseWithEmojis = (response) => {
-    // Ajouter des emojis aux salutations
     let enhancedResponse = response
       .replace(/bonjour/i, "Bonjour 👋")
       .replace(/salut/i, "Salut 👋")
@@ -569,7 +635,6 @@ const Chatbot = () => {
       .replace(/configuration/i, "configuration 🛠️")
       .replace(/aide/i, "aide 🆘");
 
-    // Ajouter une touche d'humour et de professionnalisme
     if (Math.random() > 0.7) {
       const humorousEndings = [
         "\n\nN'hésitez pas à me poser d'autres questions, je suis là pour ça ! 😊",
@@ -590,7 +655,6 @@ const Chatbot = () => {
 
     if (!inputValue.trim()) return;
 
-    // Ajouter le message de l'utilisateur
     const userMessage = { text: inputValue, isUser: true };
     setMessages((prev) => [...prev, userMessage]);
     const userQuery = inputValue;
@@ -598,7 +662,6 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
-      // Ajouter un message de chargement
       setMessages((prev) => [
         ...prev,
         {
@@ -610,10 +673,8 @@ const Chatbot = () => {
 
       let botResponse = "";
 
-      // Obtenir les informations personnalisées si le consentement a été donné
       const userInfo = getUserPersonalizedInfo();
 
-      // Appel à l'API Mistral.ai
       try {
         const systemMessage = `Tu es un assistant virtuel pour une application de gestion de planning nommée Smart Planning. Réponds de manière concise, professionnelle mais avec une légère touche d'humour. Ton nom est Assistant IA. Tu dois aider les utilisateurs à comprendre comment utiliser l'application, gérer les plannings, les employés et les congés.${
           userInfo
@@ -662,14 +723,11 @@ const Chatbot = () => {
         botResponse = getLocalResponse(userQuery);
       }
 
-      // Améliorer la réponse avec des emojis et une touche d'humour
       botResponse = enhanceResponseWithEmojis(botResponse);
 
-      // Supprimer le message de chargement
       setMessages((prev) => prev.filter((msg) => !msg.isLoading));
       setIsLoading(false);
 
-      // Ajouter la réponse du bot
       setMessages((prev) => [
         ...prev,
         {
@@ -678,13 +736,11 @@ const Chatbot = () => {
         },
       ]);
     } catch (error) {
-      // Supprimer le message de chargement
       setMessages((prev) => prev.filter((msg) => !msg.isLoading));
       setIsLoading(false);
 
       console.error("Erreur:", error);
 
-      // Utiliser le mode local en cas d'erreur
       let localResponse = getLocalResponse(userQuery);
       localResponse = enhanceResponseWithEmojis(localResponse);
 
@@ -698,19 +754,11 @@ const Chatbot = () => {
     }
   };
 
-  // Fonction non utilisée - commentée pour éviter les avertissements ESLint
-  // const handleApiKeySave = (e) => {
-  //   e.preventDefault();
-  //   setShowApiKeyModal(false);
-  // };
-
-  // Gérer le consentement RGPD
   const handleConsentAccept = () => {
     localStorage.setItem("chatbot_data_consent", "true");
     setHasUserConsent(true);
     setShowConsentModal(false);
 
-    // Message de confirmation
     setMessages((prev) => [
       ...prev,
       {
@@ -725,7 +773,6 @@ const Chatbot = () => {
     setHasUserConsent(false);
     setShowConsentModal(false);
 
-    // Message d'information
     setMessages((prev) => [
       ...prev,
       {
@@ -740,7 +787,6 @@ const Chatbot = () => {
     localStorage.setItem("chatbot_data_consent", newState.toString());
     setHasUserConsent(newState);
 
-    // Message de confirmation du changement
     setMessages((prev) => [
       ...prev,
       {
@@ -753,10 +799,14 @@ const Chatbot = () => {
   };
 
   const getUserFirstName = () => {
+    console.log("User data:", user);
+
     if (user && user.firstName) {
       return user.firstName;
     } else if (user && user.first_name) {
       return user.first_name;
+    } else if (user && user.name) {
+      return user.name.split(" ")[0];
     }
     return "utilisateur";
   };
@@ -767,6 +817,12 @@ const Chatbot = () => {
         <WelcomeMessage>
           Bonjour {getUserFirstName()}, besoin d'aide ?
         </WelcomeMessage>
+      )}
+
+      {showHelpBubble && !isOpen && (
+        <HelpBubble show={showHelpBubble}>
+          Bonjour {getUserFirstName()} !
+        </HelpBubble>
       )}
 
       {isOpen && (
@@ -892,10 +948,11 @@ const Chatbot = () => {
         </ChatWindow>
       )}
 
-      <RobotButton onClick={toggleChat}>
-        <div style={{ width: 50, height: 50 }}>
-          <Lottie animationData={robotAnimation} loop={true} />
-        </div>
+      <RobotButton onClick={toggleChat} aria-label="Ouvrir le chatbot">
+        <Lottie
+          animationData={robotAnimation}
+          style={{ width: 50, height: 50 }}
+        />
       </RobotButton>
     </ChatbotContainer>
   );
