@@ -7,6 +7,7 @@ import {
   Routes,
 } from "react-router-dom";
 import ThemeProvider from "./components/ThemeProvider";
+import Chatbot from "./components/ui/Chatbot";
 import { NotificationProvider } from "./components/ui/Notification";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import theme from "./theme";
@@ -138,6 +139,9 @@ const App = () => {
                 {/* Page 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+
+              {/* Chatbot disponible sur toutes les pages */}
+              <Chatbot />
             </Suspense>
           </Router>
         </NotificationProvider>
