@@ -19,7 +19,6 @@ import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
 import Button from "../components/ui/Button";
 import Card, { CardContent, CardHeader } from "../components/ui/Card";
 import { FormInput, FormSelect } from "../components/ui/Form";
-import PageHeader from "../components/ui/PageHeader";
 import Spinner from "../components/ui/Spinner";
 import useEmployees from "../hooks/useEmployees";
 import useWeeklySchedules from "../hooks/useWeeklySchedules";
@@ -76,48 +75,184 @@ const ScheduleFilters = styled.div`
     flex-direction: row;
     gap: 1rem;
     margin-bottom: 1rem;
+    align-items: center;
+    justify-content: space-between;
   }
 `;
 
-const WeekNavigation = styled.div`
+const FiltersGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  width: 100%;
 
   @media (min-width: 768px) {
     flex-direction: row;
+    gap: 1rem;
+  }
+`;
+
+// Nouveau style pour la navigation de semaine
+const WeekNavigation = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  background: ${({ theme }) => theme.colors.background.secondary};
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+  }
+
+  @media (min-width: 768px) {
+    flex-direction: column;
     align-items: center;
     gap: 1rem;
-    margin-bottom: 1rem;
+    min-width: 320px;
+  }
+`;
+
+// Nouveau style pour l'affichage de la semaine
+const WeekDisplay = styled.div`
+  text-align: center;
+  background: ${({ theme }) => theme.colors.primary}10;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      ${({ theme }) => theme.colors.primary},
+      ${({ theme }) => theme.colors.secondary}
+    );
+    animation: shimmer 2s infinite linear;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: ${({ theme }) => theme.colors.text.primary};
   }
 `;
 
 const WeekActions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+
+  @media (min-width: 768px) {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 `;
 
+// Nouveau style pour les boutons d'action
 const ActionButton = styled(Button)`
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border-radius: 12px;
+  font-weight: 500;
+  padding: 0.75rem 1rem;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0;
+    background: ${({ theme }) => theme.colors.primary}20;
+    transition: height 0.3s ease;
+    z-index: -1;
+  }
 
   &:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+
+    &::after {
+      height: 100%;
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    transition: transform 0.3s ease;
+  }
+
+  &:hover svg {
+    transform: scale(1.2);
   }
 `;
 
+// Nouveau style pour le bouton d'export
 const ExportAllButton = styled(ActionButton)`
-  margin-left: auto;
+  grid-column: 1 / -1;
+  background: linear-gradient(
+    135deg,
+    ${({ theme }) => theme.colors.primary},
+    ${({ theme }) => theme.colors.secondary}
+  );
+  color: white;
+  border: none;
+  position: relative;
+  overflow: hidden;
 
-  @media (max-width: 768px) {
-    margin-left: 0;
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
     width: 100%;
-    margin-top: 0.5rem;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: left 0.5s ease;
+  }
+
+  &:hover::before {
+    left: 100%;
+  }
+
+  @media (min-width: 768px) {
+    grid-column: 3;
   }
 `;
 
@@ -1231,8 +1366,6 @@ const WeeklySchedulePage = () => {
 
   return (
     <div>
-      <PageHeader title="Planning Hebdomadaire" />
-
       <ScheduleContainer>
         <ScheduleHeader>
           <HeaderLeft>
@@ -1260,28 +1393,22 @@ const WeeklySchedulePage = () => {
           </HeaderLeft>
           <div>
             <WeekNavigation>
-              <div>
+              <WeekDisplay>
                 <h3>
                   Semaine du {formatDate(currentWeekStart)} au{" "}
                   {formatDate(getWeekEnd(currentWeekStart))}
                 </h3>
-              </div>
+              </WeekDisplay>
               <WeekActions>
                 <ActionButton variant="outline" onClick={goToPreviousWeek}>
-                  <FaArrowLeft /> Semaine précédente
+                  <FaArrowLeft /> Précédente
                 </ActionButton>
                 <ActionButton variant="outline" onClick={goToCurrentWeek}>
-                  <FaCalendarDay /> Semaine actuelle
+                  <FaCalendarDay /> Actuelle
                 </ActionButton>
                 <ActionButton variant="outline" onClick={goToNextWeek}>
-                  Semaine suivante <FaArrowRight />
+                  Suivante <FaArrowRight />
                 </ActionButton>
-                <ExportAllButton
-                  variant="secondary"
-                  onClick={() => setShowExportOptions(!showExportOptions)}
-                >
-                  <FaFilePdf /> Options d'export
-                </ExportAllButton>
               </WeekActions>
             </WeekNavigation>
           </div>
@@ -1299,35 +1426,44 @@ const WeeklySchedulePage = () => {
             </SearchContainer>
 
             <ScheduleFilters>
-              <FilterContainer>
-                <FilterSelect
-                  value={selectedDepartment}
-                  onChange={handleDepartmentChange}
-                  placeholder="Tous les départements"
-                >
-                  <option value="">Tous les départements</option>
-                  {uniqueDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </FilterSelect>
-              </FilterContainer>
+              <FiltersGroup>
+                <FilterContainer>
+                  <FilterSelect
+                    value={selectedDepartment}
+                    onChange={handleDepartmentChange}
+                    placeholder="Tous les départements"
+                  >
+                    <option value="">Tous les départements</option>
+                    {uniqueDepartments.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                </FilterContainer>
 
-              <FilterContainer>
-                <FilterSelect
-                  value={selectedRole}
-                  onChange={handleRoleChange}
-                  placeholder="Tous les rôles"
-                >
-                  <option value="">Tous les rôles</option>
-                  {uniqueRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </FilterSelect>
-              </FilterContainer>
+                <FilterContainer>
+                  <FilterSelect
+                    value={selectedRole}
+                    onChange={handleRoleChange}
+                    placeholder="Tous les rôles"
+                  >
+                    <option value="">Tous les rôles</option>
+                    {uniqueRoles.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                </FilterContainer>
+              </FiltersGroup>
+
+              <ExportAllButton
+                onClick={() => setShowExportOptions(!showExportOptions)}
+                style={{ minWidth: "200px" }}
+              >
+                <FaFilePdf /> Options d'export
+              </ExportAllButton>
             </ScheduleFilters>
 
             {showExportOptions && (

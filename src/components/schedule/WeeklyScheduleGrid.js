@@ -23,7 +23,7 @@ import {
 // Styles
 const ScheduleGrid = styled.div`
   display: grid;
-  grid-template-columns: 250px repeat(7, 1fr) 100px 80px 80px;
+  grid-template-columns: 220px repeat(7, 1fr) 90px 90px 90px;
   gap: 1px;
   background-color: ${({ theme }) => theme.colors.border.light};
   border-radius: 0.5rem;
@@ -32,6 +32,7 @@ const ScheduleGrid = styled.div`
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
   position: relative;
+  font-size: 0.9rem;
 
   &::after {
     content: "";
@@ -62,16 +63,16 @@ const ScheduleGrid = styled.div`
   }
 
   @media (max-width: 1200px) {
-    grid-template-columns: 220px repeat(7, 1fr) 100px 80px 80px;
+    grid-template-columns: 200px repeat(7, 1fr) 90px 90px 90px;
   }
 
   @media (max-width: 992px) {
-    grid-template-columns: 180px repeat(7, minmax(80px, 1fr)) 100px 80px 80px;
+    grid-template-columns: 180px repeat(7, minmax(70px, 1fr)) 90px 90px 90px;
   }
 
   @media (max-width: 768px) {
-    grid-template-columns: 150px repeat(7, minmax(70px, 1fr)) 100px 80px 80px;
-    font-size: 0.85rem;
+    grid-template-columns: 150px repeat(7, minmax(60px, 1fr)) 90px 90px 90px;
+    font-size: 0.8rem;
   }
 
   @media (max-width: 576px) {
@@ -83,13 +84,13 @@ const ScheduleGrid = styled.div`
 `;
 
 const GridCell = styled.div`
-  padding: 0.75rem;
+  padding: 0.6rem;
   background-color: ${({ theme }) => theme.colors.background.primary};
   color: ${({ theme }) => theme.colors.text.primary};
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 50px;
+  min-height: 48px;
   transition: all 0.3s ease;
   position: relative;
   z-index: 2;
@@ -137,15 +138,20 @@ const EmployeeCell = styled(GridCell)`
   left: 0;
   z-index: 3;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.8rem;
   min-width: 150px;
   flex-direction: column;
   align-items: flex-start;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.background.secondary}50;
+  }
 `;
 
 const EmployeeName = styled.div`
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   margin-bottom: 0.25rem;
   color: ${({ theme }) => theme.colors.primary.main};
   display: block;
@@ -157,8 +163,13 @@ const TotalCell = styled(GridCell)`
   font-weight: 600;
   background-color: ${({ theme }) => theme.colors.background.secondary};
   position: sticky;
-  right: 160px;
+  right: 180px;
   z-index: 5;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.background.tertiary};
+  }
 
   @media (max-width: 576px) {
     position: static;
@@ -183,8 +194,16 @@ const DayCell = styled(GridCell)`
   
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-align: center;
+  cursor: ${(props) => (props.readOnly ? "default" : "pointer")};
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: ${(props) => (props.readOnly ? "none" : "translateY(-2px)")};
+    box-shadow: ${(props) =>
+      props.readOnly ? "none" : "0 4px 6px rgba(0, 0, 0, 0.1)"};
+  }
 
   @media (max-width: 576px) {
     display: grid;
@@ -202,7 +221,7 @@ const DayCell = styled(GridCell)`
 `;
 
 const TimeSlot = styled.div`
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.text.primary};
   white-space: nowrap;
@@ -212,25 +231,25 @@ const TimeSlot = styled.div`
 `;
 
 const BreakInfo = styled.div`
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: ${({ theme }) => theme.colors.text.tertiary};
   font-style: italic;
 `;
 
 const HoursValue = styled.div`
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
 
 const AbsenceValue = styled.div`
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #ef4444;
 `;
 
 const NoteText = styled.div`
   font-style: italic;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: ${({ theme }) => theme.colors.text.secondary};
   margin-top: 0.25rem;
   max-width: 100%;
@@ -244,29 +263,36 @@ const ActionCell = styled(GridCell)`
   right: 0;
   z-index: 5;
   background-color: ${({ theme }) => theme.colors.background.secondary};
-  padding: 0.5rem;
+  padding: 0.4rem;
+  width: 90px;
 
   @media (max-width: 576px) {
     position: static;
-    padding: 0.5rem;
+    padding: 0.4rem;
   }
 `;
 
 const ExportCell = styled(GridCell)`
   position: sticky;
-  right: 80px;
+  right: 90px;
   z-index: 5;
   background-color: ${({ theme }) => theme.colors.background.secondary};
-  padding: 0.5rem;
+  padding: 0.4rem;
+  width: 90px;
 
   @media (max-width: 576px) {
     position: static;
-    padding: 0.5rem;
+    padding: 0.4rem;
   }
 `;
 
 const EmployeeRow = styled.div`
   display: contents;
+
+  &:nth-child(even)
+    ${GridCell}:not(${HeaderCell}):not(${ActionCell}):not(${ExportCell}) {
+    background-color: ${({ theme }) => theme.colors.background.secondary}20;
+  }
 
   @media (max-width: 576px) {
     display: flex;
@@ -290,27 +316,87 @@ const QuickEditButton = styled.button`
   background-color: ${({ theme }) => theme.colors.background.secondary};
   color: ${({ theme }) => theme.colors.text.secondary};
   border: 1px solid ${({ theme }) => theme.colors.border.main};
+  border-radius: 4px;
+  transition: all 0.2s ease;
 
   ${DayCell}:hover & {
     opacity: 1;
   }
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.primary.main};
+    color: white;
+  }
 `;
 
 const ActionButton = styled(Button)`
-  padding: 0.4rem 0.6rem;
-  font-size: 0.85rem;
+  width: 100%;
+  padding: 0.4rem;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0;
+    background: ${({ theme }) => theme.colors.primary}20;
+    transition: height 0.3s ease;
+    z-index: -1;
+  }
 
   &:hover {
     transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+
+    &::after {
+      height: 100%;
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    transition: transform 0.3s ease;
+  }
+
+  &:hover svg {
+    transform: scale(1.2);
   }
 
   @media (max-width: 768px) {
-    padding: 0.3rem 0.5rem;
-    font-size: 0.8rem;
+    padding: 0.3rem;
+    font-size: 0.75rem;
+  }
+`;
+
+const EditButton = styled(ActionButton)`
+  background: ${({ theme }) => theme.colors.primary.main};
+  color: white;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.primary.dark};
+  }
+`;
+
+const PdfButton = styled(ActionButton)`
+  background: ${({ theme }) => theme.colors.secondary};
+  color: white;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.secondary}dd;
   }
 `;
 
@@ -816,6 +902,7 @@ const WeeklyScheduleGrid = ({
                   isAbsent={isAbsent(employee.id, dayIndex)}
                   data-day={formatDate(daysOfWeek[dayIndex], "EEEE")}
                   onClick={() => !readOnly && onEditEmployee(employee.id)}
+                  readOnly={readOnly}
                 >
                   {formatDayCell(employee.id, dayIndex)}
                   {!readOnly && (
@@ -836,22 +923,16 @@ const WeeklyScheduleGrid = ({
 
             {/* Cellule d'export */}
             <ExportCell>
-              <ActionButton
-                variant="secondary"
-                onClick={() => handleGeneratePDF(employee)}
-              >
+              <PdfButton onClick={() => handleGeneratePDF(employee)}>
                 <FaFilePdf /> PDF
-              </ActionButton>
+              </PdfButton>
             </ExportCell>
 
             {/* Cellule d'action */}
             <ActionCell>
-              <ActionButton
-                variant="primary"
-                onClick={() => handleEditClick(employee.id)}
-              >
-                <FaEdit /> Modifier
-              </ActionButton>
+              <EditButton onClick={() => handleEditClick(employee.id)}>
+                <FaEdit /> Éditer
+              </EditButton>
             </ActionCell>
           </EmployeeRow>
         );
