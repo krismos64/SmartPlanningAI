@@ -27,10 +27,11 @@ const slideUp = keyframes`
   to { transform: translateY(0); }
 `;
 
-const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
+// Animations définies mais non utilisées - commentées pour éviter les avertissements ESLint
+// const fadeInUp = keyframes`
+//   from { opacity: 0; transform: translateY(10px); }
+//   to { opacity: 1; transform: translateY(0); }
+// `;
 
 const fadeInRight = keyframes`
   from { opacity: 0; transform: translateX(10px); }
@@ -47,10 +48,10 @@ const typing = keyframes`
   100% { width: 100% }
 `;
 
-const blinkCaret = keyframes`
-  from, to { border-color: transparent }
-  50% { border-color: #2b5797 }
-`;
+// const blinkCaret = keyframes`
+//   from, to { border-color: transparent }
+//   50% { border-color: #2b5797 }
+// `;
 
 const shimmer = keyframes`
   0% {
@@ -289,23 +290,24 @@ const SendButton = styled.button`
   }
 `;
 
-const SettingsButton = styled.button`
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  margin-right: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  border-radius: 50%;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-  }
-`;
+// Composant non utilisé - commenté pour éviter les avertissements ESLint
+// const SettingsButton = styled.button`
+//   background: none;
+//   border: none;
+//   color: white;
+//   cursor: pointer;
+//   margin-right: 10px;
+//   display: flex;
+//   align-items: center;
+//   justify-content: center;
+//   padding: 5px;
+//   border-radius: 50%;
+//   transition: background-color 0.2s;
+//
+//   &:hover {
+//     background-color: rgba(255, 255, 255, 0.2);
+//   }
+// `;
 
 const ToggleButton = styled.button`
   background: none;
@@ -362,13 +364,14 @@ const ApiKeyForm = styled.form`
   }
 `;
 
-const ApiKeyInput = styled.input`
-  padding: 10px;
-  border: 1px solid ${({ theme }) => theme.colors.border.main};
-  border-radius: 5px;
-  font-size: 14px;
-  width: 100%;
-`;
+// Composant non utilisé - commenté pour éviter les avertissements ESLint
+// const ApiKeyInput = styled.input`
+//   padding: 10px;
+//   border: 1px solid ${({ theme }) => theme.colors.border.main};
+//   border-radius: 5px;
+//   font-size: 14px;
+//   width: 100%;
+// `;
 
 const ApiKeyButton = styled.button`
   background-color: ${({ theme }) => theme.colors.primary};
@@ -384,11 +387,12 @@ const ApiKeyButton = styled.button`
   }
 `;
 
-const EmojiWrapper = styled.span`
-  display: inline-block;
-  margin: 0 2px;
-  animation: ${pulse} 1s infinite ease-in-out;
-`;
+// Composant non utilisé - commenté pour éviter les avertissements ESLint
+// const EmojiWrapper = styled.span`
+//   display: inline-block;
+//   margin: 0 2px;
+//   animation: ${pulse} 1s infinite ease-in-out;
+// `;
 
 const TypingIndicator = styled.div`
   display: inline-block;
@@ -411,8 +415,9 @@ const Chatbot = () => {
   const [showWelcome, setShowWelcome] = useState(true);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKey, setApiKey] = useState("Mtj4YyKWVol6Km2iLeCCtAF4Y1nNlbbE");
+  // État non utilisé - commenté pour éviter les avertissements ESLint
+  // const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKey] = useState("Mtj4YyKWVol6Km2iLeCCtAF4Y1nNlbbE");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -693,10 +698,11 @@ const Chatbot = () => {
     }
   };
 
-  const handleApiKeySave = (e) => {
-    e.preventDefault();
-    setShowApiKeyModal(false);
-  };
+  // Fonction non utilisée - commentée pour éviter les avertissements ESLint
+  // const handleApiKeySave = (e) => {
+  //   e.preventDefault();
+  //   setShowApiKeyModal(false);
+  // };
 
   // Gérer le consentement RGPD
   const handleConsentAccept = () => {
