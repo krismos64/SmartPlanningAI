@@ -1,5 +1,7 @@
+import { useState } from "react";
 import styled from "styled-components";
 import { useTheme } from "../components/ThemeProvider";
+import DeleteAccountModal from "../components/modals/DeleteAccountModal";
 
 // Composants stylisés
 const SettingsContainer = styled.div`
@@ -152,6 +154,17 @@ const Button = styled.button`
 // Composant Settings
 const Settings = () => {
   const { isDarkMode, toggleTheme } = useTheme();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Ouvrir le modal de suppression de compte
+  const openDeleteModal = () => {
+    setIsDeleteModalOpen(true);
+  };
+
+  // Fermer le modal de suppression de compte
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+  };
 
   return (
     <SettingsContainer>
@@ -249,10 +262,18 @@ const Settings = () => {
                 Supprimer définitivement votre compte et toutes vos données.
               </SettingDescription>
             </SettingLabel>
-            <Button variant="danger">Supprimer</Button>
+            <Button variant="danger" onClick={openDeleteModal}>
+              Supprimer
+            </Button>
           </SettingItem>
         </SettingsSection>
       </SettingsCard>
+
+      {/* Modal de suppression de compte */}
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+      />
     </SettingsContainer>
   );
 };

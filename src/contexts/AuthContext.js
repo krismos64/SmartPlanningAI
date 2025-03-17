@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { API_URL } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
+import { AuthService } from "../services/api";
 
 const AuthContext = createContext({
   isAuthenticated: false,
@@ -13,6 +14,8 @@ const AuthContext = createContext({
   register: async () => {},
   loginError: null,
   updateUser: async () => {},
+  requestAccountDeletion: async () => {},
+  confirmAccountDeletion: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -406,6 +409,69 @@ export const AuthProvider = ({ children }) => {
     checkOAuthRedirect();
   }, []);
 
+  // Demander la suppression du compte (envoi d'un lien par email)
+  const requestAccountDeletion = async () => {
+    try {
+      setIsLoading(true);
+      const result = await AuthService.requestAccountDeletion();
+
+      if (result.success) {
+        return { success: true, message: result.message };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      console.error(
+        "Erreur lors de la demande de suppression de compte:",
+        error
+      );
+      return {
+        success: false,
+        message:
+          error.message ||
+          "Une erreur est survenue lors de la demande de suppression",
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Confirmer la suppression du compte avec le token reçu par email
+  const confirmAccountDeletion = async (token) => {
+    try {
+      setIsLoading(true);
+      const result = await AuthService.confirmAccountDeletion(token);
+
+      if (result.success) {
+        // Supprimer les données locales et déconnecter l'utilisateur
+        setUser(null);
+        setToken(null);
+        setIsAuthenticated(false);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        // Déconnecter du websocket si nécessaire
+        disconnect && disconnect();
+
+        return { success: true, message: result.message };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      console.error(
+        "Erreur lors de la confirmation de suppression de compte:",
+        error
+      );
+      return {
+        success: false,
+        message:
+          error.message ||
+          "Une erreur est survenue lors de la suppression du compte",
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -418,6 +484,8 @@ export const AuthProvider = ({ children }) => {
     loginError,
     updateUser,
     updateUserProfile,
+    requestAccountDeletion,
+    confirmAccountDeletion,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

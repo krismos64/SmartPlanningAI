@@ -45,6 +45,9 @@ export const API_ENDPOINTS = {
     VERIFY: "/api/auth/verify",
     RESET_PASSWORD: "/api/auth/reset-password",
     FORGOT_PASSWORD: "/api/auth/forgot-password",
+    DELETE_ACCOUNT: "/api/auth/delete-account",
+    REQUEST_ACCOUNT_DELETION: "/api/auth/request-account-deletion",
+    CONFIRM_ACCOUNT_DELETION: "/api/auth/confirm-account-deletion",
   },
   DEPARTMENTS: {
     BASE: "/api/departments",

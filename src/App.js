@@ -19,6 +19,8 @@ import MainLayout from "./layouts/MainLayout";
 // Pages chargées avec lazy loading
 const Login = lazy(() => import("./pages/auth/Login"));
 const Register = lazy(() => import("./pages/auth/Register"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Employees = lazy(() => import("./pages/Employees"));
 const WeeklySchedule = lazy(() => import("./pages/WeeklySchedule"));
@@ -29,6 +31,10 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
+const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+const ConfirmDeletionPage = lazy(() =>
+  import("./components/modals/ConfirmDeletionPage")
+);
 
 // Composant de chargement
 const LoadingFallback = () => (
@@ -96,6 +102,16 @@ const App = () => {
                 <Route element={<AuthLayout />}>
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route
+                    path="/reset-password/:token"
+                    element={<ResetPassword />}
+                  />
+                  <Route
+                    path="/account/delete-confirmation/:token"
+                    element={<ConfirmDeletionPage />}
+                  />
+                  <Route path="/unauthorized" element={<Unauthorized />} />
                 </Route>
 
                 {/* Routes protégées */}
@@ -113,21 +129,10 @@ const App = () => {
                     element={<Employees />}
                   />
                   <Route path="/schedule" element={<WeeklySchedule />} />
-                  <Route
-                    path="/weekly-schedule"
-                    element={
-                      <ProtectedRoute>
-                        <WeeklySchedule />
-                      </ProtectedRoute>
-                    }
-                  />
+                  <Route path="/weekly-schedule" element={<WeeklySchedule />} />
                   <Route
                     path="/weekly-schedule/:weekStart"
-                    element={
-                      <ProtectedRoute>
-                        <WeeklySchedule />
-                      </ProtectedRoute>
-                    }
+                    element={<WeeklySchedule />}
                   />
                   <Route path="/vacations" element={<Vacations />} />
                   <Route path="/activities" element={<Activities />} />

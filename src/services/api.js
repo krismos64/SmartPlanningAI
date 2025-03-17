@@ -80,6 +80,60 @@ export const AuthService = {
       return null;
     }
   },
+
+  requestAccountDeletion: async () => {
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.AUTH.REQUEST_ACCOUNT_DELETION,
+        "POST"
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return {
+        success: true,
+        message: "Un email de confirmation a été envoyé à votre adresse email.",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error.message || "Erreur lors de la demande de suppression de compte",
+      };
+    }
+  },
+
+  confirmAccountDeletion: async (token) => {
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.AUTH.CONFIRM_ACCOUNT_DELETION,
+        "POST",
+        { token }
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      // Déconnexion après suppression réussie
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      return {
+        success: true,
+        message: "Votre compte a été supprimé avec succès.",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error.message ||
+          "Erreur lors de la confirmation de suppression de compte",
+      };
+    }
+  },
 };
 
 export const EmployeeService = {
