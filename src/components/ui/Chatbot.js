@@ -1,6 +1,7 @@
 import Lottie from "lottie-react";
 import { useEffect, useRef, useState } from "react";
 import { FaPaperPlane, FaTimes } from "react-icons/fa";
+import { useLocation } from "react-router-dom";
 import styled, { css, keyframes } from "styled-components";
 import robotAnimation from "../../assets/animations/robot.json";
 import { useAuth } from "../../contexts/AuthContext";
@@ -458,22 +459,14 @@ const HelpBubble = styled.div`
   }
 `;
 
-const EmojiSpan = styled.span`
-  display: inline-block;
-  animation: ${bounce} 2s infinite;
-  margin-right: 5px;
-`;
-
 const Chatbot = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [showHelpBubble, setShowHelpBubble] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showConsentDialog, setShowConsentDialog] = useState(false);
-  const [personalizedMode, setPersonalizedMode] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -482,6 +475,21 @@ const Chatbot = () => {
   );
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [apiKey] = useState("Mtj4YyKWVol6Km2iLeCCtAF4Y1nNlbbE");
+
+  // Vérifier si le chatbot doit être affiché sur la page actuelle
+  const shouldShowChatbot = () => {
+    // Ne pas afficher sur la landing page, login ou register
+    const restrictedPaths = [
+      "/",
+      "/login",
+      "/register",
+      "/forgot-password",
+      "/reset-password",
+    ];
+
+    // Vérifier si l'utilisateur est connecté et si la page actuelle n'est pas restreinte
+    return user && !restrictedPaths.includes(location.pathname);
+  };
 
   useEffect(() => {
     if (user && !localStorage.getItem("chatbot_data_consent")) {
@@ -810,6 +818,11 @@ const Chatbot = () => {
     }
     return "utilisateur";
   };
+
+  // Si l'utilisateur n'est pas connecté ou si on est sur une page restreinte, ne pas afficher le chatbot
+  if (!shouldShowChatbot()) {
+    return null;
+  }
 
   return (
     <ChatbotContainer>
