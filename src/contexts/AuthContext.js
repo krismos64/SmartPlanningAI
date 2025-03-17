@@ -8,6 +8,7 @@ const AuthContext = createContext({
   user: null,
   token: null,
   login: async () => {},
+  loginWithGoogle: async () => {},
   logout: async () => {},
   register: async () => {},
   loginError: null,
@@ -320,14 +321,100 @@ export const AuthProvider = ({ children }) => {
     }, 300);
   };
 
+  // Fonction pour se connecter avec Google
+  const loginWithGoogle = async () => {
+    try {
+      setIsLoading(true);
+      setLoginError(null);
+
+      console.log("Redirection vers l'authentification Google");
+
+      // Rediriger vers l'endpoint d'authentification Google
+      window.location.href = `${API_URL}/api/auth/google`;
+
+      // Cette fonction ne retourne rien car elle redirige l'utilisateur
+      return true;
+    } catch (err) {
+      console.error("Erreur lors de la connexion avec Google:", err);
+      setLoginError(err.message || "Erreur lors de la connexion avec Google");
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  // Vérifier si l'utilisateur revient d'une authentification OAuth
+  useEffect(() => {
+    const checkOAuthRedirect = async () => {
+      // Vérifier si nous avons un token dans l'URL (après redirection OAuth)
+      const urlParams = new URLSearchParams(window.location.search);
+      const oauthToken = urlParams.get("token");
+      const oauthError = urlParams.get("error");
+
+      if (oauthToken) {
+        try {
+          // Stocker le token
+          localStorage.setItem("token", oauthToken);
+          setToken(oauthToken);
+
+          // Récupérer les informations de l'utilisateur
+          const response = await fetch(`${API_URL}/api/auth/me`, {
+            headers: {
+              Authorization: `Bearer ${oauthToken}`,
+            },
+          });
+
+          if (response.ok) {
+            const userData = await response.json();
+
+            // Définir l'utilisateur comme admin
+            const adminUser = setUserWithAdminRole(userData);
+            localStorage.setItem("user", JSON.stringify(adminUser));
+
+            // Nettoyer l'URL
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
+
+            // Notifier le WebSocket de la connexion
+            notifyDataChange("auth", "login", adminUser.id);
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la récupération des données utilisateur après OAuth:",
+            error
+          );
+          setLoginError(
+            "Erreur lors de la récupération des données utilisateur"
+          );
+        } finally {
+          setIsLoading(false);
+        }
+      } else if (oauthError) {
+        setLoginError(`Erreur d'authentification: ${oauthError}`);
+        setIsLoading(false);
+        // Nettoyer l'URL
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+      }
+    };
+
+    checkOAuthRedirect();
+  }, []);
+
   const value = {
     user,
     isAuthenticated,
     isLoading,
     token,
     login,
-    register,
+    loginWithGoogle,
     logout,
+    register,
     loginError,
     updateUser,
     updateUserProfile,
