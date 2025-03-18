@@ -1,6 +1,7 @@
 import styled from "@emotion/styled";
 import {
-  Add,
+  ArrowDownward,
+  ArrowUpward,
   CheckCircle,
   Delete,
   Edit,
@@ -10,7 +11,6 @@ import {
 import {
   alpha,
   Box,
-  Button,
   Chip,
   CircularProgress,
   Fade,
@@ -23,13 +23,14 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   Tooltip,
   Typography,
   Zoom,
 } from "@mui/material";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTheme } from "../../components/ThemeProvider";
 import { VACATION_STATUS, VACATION_TYPES } from "../../config/constants";
 import { useAuth } from "../../contexts/AuthContext";
@@ -140,7 +141,7 @@ const StatusChip = styled(Chip)(({ status, theme }) => {
   };
 });
 
-const ActionButton = styled(IconButton)(({ actionType, theme }) => {
+const ActionButton = styled(IconButton)(({ $actionType, theme }) => {
   const { theme: themeMode } = useTheme();
   const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
 
@@ -163,7 +164,7 @@ const ActionButton = styled(IconButton)(({ actionType, theme }) => {
     },
   };
 
-  const actionColor = colors[actionType] || colors.edit;
+  const actionColor = colors[$actionType] || colors.edit;
 
   return {
     color: actionColor.color,
@@ -209,6 +210,8 @@ const VacationList = ({
   const isDarkMode = themeMode === "dark";
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [order, setOrder] = useState("asc");
+  const [orderBy, setOrderBy] = useState("startDate");
 
   // Vérifier si l'utilisateur est admin
   const isAdmin = user && user.role === "admin";
@@ -224,119 +227,142 @@ const VacationList = ({
     setPage(0);
   };
 
+  // Gérer le changement d'ordre de tri
+  const handleRequestSort = (property) => {
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(property);
+  };
+
+  // Fonction de comparaison pour le tri
+  const compareValues = useCallback((a, b, orderByField, sortOrder) => {
+    // Traitement spécial pour le tri par employé
+    if (orderByField === "employee") {
+      const nameA = a.employee
+        ? `${a.employee.first_name || ""} ${a.employee.last_name || ""}`.trim()
+        : a.employeeName || "";
+      const nameB = b.employee
+        ? `${b.employee.first_name || ""} ${b.employee.last_name || ""}`.trim()
+        : b.employeeName || "";
+
+      return sortOrder === "asc"
+        ? nameA.localeCompare(nameB)
+        : nameB.localeCompare(nameA);
+    }
+
+    // Gestion des valeurs nulles ou undefined
+    const valueA =
+      a[orderByField] === null || a[orderByField] === undefined
+        ? ""
+        : a[orderByField];
+    const valueB =
+      b[orderByField] === null || b[orderByField] === undefined
+        ? ""
+        : b[orderByField];
+
+    // Comparer des dates
+    if (orderByField === "startDate" || orderByField === "endDate") {
+      const dateA = valueA ? new Date(valueA).getTime() : 0;
+      const dateB = valueB ? new Date(valueB).getTime() : 0;
+      return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+    }
+
+    // Comparaison standard pour les strings et autres types
+    if (typeof valueA === "string" && typeof valueB === "string") {
+      return sortOrder === "asc"
+        ? valueA.localeCompare(valueB)
+        : valueB.localeCompare(valueA);
+    }
+
+    // Comparaison numérique par défaut
+    return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
+  }, []);
+
   // Obtenir le libellé du type de congé
-  const getVacationType = (type) => {
-    // Vérifier que VACATION_TYPES est bien un tableau avant d'utiliser find()
+  const getVacationType = useMemo(() => {
+    // Création d'un objet map pour accélérer les recherches
+    const typeMap = {};
+
+    // Si VACATION_TYPES est un tableau, pré-calculer le mapping
     if (Array.isArray(VACATION_TYPES)) {
-      const vacationType = VACATION_TYPES.find((t) => t.value === type);
-      return vacationType ? vacationType.label : type;
+      VACATION_TYPES.forEach((t) => {
+        typeMap[t.value] = t.label;
+      });
     }
 
-    // Fallback si VACATION_TYPES n'est pas un tableau
-    switch (type) {
-      case "paid":
-        return "Congé payé";
-      case "unpaid":
-        return "Congé sans solde";
-      case "sick":
-        return "Congé maladie";
-      case "parental":
-        return "Congé parental";
-      case "other":
-        return "Autre";
-      default:
-        return type;
-    }
-  };
+    // Fonction optimisée pour obtenir le type
+    return (type) => {
+      // Vérifier d'abord dans notre map pré-calculé
+      if (typeMap[type]) {
+        return typeMap[type];
+      }
 
-  // Obtenir le libellé du statut
-  const getStatusLabel = (status) => {
-    // VACATION_STATUS est un objet et non un tableau, donc find() ne fonctionne pas
-    // Utilisons un mapping direct des statuts vers leurs libellés
-    switch (status) {
-      case VACATION_STATUS.PENDING:
-        return "En attente";
-      case VACATION_STATUS.APPROVED:
-        return "Approuvé";
-      case VACATION_STATUS.REJECTED:
-        return "Rejeté";
-      default:
-        return status;
-    }
-  };
+      // Fallback vers le switch case
+      switch (type) {
+        case "paid":
+          return "Congé payé";
+        case "unpaid":
+          return "Congé sans solde";
+        case "sick":
+          return "Congé maladie";
+        case "parental":
+          return "Congé parental";
+        case "other":
+          return "Autre";
+        default:
+          return type;
+      }
+    };
+  }, []);
 
-  // Obtenir l'icône du statut
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "approved":
-        return <CheckCircle fontSize="small" />;
-      case "rejected":
-        return <RemoveCircle fontSize="small" />;
-      case "pending":
-      default:
-        return <HourglassEmpty fontSize="small" />;
-    }
-  };
+  // Obtenir le libellé du statut (memoized)
+  const getStatusLabel = useMemo(() => {
+    const statusMap = {
+      [VACATION_STATUS.PENDING]: "En attente",
+      [VACATION_STATUS.APPROVED]: "Approuvé",
+      [VACATION_STATUS.REJECTED]: "Rejeté",
+    };
 
-  // Formater une date
-  const formatDate = (dateString) => {
+    return (status) => statusMap[status] || status;
+  }, []);
+
+  // Obtenir l'icône du statut (memoized)
+  const getStatusIcon = useMemo(() => {
+    const iconMap = {
+      approved: <CheckCircle fontSize="small" />,
+      rejected: <RemoveCircle fontSize="small" />,
+      pending: <HourglassEmpty fontSize="small" />,
+    };
+
+    return (status) => iconMap[status] || iconMap["pending"];
+  }, []);
+
+  // Formater une date avec memo
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return "-";
     try {
+      // Format français plus lisible
       return format(new Date(dateString), "dd MMMM yyyy", { locale: fr });
     } catch (error) {
-      console.error("Error formatting date:", error);
-      return dateString;
+      console.error("Erreur de formatage de la date:", error);
+      return dateString || "-";
     }
-  };
+  }, []);
 
-  // Calculer les lignes à afficher en fonction de la pagination
-  const visibleRows = vacations
-    ? vacations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-    : [];
+  // Trier et calculer les lignes à afficher en fonction de la pagination
+  const sortedRows = useMemo(() => {
+    if (!vacations) return [];
+
+    return [...vacations].sort((a, b) => compareValues(a, b, orderBy, order));
+  }, [vacations, orderBy, order, compareValues]);
+
+  const visibleRows = sortedRows.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
-        <Typography
-          variant="h6"
-          component="div"
-          sx={{
-            fontWeight: 600,
-            color: isDarkMode ? "#E5E7EB" : "#111827",
-            transition: "color 0.3s ease",
-          }}
-        >
-          Liste des demandes de congés
-        </Typography>
-        <Zoom in={true} timeout={500}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Add />}
-            onClick={onCreateNew}
-            sx={{
-              borderRadius: 2,
-              transition: "all 0.3s ease",
-              "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: isDarkMode
-                  ? `0 8px 16px ${alpha("#000", 0.4)}`
-                  : `0 6px 12px ${alpha("#000", 0.15)}`,
-              },
-            }}
-          >
-            Nouvelle demande
-          </Button>
-        </Zoom>
-      </Box>
-
       <Fade in={true} timeout={800}>
         <StyledTableContainer component={Paper}>
           {loading ? (
@@ -361,11 +387,86 @@ const VacationList = ({
               <Table sx={{ minWidth: 650 }} aria-label="tableau des congés">
                 <StyledTableHead>
                   <TableRow>
-                    <StyledTableCell>Employé</StyledTableCell>
-                    <StyledTableCell>Type</StyledTableCell>
-                    <StyledTableCell>Date de début</StyledTableCell>
-                    <StyledTableCell>Date de fin</StyledTableCell>
-                    <StyledTableCell>Statut</StyledTableCell>
+                    <StyledTableCell>
+                      <TableSortLabel
+                        active={orderBy === "employee"}
+                        direction={orderBy === "employee" ? order : "asc"}
+                        onClick={() => handleRequestSort("employee")}
+                        IconComponent={
+                          orderBy === "employee"
+                            ? order === "asc"
+                              ? ArrowUpward
+                              : ArrowDownward
+                            : undefined
+                        }
+                      >
+                        Employé
+                      </TableSortLabel>
+                    </StyledTableCell>
+                    <StyledTableCell>
+                      <TableSortLabel
+                        active={orderBy === "type"}
+                        direction={orderBy === "type" ? order : "asc"}
+                        onClick={() => handleRequestSort("type")}
+                        IconComponent={
+                          orderBy === "type"
+                            ? order === "asc"
+                              ? ArrowUpward
+                              : ArrowDownward
+                            : undefined
+                        }
+                      >
+                        Type
+                      </TableSortLabel>
+                    </StyledTableCell>
+                    <StyledTableCell>
+                      <TableSortLabel
+                        active={orderBy === "startDate"}
+                        direction={orderBy === "startDate" ? order : "asc"}
+                        onClick={() => handleRequestSort("startDate")}
+                        IconComponent={
+                          orderBy === "startDate"
+                            ? order === "asc"
+                              ? ArrowUpward
+                              : ArrowDownward
+                            : undefined
+                        }
+                      >
+                        Date de début
+                      </TableSortLabel>
+                    </StyledTableCell>
+                    <StyledTableCell>
+                      <TableSortLabel
+                        active={orderBy === "endDate"}
+                        direction={orderBy === "endDate" ? order : "asc"}
+                        onClick={() => handleRequestSort("endDate")}
+                        IconComponent={
+                          orderBy === "endDate"
+                            ? order === "asc"
+                              ? ArrowUpward
+                              : ArrowDownward
+                            : undefined
+                        }
+                      >
+                        Date de fin
+                      </TableSortLabel>
+                    </StyledTableCell>
+                    <StyledTableCell>
+                      <TableSortLabel
+                        active={orderBy === "status"}
+                        direction={orderBy === "status" ? order : "asc"}
+                        onClick={() => handleRequestSort("status")}
+                        IconComponent={
+                          orderBy === "status"
+                            ? order === "asc"
+                              ? ArrowUpward
+                              : ArrowDownward
+                            : undefined
+                        }
+                      >
+                        Statut
+                      </TableSortLabel>
+                    </StyledTableCell>
                     <StyledTableCell align="right">Actions</StyledTableCell>
                   </TableRow>
                 </StyledTableHead>
@@ -383,17 +484,23 @@ const VacationList = ({
                       <StyledTableRow>
                         <StyledTableCell component="th" scope="row">
                           {vacation.employee
-                            ? `${vacation.employee.first_name} ${vacation.employee.last_name}`
-                            : "-"}
+                            ? `${vacation.employee.first_name || ""} ${
+                                vacation.employee.last_name || ""
+                              }`.trim()
+                            : vacation.employeeName ||
+                              vacation.employee_name ||
+                              "-"}
                         </StyledTableCell>
                         <StyledTableCell>
                           {getVacationType(vacation.type)}
                         </StyledTableCell>
                         <StyledTableCell>
-                          {formatDate(vacation.startDate)}
+                          {formatDate(
+                            vacation.startDate || vacation.start_date
+                          )}
                         </StyledTableCell>
                         <StyledTableCell>
-                          {formatDate(vacation.endDate)}
+                          {formatDate(vacation.endDate || vacation.end_date)}
                         </StyledTableCell>
                         <StyledTableCell>
                           <StatusChip
@@ -418,7 +525,7 @@ const VacationList = ({
                                   <ActionButton
                                     size="small"
                                     onClick={() => onApprove(vacation.id)}
-                                    actionType="approve"
+                                    $actionType="approve"
                                   >
                                     <CheckCircle fontSize="small" />
                                   </ActionButton>
@@ -427,7 +534,7 @@ const VacationList = ({
                                   <ActionButton
                                     size="small"
                                     onClick={() => onReject(vacation.id)}
-                                    actionType="reject"
+                                    $actionType="reject"
                                   >
                                     <RemoveCircle fontSize="small" />
                                   </ActionButton>
@@ -441,7 +548,7 @@ const VacationList = ({
                                 <ActionButton
                                   size="small"
                                   onClick={() => onEdit(vacation)}
-                                  actionType="edit"
+                                  $actionType="edit"
                                 >
                                   <Edit fontSize="small" />
                                 </ActionButton>
@@ -454,7 +561,7 @@ const VacationList = ({
                                 <ActionButton
                                   size="small"
                                   onClick={() => onDelete(vacation.id)}
-                                  actionType="delete"
+                                  $actionType="delete"
                                 >
                                   <Delete fontSize="small" />
                                 </ActionButton>
@@ -495,27 +602,6 @@ const VacationList = ({
                 Il n'y a pas encore de demandes de congés. Créez-en une nouvelle
                 en cliquant sur le bouton ci-dessus.
               </Typography>
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<Add />}
-                onClick={onCreateNew}
-                sx={{
-                  borderRadius: 2,
-                  transition: "all 0.3s ease",
-                  borderColor: isDarkMode ? "#6366F1" : undefined,
-                  color: isDarkMode ? "#6366F1" : undefined,
-                  "&:hover": {
-                    transform: "translateY(-2px)",
-                    borderColor: isDarkMode ? "#818CF8" : undefined,
-                    backgroundColor: isDarkMode
-                      ? alpha("#6366F1", 0.1)
-                      : undefined,
-                  },
-                }}
-              >
-                Créer une demande
-              </Button>
             </EmptyStateContainer>
           )}
         </StyledTableContainer>

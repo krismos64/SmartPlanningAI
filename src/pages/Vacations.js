@@ -1,4 +1,5 @@
-import { Add, Refresh } from "@mui/icons-material";
+import styled from "@emotion/styled";
+import { Add, BeachAccess, Refresh } from "@mui/icons-material";
 import {
   alpha,
   Box,
@@ -13,7 +14,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import ErrorDisplay from "../components/ui/ErrorDisplay";
@@ -24,8 +25,42 @@ import VacationList from "../components/vacations/VacationList";
 import { useAuth } from "../contexts/AuthContext";
 import useVacations from "../hooks/useVacations";
 
+// Icône stylisée pour les congés
+const StyledIcon = styled(Box)(({ theme }) => {
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: isDarkMode
+      ? `linear-gradient(135deg, ${alpha("#6366F1", 0.2)}, ${alpha(
+          "#60A5FA",
+          0.4
+        )})`
+      : `linear-gradient(135deg, ${alpha("#4F46E5", 0.1)}, ${alpha(
+          "#3B82F6",
+          0.3
+        )})`,
+    boxShadow: isDarkMode
+      ? `0 4px 20px ${alpha("#000", 0.25)}`
+      : `0 4px 15px ${alpha("#000", 0.08)}`,
+    color: isDarkMode ? "#93C5FD" : "#4F46E5",
+    flexShrink: 0,
+    transition: "all 0.3s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: 40,
+    },
+  };
+});
+
 /**
  * Page de gestion des congés
+ * Version optimisée sans websocket et avec un chargement simplifié
  */
 const Vacations = () => {
   const theme = useTheme();
@@ -49,13 +84,6 @@ const Vacations = () => {
   const { theme: themeMode } = useThemeProvider();
   const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
 
-  // Nettoyer les ressources lors du démontage du composant
-  useEffect(() => {
-    return () => {
-      // Aucun nettoyage spécifique nécessaire, tout est géré dans le hook useVacations
-    };
-  }, []);
-
   // Fonction pour rafraîchir manuellement les données
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -63,6 +91,7 @@ const Vacations = () => {
       await refreshVacations();
       toast.success("Données des congés rafraîchies");
     } catch (error) {
+      console.error("Erreur lors du rafraîchissement des données:", error);
       toast.error("Erreur lors du rafraîchissement des données");
     } finally {
       setRefreshing(false);
@@ -142,7 +171,7 @@ const Vacations = () => {
   };
 
   // Filtrer les congés en fonction de l'onglet sélectionné
-  const getFilteredVacations = () => {
+  const filteredVacations = useMemo(() => {
     switch (tabValue) {
       case 0:
         return vacations; // Tous les congés
@@ -155,9 +184,9 @@ const Vacations = () => {
       default:
         return vacations;
     }
-  };
+  }, [vacations, tabValue, getVacationsByStatus]);
 
-  // Afficher un écran de chargement pendant le chargement des données
+  // Afficher un écran de chargement pendant le chargement initial des données
   if (loading && !refreshing) {
     return <LoadingScreen message="Chargement des congés..." />;
   }
@@ -172,7 +201,11 @@ const Vacations = () => {
       <PageHeader
         title="Gestion des congés"
         subtitle="Consultez et gérez les demandes de congés"
-        icon="🏖️"
+        icon={
+          <StyledIcon>
+            <BeachAccess />
+          </StyledIcon>
+        }
       />
 
       <Grid container spacing={3}>
@@ -263,18 +296,20 @@ const Vacations = () => {
               <Tab label="Rejetés" />
             </Tabs>
 
-            {loading ? (
+            {/* Affichage de la liste des congés avec indicateur de chargement */}
+            {loading && refreshing ? (
               <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
                 <CircularProgress />
               </Box>
             ) : (
               <VacationList
-                vacations={getFilteredVacations()}
+                vacations={filteredVacations}
+                loading={loading || refreshing}
                 onEdit={handleOpenEditForm}
                 onDelete={handleDeleteVacation}
                 onApprove={handleApproveVacation}
                 onReject={handleRejectVacation}
-                currentUser={user}
+                onCreateNew={handleOpenCreateForm}
               />
             )}
           </Paper>

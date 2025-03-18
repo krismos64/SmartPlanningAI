@@ -1,7 +1,47 @@
+import { Settings as SettingsIcon } from "@mui/icons-material";
+import { alpha, Box } from "@mui/material";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import styled from "styled-components";
-import { useTheme } from "../components/ThemeProvider";
+import LanguageSelector from "../components/LanguageSelector";
 import DeleteAccountModal from "../components/modals/DeleteAccountModal";
+import {
+  useTheme,
+  useTheme as useThemeProvider,
+} from "../components/ThemeProvider";
+
+// Icône stylisée pour les paramètres
+const StyledIcon = styled(Box)(({ theme }) => {
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = themeMode === "dark";
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: isDarkMode
+      ? `linear-gradient(135deg, ${alpha("#F43F5E", 0.2)}, ${alpha(
+          "#E11D48",
+          0.4
+        )})`
+      : `linear-gradient(135deg, ${alpha("#F43F5E", 0.1)}, ${alpha(
+          "#E11D48",
+          0.3
+        )})`,
+    boxShadow: isDarkMode
+      ? `0 4px 20px ${alpha("#000", 0.25)}`
+      : `0 4px 15px ${alpha("#000", 0.08)}`,
+    color: isDarkMode ? "#FDA4AF" : "#E11D48",
+    flexShrink: 0,
+    transition: "all 0.3s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: 40,
+    },
+  };
+});
 
 // Composants stylisés
 const SettingsContainer = styled.div`
@@ -151,10 +191,17 @@ const Button = styled.button`
   }
 `;
 
+// Styled component pour le sélecteur de langue
+const LanguageWrapper = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
 // Composant Settings
 const Settings = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { t } = useTranslation();
 
   // Ouvrir le modal de suppression de compte
   const openDeleteModal = () => {
@@ -168,22 +215,53 @@ const Settings = () => {
 
   return (
     <SettingsContainer>
-      <PageHeader>
-        <PageTitle>Paramètres</PageTitle>
-        <PageDescription>
-          Gérez les paramètres de votre application SmartPlanning AI.
-        </PageDescription>
-      </PageHeader>
+      <Box
+        component="div"
+        sx={{
+          mb: 4,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Box
+          component="div"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 1,
+          }}
+        >
+          <Box
+            component="div"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <StyledIcon>
+              <SettingsIcon />
+            </StyledIcon>
+
+            <Box component="div" sx={{ ml: 2 }}>
+              <PageTitle>Paramètres</PageTitle>
+              <PageDescription>
+                Configurez vos préférences et gérez votre compte
+              </PageDescription>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
 
       <SettingsCard>
         <SettingsSection>
-          <SectionTitle>Apparence</SectionTitle>
+          <SectionTitle>Préférences d'affichage</SectionTitle>
 
           <SettingItem>
             <SettingLabel>
-              <SettingTitle>Mode sombre</SettingTitle>
+              <SettingTitle>{t("settings.theme")}</SettingTitle>
               <SettingDescription>
-                Basculer entre le mode clair et le mode sombre.
+                {isDarkMode ? t("settings.lightMode") : t("settings.darkMode")}
               </SettingDescription>
             </SettingLabel>
             <ToggleSwitch>
@@ -195,17 +273,26 @@ const Settings = () => {
               <span></span>
             </ToggleSwitch>
           </SettingItem>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SectionTitle>Notifications</SectionTitle>
 
           <SettingItem>
             <SettingLabel>
-              <SettingTitle>Notifications par email</SettingTitle>
+              <SettingTitle>{t("settings.language")}</SettingTitle>
+              <SettingDescription>{t("language.select")}</SettingDescription>
+            </SettingLabel>
+            <LanguageWrapper>
+              <LanguageSelector />
+            </LanguageWrapper>
+          </SettingItem>
+        </SettingsSection>
+
+        <SettingsSection>
+          <SectionTitle>{t("settings.notifications")}</SectionTitle>
+
+          <SettingItem>
+            <SettingLabel>
+              <SettingTitle>{t("notifications.email")}</SettingTitle>
               <SettingDescription>
-                Recevoir des notifications par email pour les événements
-                importants.
+                {t("notifications.emailDescription")}
               </SettingDescription>
             </SettingLabel>
             <ToggleSwitch>
@@ -216,9 +303,9 @@ const Settings = () => {
 
           <SettingItem>
             <SettingLabel>
-              <SettingTitle>Notifications push</SettingTitle>
+              <SettingTitle>{t("notifications.push")}</SettingTitle>
               <SettingDescription>
-                Recevoir des notifications push dans le navigateur.
+                {t("notifications.pushDescription")}
               </SettingDescription>
             </SettingLabel>
             <ToggleSwitch>
@@ -229,41 +316,41 @@ const Settings = () => {
         </SettingsSection>
 
         <SettingsSection>
-          <SectionTitle>Sécurité</SectionTitle>
+          <SectionTitle>{t("settings.security")}</SectionTitle>
 
           <SettingItem>
             <SettingLabel>
-              <SettingTitle>Authentification à deux facteurs</SettingTitle>
+              <SettingTitle>{t("security.twoFactor")}</SettingTitle>
               <SettingDescription>
-                Ajouter une couche de sécurité supplémentaire à votre compte.
+                {t("security.twoFactorDescription")}
               </SettingDescription>
             </SettingLabel>
-            <Button variant="primary">Activer</Button>
+            <Button variant="primary">{t("security.enable")}</Button>
           </SettingItem>
 
           <SettingItem>
             <SettingLabel>
-              <SettingTitle>Changer le mot de passe</SettingTitle>
+              <SettingTitle>{t("settings.changePassword")}</SettingTitle>
               <SettingDescription>
-                Mettre à jour votre mot de passe actuel.
+                {t("security.passwordDescription")}
               </SettingDescription>
             </SettingLabel>
-            <Button variant="outline">Modifier</Button>
+            <Button variant="outline">{t("common.edit")}</Button>
           </SettingItem>
         </SettingsSection>
 
         <SettingsSection>
-          <SectionTitle>Compte</SectionTitle>
+          <SectionTitle>{t("settings.account")}</SectionTitle>
 
           <SettingItem>
             <SettingLabel>
-              <SettingTitle>Supprimer le compte</SettingTitle>
+              <SettingTitle>{t("settings.deleteAccount")}</SettingTitle>
               <SettingDescription>
-                Supprimer définitivement votre compte et toutes vos données.
+                {t("settings.confirmDeleteAccount")}
               </SettingDescription>
             </SettingLabel>
             <Button variant="danger" onClick={openDeleteModal}>
-              Supprimer
+              {t("common.delete")}
             </Button>
           </SettingItem>
         </SettingsSection>

@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { FaFilePdf, FaFilter } from "react-icons/fa";
 import styled from "styled-components";
@@ -119,9 +119,47 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
     endDate: "",
     status: "",
   });
+  const [cachedEmployees, setCachedEmployees] = useState([]);
 
-  const { employees } = useEmployees();
+  const { employees, loading: loadingEmployees } = useEmployees();
   const { departments } = useDepartments();
+
+  useEffect(() => {
+    if (employees && employees.length > 0) {
+      setCachedEmployees(employees);
+
+      try {
+        localStorage.setItem("cachedEmployeesList", JSON.stringify(employees));
+        localStorage.setItem("cachedEmployeesTimestamp", Date.now().toString());
+      } catch (error) {
+        console.error("Erreur lors de la mise en cache des employés:", error);
+      }
+    } else {
+      const cachedData = localStorage.getItem("cachedEmployeesList");
+      const cachedTimestamp = localStorage.getItem("cachedEmployeesTimestamp");
+
+      if (cachedData && cachedTimestamp) {
+        try {
+          const now = Date.now();
+          const timestamp = parseInt(cachedTimestamp);
+          const oneHour = 60 * 60 * 1000;
+
+          if (now - timestamp < oneHour) {
+            const parsedData = JSON.parse(cachedData);
+            if (Array.isArray(parsedData) && parsedData.length > 0) {
+              console.log("Utilisation des données en cache pour les employés");
+              setCachedEmployees(parsedData);
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la lecture du cache des employés:",
+            error
+          );
+        }
+      }
+    }
+  }, [employees]);
 
   // Formater la date pour l'affichage
   const formatDate = (dateString) => {
@@ -443,7 +481,7 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
                   onChange={handleFilterChange}
                 >
                   <option value="">Tous les employés</option>
-                  {employees.map((employee) => (
+                  {cachedEmployees.map((employee) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.first_name} {employee.last_name}
                     </option>

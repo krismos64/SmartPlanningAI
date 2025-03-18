@@ -226,40 +226,6 @@ const BackToTopButton = styled.button`
   }
 `;
 
-const Footer = styled.footer`
-  padding: ${({ theme }) => theme.spacing.lg};
-  background-color: ${({ theme }) => theme.colors.surface};
-  text-align: center;
-  border-top: 1px solid ${({ theme }) => theme.colors.border};
-`;
-
-const FooterLinks = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: ${({ theme }) => theme.spacing.md};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-
-  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
-    flex-direction: column;
-    gap: ${({ theme }) => theme.spacing.sm};
-  }
-`;
-
-const FooterLink = styled(Link)`
-  color: ${({ theme }) => theme.colors.text.secondary};
-  text-decoration: none;
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors.primary};
-  }
-`;
-
-const Copyright = styled.p`
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-`;
-
 const TermsOfService = () => {
   const { toggleTheme } = useTheme();
   const isDarkMode = useTheme().theme === "dark";
@@ -516,17 +482,6 @@ const TermsOfService = () => {
       >
         ↑
       </BackToTopButton>
-
-      <Footer>
-        <FooterLinks>
-          <FooterLink to="/terms">Conditions d'utilisation</FooterLink>
-          <FooterLink to="/privacy">Politique de confidentialité</FooterLink>
-          <FooterLink to="/">Accueil</FooterLink>
-        </FooterLinks>
-        <Copyright>
-          © {new Date().getFullYear()} SmartPlanning AI. Tous droits réservés.
-        </Copyright>
-      </Footer>
     </PageContainer>
   );
 };

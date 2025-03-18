@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 
@@ -37,22 +38,23 @@ const Copyright = styled.p`
 `;
 
 const Footer = () => {
+  const { t } = useTranslation();
+  const currentYear = new Date().getFullYear();
+
   return (
     <FooterContainer>
       <FooterLinks>
         <FooterLink as={Link} to="/terms">
-          Conditions d'utilisation
+          {t("footer.terms")}
         </FooterLink>
         <FooterLink as={Link} to="/privacy">
-          Politique de confidentialité
+          {t("footer.privacy")}
         </FooterLink>
         <FooterLink as={Link} to="/contact">
-          Contact
+          {t("footer.contact")}
         </FooterLink>
       </FooterLinks>
-      <Copyright>
-        © {new Date().getFullYear()} SmartPlanning AI. Tous droits réservés.
-      </Copyright>
+      <Copyright>{t("footer.copyright", { year: currentYear })}</Copyright>
     </FooterContainer>
   );
 };

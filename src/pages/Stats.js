@@ -1,3 +1,5 @@
+import { BarChart } from "@mui/icons-material";
+import { alpha, Box } from "@mui/material";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
@@ -11,8 +13,42 @@ import {
   FiXCircle,
 } from "react-icons/fi";
 import styled from "styled-components";
+import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import useEmployees from "../hooks/useEmployees";
 import useVacations from "../hooks/useVacations";
+
+// Icône stylisée pour les statistiques
+const StyledIcon = styled(Box)(({ theme }) => {
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = themeMode === "dark";
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: isDarkMode
+      ? `linear-gradient(135deg, ${alpha("#10B981", 0.2)}, ${alpha(
+          "#059669",
+          0.4
+        )})`
+      : `linear-gradient(135deg, ${alpha("#10B981", 0.1)}, ${alpha(
+          "#059669",
+          0.3
+        )})`,
+    boxShadow: isDarkMode
+      ? `0 4px 20px ${alpha("#000", 0.25)}`
+      : `0 4px 15px ${alpha("#000", 0.08)}`,
+    color: isDarkMode ? "#6EE7B7" : "#059669",
+    flexShrink: 0,
+    transition: "all 0.3s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: 40,
+    },
+  };
+});
 
 // Composants stylisés
 const StatsContainer = styled.div`
@@ -375,16 +411,6 @@ const staggerContainer = {
 
 // Composant Stats
 const Stats = () => {
-  const {
-    employees,
-    loading: employeesLoading,
-    fetchEmployees,
-  } = useEmployees();
-  const {
-    vacations,
-    loading: vacationsLoading,
-    fetchVacations,
-  } = useVacations();
   const [stats, setStats] = useState({
     employees: {
       total: 0,
@@ -398,18 +424,38 @@ const Stats = () => {
       approved: 0,
       rejected: 0,
       byType: {
-        paid: 0,
-        unpaid: 0,
+        vacation: 0,
         sick: 0,
+        personal: 0,
         other: 0,
       },
-      byMonth: {},
     },
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Utiliser les hooks personnalisés pour les données
+  const {
+    employees,
+    loading: employeesLoading,
+    refresh: refreshEmployees,
+  } = useEmployees();
+
+  const {
+    vacations,
+    loading: vacationsLoading,
+    refreshVacations,
+  } = useVacations();
 
   const handleRefresh = () => {
-    fetchEmployees();
-    fetchVacations();
+    setIsRefreshing(true);
+    Promise.all([refreshEmployees(), refreshVacations()])
+      .then(() => {
+        // Attendre un moment pour l'effet de rafraîchissement
+        setTimeout(() => setIsRefreshing(false), 1000);
+      })
+      .catch(() => {
+        setIsRefreshing(false);
+      });
   };
 
   // Calculer les statistiques
@@ -508,12 +554,11 @@ const Stats = () => {
           approved: approvedVacations,
           rejected: rejectedVacations,
           byType: {
-            paid: paidVacations,
-            unpaid: unpaidVacations,
+            vacation: paidVacations,
             sick: sickVacations,
+            personal: unpaidVacations,
             other: otherVacations,
           },
-          byMonth: vacationsByMonth,
         },
       });
     }
@@ -543,23 +588,53 @@ const Stats = () => {
 
   return (
     <StatsContainer>
-      <PageHeader>
-        <HeaderLeft>
-          <PageTitle>Statistiques</PageTitle>
-          <PageDescription>
-            Consultez les statistiques et les analyses de votre organisation
-          </PageDescription>
-        </HeaderLeft>
-        <RefreshButton
-          onClick={handleRefresh}
-          disabled={employeesLoading || vacationsLoading}
+      <Box
+        component="div"
+        sx={{
+          mb: 4,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Box
+          component="div"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 1,
+          }}
         >
-          <FiRefreshCw size={16} />
-          Actualiser
-        </RefreshButton>
-      </PageHeader>
+          <Box
+            component="div"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <StyledIcon>
+              <BarChart />
+            </StyledIcon>
 
-      {employeesLoading || vacationsLoading ? (
+            <Box component="div" sx={{ ml: 2 }}>
+              <PageTitle>Statistiques</PageTitle>
+              <PageDescription>
+                Consultez les statistiques et les analyses de votre organisation
+              </PageDescription>
+            </Box>
+          </Box>
+
+          <RefreshButton
+            onClick={handleRefresh}
+            disabled={employeesLoading || vacationsLoading || isRefreshing}
+          >
+            <FiRefreshCw size={16} />
+            Actualiser
+          </RefreshButton>
+        </Box>
+      </Box>
+
+      {employeesLoading || vacationsLoading || isRefreshing ? (
         <LoadingIndicator>
           <FiRefreshCw size={24} />
           <div>Chargement des statistiques...</div>
@@ -693,39 +768,39 @@ const Stats = () => {
                     Congés payés
                   </VacationTypeLabel>
                   <VacationTypeBar
-                    percentage={getVacationTypePercentage("paid")}
+                    percentage={getVacationTypePercentage("vacation")}
                     color="#4F46E5"
                   />
                   <VacationTypeValue>
-                    {stats.vacations.byType.paid}
+                    {stats.vacations.byType.vacation}
                   </VacationTypeValue>
                 </VacationTypeItem>
 
                 <VacationTypeItem>
                   <VacationTypeLabel>
                     <StatusIndicator color="#F59E0B" />
-                    Congés non payés
+                    Congés maladie
                   </VacationTypeLabel>
                   <VacationTypeBar
-                    percentage={getVacationTypePercentage("unpaid")}
+                    percentage={getVacationTypePercentage("sick")}
                     color="#F59E0B"
                   />
                   <VacationTypeValue>
-                    {stats.vacations.byType.unpaid}
+                    {stats.vacations.byType.sick}
                   </VacationTypeValue>
                 </VacationTypeItem>
 
                 <VacationTypeItem>
                   <VacationTypeLabel>
                     <StatusIndicator color="#10B981" />
-                    Congés maladie
+                    Congés non payés
                   </VacationTypeLabel>
                   <VacationTypeBar
-                    percentage={getVacationTypePercentage("sick")}
+                    percentage={getVacationTypePercentage("personal")}
                     color="#10B981"
                   />
                   <VacationTypeValue>
-                    {stats.vacations.byType.sick}
+                    {stats.vacations.byType.personal}
                   </VacationTypeValue>
                 </VacationTypeItem>
 

@@ -1,5 +1,6 @@
 import Lottie from "lottie-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled, {
   keyframes,
@@ -9,6 +10,7 @@ import planningAnimation from "../assets/animations/planning-animation.json";
 import robotAnimation from "../assets/animations/robot.json";
 import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
+import LanguageSelector from "../components/ui/LanguageSelector";
 import { ThemeSwitch } from "../components/ui/ThemeSwitch";
 
 // Animations
@@ -457,6 +459,7 @@ const Contact = () => {
   const { toggleTheme } = useTheme();
   const isDarkMode = useTheme().theme === "dark";
   const styledTheme = useStyledTheme();
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -486,8 +489,7 @@ const Contact = () => {
       setIsSubmitting(false);
       setFormStatus({
         status: "success",
-        message:
-          "Votre message a été envoyé avec succès ! Notre équipe vous contactera sous peu.",
+        message: t("contact.form.success"),
       });
       setFormData({
         name: "",
@@ -516,26 +518,24 @@ const Contact = () => {
           SmartPlanning AI
         </Logo>
         <Nav>
-          <NavItem to="/">Accueil</NavItem>
-          <NavItem to="/login">Connexion</NavItem>
+          <NavItem to="/">{t("common.goHome")}</NavItem>
+          <NavItem to="/login">{t("auth.login")}</NavItem>
+          <LanguageSelector />
           <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
         </Nav>
       </Header>
 
       <ContactSection>
         <ContactInfo>
-          <ContactTitle>Contactez-nous</ContactTitle>
-          <ContactSubtitle>
-            Vous avez des questions sur SmartPlanning AI ou vous avez besoin
-            d'aide ? Notre équipe support est là pour vous aider.
-          </ContactSubtitle>
+          <ContactTitle>{t("contact.title")}</ContactTitle>
+          <ContactSubtitle>{t("contact.subtitle")}</ContactSubtitle>
 
           <ContactDetailsContainer>
             <ContactDetailCard delay="0.1s">
               <DetailIcon>📧</DetailIcon>
               <DetailContent>
-                <DetailTitle>Email</DetailTitle>
-                <DetailText>support@smartplanning.ai</DetailText>
+                <DetailTitle>{t("contact.email")}</DetailTitle>
+                <DetailText>{t("contact.emailAddress")}</DetailText>
               </DetailContent>
             </ContactDetailCard>
 
@@ -551,7 +551,7 @@ const Contact = () => {
           </AnimationContainer>
 
           <FormCard>
-            <FormTitle>Envoyez-nous un message</FormTitle>
+            <FormTitle>{t("contact.form.title")}</FormTitle>
 
             {formStatus.status === "success" && (
               <SuccessMessage>{formStatus.message}</SuccessMessage>
@@ -563,64 +563,67 @@ const Contact = () => {
 
             <Form onSubmit={handleSubmit}>
               <FormGroup>
-                <FormLabel htmlFor="name">Nom complet</FormLabel>
+                <FormLabel htmlFor="name">{t("contact.form.name")}</FormLabel>
                 <FormInput
                   type="text"
                   id="name"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="Entrez votre nom"
+                  placeholder={t("contact.form.name")}
                   required
                 />
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="email">Email</FormLabel>
+                <FormLabel htmlFor="email">{t("contact.form.email")}</FormLabel>
                 <FormInput
                   type="email"
                   id="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Entrez votre email"
+                  placeholder={t("contact.form.email")}
                   required
                 />
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="subject">Sujet</FormLabel>
+                <FormLabel htmlFor="subject">
+                  {t("contact.form.subject")}
+                </FormLabel>
                 <FormInput
                   type="text"
                   id="subject"
                   name="subject"
                   value={formData.subject}
                   onChange={handleChange}
-                  placeholder="Objet de votre message"
+                  placeholder={t("contact.form.subject")}
                   required
                 />
               </FormGroup>
 
               <FormGroup>
-                <FormLabel htmlFor="message">Message</FormLabel>
+                <FormLabel htmlFor="message">
+                  {t("contact.form.message")}
+                </FormLabel>
                 <FormTextarea
                   id="message"
                   name="message"
                   value={formData.message}
                   onChange={handleChange}
-                  placeholder="Comment pouvons-nous vous aider ?"
+                  placeholder={t("contact.form.message")}
                   required
                 />
               </FormGroup>
 
               <FormButton type="submit" size="large" disabled={isSubmitting}>
-                {isSubmitting ? "Envoi en cours..." : "Envoyer le message"}
+                {isSubmitting
+                  ? t("contact.form.sending")
+                  : t("contact.form.send")}
               </FormButton>
 
-              <FormHint>
-                Nous vous répondrons dans les plus brefs délais, généralement
-                sous 24 heures ouvrées.
-              </FormHint>
+              <FormHint>{t("contact.form.hint")}</FormHint>
             </Form>
           </FormCard>
         </ContactFormContainer>

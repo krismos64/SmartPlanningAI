@@ -1,11 +1,12 @@
 import Lottie from "lottie-react";
-import React, { useState } from "react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
-import robotAnimation from "../../assets/animations/robot.json";
 import { useTheme } from "../../components/ThemeProvider";
 import { useAuth } from "../../contexts/AuthContext";
+import LanguageSelector from "../LanguageSelector";
 import NotificationCenter from "../ui/NotificationCenter";
 import { useRealTimeNotifications } from "../ui/RealTimeNotification";
 
@@ -44,6 +45,9 @@ const LogoAnimation = styled.div`
   width: 50px;
   height: 50px;
   margin-right: ${({ theme }) => theme.spacing.sm};
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const NavLinks = styled.div`
@@ -654,50 +658,93 @@ const MobileUserProfile = styled.div`
   }
 `;
 
+const LanguageSelectorWrapper = styled.div`
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    display: none;
+  }
+`;
+
 // Composant Navbar
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, isDarkMode } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsPanelOpen, setNotificationsPanelOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { notifications, markAsRead, markAllAsRead } =
     useRealTimeNotifications();
-  const { first_name, last_name } = user || {};
+  const { t } = useTranslation();
+
+  // Débogage - Vérifier qu'on est sur une page protégée
+  const isPublicPage = ["/", "/terms", "/privacy", "/contact"].includes(
+    location.pathname
+  );
+
+  const isAuthPage = [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+    "/account/delete-confirmation",
+    "/unauthorized",
+  ].some((path) => location.pathname.startsWith(path));
+
+  // Si on est sur une page publique ou d'auth, ne pas afficher la navbar
+  if (isPublicPage || isAuthPage) {
+    return null;
+  }
+
+  console.log("Navbar rendering", {
+    pathname: location.pathname,
+    user: user ? "authenticated" : "not authenticated",
+  });
+
+  // Pour débug: afficher des valeurs par défaut si l'utilisateur n'est pas défini
+  const userInfo = user || {
+    first_name: "John",
+    last_name: "Doe",
+    avatar: null,
+    jobTitle: "Développeur",
+    role: "user",
+    company: "SmartPlanning",
+  };
 
   const isActive = (path) => {
-    return location.pathname === path;
+    return location.pathname.startsWith(path);
   };
 
   const getUserFullName = () => {
-    if (!user) return "";
     return (
-      `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Utilisateur"
+      `${userInfo.first_name || ""} ${userInfo.last_name || ""}`.trim() ||
+      "Utilisateur"
     );
   };
 
   const getUserInitials = () => {
-    if (!user) return "";
-    return (
-      `${(user.first_name || "")[0] || ""}${
-        (user.last_name || "")[0] || ""
+    return user && user.profileImage ? (
+      <img
+        src={`data:image/jpeg;base64,${user.profileImage}`}
+        alt={getUserFullName()}
+        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      />
+    ) : (
+      `${(userInfo.first_name || "")[0] || ""}${
+        (userInfo.last_name || "")[0] || ""
       }`.trim() || "U"
     );
   };
 
   const getUserRole = () => {
-    if (!user) return "Utilisateur";
     return (
-      user.jobTitle ||
-      (user.role === "admin" ? "Administrateur" : "Utilisateur")
+      userInfo.jobTitle ||
+      (userInfo.role === "admin" ? "Administrateur" : "Utilisateur")
     );
   };
 
   const getUserCompany = () => {
-    if (!user) return "";
-    return user.company || "";
+    return userInfo.company || "";
   };
 
   const handleNotificationClick = (id) => {
@@ -727,241 +774,7 @@ const Navbar = () => {
     }
   };
 
-  // Définition des icônes
-  const DashboardIcon = () => (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M3 3H10V10H3V3Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M14 3H21V10H14V3Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M3 14H10V21H3V14Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M14 14H21V21H14V14Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  const EmployeesIcon = () => (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M9 11C11.2091 11 13 9.20914 13 7C13 4.79086 11.2091 3 9 3C6.79086 3 5 4.79086 5 7C5 9.20914 6.79086 11 9 11Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89318 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  const PlanningIcon = () => (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M16 2V6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 2V6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M3 10H21"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  const VacationsIcon = () => (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M2 12H22"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M5 5H19C20.1046 5 21 5.89543 21 7V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V7C3 5.89543 3.89543 5 5 5Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M16 2V8"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 2V8"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  const ReportsIcon = () => (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M18 20V10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 20V4"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6 20V14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  const StatsIcon = () => (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M16 8V16"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 4V20"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 12V16"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 12V16"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4 8V16"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
+  // Icônes pour le menu utilisateur
   const UserIcon = () => (
     <svg
       width="24"
@@ -988,28 +801,21 @@ const Navbar = () => {
   );
 
   // Définir les liens de navigation
-  const navLinks = [
-    { to: "/dashboard", icon: <DashboardIcon />, label: "Tableau de bord" },
-    { to: "/employees", icon: <EmployeesIcon />, label: "Employés" },
-    { to: "/weekly-schedule", icon: <PlanningIcon />, label: "Planning Hebdo" },
-    { to: "/vacations", icon: <VacationsIcon />, label: "Congés" },
-    { to: "/stats", icon: <StatsIcon />, label: "Statistiques" },
-    { to: "/settings", icon: <SettingsIcon />, label: "Paramètres" },
-  ];
+  const navLinks = [];
 
   // Supprimer les vérifications de rôles dans le menu utilisateur
   const userMenuItems = [
     {
-      label: "Mon profil",
+      label: t("navbar.profile"),
       icon: <UserIcon />,
       action: () => navigate("/profile"),
     },
     {
-      label: "Paramètres",
+      label: t("navbar.settings"),
       icon: <SettingsIcon />,
       action: () => navigate("/settings"),
     },
-    { label: "Déconnexion", icon: <LogoutIcon />, action: handleLogout },
+    { label: t("auth.logOut"), icon: <LogoutIcon />, action: handleLogout },
   ];
 
   // Fonction pour fermer le menu mobile
@@ -1026,28 +832,29 @@ const Navbar = () => {
         SmartPlanning AI
       </Logo>
 
-      <NavLinks>
-        {navLinks.map((link) => (
-          <NavLink key={link.to} to={link.to} active={isActive(link.to)}>
-            {link.label}
-          </NavLink>
-        ))}
-      </NavLinks>
-
       <NavActions>
-        <NotificationCenter />
+        <LanguageSelectorWrapper>
+          <LanguageSelector isNavbar={true} />
+        </LanguageSelectorWrapper>
 
         <ThemeToggle onClick={toggleTheme}>
-          {theme.mode === "light" ? <MoonIcon /> : <SunIcon />}
+          {isDarkMode ? <SunIcon /> : <MoonIcon />}
         </ThemeToggle>
+
+        <NotificationCenter />
 
         <UserProfile onClick={toggleUserMenu}>
           <div className="avatar">
-            {user?.profileImage ? (
+            {user && user.profileImage ? (
               <img
                 src={`data:image/jpeg;base64,${user.profileImage}`}
                 alt={getUserFullName()}
               />
+            ) : userInfo &&
+              userInfo.avatar &&
+              userInfo.avatar !== "null" &&
+              userInfo.avatar !== "" ? (
+              <img src={userInfo.avatar} alt={getUserFullName()} />
             ) : (
               getUserInitials()
             )}
@@ -1055,9 +862,7 @@ const Navbar = () => {
           <div className="user-info">
             <div className="name">{getUserFullName()}</div>
             <div className="role">{getUserRole()}</div>
-            {getUserCompany() && (
-              <div className="company">{getUserCompany()}</div>
-            )}
+            <div className="company">{getUserCompany()}</div>
           </div>
 
           <UserMenu isOpen={userMenuOpen}>
@@ -1087,11 +892,16 @@ const Navbar = () => {
           <>
             <MobileUserProfile>
               <div className="avatar">
-                {user?.profileImage ? (
+                {user && user.profileImage ? (
                   <img
                     src={`data:image/jpeg;base64,${user.profileImage}`}
                     alt={getUserFullName()}
                   />
+                ) : userInfo &&
+                  userInfo.avatar &&
+                  userInfo.avatar !== "null" &&
+                  userInfo.avatar !== "" ? (
+                  <img src={userInfo.avatar} alt={getUserFullName()} />
                 ) : (
                   getUserInitials()
                 )}
@@ -1099,37 +909,85 @@ const Navbar = () => {
               <div className="user-info">
                 <div className="name">{getUserFullName()}</div>
                 <div className="role">{getUserRole()}</div>
-                {getUserCompany() && (
-                  <div className="company">{getUserCompany()}</div>
-                )}
+                <div className="company">{getUserCompany()}</div>
               </div>
             </MobileUserProfile>
             <MobileMenuDivider />
           </>
         )}
-        {navLinks.map((link, index) => (
-          <React.Fragment key={`nav-${link.to}`}>
-            <MobileNavLink
-              to={link.to}
-              active={isActive(link.to)}
-              onClick={closeMobileMenu}
-            >
-              {link.label}
-            </MobileNavLink>
-            {index < navLinks.length - 1 && <MobileMenuDivider />}
-          </React.Fragment>
-        ))}
+        <MobileNavLink
+          to="/dashboard"
+          active={isActive("/dashboard")}
+          onClick={closeMobileMenu}
+        >
+          {t("navbar.dashboard")}
+        </MobileNavLink>
+        <MobileMenuDivider />
+        <MobileNavLink
+          to="/employees"
+          active={isActive("/employees")}
+          onClick={closeMobileMenu}
+        >
+          {t("navbar.employees")}
+        </MobileNavLink>
+        <MobileMenuDivider />
+        <MobileNavLink
+          to="/weekly-schedule"
+          active={isActive("/weekly-schedule")}
+          onClick={closeMobileMenu}
+        >
+          {t("navbar.schedule")}
+        </MobileNavLink>
+        <MobileMenuDivider />
+        <MobileNavLink
+          to="/vacations"
+          active={isActive("/vacations")}
+          onClick={closeMobileMenu}
+        >
+          {t("navbar.vacations")}
+        </MobileNavLink>
+        <MobileMenuDivider />
+        <MobileNavLink
+          to="/activities"
+          active={isActive("/activities")}
+          onClick={closeMobileMenu}
+        >
+          {t("navbar.activities")}
+        </MobileNavLink>
+        <MobileMenuDivider />
+        <MobileNavLink
+          to="/stats"
+          active={isActive("/stats")}
+          onClick={closeMobileMenu}
+        >
+          {t("navbar.stats")}
+        </MobileNavLink>
         <MobileMenuDivider />
         <MobileNavLink
           to="/profile"
           active={isActive("/profile")}
           onClick={closeMobileMenu}
         >
-          Mon profil
+          {t("navbar.profile")}
         </MobileNavLink>
-        <RobotAnimation>
-          <Lottie animationData={robotAnimation} loop={true} />
-        </RobotAnimation>
+        <MobileMenuDivider />
+        <MobileNavLink
+          to="/settings"
+          active={isActive("/settings")}
+          onClick={closeMobileMenu}
+        >
+          {t("navbar.settings")}
+        </MobileNavLink>
+        <MobileMenuDivider />
+        <div
+          style={{
+            padding: "0 1rem",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <LanguageSelector />
+        </div>
       </MobileMenu>
     </NavbarContainer>
   );

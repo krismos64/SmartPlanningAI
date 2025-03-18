@@ -487,7 +487,7 @@ const HelpBubble = styled.div`
   z-index: 1001;
   animation: ${fadeIn} 0.5s ease-out, ${float} 3s infinite ease-in-out,
     ${glow} 2s infinite;
-  display: ${({ show }) => (show ? "block" : "none")};
+  display: ${({ $show }) => ($show ? "block" : "none")};
   text-align: center;
 
   &:after {
@@ -2999,7 +2999,7 @@ ${
           )}
 
           {showHelpBubble && !isOpen && (
-            <HelpBubble show={showHelpBubble}>
+            <HelpBubble $show={showHelpBubble}>
               Bonjour {getUserFirstName()} !
             </HelpBubble>
           )}

@@ -1,4 +1,5 @@
 import { Box, Divider, Typography } from "@mui/material";
+import { memo } from "react";
 import { useTheme } from "../ThemeProvider";
 
 /**
@@ -9,7 +10,7 @@ import { useTheme } from "../ThemeProvider";
  * @param {string} props.icon - L'icône à afficher (emoji ou composant)
  * @param {Object} props.action - Un élément d'action à afficher (bouton, etc.)
  */
-const PageHeader = ({ title, subtitle, icon, action }) => {
+const PageHeader = memo(({ title, subtitle, icon, action }) => {
   const { theme: themeMode } = useTheme();
   const isDarkMode = themeMode === "dark";
 
@@ -27,10 +28,10 @@ const PageHeader = ({ title, subtitle, icon, action }) => {
           {icon && (
             <Box
               sx={{
-                fontSize: { xs: "2rem", md: "2.5rem" },
                 mr: 2,
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
               }}
             >
               {icon}
@@ -53,11 +54,8 @@ const PageHeader = ({ title, subtitle, icon, action }) => {
             {subtitle && (
               <Typography
                 variant="subtitle1"
-                color={isDarkMode ? "#F9FAFB" : "text.secondary"}
-                sx={{
-                  mt: 0.5,
-                  ml: icon ? 7 : 0,
-                }}
+                color={isDarkMode ? "#D1D5DB" : "text.secondary"}
+                sx={{ mt: 0.5 }}
               >
                 {subtitle}
               </Typography>
@@ -71,6 +69,8 @@ const PageHeader = ({ title, subtitle, icon, action }) => {
       <Divider sx={{ mt: 2, mb: 3 }} />
     </Box>
   );
-};
+});
+
+PageHeader.displayName = "PageHeader";
 
 export default PageHeader;

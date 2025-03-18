@@ -1,8 +1,10 @@
 import Lottie from "lottie-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import planningAnimation from "../assets/animations/planning-animation.json";
+import LanguageSelector from "../components/LanguageSelector";
 import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
 import { ThemeSwitch } from "../components/ui/ThemeSwitch";
@@ -575,10 +577,15 @@ const CircleDecoration = styled.div`
   }
 `;
 
+const LanguageSelectorWrapper = styled.div`
+  margin-right: 1rem;
+`;
+
 const LandingPage = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [visibleBenefits, setVisibleBenefits] = useState([]);
   const benefitsRef = useRef(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -618,12 +625,15 @@ const LandingPage = () => {
           SmartPlanning AI
         </Logo>
         <Nav>
+          <LanguageSelectorWrapper>
+            <LanguageSelector isNavbar={true} />
+          </LanguageSelectorWrapper>
           <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
           <Link to="/login">
-            <Button variant="ghost">Se connecter</Button>
+            <Button variant="ghost">{t("auth.login")}</Button>
           </Link>
           <Link to="/register">
-            <Button>S'inscrire</Button>
+            <Button>{t("auth.register")}</Button>
           </Link>
         </Nav>
       </Header>
@@ -633,21 +643,15 @@ const LandingPage = () => {
         <BackgroundDecoration className="bottom-left" />
 
         <HeroContent>
-          <HeroTitle>
-            Oubliez Excel pour un vrai outil de planification
-          </HeroTitle>
-          <HeroSubtitle>
-            Des plannings intelligents qui s'adaptent à votre activité pour
-            optimiser votre masse salariale. Gérez-les où que vous soyez, avec
-            une interface intuitive et des fonctionnalités avancées.
-          </HeroSubtitle>
+          <HeroTitle>{t("landingPage.hero.title")}</HeroTitle>
+          <HeroSubtitle>{t("landingPage.hero.subtitle")}</HeroSubtitle>
           <CTAButtons>
             <Link to="/register">
-              <Button size="large">Commencer gratuitement</Button>
+              <Button size="large">{t("landingPage.hero.cta.start")}</Button>
             </Link>
             <Link to="/login">
               <Button variant="outlined" size="large">
-                Voir une démo
+                {t("landingPage.hero.cta.demo")}
               </Button>
             </Link>
           </CTAButtons>
@@ -658,64 +662,66 @@ const LandingPage = () => {
       </HeroSection>
 
       <FeaturesSection>
-        <SectionTitle>Une gestion de planning simplifiée</SectionTitle>
-        <SectionSubtitle>
-          Notre solution vous offre tous les outils nécessaires pour une
-          planification efficace et sans stress
-        </SectionSubtitle>
+        <SectionTitle>{t("landingPage.features.title")}</SectionTitle>
+        <SectionSubtitle>{t("landingPage.features.subtitle")}</SectionSubtitle>
         <FeaturesGrid>
           <FeatureCard>
             <FeatureIcon>🧠</FeatureIcon>
-            <FeatureTitle>Planification intelligente</FeatureTitle>
+            <FeatureTitle>
+              {t("landingPage.features.items.ai.title")}
+            </FeatureTitle>
             <FeatureDescription>
-              Notre IA analyse vos besoins et crée automatiquement des plannings
-              optimisés en fonction de votre activité et de vos ressources.
+              {t("landingPage.features.items.ai.description")}
             </FeatureDescription>
           </FeatureCard>
 
           <FeatureCard>
             <FeatureIcon>💰</FeatureIcon>
-            <FeatureTitle>Optimisation des coûts</FeatureTitle>
+            <FeatureTitle>
+              {t("landingPage.features.items.cost.title")}
+            </FeatureTitle>
             <FeatureDescription>
-              Réduisez votre masse salariale grâce à une meilleure allocation
-              des ressources et une planification précise adaptée à votre charge
-              de travail.
+              {t("landingPage.features.items.cost.description")}
             </FeatureDescription>
           </FeatureCard>
 
           <FeatureCard>
             <FeatureIcon>📱</FeatureIcon>
-            <FeatureTitle>Accessibilité totale</FeatureTitle>
+            <FeatureTitle>
+              {t("landingPage.features.items.mobile.title")}
+            </FeatureTitle>
             <FeatureDescription>
-              Gérez vos plannings où que vous soyez, sur tous vos appareils. Une
-              interface responsive pour rester connecté en permanence.
+              {t("landingPage.features.items.mobile.description")}
             </FeatureDescription>
           </FeatureCard>
 
           <FeatureCard>
             <FeatureIcon>📄</FeatureIcon>
-            <FeatureTitle>PDF automatiques</FeatureTitle>
+            <FeatureTitle>
+              {t("landingPage.features.items.pdf.title")}
+            </FeatureTitle>
             <FeatureDescription>
-              Générez des PDF prêts à l'impression en un clic pour afficher les
-              plannings ou les distribuer à vos équipes.
+              {t("landingPage.features.items.pdf.description")}
             </FeatureDescription>
           </FeatureCard>
 
           <FeatureCard>
             <FeatureIcon>🔒</FeatureIcon>
-            <FeatureTitle>Validation sécurisée</FeatureTitle>
+            <FeatureTitle>
+              {t("landingPage.features.items.security.title")}
+            </FeatureTitle>
             <FeatureDescription>
-              Système de validation et verrouillage des heures par les managers
-              pour garantir l'intégrité des données.
+              {t("landingPage.features.items.security.description")}
             </FeatureDescription>
           </FeatureCard>
 
           <FeatureCard>
             <FeatureIcon>📊</FeatureIcon>
-            <FeatureTitle>Analyses détaillées</FeatureTitle>
+            <FeatureTitle>
+              {t("landingPage.features.items.analytics.title")}
+            </FeatureTitle>
             <FeatureDescription>
-              Visualisez des statistiques précises sur l'utilisation du temps et
-              l'efficacité de vos équipes pour prendre de meilleures décisions.
+              {t("landingPage.features.items.analytics.description")}
             </FeatureDescription>
           </FeatureCard>
         </FeaturesGrid>
@@ -723,29 +729,25 @@ const LandingPage = () => {
 
       <DemoSection>
         <DemoContainer>
-          <SectionTitle>Découvrez SmartPlanning en action</SectionTitle>
-          <SectionSubtitle>
-            Regardez notre vidéo de démonstration pour voir comment notre
-            solution peut transformer votre gestion de planning
-          </SectionSubtitle>
+          <SectionTitle>{t("landingPage.demo.title")}</SectionTitle>
+          <SectionSubtitle>{t("landingPage.demo.subtitle")}</SectionSubtitle>
           <DemoVideoContainer />
         </DemoContainer>
       </DemoSection>
 
       <BenefitsSection>
-        <SectionTitle>Plus d'efficacité pour votre entreprise</SectionTitle>
-        <SectionSubtitle>
-          SmartPlanning AI vous apporte des avantages concrets et mesurables
-        </SectionSubtitle>
+        <SectionTitle>{t("landingPage.benefits.title")}</SectionTitle>
+        <SectionSubtitle>{t("landingPage.benefits.subtitle")}</SectionSubtitle>
 
         <div ref={benefitsRef} style={{ maxWidth: "900px", margin: "0 auto" }}>
           <BenefitItem className={visibleBenefits.includes(0) ? "visible" : ""}>
             <BenefitIcon>⏱️</BenefitIcon>
             <BenefitContent>
-              <BenefitTitle>Gain de temps considérable</BenefitTitle>
+              <BenefitTitle>
+                {t("landingPage.benefits.items.time.title")}
+              </BenefitTitle>
               <BenefitDescription>
-                Réduisez jusqu'à 70% le temps consacré à la création et gestion
-                des plannings grâce à l'automatisation intelligente.
+                {t("landingPage.benefits.items.time.description")}
               </BenefitDescription>
             </BenefitContent>
           </BenefitItem>
@@ -753,10 +755,11 @@ const LandingPage = () => {
           <BenefitItem className={visibleBenefits.includes(1) ? "visible" : ""}>
             <BenefitIcon>💼</BenefitIcon>
             <BenefitContent>
-              <BenefitTitle>Optimisation de la masse salariale</BenefitTitle>
+              <BenefitTitle>
+                {t("landingPage.benefits.items.cost.title")}
+              </BenefitTitle>
               <BenefitDescription>
-                Adaptez précisément vos ressources humaines à votre activité
-                réelle et évitez les sureffectifs ou sous-effectifs coûteux.
+                {t("landingPage.benefits.items.cost.description")}
               </BenefitDescription>
             </BenefitContent>
           </BenefitItem>
@@ -764,10 +767,11 @@ const LandingPage = () => {
           <BenefitItem className={visibleBenefits.includes(2) ? "visible" : ""}>
             <BenefitIcon>🔄</BenefitIcon>
             <BenefitContent>
-              <BenefitTitle>Flexibilité maximale</BenefitTitle>
+              <BenefitTitle>
+                {t("landingPage.benefits.items.flexibility.title")}
+              </BenefitTitle>
               <BenefitDescription>
-                Modifiez vos plannings en temps réel et informez instantanément
-                vos équipes des changements via notre système de notifications.
+                {t("landingPage.benefits.items.flexibility.description")}
               </BenefitDescription>
             </BenefitContent>
           </BenefitItem>
@@ -775,11 +779,11 @@ const LandingPage = () => {
           <BenefitItem className={visibleBenefits.includes(3) ? "visible" : ""}>
             <BenefitIcon>📊</BenefitIcon>
             <BenefitContent>
-              <BenefitTitle>Données exploitables</BenefitTitle>
+              <BenefitTitle>
+                {t("landingPage.benefits.items.data.title")}
+              </BenefitTitle>
               <BenefitDescription>
-                Accédez à des rapports détaillés et des analyses qui vous aident
-                à prendre des décisions stratégiques basées sur des données
-                concrètes.
+                {t("landingPage.benefits.items.data.description")}
               </BenefitDescription>
             </BenefitContent>
           </BenefitItem>
@@ -791,13 +795,10 @@ const LandingPage = () => {
         <CircleDecoration className="medium" />
         <CircleDecoration className="large" />
 
-        <CTATitle>Prêt à révolutionner votre gestion de planning ?</CTATitle>
-        <CTADescription>
-          Rejoignez des milliers d'entreprises qui ont déjà optimisé leur
-          planification grâce à SmartPlanning AI
-        </CTADescription>
+        <CTATitle>{t("landingPage.cta.title")}</CTATitle>
+        <CTADescription>{t("landingPage.cta.subtitle")}</CTADescription>
         <Link to="/register">
-          <CTAButton size="large">Commencer gratuitement</CTAButton>
+          <CTAButton size="large">{t("landingPage.cta.button")}</CTAButton>
         </Link>
       </CTASection>
     </LandingContainer>

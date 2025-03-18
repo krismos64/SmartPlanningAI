@@ -21,10 +21,14 @@ const AuthContext = createContext({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Vérifier si l'utilisateur est déjà authentifié dans localStorage
+  const localStorageToken = localStorage.getItem("token");
+  const localStorageUser = JSON.parse(localStorage.getItem("user") || "null");
+
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorageToken);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(localStorageUser);
+  const [token, setToken] = useState(localStorageToken);
   const [loginError, setLoginError] = useState(null);
   const { notifyDataChange, disconnect } = useWebSocket();
 
@@ -62,61 +66,36 @@ export const AuthProvider = ({ children }) => {
 
   // Vérifier l'authentification au chargement
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Vérifier si le token est présent dans localStorage
-        const token = localStorage.getItem("token");
-        console.log("Token au chargement:", token);
+    const checkInitialAuth = async () => {
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
 
-        // Vérifier si l'utilisateur est déjà dans localStorage
-        const storedUser = localStorage.getItem("user");
-        if (storedUser && token) {
-          const parsedUser = JSON.parse(storedUser);
-          // Définir l'utilisateur comme admin
-          const adminUser = setUserWithAdminRole(parsedUser);
-          setUser(adminUser);
-          console.log("Utilisateur restauré depuis localStorage:", adminUser);
-        } else if (token) {
-          // Si token mais pas d'utilisateur, essayer de récupérer l'utilisateur depuis l'API
+      if (token && savedUser) {
+        try {
+          // Restaurer l'utilisateur à partir de localStorage
+          setToken(token);
+          setUser(JSON.parse(savedUser));
+          setIsAuthenticated(true);
+
+          // Optionnel: Vérifier que le token est toujours valide avec le serveur
           try {
-            // Note: Cette fonctionnalité n'est pas disponible dans la nouvelle API
-            // Nous utilisons simplement les données stockées localement
-            setUser(null);
-            setIsAuthenticated(false);
-            localStorage.removeItem("token");
+            const response = await AuthService.me(token);
+            if (response.data && response.data.user) {
+              const userData = response.data.user;
+              setUserWithAdminRole(userData);
+            }
           } catch (error) {
-            console.error(
-              "Erreur lors de la récupération de l'utilisateur:",
-              error
-            );
-            // Si erreur, supprimer le token et l'utilisateur
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            setUser(null);
-            setIsAuthenticated(false);
+            console.warn("Échec de la validation du token:", error);
+            // On ne déconnecte pas l'utilisateur en cas d'erreur serveur
           }
-        } else {
-          // Ni token ni utilisateur
-          setUser(null);
-          setIsAuthenticated(false);
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
+        } catch (error) {
+          console.error("Erreur lors de la restauration de session:", error);
         }
-      } catch (error) {
-        console.error(
-          "Erreur lors de la vérification de l'authentification:",
-          error
-        );
-        setUser(null);
-        setIsAuthenticated(false);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
-    checkAuth();
+    checkInitialAuth();
   }, []);
 
   // Fonction pour mettre à jour le profil utilisateur

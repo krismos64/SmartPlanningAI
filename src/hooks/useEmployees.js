@@ -10,12 +10,37 @@ const useEmployees = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const api = useApi();
+  // Référence pour suivre si le composant est monté
+  const isMountedRef = useRef(true);
+  // Référence pour éviter les appels multiples simultanés
+  const isFetchingRef = useRef(false);
+
+  // Marquer le composant comme monté/démonté
+  useEffect(() => {
+    // Réinitialiser l'état au montage
+    isMountedRef.current = true;
+    isFetchingRef.current = false;
+
+    return () => {
+      // Marquer comme démonté pour éviter les mises à jour d'état après démontage
+      isMountedRef.current = false;
+      // Réinitialiser les références au démontage
+      isFetchingRef.current = false;
+    };
+  }, []);
 
   /**
    * Récupère tous les employés depuis l'API
    */
   const fetchEmployees = useCallback(async () => {
+    // Éviter les appels API multiples simultanés
+    if (isFetchingRef.current || !isMountedRef.current) {
+      return;
+    }
+
+    isFetchingRef.current = true;
     setLoading(true);
+
     try {
       // Forcer l'URL correcte
       const apiUrl = API_URL || "http://localhost:5004";
@@ -44,15 +69,30 @@ const useEmployees = () => {
       }
 
       const data = await response.json();
-      setEmployees(Array.isArray(data) ? data : []);
-      setError(null);
+
+      // Vérifier si le composant est toujours monté avant de mettre à jour l'état
+      if (isMountedRef.current) {
+        setEmployees(Array.isArray(data) ? data : []);
+        setError(null);
+      }
+
       return data;
     } catch (error) {
       console.error("Erreur lors du chargement des employés:", error);
-      setError(error.message);
+
+      // Vérifier si le composant est toujours monté avant de mettre à jour l'état
+      if (isMountedRef.current) {
+        setError(error.message);
+      }
+
       throw error;
     } finally {
-      setLoading(false);
+      // Vérifier si le composant est toujours monté avant de mettre à jour l'état
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -60,6 +100,8 @@ const useEmployees = () => {
    * Récupère un employé par son ID
    */
   const fetchEmployeeById = useCallback(async (id) => {
+    if (!isMountedRef.current) return null;
+
     setLoading(true);
     try {
       // Forcer l'URL correcte
@@ -95,10 +137,14 @@ const useEmployees = () => {
         `Erreur lors de la récupération de l'employé ${id}:`,
         error
       );
-      setError(error.message);
+      if (isMountedRef.current) {
+        setError(error.message);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -106,6 +152,8 @@ const useEmployees = () => {
    * Crée un nouvel employé
    */
   const createEmployee = useCallback(async (employeeData) => {
+    if (!isMountedRef.current) return { success: false };
+
     setLoading(true);
     try {
       // Supprimer hourlyRate des données pour éviter l'erreur
@@ -156,11 +204,13 @@ const useEmployees = () => {
       const data = await response.json();
 
       // Mettre à jour la liste des employés
-      setEmployees((prevEmployees) => [
-        ...prevEmployees,
-        data.employee || data,
-      ]);
-      setError(null);
+      if (isMountedRef.current) {
+        setEmployees((prevEmployees) => [
+          ...prevEmployees,
+          data.employee || data,
+        ]);
+        setError(null);
+      }
 
       return {
         success: true,
@@ -169,13 +219,17 @@ const useEmployees = () => {
       };
     } catch (error) {
       console.error("Erreur lors de la création de l'employé:", error);
-      setError(error.message);
+      if (isMountedRef.current) {
+        setError(error.message);
+      }
       return {
         success: false,
         error: error.message || "Erreur lors de la création de l'employé",
       };
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -183,6 +237,8 @@ const useEmployees = () => {
    * Met à jour un employé existant
    */
   const updateEmployee = useCallback(async (id, employeeData) => {
+    if (!isMountedRef.current) return { success: false };
+
     setLoading(true);
     try {
       // Supprimer hourlyRate des données pour éviter l'erreur
@@ -233,11 +289,13 @@ const useEmployees = () => {
       const data = await response.json();
 
       // Mettre à jour la liste des employés
-      setEmployees((prevEmployees) =>
-        prevEmployees.map((emp) =>
-          emp.id === id ? { ...emp, ...(data.employee || data) } : emp
-        )
-      );
+      if (isMountedRef.current) {
+        setEmployees((prevEmployees) =>
+          prevEmployees.map((emp) =>
+            emp.id === id ? { ...emp, ...(data.employee || data) } : emp
+          )
+        );
+      }
 
       return {
         success: true,
@@ -246,13 +304,17 @@ const useEmployees = () => {
       };
     } catch (error) {
       console.error("Erreur lors de la mise à jour de l'employé:", error);
-      setError(error.message);
+      if (isMountedRef.current) {
+        setError(error.message);
+      }
       return {
         success: false,
         error: error.message || "Erreur lors de la mise à jour de l'employé",
       };
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -260,6 +322,8 @@ const useEmployees = () => {
    * Supprime un employé
    */
   const deleteEmployee = useCallback(async (id) => {
+    if (!isMountedRef.current) return { success: false };
+
     setLoading(true);
     try {
       // Forcer l'URL correcte
@@ -289,9 +353,11 @@ const useEmployees = () => {
       }
 
       // Mettre à jour la liste des employés
-      setEmployees((prevEmployees) =>
-        prevEmployees.filter((emp) => emp.id !== id)
-      );
+      if (isMountedRef.current) {
+        setEmployees((prevEmployees) =>
+          prevEmployees.filter((emp) => emp.id !== id)
+        );
+      }
 
       return {
         success: true,
@@ -299,13 +365,17 @@ const useEmployees = () => {
       };
     } catch (error) {
       console.error(`Erreur lors de la suppression de l'employé ${id}:`, error);
-      setError(error.message);
+      if (isMountedRef.current) {
+        setError(error.message);
+      }
       return {
         success: false,
         error: error.message || "Erreur lors de la suppression de l'employé",
       };
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -327,6 +397,8 @@ const useEmployees = () => {
    */
   const fetchEmployeeHourBalance = useCallback(
     async (id) => {
+      if (!isMountedRef.current) return 0;
+
       try {
         // Ajouter un délai aléatoire pour éviter les requêtes simultanées
         const randomDelay = Math.floor(Math.random() * 200);
@@ -346,11 +418,13 @@ const useEmployees = () => {
               : response.balance;
 
           // Mettre à jour l'état local des employés avec le nouveau solde d'heures
-          setEmployees((prev) =>
-            prev.map((emp) =>
-              emp.id === id ? { ...emp, hour_balance: balance } : emp
-            )
-          );
+          if (isMountedRef.current) {
+            setEmployees((prev) =>
+              prev.map((emp) =>
+                emp.id === id ? { ...emp, hour_balance: balance } : emp
+              )
+            );
+          }
           return balance;
         } else {
           console.warn(
@@ -368,7 +442,7 @@ const useEmployees = () => {
         return 0; // Retourner 0 par défaut en cas d'erreur
       }
     },
-    [api, setEmployees]
+    [api]
   );
 
   /**
@@ -376,6 +450,8 @@ const useEmployees = () => {
    * Utilise une approche séquentielle pour éviter de surcharger le navigateur
    */
   const fetchAllEmployeesHourBalances = useCallback(async () => {
+    if (!isMountedRef.current) return;
+
     // Variable pour suivre si la fonction est déjà en cours d'exécution
     if (window._isFetchingHourBalances) {
       return;
@@ -387,6 +463,8 @@ const useEmployees = () => {
 
       // Traiter les employés un par un au lieu de par lots
       for (const employee of employees) {
+        if (!isMountedRef.current) break; // Arrêter si le composant est démonté
+
         try {
           await fetchEmployeeHourBalance(employee.id);
           // Attendre 300ms entre chaque requête
@@ -406,15 +484,15 @@ const useEmployees = () => {
     }
   }, [employees, fetchEmployeeHourBalance]);
 
-  // Charger les employés au montage du composant
+  // Charger les employés depuis l'API
   useEffect(() => {
-    let mounted = true;
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 2;
 
+    // Fonction pour charger les employés - le cache local a été supprimé pour éviter les bugs
     const loadEmployees = async () => {
-      if (retryCount >= maxRetries) {
-        if (mounted) {
+      if (retryCount >= maxRetries || !isMountedRef.current) {
+        if (isMountedRef.current) {
           setError(
             "Erreur lors du chargement des employés après plusieurs tentatives"
           );
@@ -428,17 +506,20 @@ const useEmployees = () => {
 
         if (!token) {
           console.error("Token d'authentification manquant");
-          setError("Vous devez être connecté pour accéder à ces données");
-          setLoading(false);
+          if (isMountedRef.current) {
+            setError("Vous devez être connecté pour accéder à ces données");
+            setLoading(false);
+          }
           return;
         }
 
         const data = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
 
-        if (mounted) {
+        if (isMountedRef.current) {
           if (Array.isArray(data)) {
             setEmployees(data);
             setError(null);
+            // Le cache local a été supprimé pour éviter les problèmes au rechargement
           } else {
             console.error("Format de données invalide:", data);
             setError("Format de données invalide");
@@ -446,7 +527,7 @@ const useEmployees = () => {
           setLoading(false);
         }
       } catch (err) {
-        if (mounted) {
+        if (isMountedRef.current) {
           console.error("Erreur lors du chargement des employés:", err);
           setError(err.message || "Erreur lors du chargement des employés");
 
@@ -457,10 +538,14 @@ const useEmployees = () => {
       }
     };
 
-    loadEmployees();
+    // Charger les employés uniquement si le composant est monté
+    if (isMountedRef.current) {
+      loadEmployees();
+    }
 
+    // Nettoyer lors du démontage
     return () => {
-      mounted = false;
+      // Le nettoyage est géré dans le premier useEffect
     };
   }, [api]);
 
@@ -469,15 +554,22 @@ const useEmployees = () => {
   const hourBalancesLoaded = useRef(false);
 
   useEffect(() => {
-    // Ne charger les soldes d'heures que si les employés sont chargés et que l'effet n'a pas encore été exécuté
-    if (employees.length > 0 && !hourBalancesLoaded.current) {
+    // Ne charger les soldes d'heures que si les employés sont chargés, que l'effet n'a pas encore été exécuté
+    // et que le composant est toujours monté
+    if (
+      employees.length > 0 &&
+      !hourBalancesLoaded.current &&
+      isMountedRef.current
+    ) {
       // Marquer l'effet comme exécuté
       hourBalancesLoaded.current = true;
 
       // Ajouter un délai avant de charger les soldes d'heures
       // pour s'assurer que le composant est complètement monté
       const timer = setTimeout(() => {
-        fetchAllEmployeesHourBalances();
+        if (isMountedRef.current) {
+          fetchAllEmployeesHourBalances();
+        }
       }, 1000);
 
       return () => clearTimeout(timer);

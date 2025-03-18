@@ -1,0 +1,245 @@
+{
+  "app": {
+    "title": "SmartPlanning AI",
+    "description": "Solución inteligente de planificación para empresas"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "rememberMe": "Recordarme",
+    "noAccount": "¿No tienes cuenta?",
+    "createAccount": "Crear una cuenta",
+    "haveAccount": "¿Ya tienes una cuenta?",
+    "logOut": "Cerrar sesión",
+    "fullName": "Nombre completo",
+    "confirmPassword": "Confirmar contraseña",
+    "resetPassword": "Restablecer contraseña",
+    "sendResetLink": "Enviar enlace de restablecimiento",
+    "backToLogin": "Volver al inicio de sesión",
+    "unauthorized": "No autorizado"
+  },
+  "navbar": {
+    "dashboard": "Panel",
+    "employees": "Empleados",
+    "schedule": "Horario",
+    "vacations": "Vacaciones",
+    "activities": "Actividades",
+    "stats": "Estadísticas",
+    "settings": "Ajustes",
+    "profile": "Perfil",
+    "navigation": "Navegación"
+  },
+  "dashboard": {
+    "welcome": "Bienvenido",
+    "overview": "Resumen",
+    "recentActivities": "Actividades recientes",
+    "employeesPresent": "Empleados presentes",
+    "employeesOnLeave": "Empleados de vacaciones",
+    "quickActions": "Acciones rápidas",
+    "stats": "Estadísticas",
+    "viewAll": "Ver todo"
+  },
+  "schedule": {
+    "weekly": "Horario semanal",
+    "selectWeek": "Seleccionar una semana",
+    "generate": "Generar",
+    "download": "Descargar como PDF",
+    "share": "Compartir",
+    "validate": "Validar",
+    "morning": "Mañana",
+    "afternoon": "Tarde",
+    "evening": "Noche",
+    "night": "Madrugada",
+    "selectEmployee": "Seleccionar un empleado",
+    "addShift": "Añadir turno",
+    "editShift": "Editar turno",
+    "deleteShift": "Eliminar turno",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este turno?"
+  },
+  "employees": {
+    "list": "Lista de empleados",
+    "add": "Añadir empleado",
+    "edit": "Editar empleado",
+    "view": "Ver empleado",
+    "delete": "Eliminar empleado",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "department": "Departamento",
+    "position": "Cargo",
+    "hireDate": "Fecha de contratación",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "search": "Buscar empleado",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este empleado?"
+  },
+  "settings": {
+    "general": "General",
+    "account": "Cuenta",
+    "notifications": "Notificaciones",
+    "security": "Seguridad",
+    "appearance": "Apariencia",
+    "language": "Idioma",
+    "theme": "Tema",
+    "lightMode": "Modo claro",
+    "darkMode": "Modo oscuro",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "changePassword": "Cambiar contraseña",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmNewPassword": "Confirmar nueva contraseña",
+    "deleteAccount": "Eliminar cuenta",
+    "confirmDeleteAccount": "¿Estás seguro de que quieres eliminar tu cuenta?",
+    "description": "Administra la configuración de tu aplicación SmartPlanning AI."
+  },
+  "notifications": {
+    "success": "Éxito",
+    "error": "Error",
+    "warning": "Advertencia",
+    "info": "Información",
+    "email": "Notificaciones por correo electrónico",
+    "emailDescription": "Recibir notificaciones por correo electrónico para eventos importantes.",
+    "push": "Notificaciones push",
+    "pushDescription": "Recibir notificaciones push en el navegador."
+  },
+  "common": {
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "view": "Ver",
+    "add": "Añadir",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "actions": "Acciones",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "submit": "Enviar",
+    "reset": "Restablecer",
+    "close": "Cerrar",
+    "open": "Abrir",
+    "yes": "Sí",
+    "no": "No",
+    "or": "o",
+    "and": "y",
+    "all": "Todos",
+    "none": "Ninguno",
+    "notFound": "Página no encontrada",
+    "goHome": "Volver al inicio"
+  },
+  "landingPage": {
+    "hero": {
+      "title": "Olvídate de Excel por una verdadera herramienta de planificación",
+      "subtitle": "Horarios inteligentes que se adaptan a tu negocio para optimizar tu nómina. Gestiónalos donde quieras, con una interfaz intuitiva y funciones avanzadas.",
+      "cta": {
+        "start": "Comenzar gratis",
+        "demo": "Ver una demo"
+      }
+    },
+    "features": {
+      "title": "Gestión de horarios simplificada",
+      "subtitle": "Nuestra solución te ofrece todas las herramientas necesarias para una planificación eficaz y sin estrés",
+      "items": {
+        "ai": {
+          "title": "Planificación inteligente",
+          "description": "Nuestra IA analiza tus necesidades y crea automáticamente horarios optimizados según tu actividad y recursos."
+        },
+        "cost": {
+          "title": "Optimización de costos",
+          "description": "Reduce tu nómina con una mejor asignación de recursos y una planificación precisa adaptada a tu carga de trabajo."
+        },
+        "mobile": {
+          "title": "Accesibilidad total",
+          "description": "Gestiona tus horarios donde quieras, en todos tus dispositivos. Una interfaz responsive para estar conectado en todo momento."
+        },
+        "pdf": {
+          "title": "PDFs automáticos",
+          "description": "Genera PDFs listos para imprimir con un clic para mostrar horarios o distribuirlos a tus equipos."
+        },
+        "security": {
+          "title": "Validación segura",
+          "description": "Sistema de validación y bloqueo de horas por los gestores para garantizar la integridad de los datos."
+        },
+        "analytics": {
+          "title": "Análisis detallado",
+          "description": "Visualiza estadísticas precisas sobre el uso del tiempo y la eficiencia del equipo para tomar mejores decisiones."
+        }
+      }
+    },
+    "demo": {
+      "title": "Descubre SmartPlanning en acción",
+      "subtitle": "Mira nuestro vídeo de demostración para ver cómo nuestra solución puede transformar tu gestión de horarios"
+    },
+    "benefits": {
+      "title": "Más eficiencia para tu empresa",
+      "subtitle": "SmartPlanning AI te ofrece beneficios concretos y medibles",
+      "items": {
+        "time": {
+          "title": "Ahorro de tiempo considerable",
+          "description": "Reduce hasta un 70% el tiempo dedicado a crear y gestionar horarios gracias a la automatización inteligente."
+        },
+        "cost": {
+          "title": "Optimización de nómina",
+          "description": "Adapta con precisión tus recursos humanos a tu actividad real y evita costosos excesos o defectos de personal."
+        },
+        "flexibility": {
+          "title": "Flexibilidad máxima",
+          "description": "Modifica tus horarios en tiempo real e informa instantáneamente a tus equipos de los cambios a través de nuestro sistema de notificaciones."
+        },
+        "data": {
+          "title": "Datos accionables",
+          "description": "Accede a informes detallados y análisis que te ayudan a tomar decisiones estratégicas basadas en datos concretos."
+        }
+      }
+    },
+    "cta": {
+      "title": "¿Listo para revolucionar tu gestión de horarios?",
+      "subtitle": "Únete a miles de empresas que ya han optimizado su planificación con SmartPlanning AI",
+      "button": "Comenzar gratis"
+    }
+  },
+  "footer": {
+    "terms": "Términos de servicio",
+    "privacy": "Política de privacidad",
+    "contact": "Contacto",
+    "copyright": "© {{year}} SmartPlanning AI. Todos los derechos reservados."
+  },
+  "contact": {
+    "title": "Contáctanos",
+    "subtitle": "¿Tienes preguntas sobre SmartPlanning AI o necesitas ayuda? Nuestro equipo de soporte está aquí para ayudarte.",
+    "email": "Correo electrónico",
+    "emailAddress": "support@smartplanning.ai",
+    "form": {
+      "title": "Envíanos un mensaje",
+      "name": "Nombre completo",
+      "email": "Correo electrónico",
+      "subject": "Asunto",
+      "message": "Mensaje",
+      "send": "Enviar mensaje",
+      "sending": "Enviando...",
+      "hint": "Te responderemos lo antes posible, generalmente dentro de las 24 horas laborables.",
+      "success": "¡Tu mensaje ha sido enviado con éxito! Nuestro equipo te contactará pronto."
+    }
+  },
+  "language": {
+    "fr": "Francés",
+    "en": "Inglés",
+    "es": "Español",
+    "select": "Seleccionar idioma"
+  },
+  "security": {
+    "twoFactor": "Autenticación de dos factores",
+    "twoFactorDescription": "Añade una capa adicional de seguridad a tu cuenta.",
+    "passwordDescription": "Actualiza tu contraseña actual.",
+    "enable": "Activar"
+  }
+}

@@ -1,3 +1,5 @@
+import { History } from "@mui/icons-material";
+import { alpha, Box } from "@mui/material";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import {
@@ -15,6 +17,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import styled from "styled-components";
+import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import useActivities from "../hooks/useActivities";
 import {
   getActivityColor,
@@ -22,6 +25,39 @@ import {
   getActivityTypeLabel,
 } from "../utils/activityUtils";
 import { formatDateTime } from "../utils/dateUtils";
+
+// Icône stylisée pour les activités
+const StyledIcon = styled(Box)(({ theme }) => {
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = themeMode === "dark";
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: isDarkMode
+      ? `linear-gradient(135deg, ${alpha("#8B5CF6", 0.2)}, ${alpha(
+          "#6366F1",
+          0.4
+        )})`
+      : `linear-gradient(135deg, ${alpha("#8B5CF6", 0.1)}, ${alpha(
+          "#6366F1",
+          0.3
+        )})`,
+    boxShadow: isDarkMode
+      ? `0 4px 20px ${alpha("#000", 0.25)}`
+      : `0 4px 15px ${alpha("#000", 0.08)}`,
+    color: isDarkMode ? "#C4B5FD" : "#6366F1",
+    flexShrink: 0,
+    transition: "all 0.3s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: 40,
+    },
+  };
+});
 
 // Composants stylisés
 const PageContainer = styled.div`
@@ -694,13 +730,62 @@ const Activities = () => {
 
   return (
     <PageContainer>
-      <PageHeader>
-        <PageTitle>Historique des activités</PageTitle>
-        <RefreshButton onClick={handleRefresh} disabled={loading}>
-          <FiRefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          Actualiser
-        </RefreshButton>
-      </PageHeader>
+      <Box
+        component="div"
+        sx={{
+          mb: 4,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Box
+          component="div"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 1,
+          }}
+        >
+          <Box
+            component="div"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <StyledIcon>
+              <History />
+            </StyledIcon>
+
+            <Box component="div" sx={{ ml: 2 }}>
+              <PageTitle>Historique des activités</PageTitle>
+              <span style={{ color: "#777", fontSize: "1rem" }}>
+                Suivez toutes les activités et les changements récents
+              </span>
+            </Box>
+          </Box>
+
+          <button
+            onClick={handleRefresh}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.75rem 1rem",
+              borderRadius: "0.375rem",
+              border: "none",
+              backgroundColor: "#EEF2FF",
+              color: "#4F46E5",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <FiRefreshCw size={16} />
+            Actualiser
+          </button>
+        </Box>
+      </Box>
 
       <FiltersContainer>
         <SearchInput>
