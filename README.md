@@ -372,3 +372,67 @@ npm run build
 ## Licence
 
 Ce projet est sous licence propriétaire. Tous droits réservés.
+
+## Déploiement avec Docker
+
+SmartPlanningAI peut être facilement déployé en utilisant Docker et Docker Compose.
+
+### Prérequis
+
+- Docker (version 20.10.0 ou plus récente)
+- Docker Compose (version 2.0.0 ou plus récente)
+- Git
+
+### Installation et déploiement
+
+1. Clonez le dépôt :
+
+   ```bash
+   git clone https://github.com/votre-utilisateur/SmartPlanningA4.git
+   cd SmartPlanningA4
+   ```
+
+2. Démarrez l'application avec Docker Compose :
+
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Accédez à l'application :
+   - Frontend : http://localhost:8080
+   - Backend API : http://localhost:5001
+
+### Configuration
+
+Toutes les variables d'environnement sont configurées dans le fichier `docker-compose.yml`. Vous pouvez les modifier selon vos besoins avant le démarrage des conteneurs.
+
+### Gestion des volumes
+
+L'application utilise trois volumes Docker pour la persistance des données :
+
+- `frontend-build` : Stocke les fichiers statiques du frontend
+- `backend-data` : Stocke les logs du backend
+- `db-data` : Stocke les données MySQL
+
+### Déploiement continu
+
+L'application est configurée avec Watchtower pour mettre à jour automatiquement les conteneurs lorsque de nouvelles images sont disponibles. Les conteneurs sont vérifiés toutes les 30 secondes.
+
+Pour un déploiement automatique depuis GitHub :
+
+1. Configurez les secrets GitHub suivants dans votre dépôt :
+
+   - `SSH_PRIVATE_KEY` : Clé SSH privée pour se connecter au serveur
+   - `SSH_HOST` : Adresse IP ou nom d'hôte du serveur
+   - `SSH_USER` : Nom d'utilisateur SSH
+   - `PROJECT_PATH` : Chemin vers le projet sur le serveur
+
+2. Chaque push sur la branche `main` déclenchera un déploiement automatique via GitHub Actions.
+
+### Commandes utiles
+
+- Reconstruire les conteneurs : `docker-compose build`
+- Démarrer les conteneurs : `docker-compose up -d`
+- Arrêter les conteneurs : `docker-compose down`
+- Voir les logs : `docker-compose logs -f`
+- Redémarrer un service spécifique : `docker-compose restart [service]`

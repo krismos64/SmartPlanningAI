@@ -1,2 +1,41 @@
 node_modules
+.DS_Store
+.env.local
 backend/logs/error.log
+
+# Fichiers de build
+build
+dist
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers d'environnement (sauf les exemples)
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Fichiers Docker
+.docker
+docker-volumes
+
+# Dépendances
+/.pnp
+.pnp.js
+
+# Tests
+/coverage
+
+# Divers
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
