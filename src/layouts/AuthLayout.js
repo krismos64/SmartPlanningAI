@@ -1,13 +1,20 @@
-import { Outlet, Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import styled from "styled-components";
+import Footer from "../components/layout/Footer";
 import { useAuth } from "../contexts/AuthContext";
 
-const AuthContainer = styled.div`
+const AuthLayoutContainer = styled.div`
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: ${({ theme }) => theme.colors.background};
+`;
+
+const AuthContainer = styled.div`
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: ${({ theme }) => theme.colors.background};
   padding: ${({ theme }) => theme.spacing.md};
 `;
 
@@ -16,9 +23,12 @@ const AuthLayout = () => {
 
   if (isLoading) {
     return (
-      <AuthContainer>
-        <div>Chargement...</div>
-      </AuthContainer>
+      <AuthLayoutContainer>
+        <AuthContainer>
+          <div>Chargement...</div>
+        </AuthContainer>
+        <Footer />
+      </AuthLayoutContainer>
     );
   }
 
@@ -27,9 +37,12 @@ const AuthLayout = () => {
   }
 
   return (
-    <AuthContainer>
-      <Outlet />
-    </AuthContainer>
+    <AuthLayoutContainer>
+      <AuthContainer>
+        <Outlet />
+      </AuthContainer>
+      <Footer />
+    </AuthLayoutContainer>
   );
 };
 

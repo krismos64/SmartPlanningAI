@@ -575,40 +575,6 @@ const CircleDecoration = styled.div`
   }
 `;
 
-const Footer = styled.footer`
-  background-color: ${({ theme }) => theme.colors.surface};
-  padding: 2rem;
-  text-align: center;
-  margin-top: auto;
-`;
-
-const FooterLinks = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin-bottom: 1rem;
-
-  @media (max-width: 576px) {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-`;
-
-const FooterLink = styled.a`
-  color: ${({ theme }) => theme.colors.text.secondary};
-  text-decoration: none;
-  transition: color 0.3s ease;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors.primary};
-  }
-`;
-
-const Copyright = styled.p`
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: 0.9rem;
-`;
-
 const LandingPage = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [visibleBenefits, setVisibleBenefits] = useState([]);
@@ -834,21 +800,6 @@ const LandingPage = () => {
           <CTAButton size="large">Commencer gratuitement</CTAButton>
         </Link>
       </CTASection>
-
-      <Footer>
-        <FooterLinks>
-          <FooterLink as={Link} to="/terms">
-            Conditions d'utilisation
-          </FooterLink>
-          <FooterLink as={Link} to="/privacy">
-            Politique de confidentialité
-          </FooterLink>
-          <FooterLink href="#">Contact</FooterLink>
-        </FooterLinks>
-        <Copyright>
-          © {new Date().getFullYear()} SmartPlanning AI. Tous droits réservés.
-        </Copyright>
-      </Footer>
     </LandingContainer>
   );
 };

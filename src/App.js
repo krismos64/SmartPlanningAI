@@ -15,6 +15,7 @@ import theme from "./theme";
 // Layouts
 import AuthLayout from "./layouts/AuthLayout";
 import MainLayout from "./layouts/MainLayout";
+import PublicLayout from "./layouts/PublicLayout";
 
 // Pages chargées avec lazy loading
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -34,6 +35,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Contact = lazy(() => import("./pages/Contact"));
 const ConfirmDeletionPage = lazy(() =>
   import("./components/modals/ConfirmDeletionPage")
 );
@@ -97,12 +99,16 @@ const App = () => {
                 }}
               />
               <Routes>
-                {/* Landing Page */}
-                <Route path="/" element={<LandingPage />} />
+                {/* Pages publiques avec PublicLayout */}
+                <Route element={<PublicLayout />}>
+                  {/* Landing Page */}
+                  <Route path="/" element={<LandingPage />} />
 
-                {/* Pages légales */}
-                <Route path="/terms" element={<TermsOfService />} />
-                <Route path="/privacy" element={<PrivacyPolicy />} />
+                  {/* Pages légales */}
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/contact" element={<Contact />} />
+                </Route>
 
                 {/* Routes d'authentification */}
                 <Route element={<AuthLayout />}>

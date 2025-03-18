@@ -1,7 +1,6 @@
 import { Outlet } from "react-router-dom";
 import styled from "styled-components";
 import Footer from "../components/layout/Footer";
-import Navbar from "../components/layout/Navbar";
 
 const LayoutContainer = styled.div`
   min-height: 100vh;
@@ -12,18 +11,13 @@ const LayoutContainer = styled.div`
 
 const MainContent = styled.main`
   flex: 1;
-  padding: ${({ theme }) => theme.spacing.xl};
-  margin-top: 64px; // Hauteur de la navbar
-
-  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-    padding: ${({ theme }) => theme.spacing.lg};
-  }
+  display: flex;
+  flex-direction: column;
 `;
 
-const MainLayout = () => {
+const PublicLayout = () => {
   return (
     <LayoutContainer>
-      <Navbar />
       <MainContent>
         <Outlet />
       </MainContent>
@@ -32,4 +26,4 @@ const MainLayout = () => {
   );
 };
 
-export default MainLayout;
+export default PublicLayout;
