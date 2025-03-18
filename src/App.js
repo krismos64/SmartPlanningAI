@@ -32,6 +32,8 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ConfirmDeletionPage = lazy(() =>
   import("./components/modals/ConfirmDeletionPage")
 );
@@ -97,6 +99,10 @@ const App = () => {
               <Routes>
                 {/* Landing Page */}
                 <Route path="/" element={<LandingPage />} />
+
+                {/* Pages légales */}
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
 
                 {/* Routes d'authentification */}
                 <Route element={<AuthLayout />}>

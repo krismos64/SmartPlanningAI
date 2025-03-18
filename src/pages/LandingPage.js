@@ -837,8 +837,12 @@ const LandingPage = () => {
 
       <Footer>
         <FooterLinks>
-          <FooterLink href="#">Conditions d'utilisation</FooterLink>
-          <FooterLink href="#">Politique de confidentialité</FooterLink>
+          <FooterLink as={Link} to="/terms">
+            Conditions d'utilisation
+          </FooterLink>
+          <FooterLink as={Link} to="/privacy">
+            Politique de confidentialité
+          </FooterLink>
           <FooterLink href="#">Contact</FooterLink>
         </FooterLinks>
         <Copyright>
