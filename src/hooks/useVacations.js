@@ -97,10 +97,28 @@ const useVacations = () => {
 
       try {
         setLoading(true);
-        const formattedData = {
+
+        // S'assurer que la durée est calculée si elle n'est pas déjà définie
+        let formattedData = {
           ...vacationData,
           status: vacationData.status || "pending",
         };
+
+        // Si la durée n'est pas définie mais les dates de début et fin sont présentes,
+        // calculer la durée en jours ouvrés
+        if (
+          !formattedData.duration &&
+          formattedData.startDate &&
+          formattedData.endDate
+        ) {
+          const start = new Date(formattedData.startDate);
+          const end = new Date(formattedData.endDate);
+
+          // Importer la fonction depuis les utils si nécessaire
+          const { getWorkingDaysCount } = require("../utils/dateUtils");
+          formattedData.duration = getWorkingDaysCount(start, end);
+        }
+
         const response = await api.post(API_ENDPOINTS.VACATIONS, formattedData);
 
         if (isComponentMountedRef.current) {
@@ -142,9 +160,28 @@ const useVacations = () => {
 
       try {
         setLoading(true);
+
+        // S'assurer que la durée est calculée si elle n'est pas déjà définie
+        let formattedData = { ...vacationData };
+
+        // Si la durée n'est pas définie mais les dates de début et fin sont présentes,
+        // calculer la durée en jours ouvrés
+        if (
+          !formattedData.duration &&
+          formattedData.startDate &&
+          formattedData.endDate
+        ) {
+          const start = new Date(formattedData.startDate);
+          const end = new Date(formattedData.endDate);
+
+          // Importer la fonction depuis les utils si nécessaire
+          const { getWorkingDaysCount } = require("../utils/dateUtils");
+          formattedData.duration = getWorkingDaysCount(start, end);
+        }
+
         const response = await api.put(
           `${API_ENDPOINTS.VACATIONS}/${id}`,
-          vacationData
+          formattedData
         );
 
         if (isComponentMountedRef.current) {

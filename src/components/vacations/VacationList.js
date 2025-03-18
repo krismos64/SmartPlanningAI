@@ -67,6 +67,16 @@ const StyledTableHead = styled(TableHead)(({ theme }) => {
         isDarkMode ? alpha("#6366F1", 0.3) : alpha("#4F46E5", 0.2)
       }`,
     },
+    "& .MuiTableSortLabel-root:hover": {
+      color: isDarkMode ? "#93C5FD" : "#3B82F6",
+      transition: "color 0.2s ease",
+    },
+    "& .MuiTableSortLabel-root.Mui-active": {
+      color: isDarkMode ? "#93C5FD" : "#3B82F6",
+    },
+    "& .MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon": {
+      color: isDarkMode ? "#93C5FD" : "#3B82F6",
+    },
   };
 });
 
@@ -453,6 +463,22 @@ const VacationList = ({
                     </StyledTableCell>
                     <StyledTableCell>
                       <TableSortLabel
+                        active={orderBy === "duration"}
+                        direction={orderBy === "duration" ? order : "asc"}
+                        onClick={() => handleRequestSort("duration")}
+                        IconComponent={
+                          orderBy === "duration"
+                            ? order === "asc"
+                              ? ArrowUpward
+                              : ArrowDownward
+                            : undefined
+                        }
+                      >
+                        Durée
+                      </TableSortLabel>
+                    </StyledTableCell>
+                    <StyledTableCell>
+                      <TableSortLabel
                         active={orderBy === "status"}
                         direction={orderBy === "status" ? order : "asc"}
                         onClick={() => handleRequestSort("status")}
@@ -501,6 +527,33 @@ const VacationList = ({
                         </StyledTableCell>
                         <StyledTableCell>
                           {formatDate(vacation.endDate || vacation.end_date)}
+                        </StyledTableCell>
+                        <StyledTableCell>
+                          {vacation.duration
+                            ? `${vacation.duration} jour${
+                                vacation.duration > 1 ? "s" : ""
+                              }`
+                            : (vacation.startDate && vacation.endDate) ||
+                              (vacation.start_date && vacation.end_date)
+                            ? (() => {
+                                const start = new Date(
+                                  vacation.startDate || vacation.start_date
+                                );
+                                const end = new Date(
+                                  vacation.endDate || vacation.end_date
+                                );
+                                const {
+                                  getWorkingDaysCount,
+                                } = require("../../utils/dateUtils");
+                                const duration = getWorkingDaysCount(
+                                  start,
+                                  end
+                                );
+                                return `${duration} jour${
+                                  duration > 1 ? "s" : ""
+                                }`;
+                              })()
+                            : "-"}
                         </StyledTableCell>
                         <StyledTableCell>
                           <StatusChip

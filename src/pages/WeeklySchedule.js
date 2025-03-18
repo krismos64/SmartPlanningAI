@@ -816,6 +816,15 @@ const WeeklySchedulePage = () => {
     const formattedWeekStart = formatDate(weekStartDate);
     const formattedWeekEnd = formatDate(weekEndDate);
 
+    // Date et heure d'exportation
+    const exportDateTime = new Date().toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     // Créer le contenu HTML
     const content = `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
@@ -829,6 +838,7 @@ const WeeklySchedulePage = () => {
           <p style="margin: 5px 0;">Nombre d'employés: ${
             activeEmployees.length
           }</p>
+          <p style="margin: 5px 0; font-style: italic; text-align: right;">Document généré le ${exportDateTime}</p>
         </div>
         
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
@@ -988,17 +998,26 @@ const WeeklySchedulePage = () => {
     const formattedWeekStart = formatDate(weekStartDate);
     const formattedWeekEnd = formatDate(weekEndDate);
 
+    // Date et heure d'exportation
+    const exportDateTime = new Date().toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     // Créer le contenu HTML
     const content = `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="text-align: center; color: #2563eb;">Planning Hebdomadaire - ${department}</h2>
+        <h2 style="text-align: center; color: #2563eb;">Planning Hebdomadaire Département: ${department}</h2>
         <h3 style="text-align: center; margin-bottom: 20px;">Du ${formattedWeekStart} au ${formattedWeekEnd}</h3>
         
         <div style="margin-bottom: 20px;">
-          <p style="margin: 5px 0;">Département: ${department}</p>
           <p style="margin: 5px 0;">Nombre d'employés: ${
             departmentEmployees.length
           }</p>
+          <p style="margin: 5px 0; font-style: italic; text-align: right;">Document généré le ${exportDateTime}</p>
         </div>
         
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
@@ -1199,6 +1218,15 @@ const WeeklySchedulePage = () => {
     const formattedWeekStart = formatDate(weekStartDate);
     const formattedWeekEnd = formatDate(weekEndDate);
 
+    // Date et heure d'exportation
+    const exportDateTime = new Date().toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     // Calculer le total des heures
     const totalHours = formattedDays.reduce((sum, day) => {
       return sum + (day.isAbsent ? 0 : parseFloat(day.hours || 0));
@@ -1222,6 +1250,7 @@ const WeeklySchedulePage = () => {
           <p style="margin: 5px 0;">Total heures planifiées: ${totalHours.toFixed(
             1
           )}h</p>
+          <p style="margin: 5px 0; font-style: italic;">Document généré le ${exportDateTime}</p>
         </div>
         
         <table style="width: 100%; border-collapse: collapse; margin: 0 auto; max-width: 900px;">

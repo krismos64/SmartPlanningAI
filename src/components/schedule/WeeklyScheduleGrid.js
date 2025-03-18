@@ -698,6 +698,15 @@ const WeeklyScheduleGrid = ({
     const formattedWeekStart = formatDate(weekStartDate);
     const formattedWeekEnd = formatDate(weekEndDate);
 
+    // Date et heure d'exportation
+    const exportDateTime = new Date().toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     // Récupérer le prénom et le nom en tenant compte des différentes structures possibles
     const firstName = employee.firstName || employee.first_name || "Inconnu";
     const lastName = employee.lastName || employee.last_name || "Inconnu";
@@ -725,6 +734,7 @@ const WeeklyScheduleGrid = ({
           <p style="margin: 5px 0;">Total heures planifiées: ${totalHours.toFixed(
             1
           )}h</p>
+          <p style="margin: 5px 0; font-style: italic;">Document généré le ${exportDateTime}</p>
         </div>
         
         <table style="width: 100%; border-collapse: collapse; margin: 0 auto; max-width: 900px;">

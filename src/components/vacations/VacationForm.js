@@ -152,6 +152,7 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
     endDate: null,
     type: "paid",
     reason: "",
+    duration: null,
   });
   const [errors, setErrors] = useState({});
   const [daysCount, setDaysCount] = useState(0);
@@ -176,6 +177,7 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
         endDate: vacation.endDate ? new Date(vacation.endDate) : null,
         type: vacation.type || "paid",
         reason: vacation.reason || "",
+        duration: vacation.duration || null,
       });
     } else {
       // Initialiser avec l'ID de l'utilisateur courant pour une nouvelle demande
@@ -185,6 +187,7 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
         endDate: null,
         type: "paid",
         reason: "",
+        duration: null,
       });
     }
     setErrors({});
@@ -262,6 +265,7 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
         endDate: formData.endDate
           ? formData.endDate.toISOString().split("T")[0]
           : null,
+        duration: daysCount > 0 ? daysCount : null,
       };
       onSubmit(formattedData);
     }
@@ -286,6 +290,13 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
       // Calculer le nombre de jours ouvrés
       const count = getWorkingDaysCount(start, end);
       setDaysCount(count);
+
+      // Stocker la durée calculée dans formData
+      setFormData((prev) => ({
+        ...prev,
+        duration: count,
+      }));
+
       setErrors((prev) => ({ ...prev, endDate: null }));
 
       // Vérifier si le quota est dépassé (uniquement pour les congés payés et RTT)

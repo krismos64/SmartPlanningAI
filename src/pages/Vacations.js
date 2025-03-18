@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Add, BeachAccess, Refresh } from "@mui/icons-material";
+import { Add, BeachAccess } from "@mui/icons-material";
 import {
   alpha,
   Box,
@@ -20,6 +20,7 @@ import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import ErrorDisplay from "../components/ui/ErrorDisplay";
 import LoadingScreen from "../components/ui/LoadingScreen";
 import PageHeader from "../components/ui/PageHeader";
+import VacationExport from "../components/vacations/VacationExport";
 import VacationForm from "../components/vacations/VacationForm";
 import VacationList from "../components/vacations/VacationList";
 import { useAuth } from "../contexts/AuthContext";
@@ -237,24 +238,8 @@ const Vacations = () => {
               >
                 Liste des demandes de congés
               </Typography>
-              <Box>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<Refresh />}
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  sx={{
-                    mr: 1,
-                    color: isDarkMode ? "#F9FAFB" : undefined,
-                    borderColor: isDarkMode ? "#6366F1" : undefined,
-                    "&:hover": {
-                      borderColor: isDarkMode ? "#818CF8" : undefined,
-                    },
-                  }}
-                >
-                  {refreshing ? "Rafraîchissement..." : "Rafraîchir"}
-                </Button>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <VacationExport vacations={filteredVacations} isGlobal={true} />
                 <Button
                   variant="contained"
                   color="primary"

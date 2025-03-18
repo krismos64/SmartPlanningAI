@@ -1,5 +1,36 @@
 const connectDB = require("../config/db");
 
+// Fonction pour calculer le nombre de jours ouvrés entre deux dates
+function getWorkingDaysCount(startDate, endDate) {
+  // Cloner les dates pour ne pas modifier les originales
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // Réinitialiser les heures pour éviter les problèmes de comparaison
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  // Si la date de fin est avant la date de début, retourner 0
+  if (end < start) {
+    return 0;
+  }
+
+  // Compter les jours ouvrés (du lundi au vendredi)
+  let count = 0;
+  const current = new Date(start);
+
+  while (current <= end) {
+    // Vérifier si ce n'est pas un weekend (0 = dimanche, 6 = samedi)
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return count;
+}
+
 class VacationRequest {
   constructor(data) {
     this.id = data.id;
@@ -8,6 +39,7 @@ class VacationRequest {
     this.type = data.type || "paid"; // Type de congé (paid, unpaid, sick, rtt, exceptional, recovery)
     this.start_date = data.start_date;
     this.end_date = data.end_date;
+    this.duration = data.duration; // Durée en jours ouvrés
     this.reason = data.reason;
     this.status = data.status || "pending";
     this.approved_by = data.approved_by;
@@ -150,12 +182,24 @@ class VacationRequest {
         }
       }
 
+      // Calculer la durée en jours ouvrés selon les normes françaises
+      let duration = this.duration;
+      if (!duration && start_date && end_date) {
+        try {
+          // Calculer les jours ouvrés (lundi au vendredi)
+          duration = getWorkingDaysCount(start_date, end_date);
+        } catch (error) {
+          console.error("Erreur lors du calcul de la durée:", error);
+        }
+      }
+
       console.log("Données de la demande de congé à sauvegarder:", {
         id: this.id,
         employee_id: this.employee_id,
         type: this.type,
         start_date,
         end_date,
+        duration,
         reason: this.reason,
         status: this.status,
         approved_by: this.approved_by,
@@ -172,6 +216,7 @@ class VacationRequest {
                type = ?, 
                start_date = ?, 
                end_date = ?, 
+               duration = ?,
                reason = ?, 
                status = ?,
                approved_by = ?,
@@ -202,6 +247,7 @@ class VacationRequest {
           this.type,
           start_date,
           end_date,
+          duration,
           this.reason,
           this.status,
           this.approved_by,
@@ -238,13 +284,14 @@ class VacationRequest {
 
         const [result] = await connectDB.execute(
           `INSERT INTO vacation_requests 
-           (employee_id, type, start_date, end_date, reason, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           (employee_id, type, start_date, end_date, duration, reason, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
           [
             employeeId, // Utiliser la version convertie en nombre
             this.type,
             start_date,
             end_date,
+            duration,
             this.reason,
             this.status || "pending",
           ]

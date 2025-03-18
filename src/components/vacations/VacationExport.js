@@ -1,117 +1,22 @@
+import { PictureAsPdf } from "@mui/icons-material";
+import { Button, useTheme } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
-import { FaFilePdf, FaFilter } from "react-icons/fa";
-import styled from "styled-components";
+import { useTheme as useThemeProvider } from "../../components/ThemeProvider";
 import { VACATION_TYPES } from "../../config/constants";
 import useDepartments from "../../hooks/useDepartments";
 import useEmployees from "../../hooks/useEmployees";
 
-const ExportContainer = styled.div`
-  margin-bottom: 2rem;
-`;
-
-const ExportButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: ${({ theme }) => theme.colors?.primary || "#4F46E5"};
-  color: white;
-  border: none;
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background-color: ${({ theme }) =>
-      `${theme.colors?.primary}dd` || "#4338CA"};
-  }
-`;
-
-const FilterButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: ${({ theme, active }) =>
-    active ? theme.colors?.primary || "#4F46E5" : "white"};
-  color: ${({ active }) => (active ? "white" : "#374151")};
-  border: 1px solid
-    ${({ theme, active }) =>
-      active ? theme.colors?.primary || "#4F46E5" : "#D1D5DB"};
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-right: 1rem;
-
-  &:hover {
-    background-color: ${({ theme, active }) =>
-      active ? `${theme.colors?.primary}dd` || "#4338CA" : "#F9FAFB"};
-  }
-`;
-
-const FilterContainer = styled.div`
-  margin-bottom: 1rem;
-  display: ${({ show }) => (show ? "block" : "none")};
-  background-color: ${({ theme }) => theme.colors?.surface || "#F9FAFB"};
-  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
-  border-radius: ${({ theme }) => theme.borderRadius?.medium || "0.375rem"};
-  padding: 1rem;
-`;
-
-const FilterGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-`;
-
-const FilterGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const FilterLabel = styled.label`
-  font-weight: 500;
-  color: ${({ theme }) => theme.colors?.text?.primary || "#111827"};
-`;
-
-const FilterSelect = styled.select`
-  padding: 0.5rem;
-  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  font-size: 0.875rem;
-  background-color: white;
-`;
-
-const FilterInput = styled.input`
-  padding: 0.5rem;
-  border: 1px solid ${({ theme }) => theme.colors?.border || "#E5E7EB"};
-  border-radius: ${({ theme }) => theme.borderRadius?.small || "0.25rem"};
-  font-size: 0.875rem;
-`;
-
-const FilterActions = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-`;
-
-const ButtonsContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-`;
-
+/**
+ * Composant pour exporter les congés en PDF
+ */
 const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
-  const [showFilters, setShowFilters] = useState(false);
+  const theme = useTheme();
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+
   const [filters, setFilters] = useState({
     employeeId: "",
     departmentId: "",
@@ -121,7 +26,7 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
   });
   const [cachedEmployees, setCachedEmployees] = useState([]);
 
-  const { employees, loading: loadingEmployees } = useEmployees();
+  const { employees } = useEmployees();
   const { departments } = useDepartments();
 
   useEffect(() => {
@@ -248,26 +153,6 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
     });
   }, [vacations, filters, employees]);
 
-  // Réinitialiser les filtres
-  const resetFilters = () => {
-    setFilters({
-      employeeId: "",
-      departmentId: "",
-      startDate: "",
-      endDate: "",
-      status: "",
-    });
-  };
-
-  // Gérer les changements de filtres
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
   // Exporter les congés en PDF
   const exportToPdf = useCallback(() => {
     try {
@@ -314,51 +199,6 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
         { align: "right" }
       );
 
-      // Ajouter les informations de filtrage si des filtres sont appliqués
-      let startY = 30;
-      if (Object.values(filters).some((v) => v !== "")) {
-        let filterText = "Filtres appliqués: ";
-        const filterParts = [];
-
-        if (filters.employeeId) {
-          const employee = employees.find(
-            (e) => e.id === parseInt(filters.employeeId)
-          );
-          if (employee) {
-            filterParts.push(
-              `Employé: ${employee.first_name} ${employee.last_name}`
-            );
-          }
-        }
-
-        if (filters.departmentId) {
-          const department = departments.find(
-            (d) => d.id === parseInt(filters.departmentId)
-          );
-          if (department) {
-            filterParts.push(`Département: ${department.name}`);
-          }
-        }
-
-        if (filters.startDate) {
-          filterParts.push(`Après le: ${formatDate(filters.startDate)}`);
-        }
-
-        if (filters.endDate) {
-          filterParts.push(`Avant le: ${formatDate(filters.endDate)}`);
-        }
-
-        if (filters.status) {
-          filterParts.push(`Statut: ${translateStatus(filters.status)}`);
-        }
-
-        filterText += filterParts.join(", ");
-
-        doc.setFontSize(10);
-        doc.text(filterText, 15, 30);
-        startY = 35;
-      }
-
       // Définir les colonnes du tableau
       const columns = isGlobal
         ? [
@@ -381,18 +221,46 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
 
       // Préparer les données
       const data = filteredVacations.map((vacation) => {
+        // Calcul de la durée selon les normes françaises (jours ouvrés)
+        let calculatedDuration;
+        if (vacation.duration) {
+          // Si la durée est déjà fournie, l'utiliser
+          calculatedDuration = `${vacation.duration} jour(s)`;
+        } else if (
+          (vacation.startDate && vacation.endDate) ||
+          (vacation.start_date && vacation.end_date)
+        ) {
+          // Sinon calculer les jours ouvrés (exclusion week-ends et jours fériés)
+          const start = new Date(vacation.startDate || vacation.start_date);
+          const end = new Date(vacation.endDate || vacation.end_date);
+
+          // Importer la fonction de calcul des jours ouvrés
+          const { getWorkingDaysCount } = require("../../utils/dateUtils");
+          const workingDays = getWorkingDaysCount(start, end);
+
+          calculatedDuration = `${workingDays} jour(s)`;
+        } else {
+          calculatedDuration = "-";
+        }
+
         const row = {
           type: translateType(vacation.type),
-          start: formatDate(vacation.startDate),
-          end: formatDate(vacation.endDate),
-          duration: vacation.duration || "-",
+          start: formatDate(vacation.startDate || vacation.start_date),
+          end: formatDate(vacation.endDate || vacation.end_date),
+          duration: calculatedDuration,
           status: translateStatus(vacation.status),
           reason: vacation.reason || "-",
         };
 
         if (isGlobal) {
           row.employee =
-            vacation.employeeName || vacation.employee_name || "Inconnu";
+            vacation.employeeName ||
+            vacation.employee_name ||
+            (vacation.employee
+              ? `${vacation.employee.first_name || ""} ${
+                  vacation.employee.last_name || ""
+                }`.trim()
+              : "Inconnu");
         }
 
         return row;
@@ -402,13 +270,13 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
       autoTable(doc, {
         columns: columns,
         body: data,
-        startY: 60,
+        startY: 30,
         styles: {
           fontSize: 10,
           cellPadding: 3,
         },
         headStyles: {
-          fillColor: [41, 128, 185],
+          fillColor: [79, 70, 229],
           textColor: 255,
           fontStyle: "bold",
         },
@@ -454,110 +322,21 @@ const VacationExport = ({ vacations, isGlobal = false, employeeName = "" }) => {
   ]);
 
   return (
-    <ExportContainer>
-      <ButtonsContainer>
-        <FilterButton
-          onClick={() => setShowFilters(!showFilters)}
-          active={showFilters}
-        >
-          <FaFilter /> Filtres
-        </FilterButton>
-
-        <ExportButton onClick={exportToPdf}>
-          <FaFilePdf />
-          Exporter en PDF
-        </ExportButton>
-      </ButtonsContainer>
-
-      <FilterContainer show={showFilters}>
-        <FilterGrid>
-          {isGlobal && (
-            <>
-              <FilterGroup>
-                <FilterLabel>Employé</FilterLabel>
-                <FilterSelect
-                  name="employeeId"
-                  value={filters.employeeId}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Tous les employés</option>
-                  {cachedEmployees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.first_name} {employee.last_name}
-                    </option>
-                  ))}
-                </FilterSelect>
-              </FilterGroup>
-
-              <FilterGroup>
-                <FilterLabel>Département</FilterLabel>
-                <FilterSelect
-                  name="departmentId"
-                  value={filters.departmentId}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Tous les départements</option>
-                  {departments && departments.length > 0 ? (
-                    departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="" disabled>
-                      Chargement des départements...
-                    </option>
-                  )}
-                </FilterSelect>
-              </FilterGroup>
-            </>
-          )}
-
-          <FilterGroup>
-            <FilterLabel>Date de début (après)</FilterLabel>
-            <FilterInput
-              type="date"
-              name="startDate"
-              value={filters.startDate}
-              onChange={handleFilterChange}
-            />
-          </FilterGroup>
-
-          <FilterGroup>
-            <FilterLabel>Date de fin (avant)</FilterLabel>
-            <FilterInput
-              type="date"
-              name="endDate"
-              value={filters.endDate}
-              onChange={handleFilterChange}
-            />
-          </FilterGroup>
-
-          <FilterGroup>
-            <FilterLabel>Statut</FilterLabel>
-            <FilterSelect
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous les statuts</option>
-              <option value="pending">En attente</option>
-              <option value="approved">Approuvé</option>
-              <option value="rejected">Refusé</option>
-            </FilterSelect>
-          </FilterGroup>
-        </FilterGrid>
-
-        <FilterActions>
-          <ExportButton
-            onClick={resetFilters}
-            style={{ backgroundColor: "#6B7280" }}
-          >
-            Réinitialiser
-          </ExportButton>
-        </FilterActions>
-      </FilterContainer>
-    </ExportContainer>
+    <Button
+      variant="contained"
+      color="success"
+      startIcon={<PictureAsPdf />}
+      onClick={exportToPdf}
+      sx={{
+        bgcolor: isDarkMode ? "#10B981" : "#10B981",
+        color: "#FFFFFF",
+        "&:hover": {
+          bgcolor: isDarkMode ? "#059669" : "#059669",
+        },
+      }}
+    >
+      Exporter en PDF
+    </Button>
   );
 };
 
