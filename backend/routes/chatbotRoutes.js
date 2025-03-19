@@ -5,12 +5,12 @@
 
 const express = require("express");
 const router = express.Router();
-const { authenticateToken } = require("../middleware/auth");
+const { auth } = require("../middleware/auth");
 const nlpService = require("../services/nlpService");
 const scheduleOptimizer = require("../services/scheduleOptimizer");
 
 // Middleware d'authentification
-router.use(authenticateToken);
+router.use(auth);
 
 /**
  * @route   POST /api/chatbot/process

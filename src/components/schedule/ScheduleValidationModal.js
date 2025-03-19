@@ -288,7 +288,7 @@ const ScheduleValidationModal = ({
       setSchedule(newSchedule);
       calculateStats(newSchedule);
     },
-    [schedule, calculateStats]
+    [schedule]
   );
 
   // Calculer les statistiques du planning
@@ -361,7 +361,7 @@ const ScheduleValidationModal = ({
       setSchedule(newSchedule);
       calculateStats(newSchedule);
     },
-    [schedule, calculateStats]
+    [schedule]
   );
 
   // Modifier un shift
@@ -407,7 +407,7 @@ const ScheduleValidationModal = ({
       calculateStats(newSchedule);
       setEditDialogOpen(false);
     },
-    [editingShift, schedule, calculateStats]
+    [editingShift, schedule]
   );
 
   // Ajouter un nouveau shift

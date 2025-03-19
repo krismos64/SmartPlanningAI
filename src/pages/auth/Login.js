@@ -7,6 +7,7 @@ import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import { FormInput } from "../../components/ui/Form";
 import { useNotification } from "../../components/ui/Notification";
+import { API_URL } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Animations
@@ -175,6 +176,49 @@ const Login = () => {
     }
   }, [showNotification]);
 
+  // Effet pour obtenir un token CSRF au chargement
+  useEffect(() => {
+    const fetchCsrfToken = async () => {
+      try {
+        console.log("Demande de token CSRF...");
+        // Vider les cookies existants pour éviter les problèmes
+        document.cookie.split(";").forEach(function (c) {
+          if (c.trim().startsWith("XSRF-TOKEN=")) {
+            document.cookie = c
+              .replace(/^ +/, "")
+              .replace(
+                /=.*/,
+                "=;expires=" + new Date().toUTCString() + ";path=/"
+              );
+            console.log("Cookie CSRF précédent supprimé");
+          }
+        });
+
+        const response = await fetch(`${API_URL}/api/csrf-token`, {
+          method: "GET",
+          credentials: "include", // Important pour recevoir et envoyer des cookies
+        });
+
+        if (response.ok) {
+          console.log("Token CSRF obtenu avec succès");
+          console.log("Cookies après obtention du token:", document.cookie);
+          // Le token est automatiquement stocké dans les cookies par le serveur
+        } else {
+          console.error("Échec de l'obtention du token CSRF:", response.status);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération du token CSRF:", error);
+      }
+    };
+
+    fetchCsrfToken();
+
+    // Rafraîchir le token toutes les 10 secondes pendant que l'utilisateur est sur la page de connexion
+    const refreshInterval = setInterval(fetchCsrfToken, 10000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
   // Valider le formulaire
   const validateForm = () => {
     const newErrors = {};
@@ -201,13 +245,60 @@ const Login = () => {
       return;
     }
 
+    // Essayer d'obtenir un nouveau token CSRF juste avant la connexion
+    try {
+      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (csrfResponse.ok) {
+        console.log("Token CSRF rafraîchi avant connexion");
+      } else {
+        console.warn("Échec du rafraîchissement du token CSRF avant connexion");
+      }
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement du token CSRF:", error);
+    }
+
+    // Attendre un peu pour s'assurer que le cookie est bien défini
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Code de débogage pour vérifier le token CSRF
+    const getCsrfToken = () => {
+      const cookies = document.cookie.split(";");
+      console.log("Cookies disponibles:", document.cookie);
+      for (let cookie of cookies) {
+        cookie = cookie.trim();
+        console.log("Vérifiant cookie:", cookie);
+        if (cookie.startsWith("XSRF-TOKEN=")) {
+          return cookie.substring("XSRF-TOKEN=".length);
+        }
+      }
+      return null;
+    };
+
+    const csrfToken = getCsrfToken();
+    console.log("Token CSRF avant connexion:", csrfToken);
+    console.log("Tous les cookies:", document.cookie);
+
+    if (!csrfToken) {
+      showNotification({
+        type: "warning",
+        title: "Problème de sécurité",
+        message:
+          "Token CSRF non trouvé. Veuillez rafraîchir la page et réessayer.",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       console.log("Tentative de connexion avec:", { email, password: "***" });
 
-      // Utiliser la fonction login du contexte d'authentification
-      const success = await login(email, password);
+      // Utiliser la fonction login du contexte d'authentification avec le token CSRF
+      const success = await login(email, password, csrfToken);
 
       console.log("Résultat de la connexion:", success);
 

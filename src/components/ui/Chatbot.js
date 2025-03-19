@@ -11,6 +11,7 @@ import {
   SmartToy,
 } from "@mui/icons-material";
 import { IconButton } from "@mui/material";
+import { AnimatePresence, motion } from "framer-motion";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import robotAnimation from "../../assets/animations/robot.json";
@@ -72,25 +73,155 @@ const CHATBOT_MODES = {
   PERSONALIZED: "personnalisé",
 };
 
-// Descriptions des modes
-const MODE_DESCRIPTIONS = {
-  [CHATBOT_MODES.AGENT]:
-    "L'IA complète peut générer des plannings et offrir des conseils",
-  [CHATBOT_MODES.PRIVATE]: "Traitement local pour une confidentialité maximale",
-  [CHATBOT_MODES.PERSONALIZED]:
-    "Expérience adaptée à vos préférences et habitudes",
+// Variants pour les animations Framer Motion
+const chatbotWindowVariants = {
+  hidden: {
+    opacity: 0,
+    scale: 0.8,
+    y: 20,
+    transformOrigin: "bottom right",
+  },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 260,
+      damping: 20,
+      duration: 0.5,
+    },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.8,
+    y: 20,
+    transition: {
+      duration: 0.3,
+      ease: "easeInOut",
+    },
+  },
+};
+
+const messageVariants = {
+  hidden: {
+    opacity: 0,
+    y: 20,
+    scale: 0.9,
+  },
+  visible: (i) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 250,
+      damping: 20,
+      delay: i * 0.05,
+    },
+  }),
+  hover: {
+    scale: 1.02,
+    boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 15,
+    },
+  },
+};
+
+const typingIndicatorVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+    },
+  },
+  exit: {
+    opacity: 0,
+    y: 10,
+    transition: {
+      duration: 0.2,
+    },
+  },
+};
+
+const modeBannerVariants = {
+  hidden: { opacity: 0, y: -20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 200,
+      damping: 20,
+    },
+  },
+  exit: {
+    opacity: 0,
+    y: -20,
+    transition: {
+      duration: 0.3,
+    },
+  },
+};
+
+const suggestionButtonVariants = {
+  hidden: { opacity: 0, scale: 0.8 },
+  visible: (i) => ({
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 20,
+      delay: i * 0.1 + 0.3,
+    },
+  }),
+  hover: {
+    scale: 1.05,
+    boxShadow: "0 5px 10px rgba(0,0,0,0.15)",
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 10,
+    },
+  },
 };
 
 // Composant d'animation optimisé pour éviter les problèmes de cycle de vie
 const ChatbotLottieAnimation = React.memo(
   ({ isHovered, onClick, onMouseEnter, onMouseLeave }) => {
     return (
-      <div
+      <motion.div
         className="chatbot-toggle-lottie"
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         aria-label="Ouvrir l'assistant"
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{
+          scale: isHovered ? 1.1 : 1,
+          opacity: 1,
+          y: [0, -10, 0],
+        }}
+        transition={{
+          scale: {
+            type: "spring",
+            stiffness: 300,
+            damping: 15,
+          },
+          y: {
+            duration: 3,
+            repeat: Infinity,
+            repeatType: "reverse",
+            ease: "easeInOut",
+          },
+        }}
+        whileTap={{ scale: 0.9 }}
       >
         <EnhancedLottie
           animationData={robotAnimation}
@@ -99,7 +230,7 @@ const ChatbotLottieAnimation = React.memo(
           loop={true}
           autoplay={true}
         />
-      </div>
+      </motion.div>
     );
   },
   // Optimisation: ne pas re-rendre lors des survols rapides pour éviter les problèmes de cycle de vie de Lottie
@@ -109,44 +240,37 @@ const ChatbotLottieAnimation = React.memo(
   }
 );
 
-// Styles pour le menu de mode
-const modeMenuStyles = {
-  menu: {
-    backgroundColor: "#fff",
-    borderRadius: "8px",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-    position: "absolute",
-    right: "40px",
-    top: "60px",
-    width: "200px",
-    zIndex: 1000,
-  },
-  menuItem: {
-    padding: "10px 15px",
-    display: "flex",
-    alignItems: "center",
-    cursor: "pointer",
-    color: "#333", // Couleur plus foncée pour un meilleur contraste
-    transition: "background-color 0.2s",
-    "&:hover": {
-      backgroundColor: "#f5f5f5",
-    },
-  },
-  modeIcon: {
-    marginRight: "10px",
-    color: "#5a67d8",
-  },
-  modeTitle: {
-    fontWeight: "bold",
-    fontSize: "14px",
-    color: "#333", // Couleur plus foncée pour un meilleur contraste
-  },
-  modeDescription: {
-    fontSize: "12px",
-    color: "#666", // Couleur moyenne pour un meilleur contraste
-    marginTop: "2px",
-  },
-};
+// Composant pour afficher le message avec animation de frappe
+const TypingMessage = React.memo(({ message, delay = 10 }) => {
+  const [displayedText, setDisplayedText] = useState("");
+  const [isComplete, setIsComplete] = useState(false);
+
+  useEffect(() => {
+    if (!message) return;
+
+    setDisplayedText("");
+    setIsComplete(false);
+
+    let index = 0;
+    const timer = setInterval(() => {
+      setDisplayedText(message.substring(0, index + 1));
+      index++;
+
+      if (index >= message.length) {
+        clearInterval(timer);
+        setIsComplete(true);
+      }
+    }, delay);
+
+    return () => clearInterval(timer);
+  }, [message, delay]);
+
+  return (
+    <span className={`message-text ${!isComplete ? "typing-text-effect" : ""}`}>
+      {displayedText}
+    </span>
+  );
+});
 
 // Composant principal du chatbot
 const Chatbot = () => {
@@ -176,6 +300,9 @@ const Chatbot = () => {
 
   // État pour suivre si l'animation est en survol
   const [isRobotHovered, setIsRobotHovered] = useState(false);
+
+  // État pour l'animation de frappe
+  const [useTypingAnimation, setUseTypingAnimation] = useState(true);
 
   // Fonction pour formater l'heure
   const formatTime = (date) => {
@@ -366,7 +493,7 @@ const Chatbot = () => {
     return BOT_EMOJIS[Math.floor(Math.random() * BOT_EMOJIS.length)];
   };
 
-  // 1. Simuler la frappe du bot
+  // 1. Simuler la frappe du bot (amélioré)
   const simulateTyping = useCallback(
     (message, callback) => {
       setIsTyping(true);
@@ -374,7 +501,7 @@ const Chatbot = () => {
       // Délai de frappe proportionnel à la longueur du message
       // En mode agent, la frappe est plus rapide
       const baseDelay = currentMode === CHATBOT_MODES.AGENT ? 300 : 500;
-      const typingDelay = Math.min(1500, baseDelay + message.length * 10);
+      const typingDelay = Math.min(1500, baseDelay + message.length * 5);
 
       const timeout = setTimeout(() => {
         setIsTyping(false);
@@ -888,202 +1015,395 @@ const Chatbot = () => {
 
   // JSX pour le rendu du composant
   return (
-    <div className="chatbot-container">
-      {!open && (
-        <ChatbotLottieAnimation
-          isHovered={isRobotHovered}
-          onClick={toggleChatbot}
-          onMouseEnter={() => setIsRobotHovered(true)}
-          onMouseLeave={() => setIsRobotHovered(false)}
-        />
-      )}
+    <div className={`chatbot-container`}>
+      <AnimatePresence>
+        {!open && (
+          <ChatbotLottieAnimation
+            isHovered={isRobotHovered}
+            onClick={toggleChatbot}
+            onMouseEnter={() => setIsRobotHovered(true)}
+            onMouseLeave={() => setIsRobotHovered(false)}
+          />
+        )}
 
-      {open && (
-        <div
-          className={`chatbot-window ${modeChanging ? "mode-changing" : ""}`}
-        >
-          <div className="chatbot-header">
-            <div className="header-title">
-              <SmartToy />
-              <h3>Assistant</h3>
-            </div>
-            <div className="chatbot-controls">
-              <div className={`mode-selector ${currentMode.toLowerCase()}`}>
-                <span className="mode-name">{currentMode}</span>
-                <IconButton
-                  style={{
-                    marginLeft: "10px",
-                    backgroundColor: "rgba(255, 255, 255, 0.1)",
-                    padding: "6px",
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      backgroundColor: "rgba(255, 255, 255, 0.2)",
-                    },
-                  }}
-                  onClick={() => setShowModeMenu(!showModeMenu)}
-                >
-                  <ArrowDropDown style={{ color: "white" }} />
-                </IconButton>
-              </div>
-              <button className="close-button" onClick={toggleChatbot}>
-                <Close />
-              </button>
-            </div>
-
-            {showModeMenu && (
-              <div style={modeMenuStyles.menu}>
-                {Object.values(CHATBOT_MODES).map((mode) => (
-                  <div
-                    key={mode}
-                    style={modeMenuStyles.menuItem}
-                    onClick={() => {
-                      changeMode(mode);
-                      setShowModeMenu(false);
+        {open && (
+          <motion.div
+            className={`chatbot-window ${modeChanging ? "mode-changing" : ""}`}
+            variants={chatbotWindowVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            key="chatbot-window"
+          >
+            <motion.div
+              className="chatbot-header"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="header-content">
+                <div className="header-title">
+                  <motion.div
+                    initial={{ rotate: -30, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 260,
+                      damping: 20,
+                      delay: 0.3,
                     }}
                   >
-                    <div style={modeMenuStyles.modeIcon}>
-                      {mode === CHATBOT_MODES.AGENT && (
-                        <SmartToy fontSize="small" />
-                      )}
-                      {mode === CHATBOT_MODES.PRIVATE && (
-                        <Lock fontSize="small" />
-                      )}
-                      {mode === CHATBOT_MODES.PERSONALIZED && (
-                        <Psychology fontSize="small" />
-                      )}
-                    </div>
-                    <div>
-                      <div style={modeMenuStyles.modeTitle}>
-                        {mode === CHATBOT_MODES.AGENT && "Agent IA"}
-                        {mode === CHATBOT_MODES.PRIVATE && "Privé"}
-                        {mode === CHATBOT_MODES.PERSONALIZED && "Personnalisé"}
-                      </div>
-                      <div style={modeMenuStyles.modeDescription}>
-                        {MODE_DESCRIPTIONS[mode]}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="chatbot-body">
-            {showModeBanner && (
-              <div className={`mode-banner ${currentMode.toLowerCase()}`}>
-                {currentMode === CHATBOT_MODES.AGENT && <SmartToy />}
-                {currentMode === CHATBOT_MODES.PRIVATE && <Lock />}
-                {currentMode === CHATBOT_MODES.PERSONALIZED && <Psychology />}
-                <div>
-                  <strong>Mode {currentMode}</strong> :{" "}
-                  {MODE_DESCRIPTIONS[currentMode]}
-                </div>
-              </div>
-            )}
-
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`message ${
-                  message.sender === "user" ? "user" : "bot"
-                } ${message.sender === "bot" ? currentMode.toLowerCase() : ""}`}
-              >
-                <div className="message-info">
-                  {message.sender === "user" ? (
-                    <Person />
-                  ) : currentMode === CHATBOT_MODES.AGENT ? (
                     <SmartToy />
-                  ) : currentMode === CHATBOT_MODES.PRIVATE ? (
-                    <Lock />
-                  ) : (
-                    <Psychology />
-                  )}
-                  <span className="message-time">
-                    {formatTime(message.timestamp)}
-                  </span>
+                  </motion.div>
+                  <motion.h3
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    style={{ fontSize: "1rem", fontWeight: "500" }}
+                  >
+                    Assistant IA SmartPlanning
+                  </motion.h3>
                 </div>
-                <div className="message-content">
-                  {message.emoji && (
-                    <div className="message-emoji">{message.emoji}</div>
-                  )}
-                  <div>{message.text}</div>
+
+                <div className="robot-avatar-container">
+                  <EnhancedLottie
+                    animationData={robotAnimation}
+                    width={100}
+                    height={100}
+                    loop={true}
+                    autoplay={true}
+                  />
                 </div>
-                {message.actions && message.actions.length > 0 && (
+
+                <motion.div
+                  className="mode-selector"
+                  onClick={() => setShowModeMenu(!showModeMenu)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  {currentMode === CHATBOT_MODES.AGENT && (
+                    <Psychology
+                      style={{ marginRight: "5px", fontSize: "1.2rem" }}
+                    />
+                  )}
+                  {currentMode === CHATBOT_MODES.PRIVATE && (
+                    <Lock style={{ marginRight: "5px", fontSize: "1.2rem" }} />
+                  )}
+                  {currentMode === CHATBOT_MODES.PERSONALIZED && (
+                    <Person
+                      style={{ marginRight: "5px", fontSize: "1.2rem" }}
+                    />
+                  )}
+                  <span className="mode-name">{currentMode}</span>
+                  <motion.div
+                    animate={{ rotate: showModeMenu ? 180 : 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ArrowDropDown />
+                  </motion.div>
+                </motion.div>
+              </div>
+
+              <IconButton
+                className="close-button"
+                onClick={toggleChatbot}
+                style={{
+                  color: "white",
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                }}
+              >
+                <Close style={{ fontSize: "1.2rem" }} />
+              </IconButton>
+            </motion.div>
+
+            <AnimatePresence>
+              {showModeBanner && (
+                <motion.div
+                  className={`mode-banner ${currentMode}`}
+                  variants={modeBannerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  {currentMode === CHATBOT_MODES.AGENT && (
+                    <Psychology fontSize="small" />
+                  )}
+                  {currentMode === CHATBOT_MODES.PRIVATE && (
+                    <Lock fontSize="small" />
+                  )}
+                  {currentMode === CHATBOT_MODES.PERSONALIZED && (
+                    <Person fontSize="small" />
+                  )}
+                  <span>Mode {currentMode}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="chatbot-body">
+              <AnimatePresence initial={false}>
+                {messages.map((msg, index) => (
+                  <motion.div
+                    key={msg.id}
+                    className={`message ${msg.sender} ${
+                      msg.sender === "bot" ? currentMode : ""
+                    }`}
+                    variants={messageVariants}
+                    initial="hidden"
+                    animate="visible"
+                    whileHover="hover"
+                    custom={index}
+                    layout
+                  >
+                    {msg.sender === "bot" && msg.emoji && (
+                      <div className="message-emoji">{msg.emoji}</div>
+                    )}
+
+                    {msg.sender === "bot" && (
+                      <div className="message-robot-animation">
+                        <EnhancedLottie
+                          animationData={robotAnimation}
+                          width={40}
+                          height={40}
+                          loop={true}
+                          autoplay={true}
+                        />
+                      </div>
+                    )}
+
+                    {msg.sender === "bot" && useTypingAnimation ? (
+                      <TypingMessage message={msg.text} delay={15} />
+                    ) : (
+                      <div className="message-text">{msg.text}</div>
+                    )}
+
+                    <div className="message-time">
+                      {formatTime(msg.timestamp)}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {isTyping && (
+                  <motion.div
+                    className="typing-indicator"
+                    variants={typingIndicatorVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                  >
+                    <div className="typing-dot"></div>
+                    <div className="typing-dot"></div>
+                    <div className="typing-dot"></div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {showSuggestions && !isTyping && messages.length > 0 && (
                   <div className="suggestions-container">
-                    {message.actions.map((action, actionIndex) => (
-                      <button
-                        key={actionIndex}
-                        className={`suggestion-button ${currentMode.toLowerCase()}`}
-                        onClick={() => handleSuggestionClick(action.action)}
+                    {QUICK_SUGGESTIONS.map((suggestion, index) => (
+                      <motion.button
+                        key={suggestion.text}
+                        className={`suggestion-button ${currentMode}`}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        variants={suggestionButtonVariants}
+                        initial="hidden"
+                        animate="visible"
+                        whileHover="hover"
+                        custom={index}
                       >
-                        {action.icon}
-                        {action.text}
-                      </button>
+                        {suggestion.icon}
+                        {suggestion.text}
+                      </motion.button>
                     ))}
                   </div>
                 )}
-              </div>
-            ))}
+              </AnimatePresence>
 
-            {isTyping && (
-              <div className={`typing-indicator ${currentMode.toLowerCase()}`}>
-                <div className="typing-dot"></div>
-                <div className="typing-dot"></div>
-                <div className="typing-dot"></div>
-              </div>
-            )}
-          </div>
+              <div ref={messageEndRef} style={{ height: 1 }} />
+            </div>
 
-          <div className="chatbot-footer">
-            <form onSubmit={handleSubmit} className="message-form">
-              <input
-                type="text"
-                className={`message-input ${currentMode.toLowerCase()}`}
-                placeholder="Écrivez votre message ici..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                ref={inputRef}
-              />
-              <button
-                type="submit"
-                className={`send-button ${currentMode.toLowerCase()}`}
-                disabled={!inputValue.trim()}
+            <div className="chatbot-footer">
+              <form className="message-form" onSubmit={handleSubmit}>
+                <input
+                  type="text"
+                  className="message-input"
+                  placeholder="Tapez votre message..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  ref={inputRef}
+                  onFocus={() => setShowSuggestions(true)}
+                />
+                <motion.button
+                  type="submit"
+                  className="send-button"
+                  disabled={!inputValue.trim()}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Send style={{ fontSize: "1.2rem" }} />
+                </motion.button>
+              </form>
+
+              {/* Options supplémentaires */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: "8px",
+                  fontSize: "0.8rem",
+                  color: "var(--chatbot-text-secondary)",
+                }}
               >
-                <Send />
-              </button>
-            </form>
-
-            {showSuggestions && (
-              <div className="suggestions-container">
-                {QUICK_SUGGESTIONS.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    className={`suggestion-button ${currentMode.toLowerCase()} ${
-                      index === 0 ? "first" : ""
-                    }`}
-                    onClick={() => handleSuggestionClick(suggestion.action)}
-                  >
-                    {suggestion.icon}
-                    {suggestion.text}
-                  </button>
-                ))}
+                <span
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setUseTypingAnimation(!useTypingAnimation)}
+                >
+                  {useTypingAnimation
+                    ? "✓ Animation frappe"
+                    : "☐ Animation frappe"}
+                </span>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Modal de validation du planning */}
-      {scheduleValidationOpen && generatedSchedule && (
-        <ScheduleValidationModal
-          open={scheduleValidationOpen}
-          onClose={() => setScheduleValidationOpen(false)}
-          schedule={generatedSchedule}
-          onApplySchedule={handleApplySchedule}
-          onRegenerateSchedule={handleRegenerateSchedule}
-          mode={currentMode}
-        />
-      )}
+      <AnimatePresence>
+        {showModeMenu && (
+          <motion.div
+            className="mode-menu"
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          >
+            {Object.values(CHATBOT_MODES).map((mode) => (
+              <motion.div
+                key={mode}
+                className={`mode-option ${mode}`}
+                style={{
+                  padding: "12px 16px",
+                  cursor: "pointer",
+                  borderBottom: "1px solid var(--chatbot-input-border)",
+                  backgroundColor:
+                    mode === currentMode
+                      ? "rgba(63, 81, 181, 0.1)"
+                      : "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                onClick={() => {
+                  setCurrentMode(mode);
+                  setShowModeMenu(false);
+                  setModeChanging(true);
+
+                  // Réinitialiser la bannière de mode
+                  setShowModeBanner(true);
+
+                  // Animation lors du changement de mode
+                  setTimeout(() => {
+                    setModeChanging(false);
+                  }, 600);
+
+                  // Masquer la bannière après un délai
+                  setTimeout(() => {
+                    setShowModeBanner(false);
+                  }, 5000);
+                }}
+                whileHover={{ backgroundColor: "rgba(63, 81, 181, 0.15)" }}
+                transition={{ duration: 0.2 }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      backgroundColor: "rgba(63, 81, 181, 0.1)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--chatbot-primary)",
+                    }}
+                  >
+                    {mode === CHATBOT_MODES.AGENT ? (
+                      <Psychology fontSize="medium" />
+                    ) : mode === CHATBOT_MODES.PRIVATE ? (
+                      <Lock fontSize="medium" />
+                    ) : (
+                      <Person fontSize="medium" />
+                    )}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div
+                      style={{
+                        fontWeight: "600",
+                        fontSize: "0.95rem",
+                        marginBottom: "4px",
+                        color: "var(--chatbot-text)",
+                      }}
+                    >
+                      {mode}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "var(--chatbot-text-secondary, #666)",
+                        lineHeight: "1.3",
+                      }}
+                    >
+                      {mode === CHATBOT_MODES.AGENT
+                        ? "L'IA complète peut générer des plannings et offrir des conseils d'optimisation basés sur vos données historiques."
+                        : mode === CHATBOT_MODES.PRIVATE
+                        ? "Traitement local pour une confidentialité maximale. Aucune donnée n'est partagée avec le serveur."
+                        : "Expérience adaptée à vos préférences, habitudes et historique d'utilisation."}
+                    </div>
+                  </div>
+                </div>
+                {mode === currentMode && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      borderRadius: "50%",
+                      backgroundColor: "var(--chatbot-primary)",
+                      marginLeft: "auto",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                    }}
+                  >
+                    <div style={{ fontSize: "14px" }}>✓</div>
+                  </motion.div>
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <ScheduleValidationModal
+        open={scheduleValidationOpen}
+        onClose={() => setScheduleValidationOpen(false)}
+        schedule={generatedSchedule}
+        onConfirm={handleApplySchedule}
+      />
     </div>
   );
 };

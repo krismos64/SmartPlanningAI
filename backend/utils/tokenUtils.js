@@ -3,9 +3,9 @@ const crypto = require("crypto");
 
 // Configuration
 const ACCESS_TOKEN_SECRET =
-  process.env.JWT_SECRET || generateSecureRandomString(64);
+  process.env.JWT_SECRET || "smartplanningai_secret_key";
 const REFRESH_TOKEN_SECRET =
-  process.env.JWT_REFRESH_SECRET || generateSecureRandomString(64);
+  process.env.JWT_REFRESH_SECRET || "smartplanningai_refresh_secret_key";
 const ACCESS_TOKEN_EXPIRY = "1h"; // 1 heure
 const REFRESH_TOKEN_EXPIRY = "7d"; // 7 jours
 
@@ -76,13 +76,59 @@ function generateTokens(userId, role = "admin") {
  */
 function verifyAccessToken(token) {
   try {
-    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+    console.log(
+      `Vérification du token (longueur: ${token.length}): ${token.substring(
+        0,
+        10
+      )}...`
+    );
+
+    // Une petite sécurité pour traiter différents formats possibles de token
+    let cleanToken = token;
+    if (token.startsWith("Bearer ")) {
+      cleanToken = token.substring(7);
+      console.log("Token corrigé - format Bearer détecté");
+    }
+
+    // Quelques informations sur le token
+    try {
+      const parts = cleanToken.split(".");
+      if (parts.length === 3) {
+        const header = JSON.parse(Buffer.from(parts[0], "base64").toString());
+        console.log("Token header:", header);
+      } else {
+        console.log("Format de token invalide (pas 3 parties)");
+      }
+    } catch (e) {
+      console.log("Impossible de décoder l'en-tête du token:", e.message);
+    }
+
+    const decoded = jwt.verify(cleanToken, ACCESS_TOKEN_SECRET);
+    console.log("Token décodé avec succès:", {
+      userId: decoded.userId,
+      role: decoded.role,
+      exp: decoded.exp
+        ? new Date(decoded.exp * 1000).toISOString()
+        : "non défini",
+      iat: decoded.iat
+        ? new Date(decoded.iat * 1000).toISOString()
+        : "non défini",
+    });
     return decoded;
   } catch (error) {
     console.error(
       "Erreur lors de la vérification du token d'accès:",
       error.message
     );
+    // Ajouter plus d'informations de débogage
+    console.error("Type d'erreur:", error.name);
+
+    if (error.name === "JsonWebTokenError") {
+      console.error("Détails supplémentaires:", error.message);
+    } else if (error.name === "TokenExpiredError") {
+      console.error("Token expiré à:", new Date(error.expiredAt).toISOString());
+    }
+
     return null;
   }
 }
@@ -129,18 +175,31 @@ function setTokenCookies(
   res.cookie("accessToken", accessToken, {
     httpOnly: true, // Inaccessible via JavaScript
     secure: isProduction, // HTTPS uniquement en production
-    sameSite: isProduction ? "strict" : "lax", // Protection CSRF
+    sameSite: "lax", // Permettre les requêtes cross-domain avec lax au lieu de strict
     expires: accessExpires,
+    path: "/", // Disponible sur toutes les routes
   });
 
   // Configurer le cookie pour le refresh token avec un chemin spécifique
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? "strict" : "lax",
-    path: "/auth/refresh", // Restreindre à la route de refresh
+    sameSite: "lax", // Permettre les requêtes cross-domain
+    path: "/api/auth/refresh", // Chemin complet pour la route de refresh
     expires: refreshExpires,
   });
+
+  // Ajouter un cookie non-httpOnly contenant le token pour le client JavaScript
+  res.cookie("auth_token", accessToken, {
+    httpOnly: false, // Accessible via JavaScript
+    secure: isProduction,
+    sameSite: "lax",
+    expires: accessExpires,
+    path: "/",
+  });
+
+  // Retourner également le token dans la réponse
+  return accessToken;
 }
 
 /**

@@ -5,10 +5,22 @@
 import axios from "axios";
 
 // URL de base de l'API - Forcer la mise à jour en ajoutant un commentaire
-export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5005"; // Mise à jour pour pointer vers le port 5005
+export const API_URL = "http://localhost:5001";
 
 // Fonction pour vérifier si l'URL est correcte
 console.log("API_URL configurée:", API_URL);
+
+// Fonction utilitaire pour récupérer le token CSRF depuis les cookies
+export const getCsrfToken = () => {
+  const cookies = document.cookie.split(";");
+  for (let cookie of cookies) {
+    cookie = cookie.trim();
+    if (cookie.startsWith("XSRF-TOKEN=")) {
+      return cookie.substring("XSRF-TOKEN=".length);
+    }
+  }
+  return null;
+};
 
 // Routes de l'API
 export const API_ENDPOINTS = {
@@ -48,6 +60,8 @@ export const API_ENDPOINTS = {
     DELETE_ACCOUNT: "/api/auth/delete-account",
     REQUEST_ACCOUNT_DELETION: "/api/auth/request-account-deletion",
     CONFIRM_ACCOUNT_DELETION: "/api/auth/confirm-account-deletion",
+    PROFILE: "/api/user/profile",
+    UPDATE_PROFILE: "/api/user/profile",
   },
   DEPARTMENTS: {
     BASE: "/api/departments",
@@ -91,15 +105,31 @@ export const apiRequest = async (
       token ? "Présent" : "Manquant"
     );
 
+    // Ajouter le token CSRF pour les routes d'authentification
+    let csrfHeader = {};
+    if (url.startsWith("/api/auth/")) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        csrfHeader = { "X-CSRF-Token": csrfToken };
+        console.log(`[apiRequest] Token CSRF ajouté pour la route ${url}`);
+      } else {
+        console.warn(
+          `[apiRequest] Pas de token CSRF trouvé pour la route ${url}`
+        );
+      }
+    }
+
     const config = {
       method,
       url,
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...csrfHeader,
         ...headers,
       },
       ...(data && { data }),
+      withCredentials: true, // Pour inclure les cookies dans les requêtes cross-origin
     };
 
     console.log(`[apiRequest] Configuration:`, {

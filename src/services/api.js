@@ -42,6 +42,23 @@ export const AuthService = {
     }
   },
 
+  me: async (token) => {
+    try {
+      console.log("🔍 Récupération des infos du profil utilisateur");
+      const response = await apiRequest("/api/user/profile", "GET");
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+      return { success: true, user: response };
+    } catch (error) {
+      console.error("❌ Erreur lors de la récupération du profil:", error);
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la récupération du profil",
+      };
+    }
+  },
+
   register: async (userData) => {
     try {
       const response = await apiRequest(API_ENDPOINTS.REGISTER, "POST", {

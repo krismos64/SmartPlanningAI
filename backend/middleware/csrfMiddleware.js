@@ -10,8 +10,9 @@ const csrfProtection = csrf({
     key: "_csrf",
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
     signed: true,
+    path: "/",
   },
 });
 
@@ -38,7 +39,8 @@ const generateCsrfToken = (req, res, next) => {
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false, // Accessible via JavaScript (nécessaire pour les apps client-side)
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
+    path: "/",
   });
 
   // Stocker le token dans l'objet req pour un accès facile

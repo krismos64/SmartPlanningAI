@@ -63,6 +63,7 @@ const corsOptions = {
     "Sec-WebSocket-Protocol",
     "Upgrade",
     "Connection",
+    "X-CSRF-Token",
   ],
   exposedHeaders: ["Sec-WebSocket-Accept"],
   credentials: true,
@@ -202,8 +203,71 @@ app.use((req, res, next) => {
   next();
 });
 
+// Middleware pour appliquer la protection CSRF aux routes d'authentification
+const applyCsrfProtection = (req, res, next) => {
+  try {
+    // Appliquer csrfProtection
+    csrfProtection(req, res, (err) => {
+      if (err) {
+        // Si une erreur CSRF se produit, la gérer
+        if (err.code === "EBADCSRFTOKEN") {
+          console.error("Tentative CSRF détectée:", {
+            ip: req.ip,
+            method: req.method,
+            url: req.originalUrl,
+            headers: req.headers,
+            timestamp: new Date().toISOString(),
+          });
+
+          return res.status(403).json({
+            success: false,
+            message: "Action rejetée: tentative d'attaque CSRF détectée",
+          });
+        }
+
+        // Autres erreurs
+        console.error("Erreur CSRF:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Erreur de sécurité serveur",
+        });
+      }
+
+      // Si pas d'erreur, appliquer le middleware de génération de token
+      generateCsrfToken(req, res, next);
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'application de la protection CSRF:", error);
+    next(error);
+  }
+};
+
+// Route spécifique pour obtenir un token CSRF avant la protection CSRF
+app.get("/api/csrf-token", csrfProtection, (req, res) => {
+  try {
+    const token = req.csrfToken();
+    console.log("CSRF Token généré:", token);
+
+    // Ajouter le token au cookie client avec des paramètres adaptés pour le cross-domain
+    res.cookie("XSRF-TOKEN", token, {
+      httpOnly: false, // Accessible via JavaScript
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax", // Changer de strict à lax pour permettre les requêtes cross-domain
+      path: "/", // Assurer que le cookie est disponible pour tout le domaine
+    });
+
+    res.json({ success: true, message: "Token CSRF généré avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la génération du token CSRF:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la génération du token CSRF",
+    });
+  }
+});
+
 // Configurer les routes CSRF pour les opérations sensibles
-app.use("/api/auth", [csrfProtection, generateCsrfToken], authRoutes);
+app.use("/api/auth", applyCsrfProtection, authRoutes);
 
 // Routes nécessitant une authentification
 app.use("/api/employees", secureAuth, employeesRoutes);
@@ -216,9 +280,7 @@ app.use("/api/hour-balance", secureAuth, hourBalanceRoutes);
 app.use("/api/departments", secureAuth, departmentsRoutes);
 app.use("/api/notifications", secureAuth, notificationsRoutes);
 app.use("/api/chatbot", chatbotRoutes); // Le chatbot ne nécessite pas d'authentification
-
-// Gestionnaire d'erreurs CSRF
-app.use(handleCsrfError);
+app.use("/api/user", secureAuth, authRoutes); // Exposer les routes d'authentification également sous /api/user
 
 // Route de base
 app.get("/", (req, res) => {

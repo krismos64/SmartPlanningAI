@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const { generateToken, auth, checkRole } = require("../middleware/auth");
+const { secureAuth } = require("../middleware/secureAuth");
 const {
   generateTokens,
   setTokenCookies,
@@ -77,6 +78,20 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     console.log("Tentative de connexion avec:", req.body);
+    console.log("En-têtes de la requête:", req.headers);
+    console.log("Token CSRF dans l'en-tête:", req.headers["x-csrf-token"]);
+    console.log("Cookie CSRF:", req.cookies["_csrf"]);
+
+    // Vérifier si csrfToken est une fonction avant de l'appeler
+    let csrfTokenValue = "Non disponible";
+    if (req.csrfToken && typeof req.csrfToken === "function") {
+      try {
+        csrfTokenValue = req.csrfToken();
+      } catch (csrfError) {
+        console.error("Erreur lors de l'appel à csrfToken():", csrfError);
+      }
+    }
+    console.log("Token CSRF depuis req.csrfToken():", csrfTokenValue);
 
     const { email, password } = req.body;
 
@@ -98,10 +113,11 @@ router.post("/login", async (req, res) => {
 
       // Générer des tokens JWT et les définir comme cookies sécurisés
       const tokens = generateTokens(user.id, user.role || "admin");
-      setTokenCookies(res, tokens);
+      const accessToken = setTokenCookies(res, tokens);
 
       return res.json({
         success: true,
+        token: accessToken,
         user: {
           id: user.id,
           email: user.email,
@@ -150,11 +166,12 @@ router.post("/login", async (req, res) => {
 
     // Générer des tokens JWT et les définir comme cookies sécurisés
     const tokens = generateTokens(user.id, user.role || "admin");
-    setTokenCookies(res, tokens);
+    const accessToken = setTokenCookies(res, tokens);
 
     // Retourner les informations de l'utilisateur sans le mot de passe
     res.json({
       success: true,
+      token: accessToken,
       user: {
         id: user.id,
         email: user.email,
@@ -175,30 +192,71 @@ router.post("/login", async (req, res) => {
 });
 
 // Route pour récupérer le profil de l'utilisateur connecté
-router.get("/profile", auth, async (req, res) => {
+router.get("/profile", secureAuth, async (req, res) => {
   try {
+    console.log("=== ROUTE /profile APPELÉE ===");
+    console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Cookies:", req.cookies);
+
     // req.user est défini par le middleware auth
-    res.json({
+    console.log("req.user présent:", !!req.user);
+    console.log(
+      "Données utilisateur disponibles dans /profile:",
+      req.user
+        ? {
+            id: req.user.id,
+            email: req.user.email,
+            role: req.user.role,
+            first_name: req.user.first_name || null,
+            last_name: req.user.last_name || null,
+            // Ne pas log l'image complète
+            profileImage: req.user.profileImage ? "présent" : "absent",
+            company: req.user.company || null,
+            phone: req.user.phone || null,
+            jobTitle: req.user.jobTitle || null,
+          }
+        : "Utilisateur non disponible"
+    );
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié",
+      });
+    }
+
+    // Vérifier si les données du profil sont complètes
+    const profileData = {
       id: req.user.id,
       email: req.user.email,
       role: req.user.role,
-      first_name: req.user.first_name,
-      last_name: req.user.last_name,
-      profileImage: req.user.profileImage,
-      company: req.user.company,
-      phone: req.user.phone,
-      jobTitle: req.user.jobTitle,
+      first_name: req.user.first_name || "",
+      last_name: req.user.last_name || "",
+      profileImage: req.user.profileImage || null,
+      company: req.user.company || "",
+      phone: req.user.phone || "",
+      jobTitle: req.user.jobTitle || "",
+    };
+
+    console.log("Données de profil renvoyées:", {
+      ...profileData,
+      profileImage: profileData.profileImage ? "présent" : "absent",
     });
+
+    res.json(profileData);
   } catch (error) {
     console.error("Erreur lors de la récupération du profil:", error);
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la récupération du profil." });
+    console.error("Stack trace:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération du profil.",
+      error: error.message,
+    });
   }
 });
 
 // Route pour mettre à jour le profil de l'utilisateur
-router.put("/profile", auth, async (req, res) => {
+router.put("/profile", secureAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     console.log("Données reçues pour la mise à jour du profil:", {
@@ -276,7 +334,7 @@ router.put("/profile", auth, async (req, res) => {
 });
 
 // Route pour vérifier si un utilisateur est authentifié
-router.get("/check", auth, async (req, res) => {
+router.get("/check", secureAuth, async (req, res) => {
   try {
     res.json({
       isAuthenticated: true,
@@ -298,7 +356,7 @@ router.get("/check", auth, async (req, res) => {
 });
 
 // Route pour récupérer tous les utilisateurs
-router.get("/users", auth, async (req, res) => {
+router.get("/users", secureAuth, async (req, res) => {
   try {
     const users = await User.find();
     // Ne pas renvoyer les mots de passe
@@ -320,7 +378,7 @@ router.get("/users", auth, async (req, res) => {
 });
 
 // Route pour mettre à jour un utilisateur
-router.put("/users/:id", auth, async (req, res) => {
+router.put("/users/:id", secureAuth, async (req, res) => {
   try {
     const { email, password } = req.body;
     const userId = req.params.id;
@@ -371,34 +429,39 @@ router.put("/users/:id", auth, async (req, res) => {
 });
 
 // Route pour supprimer un utilisateur (admin seulement)
-router.delete("/users/:id", auth, checkRole(["admin"]), async (req, res) => {
-  try {
-    const userId = req.params.id;
+router.delete(
+  "/users/:id",
+  secureAuth,
+  checkRole(["admin"]),
+  async (req, res) => {
+    try {
+      const userId = req.params.id;
 
-    // Vérifier si l'utilisateur existe
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé." });
+      // Vérifier si l'utilisateur existe
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur non trouvé." });
+      }
+
+      // Empêcher la suppression de son propre compte
+      if (parseInt(userId) === req.user.id) {
+        return res.status(400).json({
+          message: "Vous ne pouvez pas supprimer votre propre compte.",
+        });
+      }
+
+      // Supprimer l'utilisateur
+      await User.delete(userId);
+
+      res.json({ message: "Utilisateur supprimé avec succès." });
+    } catch (error) {
+      console.error("Erreur lors de la suppression de l'utilisateur:", error);
+      res
+        .status(500)
+        .json({ message: "Erreur lors de la suppression de l'utilisateur." });
     }
-
-    // Empêcher la suppression de son propre compte
-    if (parseInt(userId) === req.user.id) {
-      return res
-        .status(400)
-        .json({ message: "Vous ne pouvez pas supprimer votre propre compte." });
-    }
-
-    // Supprimer l'utilisateur
-    await User.delete(userId);
-
-    res.json({ message: "Utilisateur supprimé avec succès." });
-  } catch (error) {
-    console.error("Erreur lors de la suppression de l'utilisateur:", error);
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la suppression de l'utilisateur." });
   }
-});
+);
 
 // Route de test pour l'authentification
 router.post("/test-login", async (req, res) => {

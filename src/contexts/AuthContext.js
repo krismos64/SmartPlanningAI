@@ -3,6 +3,35 @@ import { API_URL } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import { AuthService } from "../services/api";
 
+// Fonction utilitaire pour récupérer le token CSRF depuis les cookies
+const getCsrfToken = () => {
+  try {
+    const cookies = document.cookie.split(";");
+    console.log("Tous les cookies disponibles:", document.cookie);
+
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+      console.log("Vérifiant cookie:", cookie);
+
+      if (cookie.startsWith("XSRF-TOKEN=")) {
+        const token = cookie.substring("XSRF-TOKEN=".length);
+        console.log(
+          "Token CSRF trouvé dans les cookies:",
+          token.substring(0, 10) + "..."
+        );
+        return token;
+      }
+    }
+
+    // Si aucun cookie XSRF-TOKEN n'est trouvé, récupérer un nouveau token
+    console.log("Aucun token CSRF trouvé dans les cookies");
+    return null;
+  } catch (error) {
+    console.error("Erreur lors de la récupération du token CSRF:", error);
+    return null;
+  }
+};
+
 const AuthContext = createContext({
   isAuthenticated: false,
   isLoading: true,
@@ -67,52 +96,105 @@ export const AuthProvider = ({ children }) => {
   // Vérifier l'authentification au chargement
   useEffect(() => {
     const checkInitialAuth = async () => {
-      const token = localStorage.getItem("token");
+      const savedToken = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
 
-      if (token && savedUser) {
+      if (savedToken) {
+        setToken(savedToken);
+
+        console.log("=== DEBUT RESTORATION DE SESSION ===");
+        console.log(
+          "Token trouvé dans localStorage:",
+          savedToken.substring(0, 15) + "..."
+        );
+
         try {
-          // Restaurer l'utilisateur à partir de localStorage
-          setToken(token);
-          setUser(JSON.parse(savedUser));
-          setIsAuthenticated(true);
-
-          // Vérifier que le token est toujours valide et récupérer les données à jour
-          try {
-            const response = await AuthService.me(token);
-            if (response.data && response.data.user) {
-              const userData = response.data.user;
-
-              // Fusionner les données du localStorage avec celles du serveur
-              // en privilégiant les données du serveur, mais en conservant les données
-              // locales si elles ne sont pas présentes sur le serveur
-              const mergedUserData = {
-                ...JSON.parse(savedUser),
-                ...userData,
-                // S'assurer que ces champs sont préservés s'ils existent localement
-                // mais sont null/undefined sur le serveur
-                profileImage:
-                  userData.profileImage ||
-                  JSON.parse(savedUser).profileImage ||
-                  null,
-                phone: userData.phone || JSON.parse(savedUser).phone || null,
-                company:
-                  userData.company || JSON.parse(savedUser).company || null,
-                jobTitle:
-                  userData.jobTitle || JSON.parse(savedUser).jobTitle || null,
-              };
-
-              setUserWithAdminRole(mergedUserData);
-              localStorage.setItem("user", JSON.stringify(mergedUserData));
+          // Vérifier si le user a été sauvegardé en localStorage
+          if (savedUser) {
+            try {
+              console.log("Utilisateur trouvé dans localStorage");
+              const parsedUser = JSON.parse(savedUser);
+              console.log("Données utilisateur:", {
+                id: parsedUser.id,
+                email: parsedUser.email,
+                role: parsedUser.role,
+              });
+              setUser(parsedUser);
+              setIsAuthenticated(true);
+            } catch (e) {
+              console.error("Erreur lors du parsing de l'utilisateur:", e);
+              localStorage.removeItem("user");
             }
-          } catch (error) {
-            console.warn("Échec de la validation du token:", error);
-            // On ne déconnecte pas l'utilisateur en cas d'erreur serveur
+          }
+
+          // Faire une requête vers le backend pour obtenir les informations à jour
+          console.log("Tentative de récupération du profil depuis l'API");
+          const authEndpoints = ["/api/auth/profile", "/api/user/profile"];
+
+          let userData = null;
+          let success = false;
+
+          // Essayer les deux endpoints possibles
+          for (const endpoint of authEndpoints) {
+            try {
+              console.log(`Tentative avec l'endpoint: ${API_URL}${endpoint}`);
+
+              const response = await fetch(`${API_URL}${endpoint}`, {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${savedToken}`,
+                },
+                credentials: "include",
+              });
+
+              console.log(`Réponse de ${endpoint}:`, {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+              });
+
+              if (response.ok) {
+                userData = await response.json();
+                console.log("Données de profil reçues:", {
+                  id: userData.id,
+                  email: userData.email,
+                  role: userData.role,
+                  profileImage: userData.profileImage ? "présent" : "absent",
+                  company: userData.company || "non défini",
+                  phone: userData.phone || "non défini",
+                  jobTitle: userData.jobTitle || "non défini",
+                });
+
+                success = true;
+                break; // Sortir de la boucle si la requête réussit
+              }
+            } catch (endpointError) {
+              console.error(
+                `Erreur avec l'endpoint ${endpoint}:`,
+                endpointError
+              );
+            }
+          }
+
+          if (success && userData) {
+            // Mettre à jour l'état et le localStorage avec toutes les données du profil
+            setUser(userData);
+            localStorage.setItem("user", JSON.stringify(userData));
+            setIsAuthenticated(true);
+          } else {
+            console.error("Toutes les tentatives ont échoué, déconnexion");
+            // Si toutes les requêtes échouent, supprimer les infos d'authentification
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            setToken(null);
+            setUser(null);
+            setIsAuthenticated(false);
           }
         } catch (error) {
           console.error("Erreur lors de la restauration de session:", error);
         }
       }
+      console.log("=== FIN RESTORATION DE SESSION ===");
       setIsLoading(false);
     };
 
@@ -125,7 +207,14 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       setLoginError(null);
 
-      const response = await fetch(`${API_URL}/api/auth/update-profile`, {
+      console.log("===== Appel à updateUserProfile =====");
+      console.log("Token disponible:", !!token);
+      console.log("Données envoyées:", {
+        ...userData,
+        profileImage: userData.profileImage ? "[IMAGE]" : null,
+      });
+
+      const response = await fetch(`${API_URL}/api/user/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -135,8 +224,18 @@ export const AuthProvider = ({ children }) => {
         credentials: "include",
       });
 
+      console.log("Réponse du serveur:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+      });
+
       if (response.ok) {
         const data = await response.json();
+        console.log("Données de profil reçues:", {
+          ...data,
+          profileImage: data.profileImage ? "[IMAGE]" : null,
+        });
 
         // S'assurer que les données du profil sont complètes
         const updatedUserData = {
@@ -179,17 +278,33 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fonction pour se connecter
-  const login = async (email, password) => {
+  const login = async (email, password, csrfTokenFromLogin) => {
+    setIsLoading(true);
+    setLoginError(null);
+
     try {
-      setIsLoading(true);
-      setLoginError(null);
+      // S'assurer d'avoir un token CSRF valide
+      await refreshCsrfToken();
 
-      console.log("Tentative de connexion avec:", { email, password: "***" });
+      // Utiliser le token passé en paramètre s'il existe, sinon utiliser celui des cookies
+      const csrfToken = csrfTokenFromLogin || getCsrfToken();
+      console.log("Token CSRF trouvé:", csrfToken ? "Oui" : "Non");
 
+      if (!csrfToken) {
+        console.error(
+          "Impossible de trouver un token CSRF valide pour la connexion"
+        );
+        throw new Error(
+          "Problème de sécurité: Token CSRF manquant. Veuillez rafraîchir la page."
+        );
+      }
+
+      // Effectuer la requête de connexion avec le token CSRF
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
         },
         body: JSON.stringify({ email, password }),
         credentials: "include",
@@ -269,6 +384,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Fonction pour récupérer un nouveau token CSRF
+  const refreshCsrfToken = async () => {
+    try {
+      console.log("Récupération d'un nouveau token CSRF...");
+      const response = await fetch(`${API_URL}/api/csrf-token`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        console.log("Nouveau token CSRF obtenu avec succès.");
+        // Le token est automatiquement stocké dans les cookies par le serveur
+        return true;
+      } else {
+        console.error("Échec de l'obtention du token CSRF:", response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération du token CSRF:", error);
+      return false;
+    }
+  };
+
   const register = async (userData) => {
     setIsLoading(true);
     try {
@@ -289,10 +427,18 @@ export const AuthProvider = ({ children }) => {
           : 0,
       });
 
+      // Récupérer le token CSRF depuis les cookies
+      const csrfToken = getCsrfToken();
+      console.log(
+        "Token CSRF pour inscription trouvé:",
+        csrfToken ? "Oui" : "Non"
+      );
+
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken || "", // Ajout du token CSRF dans l'en-tête
         },
         body: JSON.stringify(sanitizedUserData),
         credentials: "include",

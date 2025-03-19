@@ -395,8 +395,16 @@ const Profile = () => {
     setIsSubmitting(true);
 
     try {
+      // Valider le formulaire
+      const isValid = validateForm();
+      if (!isValid) {
+        setIsSubmitting(false);
+        return;
+      }
+
       const token = localStorage.getItem("token");
 
+      // Données à envoyer au serveur
       const dataToSend = {
         ...formData,
         ...(profileImage ? { profileImage } : {}),
@@ -409,44 +417,54 @@ const Profile = () => {
           : 0,
       });
 
-      console.log("URL de l'API:", `${API_URL}/api/auth/profile`);
+      // Tenter d'abord avec /api/user/profile
+      let response = null;
+      let success = false;
+      let errorMessage = "Erreur lors de la mise à jour du profil";
 
-      if (
-        dataToSend.profileImage &&
-        dataToSend.profileImage.length > 1 * 1024 * 1024
-      ) {
-        showNotification({
-          type: "warning",
-          title: "Image trop volumineuse",
-          message:
-            "La photo de profil semble poser problème pour être sauvegardée. Essayez avec une image plus petite.",
-        });
-        setIsSubmitting(false);
-        return;
+      const endpoints = [
+        `${API_URL}/api/user/profile`,
+        `${API_URL}/api/auth/profile`,
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Tentative de mise à jour avec: ${endpoint}`);
+
+          response = await fetch(endpoint, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(dataToSend),
+            credentials: "include",
+          });
+
+          console.log(`Réponse de ${endpoint}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+          });
+
+          if (response.ok) {
+            success = true;
+            break;
+          }
+        } catch (endpointError) {
+          console.error(`Erreur avec l'endpoint ${endpoint}:`, endpointError);
+        }
       }
 
-      const response = await fetch(`${API_URL}/api/auth/profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dataToSend),
-        credentials: "include",
-      });
-
-      console.log("Réponse reçue:", response.status, response.statusText);
-
-      if (!response.ok) {
-        let errorMessage = "Erreur lors de la mise à jour du profil";
-
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // Si la réponse n'est pas du JSON valide, utiliser le message d'erreur par défaut
+      if (!success) {
+        if (response) {
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            // Si la réponse n'est pas du JSON valide, utiliser le message d'erreur par défaut
+          }
         }
-
         throw new Error(errorMessage);
       }
 

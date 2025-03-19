@@ -7,10 +7,26 @@ const User = require("../models/User");
  */
 const secureAuth = async (req, res, next) => {
   try {
-    // Récupérer le token depuis les cookies
-    const token = req.cookies.accessToken;
+    console.log("Middleware d'authentification appelé pour", req.path);
+
+    // Récupérer le token depuis les cookies ou depuis le header Authorization
+    let token = req.cookies?.accessToken;
+
+    // Si pas de token dans les cookies, essayer dans les headers
+    if (!token && req.headers.authorization) {
+      console.log("En-tête Authorization: Présent");
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+        console.log(
+          "Token extrait du header:",
+          token ? token.substring(0, 10) + "..." : "undefined..."
+        );
+      }
+    }
 
     if (!token) {
+      console.log("Aucun token trouvé");
       return res.status(401).json({
         success: false,
         message: "Authentification requise",
@@ -19,49 +35,78 @@ const secureAuth = async (req, res, next) => {
     }
 
     // Vérifier et décoder le token
-    const decoded = verifyAccessToken(token);
+    console.log("Tentative de vérification du token...");
+    try {
+      const decoded = verifyAccessToken(token);
 
-    if (!decoded) {
+      if (!decoded) {
+        console.log("Token invalide ou expiré (null)");
+        return res.status(401).json({
+          success: false,
+          message: "Session invalide ou expirée",
+          code: "INVALID_TOKEN",
+        });
+      }
+
+      console.log("Token décodé avec succès. User ID:", decoded.userId);
+
+      // Récupérer les informations de l'utilisateur
+      const user = await User.findById(decoded.userId);
+
+      if (!user) {
+        console.log(
+          "Utilisateur non trouvé en base de données. ID:",
+          decoded.userId
+        );
+        return res.status(401).json({
+          success: false,
+          message: "Utilisateur non trouvé",
+          code: "USER_NOT_FOUND",
+        });
+      }
+
+      console.log("Utilisateur trouvé:", user.email);
+
+      // Ajouter les informations de l'utilisateur à la requête sans exposer de données sensibles
+      const safeUser = {
+        id: user.id,
+        email: user.email,
+        role: user.role || "admin",
+        first_name: user.first_name,
+        last_name: user.last_name,
+        fullName:
+          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+          "Administrateur",
+        profileImage: user.profileImage || null,
+        company: user.company || "",
+        phone: user.phone || "",
+        jobTitle: user.jobTitle || "",
+      };
+
+      console.log("Propriétés utilisateur disponibles:", Object.keys(safeUser));
+
+      req.user = safeUser;
+      req.userId = user.id;
+      req.tokenInfo = {
+        jti: decoded.jti,
+        iat: decoded.iat,
+        exp: decoded.exp,
+      };
+
+      // Continuer avec la requête
+      next();
+    } catch (tokenError) {
+      console.error(
+        "Erreur lors de la vérification du token:",
+        tokenError.message
+      );
+
       return res.status(401).json({
         success: false,
-        message: "Session invalide ou expirée",
+        message: "Token invalide: " + tokenError.message,
         code: "INVALID_TOKEN",
       });
     }
-
-    // Récupérer les informations de l'utilisateur
-    const user = await User.findById(decoded.userId);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Utilisateur non trouvé",
-        code: "USER_NOT_FOUND",
-      });
-    }
-
-    // Ajouter les informations de l'utilisateur à la requête sans exposer de données sensibles
-    const safeUser = {
-      id: user.id,
-      email: user.email,
-      role: user.role || "admin",
-      first_name: user.first_name,
-      last_name: user.last_name,
-      fullName:
-        `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-        "Administrateur",
-    };
-
-    req.user = safeUser;
-    req.userId = user.id;
-    req.tokenInfo = {
-      jti: decoded.jti,
-      iat: decoded.iat,
-      exp: decoded.exp,
-    };
-
-    // Continuer avec la requête
-    next();
   } catch (error) {
     console.error("Erreur d'authentification:", error.message);
 

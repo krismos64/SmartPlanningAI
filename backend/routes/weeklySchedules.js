@@ -1,13 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const WeeklySchedule = require("../models/WeeklySchedule");
-const { authenticateToken } = require("../middleware/auth");
+const { auth } = require("../middleware/auth");
 const { formatDateForMySQL } = require("../utils/dateUtils");
 const scheduleOptimizer = require("../services/scheduleOptimizer");
 const db = require("../config/db");
 
 // Middleware d'authentification pour toutes les routes
-router.use(authenticateToken);
+router.use(auth);
 
 /**
  * @route   GET /api/weekly-schedules

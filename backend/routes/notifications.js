@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const Notification = require("../models/Notification");
-const { authenticateToken } = require("../middleware/auth");
+const { auth } = require("../middleware/auth");
 
 // Middleware d'authentification pour toutes les routes
-router.use(authenticateToken);
+router.use(auth);
 
 // Créer une nouvelle notification
 router.post("/", async (req, res) => {
