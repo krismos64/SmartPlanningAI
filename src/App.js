@@ -221,7 +221,7 @@ const AppContent = () => {
                 {/* Page 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              <Footer />
+              {!isAuthPage && <Footer />}
             </MainContent>
           </HelmetProvider>
 

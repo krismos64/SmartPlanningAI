@@ -89,34 +89,7 @@ const PageDescription = styled.p`
 `;
 
 const RefreshButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-  border: none;
-  background-color: ${({ theme }) => theme.colors.primaryLight};
-  color: ${({ theme }) => theme.colors.primary};
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.primary}22;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  svg {
-    transition: transform 0.3s ease;
-  }
-
-  &:hover svg {
-    transform: rotate(180deg);
-  }
+  // Supprimer tout le composant
 `;
 
 const StatsGrid = styled(motion.div)`
@@ -447,15 +420,7 @@ const Stats = () => {
   } = useVacations();
 
   const handleRefresh = () => {
-    setIsRefreshing(true);
-    Promise.all([refreshEmployees(), refreshVacations()])
-      .then(() => {
-        // Attendre un moment pour l'effet de rafraîchissement
-        setTimeout(() => setIsRefreshing(false), 1000);
-      })
-      .catch(() => {
-        setIsRefreshing(false);
-      });
+    // Supprimer toute la fonction
   };
 
   // Calculer les statistiques
@@ -623,14 +588,6 @@ const Stats = () => {
               </PageDescription>
             </Box>
           </Box>
-
-          <RefreshButton
-            onClick={handleRefresh}
-            disabled={employeesLoading || vacationsLoading || isRefreshing}
-          >
-            <FiRefreshCw size={16} />
-            Actualiser
-          </RefreshButton>
         </Box>
       </Box>
 
