@@ -545,6 +545,35 @@ export const formatRelativeDate = (timestamp) => {
   }
 };
 
+/**
+ * Obtient le nom du jour de la semaine à partir d'un indice
+ * @param {number} index - Indice du jour (0 = dimanche, 1 = lundi, etc.)
+ * @param {string} locale - Locale à utiliser (fr-FR par défaut)
+ * @returns {string} Nom du jour
+ */
+export const getWeekDayName = (index, locale = "fr-FR") => {
+  const date = new Date();
+  date.setDate(date.getDate() - date.getDay() + index);
+  return date.toLocaleDateString(locale, { weekday: "long" });
+};
+
+/**
+ * Formate une date en utilisant les options de la locale
+ * @param {Date|string} date - Date à formater
+ * @param {string} locale - Locale à utiliser (fr-FR par défaut)
+ * @param {Object} options - Options de formatage
+ * @returns {string} Date formatée selon la locale
+ */
+export const formatDateToLocale = (
+  date,
+  locale = "fr-FR",
+  options = { dateStyle: "full" }
+) => {
+  if (!date) return "";
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return dateObj.toLocaleDateString(locale, options);
+};
+
 export default {
   addWeeks,
   getWeekStart,
@@ -562,4 +591,6 @@ export default {
   isDateInRange,
   formatDateTime,
   formatRelativeDate,
+  getWeekDayName,
+  formatDateToLocale,
 };

@@ -77,12 +77,33 @@ export const AuthProvider = ({ children }) => {
           setUser(JSON.parse(savedUser));
           setIsAuthenticated(true);
 
-          // Optionnel: Vérifier que le token est toujours valide avec le serveur
+          // Vérifier que le token est toujours valide et récupérer les données à jour
           try {
             const response = await AuthService.me(token);
             if (response.data && response.data.user) {
               const userData = response.data.user;
-              setUserWithAdminRole(userData);
+
+              // Fusionner les données du localStorage avec celles du serveur
+              // en privilégiant les données du serveur, mais en conservant les données
+              // locales si elles ne sont pas présentes sur le serveur
+              const mergedUserData = {
+                ...JSON.parse(savedUser),
+                ...userData,
+                // S'assurer que ces champs sont préservés s'ils existent localement
+                // mais sont null/undefined sur le serveur
+                profileImage:
+                  userData.profileImage ||
+                  JSON.parse(savedUser).profileImage ||
+                  null,
+                phone: userData.phone || JSON.parse(savedUser).phone || null,
+                company:
+                  userData.company || JSON.parse(savedUser).company || null,
+                jobTitle:
+                  userData.jobTitle || JSON.parse(savedUser).jobTitle || null,
+              };
+
+              setUserWithAdminRole(mergedUserData);
+              localStorage.setItem("user", JSON.stringify(mergedUserData));
             }
           } catch (error) {
             console.warn("Échec de la validation du token:", error);
@@ -108,6 +129,7 @@ export const AuthProvider = ({ children }) => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(userData),
         credentials: "include",
@@ -115,7 +137,25 @@ export const AuthProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setUser((prevUser) => ({ ...prevUser, ...data }));
+
+        // S'assurer que les données du profil sont complètes
+        const updatedUserData = {
+          ...user,
+          ...data,
+          // Préserver ces champs s'ils sont envoyés, sinon utiliser les valeurs existantes
+          profileImage:
+            userData.profileImage ||
+            data.profileImage ||
+            user.profileImage ||
+            null,
+          phone: userData.phone || data.phone || user.phone || null,
+          company: userData.company || data.company || user.company || null,
+          jobTitle: userData.jobTitle || data.jobTitle || user.jobTitle || null,
+        };
+
+        // Mettre à jour l'état et le stockage local
+        setUser(updatedUserData);
+        localStorage.setItem("user", JSON.stringify(updatedUserData));
 
         // Notifier le WebSocket du changement de profil
         notifyDataChange("profile", "update", user.id);
@@ -174,20 +214,43 @@ export const AuthProvider = ({ children }) => {
         token: data.token ? "***" : null,
       });
 
-      // Stocker le token et les informations utilisateur
+      // Stocker le token
       localStorage.setItem("token", data.token);
       setToken(data.token);
 
-      // S'assurer que les champs optionnels sont définis
+      // S'assurer que tous les champs du profil sont définis
       const sanitizedUserData = {
         ...data,
         profileImage: data.profileImage || null,
-        company: data.company || null,
-        phone: data.phone || null,
-        jobTitle: data.jobTitle || null,
+        company: data.company || "",
+        phone: data.phone || "",
+        jobTitle: data.jobTitle || "",
       };
 
-      // Définir l'utilisateur comme admin
+      // Vérifier si nous avons des données locales précédentes pour cet utilisateur
+      try {
+        const savedUser = localStorage.getItem("user");
+        if (savedUser) {
+          const parsedUser = JSON.parse(savedUser);
+          // Si l'ID correspond, conserver les données locales qui manquent dans la réponse
+          if (parsedUser.id === data.id) {
+            sanitizedUserData.profileImage =
+              data.profileImage || parsedUser.profileImage || null;
+            sanitizedUserData.company =
+              data.company || parsedUser.company || "";
+            sanitizedUserData.phone = data.phone || parsedUser.phone || "";
+            sanitizedUserData.jobTitle =
+              data.jobTitle || parsedUser.jobTitle || "";
+          }
+        }
+      } catch (e) {
+        console.warn(
+          "Erreur lors de la récupération des données utilisateur locales:",
+          e
+        );
+      }
+
+      // Définir l'utilisateur
       const adminUser = setUserWithAdminRole(sanitizedUserData);
 
       setUser(adminUser);

@@ -3,6 +3,8 @@ const router = express.Router();
 const WeeklySchedule = require("../models/WeeklySchedule");
 const { authenticateToken } = require("../middleware/auth");
 const { formatDateForMySQL } = require("../utils/dateUtils");
+const scheduleOptimizer = require("../services/scheduleOptimizer");
+const db = require("../config/db");
 
 // Middleware d'authentification pour toutes les routes
 router.use(authenticateToken);
@@ -420,6 +422,118 @@ router.delete("/:id", async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la suppression du planning" });
+  }
+});
+
+/**
+ * @route   POST /api/weekly-schedules/generate
+ * @desc    Générer un planning optimisé pour une semaine
+ * @access  Private
+ */
+router.post("/generate", async (req, res) => {
+  try {
+    const {
+      week_start,
+      department_id,
+      min_hours_per_employee,
+      max_hours_per_employee,
+      opening_hours,
+      employee_ids,
+      priority_rules,
+    } = req.body;
+
+    // Vérifier les paramètres obligatoires
+    if (!week_start) {
+      return res.status(400).json({
+        success: false,
+        message: "Date de début de semaine requise",
+      });
+    }
+
+    console.log(
+      `Demande de génération de planning pour la semaine du ${week_start}`
+    );
+
+    // Récupérer les employés spécifiés si une liste d'IDs est fournie
+    let employees = null;
+    if (
+      employee_ids &&
+      Array.isArray(employee_ids) &&
+      employee_ids.length > 0
+    ) {
+      try {
+        const [employeesData] = await db.query(
+          "SELECT * FROM employees WHERE id IN (?) AND status = 'active'",
+          [employee_ids]
+        );
+
+        employees = employeesData;
+      } catch (error) {
+        console.error(
+          "Erreur lors de la récupération des employés spécifiés:",
+          error
+        );
+      }
+    }
+
+    // Appeler le service d'optimisation
+    const optimizationResult =
+      await scheduleOptimizer.generateOptimizedSchedule({
+        weekStart: week_start,
+        departmentId: department_id,
+        employees,
+        minHoursPerEmployee: min_hours_per_employee,
+        maxHoursPerEmployee: max_hours_per_employee,
+        openingHours: opening_hours,
+        priorityRules: priority_rules,
+      });
+
+    if (!optimizationResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Erreur lors de la génération du planning",
+        error: optimizationResult.error,
+      });
+    }
+
+    // Enregistrer l'activité
+    try {
+      const { recordActivity } = require("./activities");
+      await recordActivity({
+        type: "generate",
+        entity_type: "planning",
+        entity_id: "optimized_schedule",
+        description: `Génération automatique d'un planning pour la semaine du ${week_start}`,
+        user_id: req.user ? req.user.id : null,
+        details: {
+          week_start,
+          department_id,
+          employee_count: employees ? employees.length : "tous",
+          stats: optimizationResult.stats,
+        },
+      });
+    } catch (activityError) {
+      console.error(
+        "Erreur lors de l'enregistrement de l'activité:",
+        activityError
+      );
+      // Continuer malgré l'erreur d'activité
+    }
+
+    // Retourner le planning optimisé
+    res.json({
+      success: true,
+      message: "Planning généré avec succès",
+      schedule: optimizationResult.schedule,
+      stats: optimizationResult.stats,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la génération du planning:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la génération du planning",
+      error: error.message,
+    });
   }
 });
 
