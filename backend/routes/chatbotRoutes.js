@@ -1,12 +1,12 @@
 /**
- * Routes pour le chatbot IA
- * Gère les requêtes liées au traitement du langage naturel et à la génération de plannings
+ * Routes pour le chatbot basé sur des règles
+ * Gère les requêtes liées au traitement des messages et aux réponses préconfigurées
  */
 
 const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth");
-const nlpService = require("../services/nlpService");
+const { findMatchingRule } = require("../services/chatbotRules");
 const scheduleOptimizer = require("../services/scheduleOptimizer");
 
 // Middleware d'authentification
@@ -14,12 +14,13 @@ router.use(auth);
 
 /**
  * @route   POST /api/chatbot/process
- * @desc    Traiter un message utilisateur avec NLP
+ * @desc    Traiter un message utilisateur avec le système de règles
  * @access  Private
  */
 router.post("/process", async (req, res) => {
   try {
     const { message } = req.body;
+    const userId = req.user.id;
 
     if (!message) {
       return res
@@ -28,13 +29,27 @@ router.post("/process", async (req, res) => {
     }
 
     console.log(
-      `Traitement NLP pour le message: "${message.substring(0, 50)}..."`
+      `Traitement du message avec le système de règles: "${message.substring(
+        0,
+        50
+      )}..."`
     );
 
-    // Traiter le message avec le service NLP
-    const result = await nlpService.processMessage(message);
+    // Traiter le message avec le système de règles
+    const result = await findMatchingRule(message, userId);
 
-    res.json(result);
+    // Format de réponse
+    const response = {
+      success: true,
+      intent: result.intent || "MATCHED_RULE",
+      score: 1.0,
+      message: result.text || result.error ? "Erreur de traitement" : "",
+      entities: {},
+      actions: result.actions || [],
+      error: result.error || false,
+    };
+
+    res.json(response);
   } catch (error) {
     console.error("Erreur lors du traitement du message:", error);
     res.status(500).json({
@@ -121,60 +136,6 @@ router.post("/generate-schedule", async (req, res) => {
 });
 
 /**
- * @route   POST /api/chatbot/suggest-modifications
- * @desc    Suggérer des modifications à un planning existant
- * @access  Private
- */
-router.post("/suggest-modifications", async (req, res) => {
-  try {
-    const { schedule_id, constraints } = req.body;
-
-    if (!schedule_id) {
-      return res.status(400).json({
-        success: false,
-        message: "ID de planning requis",
-      });
-    }
-
-    // Ici, implémentez la logique pour suggérer des améliorations à un planning existant
-    // Pour l'instant, on renvoie une réponse simulée
-
-    res.json({
-      success: true,
-      message: "Suggestions générées",
-      suggestions: [
-        {
-          type: "redistribution",
-          description:
-            "Redistribuer les heures pour équilibrer la charge de travail",
-          changes: [
-            { employee_id: 1, add_hours: 2, remove_hours: 0 },
-            { employee_id: 2, add_hours: 0, remove_hours: 2 },
-          ],
-        },
-        {
-          type: "optimization",
-          description: "Optimiser pour réduire les shifts courts",
-          changes: [
-            {
-              employee_id: 3,
-              merge_shifts: ["2023-06-12", "morning", "afternoon"],
-            },
-          ],
-        },
-      ],
-    });
-  } catch (error) {
-    console.error("Erreur lors de la suggestion de modifications:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la suggestion de modifications",
-      error: error.message,
-    });
-  }
-});
-
-/**
  * @route   GET /api/chatbot/user-stats
  * @desc    Obtenir des statistiques personnalisées pour l'utilisateur
  * @access  Private
@@ -182,18 +143,46 @@ router.post("/suggest-modifications", async (req, res) => {
 router.get("/user-stats", async (req, res) => {
   try {
     const userId = req.user.id;
+    const connectDB = require("../config/db");
 
-    // Ici, implémentez la logique pour récupérer les statistiques de l'utilisateur
-    // Pour l'instant, on renvoie une réponse simulée
+    // Récupérer les statistiques réelles de l'utilisateur à partir de la base de données
+    const [vacationStats] = await connectDB.execute(
+      `
+      SELECT 
+        (SELECT COUNT(*) FROM vacation_requests 
+         WHERE employee_id = ? AND status = 'approved' AND start_date >= CURDATE()) AS upcoming_vacations,
+        (SELECT SUM(duration) FROM vacation_requests 
+         WHERE employee_id = ? AND status = 'approved' AND 
+         YEAR(start_date) = YEAR(CURDATE())) AS used_vacations_this_year
+    `,
+      [userId, userId]
+    );
+
+    const [workStats] = await connectDB.execute(
+      `
+      SELECT 
+        (SELECT COUNT(*) FROM weekly_schedule_entries wse 
+         JOIN weekly_schedules ws ON wse.schedule_id = ws.id
+         WHERE ws.employee_id = ? AND ws.start_date <= CURDATE() AND ws.end_date >= CURDATE()) AS shifts_this_week
+    `,
+      [userId]
+    );
+
+    const [employeeData] = await connectDB.execute(
+      `
+      SELECT vacation_balance FROM employees WHERE id = ?
+    `,
+      [userId]
+    );
 
     res.json({
       success: true,
       stats: {
-        hours_worked_this_week: 32,
-        hours_worked_this_month: 128,
-        remaining_vacation_days: 15,
-        upcoming_shifts: 3,
-        performance_rating: 4.5,
+        upcoming_vacations: vacationStats[0].upcoming_vacations || 0,
+        used_vacations_this_year:
+          vacationStats[0].used_vacations_this_year || 0,
+        remaining_vacation_days: employeeData[0]?.vacation_balance || 0,
+        shifts_this_week: workStats[0].shifts_this_week || 0,
       },
     });
   } catch (error) {

@@ -1,4 +1,3 @@
-import Lottie from "lottie-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -7,6 +6,7 @@ import planningAnimation from "../assets/animations/planning-animation.json";
 import LanguageSelector from "../components/LanguageSelector";
 import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
+import EnhancedLottie from "../components/ui/EnhancedLottie";
 import { ThemeSwitch } from "../components/ui/ThemeSwitch";
 
 // Animations
@@ -620,7 +620,7 @@ const LandingPage = () => {
       <Header>
         <Logo>
           <LogoAnimation>
-            <Lottie animationData={planningAnimation} loop={true} />
+            <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
           SmartPlanning AI
         </Logo>
@@ -657,7 +657,7 @@ const LandingPage = () => {
           </CTAButtons>
         </HeroContent>
         <AnimationContainer>
-          <Lottie animationData={planningAnimation} loop={true} />
+          <EnhancedLottie animationData={planningAnimation} loop={true} />
         </AnimationContainer>
       </HeroSection>
 

@@ -1,83 +1,144 @@
 import axios from "axios";
-import { getAuthHeader } from "./AuthService";
+import ChatbotRulesIntegration from "../components/ui/ChatbotRulesIntegration";
+import AuthService from "./AuthService";
 
 /**
  * Service pour interagir avec l'API du chatbot
- * Gère les requêtes vers le backend pour le traitement des messages et la génération de planning
+ * Gère les requêtes vers le backend pour le traitement des messages et les réponses basées sur des règles
  */
 class ChatbotService {
+  static instance = null;
+  static rulesIntegration = null;
+
   /**
-   * Traiter un message utilisateur avec le service NLP
-   * @param {string} message - Message à traiter
-   * @returns {Promise<Object>} Résultat du traitement NLP
+   * Initialiser le service de chatbot
+   * @param {Object} callbacks - Callbacks pour le chatbot
    */
-  async processMessage(message) {
-    try {
-      const response = await axios.post(
-        "/api/chatbot/process",
-        { message },
-        { headers: getAuthHeader() }
+  static initialize(callbacks) {
+    if (!this.rulesIntegration) {
+      this.rulesIntegration = new ChatbotRulesIntegration({
+        onAddBotMessage: callbacks.onAddBotMessage || (() => {}),
+        onStartScheduleGeneration:
+          callbacks.onStartScheduleGeneration || (() => {}),
+        onSetIsTyping: callbacks.onSetIsTyping || (() => {}),
+        onHandleActionResult: callbacks.onHandleActionResult || (() => {}),
+      });
+      console.log("ChatbotService initialisé avec ChatbotRulesIntegration");
+    }
+  }
+
+  /**
+   * Obtenir les en-têtes d'authentification
+   * @returns {Object} En-têtes d'authentification
+   */
+  getAuthHeader() {
+    const user = AuthService.getUserInfo();
+    // Si l'utilisateur est authentifié, on peut ajouter d'autres en-têtes si nécessaire
+    return {
+      "Content-Type": "application/json",
+      // Les cookies de session seront automatiquement inclus par le navigateur
+    };
+  }
+
+  /**
+   * Traiter un message utilisateur
+   * @param {string} message - Message à traiter
+   * @returns {Promise<Object>} Résultat du traitement
+   */
+  static async processMessage(message) {
+    if (!this.rulesIntegration) {
+      console.error(
+        "ChatbotService: ChatbotRulesIntegration n'est pas initialisé"
       );
-      return response.data;
+      return {
+        success: false,
+        intent: "ERROR",
+        message: "Le service de chatbot n'est pas initialisé",
+      };
+    }
+
+    try {
+      const result = await this.rulesIntegration.processMessage(message);
+
+      // Adapter le format de réponse à l'ancien format pour compatibilité
+      if (result.processed) {
+        return {
+          success: true,
+          intent: result.action || "PROCESSED",
+          entities: {},
+          message: result.response || "",
+        };
+      } else {
+        return {
+          success: false,
+          intent: "UNKNOWN",
+          message: "Je ne comprends pas votre demande",
+        };
+      }
     } catch (error) {
       console.error("Erreur lors du traitement du message:", error);
-
-      // Simulation de réponse en cas d'échec de l'API
-      // Détection basique d'intention côté client
-      const intent = this.detectBasicIntent(message);
-
       return {
-        intent,
-        score: 0.7,
-        entities: {},
-        message,
-        fromFallback: true,
+        success: false,
+        intent: "ERROR",
+        message: "Une erreur s'est produite",
       };
     }
   }
 
   /**
-   * Détection basique d'intention côté client (fallback)
+   * Détecter l'intention de base à partir d'un message
    * @param {string} message - Message à analyser
    * @returns {string} Intention détectée
    */
-  detectBasicIntent(message) {
-    message = message.toLowerCase();
+  static detectBasicIntent(message) {
+    const normalizedMessage = message.toLowerCase().trim();
 
-    if (/aide|help|comment|fonctionne/.test(message)) {
-      return "HELP";
-    }
-
-    if (/génér|créer|faire|nouveau|planning/.test(message)) {
+    // Intentions basiques pour le fallback
+    if (
+      normalizedMessage.includes("planning") ||
+      normalizedMessage.includes("genere") ||
+      normalizedMessage.includes("générer") ||
+      normalizedMessage.includes("schedule")
+    ) {
       return "GENERATE_SCHEDULE";
     }
 
-    if (/voir|affiche|consulter|montre|planning|horaire/.test(message)) {
-      return "VIEW_SCHEDULE";
+    if (
+      normalizedMessage.includes("congé") ||
+      normalizedMessage.includes("vacances") ||
+      normalizedMessage.includes("absence")
+    ) {
+      return "CHECK_VACATIONS";
     }
 
-    if (/congé|vacance|absence|repos/.test(message)) {
-      if (/poser|demande|créer|nouveau/.test(message)) {
-        return "CREATE_VACATION_REQUEST";
-      }
-      if (/vérif|check|puis-je|possible/.test(message)) {
-        return "CHECK_VACATION_AVAILABILITY";
-      }
-    }
-
-    if (/statistique|stat|rapport|bilan|heure/.test(message)) {
-      return "GET_STATS";
-    }
-
-    if (/optimis|meilleur|suggère|améliore/.test(message)) {
-      return "GET_OPTIMAL_SCHEDULE";
-    }
-
-    if (/liste|employé|équipe|collaborateur/.test(message)) {
-      return "LIST_EMPLOYEES";
+    if (
+      normalizedMessage.includes("aide") ||
+      normalizedMessage.includes("help") ||
+      normalizedMessage.includes("assistance")
+    ) {
+      return "GET_HELP";
     }
 
     return "UNKNOWN";
+  }
+
+  /**
+   * Obtenir une réponse pour une intention
+   * @param {string} intent - Intention
+   * @returns {string} Réponse textuelle
+   */
+  static getIntentResponse(intent) {
+    switch (intent) {
+      case "GENERATE_SCHEDULE":
+        return "Je lance la génération de planning...";
+      case "CHECK_VACATIONS":
+        return "Voici les informations sur les congés.";
+      case "GET_HELP":
+        return "Voici comment je peux vous aider.";
+      case "UNKNOWN":
+      default:
+        return "Je ne comprends pas votre demande. Pouvez-vous reformuler ?";
+    }
   }
 
   /**
@@ -111,7 +172,7 @@ class ChatbotService {
           employee_ids: params.employeeIds,
           priority_rules: params.priorityRules,
         },
-        { headers: getAuthHeader() }
+        { headers: this.getAuthHeader() }
       );
 
       return response.data;
@@ -192,7 +253,7 @@ class ChatbotService {
           schedule_id: scheduleId,
           constraints,
         },
-        { headers: getAuthHeader() }
+        { headers: this.getAuthHeader() }
       );
 
       return response.data;
@@ -209,7 +270,7 @@ class ChatbotService {
   async getUserStats() {
     try {
       const response = await axios.get("/api/chatbot/user-stats", {
-        headers: getAuthHeader(),
+        headers: this.getAuthHeader(),
       });
 
       return response.data;
@@ -218,6 +279,40 @@ class ChatbotService {
       throw error;
     }
   }
+
+  /**
+   * Traiter une action
+   * @param {string} action - Action à traiter
+   * @returns {Promise<Object>} Résultat de l'action
+   */
+  static async handleAction(action) {
+    if (!this.rulesIntegration) {
+      console.error(
+        "ChatbotService: ChatbotRulesIntegration n'est pas initialisé"
+      );
+      return {
+        success: false,
+        message: "Le service de chatbot n'est pas initialisé",
+      };
+    }
+
+    try {
+      const result = await this.rulesIntegration.handleAction(action);
+
+      // Adapter le format de réponse à l'ancien format pour compatibilité
+      return {
+        success: result.success || false,
+        response: result.response || "",
+        suggestions: result.suggestions || [],
+      };
+    } catch (error) {
+      console.error("Erreur lors du traitement de l'action:", error);
+      return {
+        success: false,
+        response: "Une erreur s'est produite",
+      };
+    }
+  }
 }
 
-export default new ChatbotService();
+export default ChatbotService;

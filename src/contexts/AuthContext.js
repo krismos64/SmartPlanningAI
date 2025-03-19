@@ -278,106 +278,64 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fonction pour se connecter
-  const login = async (email, password, csrfTokenFromLogin) => {
+  const login = async (email, password) => {
     setIsLoading(true);
     setLoginError(null);
 
     try {
-      // S'assurer d'avoir un token CSRF valide
-      await refreshCsrfToken();
+      console.log("Démarrage de la procédure de connexion");
 
-      // Utiliser le token passé en paramètre s'il existe, sinon utiliser celui des cookies
-      const csrfToken = csrfTokenFromLogin || getCsrfToken();
-      console.log("Token CSRF trouvé:", csrfToken ? "Oui" : "Non");
-
-      if (!csrfToken) {
-        console.error(
-          "Impossible de trouver un token CSRF valide pour la connexion"
-        );
-        throw new Error(
-          "Problème de sécurité: Token CSRF manquant. Veuillez rafraîchir la page."
-        );
-      }
-
-      // Effectuer la requête de connexion avec le token CSRF
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken,
-        },
-        body: JSON.stringify({ email, password }),
+      // Récupérer le token CSRF
+      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
+        method: "GET",
         credentials: "include",
       });
 
-      console.log(
-        "Réponse de connexion:",
-        response.status,
-        response.statusText
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Erreur de connexion (${response.status})`
-        );
+      if (!csrfResponse.ok) {
+        throw new Error("Impossible de récupérer le token CSRF");
       }
 
-      const data = await response.json();
-      console.log("Données de connexion reçues:", {
-        ...data,
-        token: data.token ? "***" : null,
+      const { csrfToken } = await csrfResponse.json();
+      console.log("Token CSRF reçu du serveur:", csrfToken);
+
+      // Récupérer le token du cookie
+      const csrfCookie = getCsrfToken();
+      console.log("Token CSRF du cookie:", csrfCookie);
+
+      // Effectuer la requête de connexion
+      const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfCookie || csrfToken,
+        },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
       });
 
-      // Stocker le token
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
+      console.log("Réponse login:", {
+        status: loginResponse.status,
+        ok: loginResponse.ok,
+      });
 
-      // S'assurer que tous les champs du profil sont définis
-      const sanitizedUserData = {
-        ...data,
-        profileImage: data.profileImage || null,
-        company: data.company || "",
-        phone: data.phone || "",
-        jobTitle: data.jobTitle || "",
-      };
-
-      // Vérifier si nous avons des données locales précédentes pour cet utilisateur
-      try {
-        const savedUser = localStorage.getItem("user");
-        if (savedUser) {
-          const parsedUser = JSON.parse(savedUser);
-          // Si l'ID correspond, conserver les données locales qui manquent dans la réponse
-          if (parsedUser.id === data.id) {
-            sanitizedUserData.profileImage =
-              data.profileImage || parsedUser.profileImage || null;
-            sanitizedUserData.company =
-              data.company || parsedUser.company || "";
-            sanitizedUserData.phone = data.phone || parsedUser.phone || "";
-            sanitizedUserData.jobTitle =
-              data.jobTitle || parsedUser.jobTitle || "";
-          }
-        }
-      } catch (e) {
-        console.warn(
-          "Erreur lors de la récupération des données utilisateur locales:",
-          e
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json();
+        throw new Error(
+          errorData.message || `Erreur de connexion (${loginResponse.status})`
         );
       }
 
-      // Définir l'utilisateur
-      const adminUser = setUserWithAdminRole(sanitizedUserData);
+      const data = await loginResponse.json();
+      console.log("Connexion réussie");
 
-      setUser(adminUser);
-      localStorage.setItem("user", JSON.stringify(adminUser));
-
-      // Notifier le WebSocket de la connexion
-      notifyDataChange("auth", "login", adminUser.id);
-
+      localStorage.setItem("token", data.token);
+      setToken(data.token);
+      setUser(data.user);
+      setIsAuthenticated(true);
       return true;
-    } catch (err) {
-      console.error("Erreur de connexion:", err);
-      setLoginError(err.message || "Erreur de connexion au serveur");
+    } catch (error) {
+      console.error("Erreur lors de la connexion:", error);
+      setLoginError(error.message);
       return false;
     } finally {
       setIsLoading(false);

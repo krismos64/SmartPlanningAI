@@ -1,8 +1,8 @@
-import Lottie from "lottie-react";
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
+import EnhancedLottie from "../../components/ui/EnhancedLottie";
 import { useNotification } from "../../components/ui/Notification";
 import { useAuth } from "../../contexts/AuthContext";
 import { AuthService } from "../../services/api";
@@ -341,7 +341,7 @@ const Register = () => {
       <RegisterContainer>
         <RegisterHeader>
           <LogoAnimation>
-            <Lottie animationData={planningAnimation} loop={true} />
+            <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
           <h1>Créer un compte</h1>
           <p>Rejoignez SmartPlanning AI dès aujourd'hui</p>

@@ -1,4 +1,3 @@
-import Lottie from "lottie-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -10,6 +9,7 @@ import planningAnimation from "../assets/animations/planning-animation.json";
 import robotAnimation from "../assets/animations/robot.json";
 import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
+import EnhancedLottie from "../components/ui/EnhancedLottie";
 import LanguageSelector from "../components/ui/LanguageSelector";
 import { ThemeSwitch } from "../components/ui/ThemeSwitch";
 
@@ -513,7 +513,7 @@ const Contact = () => {
       <Header>
         <Logo to="/">
           <LogoAnimation>
-            <Lottie animationData={planningAnimation} loop={true} />
+            <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
           SmartPlanning AI
         </Logo>
@@ -540,14 +540,14 @@ const Contact = () => {
             </ContactDetailCard>
 
             <RobotAnimationContainer>
-              <Lottie animationData={robotAnimation} loop={true} />
+              <EnhancedLottie animationData={robotAnimation} loop={true} />
             </RobotAnimationContainer>
           </ContactDetailsContainer>
         </ContactInfo>
 
         <ContactFormContainer>
           <AnimationContainer>
-            <Lottie animationData={planningAnimation} loop={true} />
+            <EnhancedLottie animationData={planningAnimation} loop={true} />
           </AnimationContainer>
 
           <FormCard>

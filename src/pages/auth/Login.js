@@ -1,10 +1,10 @@
-import Lottie from "lottie-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
+import EnhancedLottie from "../../components/ui/EnhancedLottie";
 import { FormInput } from "../../components/ui/Form";
 import { useNotification } from "../../components/ui/Notification";
 import { API_URL } from "../../config/api";
@@ -366,10 +366,9 @@ const Login = () => {
       <LoginCard variant="elevated" padding="2rem">
         <LogoContainer>
           <LogoAnimation>
-            <Lottie animationData={planningAnimation} loop={true} />
+            <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
-          <h1>SmartPlanning AI</h1>
-          <p>Planifiez intelligemment avec l'IA</p>
+          <div>SmartPlanning AI</div>
         </LogoContainer>
 
         <Form onSubmit={handleSubmit}>
