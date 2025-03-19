@@ -10,6 +10,7 @@ import {
   Send,
   SmartToy,
 } from "@mui/icons-material";
+import { IconButton } from "@mui/material";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import robotAnimation from "../../assets/animations/robot.json";
@@ -107,6 +108,45 @@ const ChatbotLottieAnimation = React.memo(
     return prevProps.isHovered === nextProps.isHovered;
   }
 );
+
+// Styles pour le menu de mode
+const modeMenuStyles = {
+  menu: {
+    backgroundColor: "#fff",
+    borderRadius: "8px",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+    position: "absolute",
+    right: "40px",
+    top: "60px",
+    width: "200px",
+    zIndex: 1000,
+  },
+  menuItem: {
+    padding: "10px 15px",
+    display: "flex",
+    alignItems: "center",
+    cursor: "pointer",
+    color: "#333", // Couleur plus foncée pour un meilleur contraste
+    transition: "background-color 0.2s",
+    "&:hover": {
+      backgroundColor: "#f5f5f5",
+    },
+  },
+  modeIcon: {
+    marginRight: "10px",
+    color: "#5a67d8",
+  },
+  modeTitle: {
+    fontWeight: "bold",
+    fontSize: "14px",
+    color: "#333", // Couleur plus foncée pour un meilleur contraste
+  },
+  modeDescription: {
+    fontSize: "12px",
+    color: "#666", // Couleur moyenne pour un meilleur contraste
+    marginTop: "2px",
+  },
+};
 
 // Composant principal du chatbot
 const Chatbot = () => {
@@ -771,14 +811,53 @@ const Chatbot = () => {
   // Traiter les clics sur les suggestions
   const handleSuggestionClick = useCallback(
     (suggestion) => {
+      console.log("Suggestion cliquée:", suggestion);
+
       if (suggestion === "view_schedule") {
         navigate("/schedule");
+      } else if (suggestion === "create_schedule") {
+        // Appeler directement startScheduleGenerationDialog pour créer un planning
+        startScheduleGenerationDialog();
+      } else if (suggestion === "help") {
+        // Traiter directement la demande d'aide
+        let helpMessage =
+          "Je suis votre assistant SmartPlanning. Je peux vous aider à générer des plannings, consulter vos horaires ou répondre à vos questions.";
+
+        if (currentMode === CHATBOT_MODES.AGENT) {
+          helpMessage =
+            "Je suis votre agent IA SmartPlanning. Je peux optimiser vos plannings, analyser votre historique et suggérer des améliorations à votre organisation.";
+        } else if (currentMode === CHATBOT_MODES.PRIVATE) {
+          helpMessage =
+            "Je suis votre assistant SmartPlanning en mode privé. Toutes vos données restent confidentielles et sont traitées localement sans être enregistrées sur nos serveurs.";
+        }
+
+        simulateTyping(helpMessage, () => {
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            {
+              id: Date.now(),
+              text: helpMessage,
+              sender: "bot",
+              timestamp: new Date(),
+              emoji: "💡",
+            },
+          ]);
+        });
       } else {
+        // Utiliser processIntent pour d'autres intentions
         processIntent(suggestion);
       }
+
+      // Masquer les suggestions après avoir cliqué sur l'une d'elles
       setShowSuggestions(false);
     },
-    [processIntent, navigate]
+    [
+      processIntent,
+      navigate,
+      currentMode,
+      simulateTyping,
+      startScheduleGenerationDialog,
+    ]
   );
 
   // Gérer l'ouverture/fermeture du chatbot
@@ -829,12 +908,22 @@ const Chatbot = () => {
               <h3>Assistant</h3>
             </div>
             <div className="chatbot-controls">
-              <div
-                className={`mode-selector ${currentMode.toLowerCase()}`}
-                onClick={() => setShowModeMenu(!showModeMenu)}
-              >
+              <div className={`mode-selector ${currentMode.toLowerCase()}`}>
                 <span className="mode-name">{currentMode}</span>
-                <ArrowDropDown />
+                <IconButton
+                  style={{
+                    marginLeft: "10px",
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    padding: "6px",
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    },
+                  }}
+                  onClick={() => setShowModeMenu(!showModeMenu)}
+                >
+                  <ArrowDropDown style={{ color: "white" }} />
+                </IconButton>
               </div>
               <button className="close-button" onClick={toggleChatbot}>
                 <Close />
@@ -842,24 +931,36 @@ const Chatbot = () => {
             </div>
 
             {showModeMenu && (
-              <div className="mode-menu">
-                {Object.keys(CHATBOT_MODES).map((mode) => (
+              <div style={modeMenuStyles.menu}>
+                {Object.values(CHATBOT_MODES).map((mode) => (
                   <div
                     key={mode}
-                    className={`mode-option ${
-                      currentMode === CHATBOT_MODES[mode] ? "active" : ""
-                    } ${CHATBOT_MODES[mode].toLowerCase()}`}
+                    style={modeMenuStyles.menuItem}
                     onClick={() => {
-                      changeMode(CHATBOT_MODES[mode]);
+                      changeMode(mode);
                       setShowModeMenu(false);
                     }}
                   >
-                    {mode === "AGENT" && <SmartToy />}
-                    {mode === "PRIVATE" && <Lock />}
-                    {mode === "PERSONALIZED" && <Psychology />}
+                    <div style={modeMenuStyles.modeIcon}>
+                      {mode === CHATBOT_MODES.AGENT && (
+                        <SmartToy fontSize="small" />
+                      )}
+                      {mode === CHATBOT_MODES.PRIVATE && (
+                        <Lock fontSize="small" />
+                      )}
+                      {mode === CHATBOT_MODES.PERSONALIZED && (
+                        <Psychology fontSize="small" />
+                      )}
+                    </div>
                     <div>
-                      <div>{CHATBOT_MODES[mode]}</div>
-                      <small>{MODE_DESCRIPTIONS[CHATBOT_MODES[mode]]}</small>
+                      <div style={modeMenuStyles.modeTitle}>
+                        {mode === CHATBOT_MODES.AGENT && "Agent IA"}
+                        {mode === CHATBOT_MODES.PRIVATE && "Privé"}
+                        {mode === CHATBOT_MODES.PERSONALIZED && "Personnalisé"}
+                      </div>
+                      <div style={modeMenuStyles.modeDescription}>
+                        {MODE_DESCRIPTIONS[mode]}
+                      </div>
                     </div>
                   </div>
                 ))}

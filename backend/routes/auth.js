@@ -2,6 +2,16 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const { generateToken, auth, checkRole } = require("../middleware/auth");
+const {
+  generateTokens,
+  setTokenCookies,
+  clearTokenCookies,
+  verifyRefreshToken,
+} = require("../utils/tokenUtils");
+const {
+  csrfProtection,
+  generateCsrfToken,
+} = require("../middleware/csrfMiddleware");
 
 // Route d'inscription
 router.post("/register", async (req, res) => {
@@ -38,21 +48,24 @@ router.post("/register", async (req, res) => {
       jobTitle,
     });
 
-    // Générer un token JWT
-    const token = generateToken(user.id);
+    // Générer des tokens JWT et les définir comme cookies sécurisés
+    const tokens = generateTokens(user.id, user.role || "admin");
+    setTokenCookies(res, tokens);
 
-    // Retourner les informations de l'utilisateur sans le mot de passe
+    // Retourner les informations de l'utilisateur
     res.status(201).json({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      profileImage: user.profileImage,
-      company: user.company,
-      phone: user.phone,
-      jobTitle: user.jobTitle,
-      token,
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        profileImage: user.profileImage,
+        company: user.company,
+        phone: user.phone,
+        jobTitle: user.jobTitle,
+      },
     });
   } catch (error) {
     console.error("Erreur lors de l'inscription:", error);
@@ -83,16 +96,19 @@ router.post("/login", async (req, res) => {
         return res.status(401).json({ message: "Utilisateur non trouvé." });
       }
 
-      // Générer un token JWT
-      const token = generateToken(user.id);
+      // Générer des tokens JWT et les définir comme cookies sécurisés
+      const tokens = generateTokens(user.id, user.role || "admin");
+      setTokenCookies(res, tokens);
 
       return res.json({
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        token,
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          first_name: user.first_name,
+          last_name: user.last_name,
+        },
       });
     }
 
@@ -132,22 +148,24 @@ router.post("/login", async (req, res) => {
         .json({ message: "Erreur lors de la vérification du mot de passe." });
     }
 
-    // Générer un token JWT
-    const token = generateToken(user.id);
-    console.log("Token généré pour l'utilisateur:", user.id);
+    // Générer des tokens JWT et les définir comme cookies sécurisés
+    const tokens = generateTokens(user.id, user.role || "admin");
+    setTokenCookies(res, tokens);
 
     // Retourner les informations de l'utilisateur sans le mot de passe
     res.json({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      profileImage: user.profileImage,
-      company: user.company,
-      phone: user.phone,
-      jobTitle: user.jobTitle,
-      token,
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        profileImage: user.profileImage,
+        company: user.company,
+        phone: user.phone,
+        jobTitle: user.jobTitle,
+      },
     });
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
@@ -409,6 +427,88 @@ router.post("/test-login", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Erreur lors de la génération du token de test.",
+    });
+  }
+});
+
+// Route de déconnexion sécurisée
+router.post("/logout", (req, res) => {
+  // Effacer les cookies de tokens
+  clearTokenCookies(res);
+
+  // Répondre avec succès
+  res.json({
+    success: true,
+    message: "Déconnexion réussie",
+  });
+});
+
+// Route pour rafraîchir le token d'accès avec un refresh token
+router.post("/refresh", async (req, res) => {
+  try {
+    // Récupérer le refresh token depuis les cookies
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Token de rafraîchissement manquant",
+        code: "REFRESH_TOKEN_MISSING",
+      });
+    }
+
+    // Vérifier le refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+
+    if (!decoded) {
+      // Si le token est invalide, effacer les cookies et demander une reconnexion
+      clearTokenCookies(res);
+
+      return res.status(401).json({
+        success: false,
+        message: "Session expirée, veuillez vous reconnecter",
+        code: "REFRESH_TOKEN_INVALID",
+      });
+    }
+
+    // Récupérer l'utilisateur
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      clearTokenCookies(res);
+
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+        code: "USER_NOT_FOUND",
+      });
+    }
+
+    // Générer de nouveaux tokens
+    const tokens = generateTokens(user.id, user.role || "admin");
+    setTokenCookies(res, tokens);
+
+    // Renvoyer les informations utilisateur mises à jour
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      },
+    });
+  } catch (error) {
+    console.error("Erreur lors du rafraîchissement du token:", error);
+
+    // En cas d'erreur, effacer les cookies et demander une reconnexion
+    clearTokenCookies(res);
+
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors du rafraîchissement de la session",
+      code: "REFRESH_ERROR",
     });
   }
 });

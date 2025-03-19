@@ -2,6 +2,10 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+// Ajout des packages de sécurité
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const cookieParser = require("cookie-parser");
 // Utiliser db directement dans un commentaire pour indiquer son utilisation implicite
 // db est utilisé implicitement pour établir la connexion à la base de données au démarrage
 const db = require("./config/db");
@@ -10,6 +14,14 @@ const path = require("path");
 const http = require("http");
 const setupWebSocket = require("./config/websocket");
 const Activity = require("./models/Activity");
+
+// Configuration CSRF et gestionnaire d'erreurs
+const {
+  csrfProtection,
+  generateCsrfToken,
+  handleCsrfError,
+} = require("./middleware/csrfMiddleware");
+const { secureAuth } = require("./middleware/secureAuth");
 
 // Rendre le modèle Activity disponible globalement
 global.Activity = Activity;
@@ -57,7 +69,47 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-// Middleware
+// Configuration de Helmet pour sécuriser les en-têtes HTTP
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+      },
+    },
+    xssFilter: true,
+    noSniff: true,
+    referrerPolicy: { policy: "same-origin" },
+  })
+);
+
+// Limiter les tentatives d'authentification
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 tentatives max
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Trop de tentatives de connexion, veuillez réessayer plus tard",
+  },
+});
+
+// Appliquer le limiteur uniquement aux routes d'authentification
+app.use("/auth/login", loginLimiter);
+app.use("/auth/register", loginLimiter);
+
+// Utiliser cookie-parser pour les cookies sécurisés avec une clé secrète
+const COOKIE_SECRET =
+  process.env.COOKIE_SECRET || "smartplanning_cookie_secret_key";
+app.use(cookieParser(COOKIE_SECRET));
+
+// Configuration pour traiter les données JSON
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cors(corsOptions));
@@ -150,18 +202,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes API
-app.use("/api/employees", employeesRoutes);
-app.use("/api/vacations", vacationRequestsRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/weekly-schedules", weeklySchedulesRoutes);
-app.use("/api/activities", activitiesRoutes);
-app.use("/api/schedule-stats", scheduleStatsRoutes);
-app.use("/api/work-hours", workHoursRoutes);
-app.use("/api/hour-balance", hourBalanceRoutes);
-app.use("/api/departments", departmentsRoutes);
-app.use("/api/notifications", notificationsRoutes);
-app.use("/api/chatbot", chatbotRoutes);
+// Configurer les routes CSRF pour les opérations sensibles
+app.use("/api/auth", [csrfProtection, generateCsrfToken], authRoutes);
+
+// Routes nécessitant une authentification
+app.use("/api/employees", secureAuth, employeesRoutes);
+app.use("/api/vacations", secureAuth, vacationRequestsRoutes);
+app.use("/api/weekly-schedules", secureAuth, weeklySchedulesRoutes);
+app.use("/api/activities", secureAuth, activitiesRoutes);
+app.use("/api/schedule-stats", secureAuth, scheduleStatsRoutes);
+app.use("/api/work-hours", secureAuth, workHoursRoutes);
+app.use("/api/hour-balance", secureAuth, hourBalanceRoutes);
+app.use("/api/departments", secureAuth, departmentsRoutes);
+app.use("/api/notifications", secureAuth, notificationsRoutes);
+app.use("/api/chatbot", chatbotRoutes); // Le chatbot ne nécessite pas d'authentification
+
+// Gestionnaire d'erreurs CSRF
+app.use(handleCsrfError);
 
 // Route de base
 app.get("/", (req, res) => {

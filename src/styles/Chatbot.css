@@ -433,13 +433,41 @@
   transition: var(--chatbot-transition);
   font-family: "Poppins", sans-serif;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
 }
 
 .suggestion-button:hover {
-  background-color: var(--chatbot-primary-light);
+  background-color: var(--chatbot-primary);
   color: white;
-  transform: translateY(-2px);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.suggestion-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.suggestion-button:hover::before {
+  left: 100%;
 }
 
 /* Styles pour l'emoji dans les messages */
@@ -851,8 +879,9 @@
 
 /* Styles pour les boutons d'action selon le mode */
 .suggestion-button.agent {
-  border-color: #0288d1;
+  background-color: rgba(2, 136, 209, 0.1);
   color: #0288d1;
+  border: 1px solid rgba(2, 136, 209, 0.3);
 }
 
 .suggestion-button.agent:hover {
@@ -861,8 +890,9 @@
 }
 
 .suggestion-button.privé {
-  border-color: #2e7d32;
+  background-color: rgba(46, 125, 50, 0.1);
   color: #2e7d32;
+  border: 1px solid rgba(46, 125, 50, 0.3);
 }
 
 .suggestion-button.privé:hover {
@@ -871,8 +901,9 @@
 }
 
 .suggestion-button.personnalisé {
-  border-color: #7b1fa2;
+  background-color: rgba(123, 31, 162, 0.1);
   color: #7b1fa2;
+  border: 1px solid rgba(123, 31, 162, 0.3);
 }
 
 .suggestion-button.personnalisé:hover {

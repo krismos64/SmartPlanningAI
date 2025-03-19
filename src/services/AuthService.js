@@ -4,12 +4,78 @@ import axios from "axios";
  * Service d'authentification pour gérer les opérations liées à l'authentification
  */
 const AuthService = {
+  // Référence aux informations de l'utilisateur connecté
+  currentUser: null,
+
   /**
-   * Obtient le token d'authentification à partir du localStorage
-   * @returns {string|null} Le token ou null si non authentifié
+   * Configure les intercepteurs Axios pour ajouter automatiquement le token CSRF
+   * à toutes les requêtes qui modifient des données
    */
-  getToken: () => {
-    return localStorage.getItem("token");
+  setupAxiosInterceptors: () => {
+    // Intercepteur pour les requêtes
+    axios.interceptors.request.use(
+      (config) => {
+        // Ajouter le token CSRF pour les méthodes non-GET
+        if (config.method !== "get") {
+          const csrfToken = AuthService.getCsrfToken();
+          if (csrfToken) {
+            config.headers["X-CSRF-Token"] = csrfToken;
+          }
+        }
+
+        // Configuration pour envoyer les cookies avec les requêtes
+        config.withCredentials = true;
+
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Intercepteur pour les réponses
+    axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        // Si l'erreur est une erreur d'authentification (401) et qu'on n'a pas déjà tenté de rafraîchir le token
+        if (
+          error.response &&
+          error.response.status === 401 &&
+          !originalRequest._retry
+        ) {
+          originalRequest._retry = true;
+
+          try {
+            // Tenter de rafraîchir le token
+            await AuthService.refreshToken();
+
+            // Réessayer la requête d'origine avec le nouveau token
+            return axios(originalRequest);
+          } catch (refreshError) {
+            // Si le rafraîchissement échoue, déconnecter l'utilisateur
+            AuthService.logout();
+            return Promise.reject(refreshError);
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+  },
+
+  /**
+   * Récupère le token CSRF depuis le cookie
+   * @returns {string|null} Le token CSRF ou null
+   */
+  getCsrfToken: () => {
+    const cookies = document.cookie.split(";");
+    for (let cookie of cookies) {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "XSRF-TOKEN") {
+        return decodeURIComponent(value);
+      }
+    }
+    return null;
   },
 
   /**
@@ -17,7 +83,8 @@ const AuthService = {
    * @returns {boolean} Vrai si l'utilisateur est authentifié
    */
   isAuthenticated: () => {
-    return !!localStorage.getItem("token");
+    // L'utilisateur est authentifié s'il a des informations d'utilisateur stockées
+    return !!AuthService.getUserInfo();
   },
 
   /**
@@ -25,10 +92,18 @@ const AuthService = {
    * @returns {Object|null} Les informations de l'utilisateur ou null
    */
   getUserInfo: () => {
+    // Si nous avons déjà récupéré l'utilisateur actuel, le renvoyer
+    if (AuthService.currentUser) {
+      return AuthService.currentUser;
+    }
+
+    // Sinon, essayer de le récupérer du stockage local
     const userInfo = localStorage.getItem("user_info");
     if (!userInfo) return null;
+
     try {
-      return JSON.parse(userInfo);
+      AuthService.currentUser = JSON.parse(userInfo);
+      return AuthService.currentUser;
     } catch (e) {
       console.error("Erreur lors de la récupération des infos utilisateur:", e);
       return null;
@@ -36,22 +111,62 @@ const AuthService = {
   },
 
   /**
+   * Tente de rafraîchir le token d'authentification
+   * @returns {Promise<Object>} Les informations utilisateur mises à jour
+   */
+  refreshToken: async () => {
+    try {
+      const response = await axios.post(
+        "/api/auth/refresh",
+        {},
+        {
+          withCredentials: true, // Important pour envoyer les cookies avec la requête
+        }
+      );
+
+      if (response.data && response.data.success && response.data.user) {
+        // Mettre à jour les informations utilisateur en stockage local
+        localStorage.setItem("user_info", JSON.stringify(response.data.user));
+        AuthService.currentUser = response.data.user;
+
+        return response.data.user;
+      }
+
+      throw new Error("Échec du rafraîchissement du token");
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement du token:", error);
+      AuthService.logout();
+      throw error;
+    }
+  },
+
+  /**
    * Connecte un utilisateur
-   * @param {string} username - Nom d'utilisateur
+   * @param {string} email - Email de l'utilisateur
    * @param {string} password - Mot de passe
    * @returns {Promise<Object>} Résultat de la connexion
    */
-  login: async (username, password) => {
+  login: async (email, password) => {
     try {
-      const response = await axios.post("/api/auth/login", {
-        username,
-        password,
-      });
-      if (response.data && response.data.token) {
-        localStorage.setItem("token", response.data.token);
+      const response = await axios.post(
+        "/api/auth/login",
+        {
+          email,
+          password,
+        },
+        {
+          withCredentials: true, // Important pour stocker les cookies
+        }
+      );
+
+      if (response.data && response.data.success && response.data.user) {
+        // Stocker les informations utilisateur dans le stockage local
         localStorage.setItem("user_info", JSON.stringify(response.data.user));
+        AuthService.currentUser = response.data.user;
+
         return { success: true, user: response.data.user };
       }
+
       return { success: false, message: "Authentification échouée" };
     } catch (error) {
       console.error("Erreur de connexion:", error);
@@ -64,22 +179,54 @@ const AuthService = {
 
   /**
    * Déconnecte l'utilisateur
+   * @returns {Promise<Object>} Résultat de la déconnexion
    */
-  logout: () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user_info");
+  logout: async () => {
+    try {
+      // Appeler l'API de déconnexion pour invalider les cookies côté serveur
+      await axios.post(
+        "/api/auth/logout",
+        {},
+        {
+          withCredentials: true,
+        }
+      );
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion côté serveur:", error);
+    } finally {
+      // Supprimer les informations utilisateur du stockage local
+      localStorage.removeItem("user_info");
+      AuthService.currentUser = null;
+
+      // Rediriger vers la page de connexion si nécessaire
+      window.location.href = "/login";
+    }
   },
 
   /**
-   * Obtient l'en-tête d'authentification pour les requêtes API
-   * @returns {Object} L'en-tête d'authentification
+   * Initialise le service d'authentification
+   * Utilisé au démarrage de l'application
    */
-  getAuthHeader: () => {
-    const token = localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
+  init: () => {
+    // Configurer les intercepteurs Axios
+    AuthService.setupAxiosInterceptors();
+
+    // Vérifier périodiquement si le token est toujours valide
+    setInterval(async () => {
+      // Ne tenter de rafraîchir que si l'utilisateur est connecté
+      if (AuthService.isAuthenticated()) {
+        try {
+          await AuthService.refreshToken();
+        } catch (error) {
+          // Si le rafraîchissement échoue, ne rien faire de plus
+          // L'intercepteur de réponse s'occupera de la déconnexion si nécessaire
+        }
+      }
+    }, 15 * 60 * 1000); // Vérifier toutes les 15 minutes
   },
 };
 
-// Exporter le service par défaut et la fonction getAuthHeader individuellement
+// Initialiser le service lors de l'importation
+AuthService.init();
+
 export default AuthService;
-export const { getAuthHeader } = AuthService;
