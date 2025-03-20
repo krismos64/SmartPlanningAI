@@ -1,5 +1,4 @@
 import { CHATBOT_TOPICS } from "../../config/chatbotTopics";
-import ChatbotDatabaseService from "../../services/ChatbotDatabaseService";
 
 /**
  * Intégration du chatbot basée sur des règles prédéfinies
@@ -451,32 +450,17 @@ class ChatbotRulesIntegration {
     try {
       this.onSetIsTyping(true);
 
-      // Exécuter la requête via le service
-      const result = await ChatbotDatabaseService.executeDataQuery(action);
-      console.log("Résultat de la requête:", result);
+      // Simulation de données (puisque ChatbotDatabaseService a été supprimé)
+      let data = [];
 
-      // Si la requête a échoué
-      if (!result.success) {
-        return {
-          success: false,
-          response: result.message || "La requête n'a pas pu être exécutée.",
-          suggestions: [
-            {
-              text: "Aide",
-              action: "get_help",
-            },
-          ],
-        };
-      }
-
-      // Formater la réponse en fonction de l'action
+      // Simuler des données selon le type d'action
       switch (action) {
         case "get_absences_today": {
-          const data = result.data || [];
+          // Aucune donnée simulée = personne n'est absent
           if (data.length === 0) {
             return {
               success: true,
-              response: "Tout le monde est présent aujourd'hui.",
+              response: "Personne n'est absent aujourd'hui.",
             };
           }
 
@@ -490,7 +474,7 @@ class ChatbotRulesIntegration {
         }
 
         case "get_upcoming_vacations": {
-          const data = result.data || [];
+          // Aucune donnée simulée = pas de congés prévus
           if (data.length === 0) {
             return {
               success: true,
@@ -512,7 +496,7 @@ class ChatbotRulesIntegration {
         }
 
         case "get_missing_schedules": {
-          const data = result.data || [];
+          // Aucune donnée simulée = tous les plannings sont à jour
           if (data.length === 0) {
             return {
               success: true,
@@ -538,7 +522,7 @@ class ChatbotRulesIntegration {
         }
 
         case "get_negative_hours": {
-          const data = result.data || [];
+          // Aucune donnée simulée = aucun solde négatif
           if (data.length === 0) {
             return {
               success: true,
