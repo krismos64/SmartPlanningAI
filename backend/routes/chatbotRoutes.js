@@ -22,6 +22,8 @@ router.post("/process", async (req, res) => {
     const { message } = req.body;
     const userId = req.user.id;
 
+    console.log("User ID reçu dans le chatbot :", userId);
+
     if (!message) {
       return res
         .status(400)

@@ -70,6 +70,26 @@ const auth = async (req, res, next) => {
         "Administrateur",
     };
 
+    // Vérifier explicitement que l'ID utilisateur est défini
+    if (!user.id) {
+      console.error(
+        "ERREUR CRITIQUE: L'ID utilisateur est manquant dans les données de l'utilisateur"
+      );
+      return res.status(401).json({
+        success: false,
+        message: "Erreur d'authentification: identifiant utilisateur manquant",
+        code: "MISSING_USER_ID",
+      });
+    }
+
+    // Debug logs
+    console.log("=== AUTH MIDDLEWARE ===");
+    console.log("Auth successful for user ID:", user.id);
+    console.log("User info:", safeUser);
+    console.log("User ID from token:", decoded.userId);
+    console.log("User ID from database:", user.id);
+    console.log("=====================");
+
     req.user = safeUser;
     req.userId = user.id;
     req.tokenInfo = {

@@ -28,13 +28,29 @@ function generateTokens(userId, role = "admin") {
   // Obtenir la date actuelle en secondes
   const now = Math.floor(Date.now() / 1000);
 
+  console.log(
+    "Génération de tokens pour l'utilisateur:",
+    userId,
+    "role:",
+    role
+  );
+
+  // Vérifier que userId est bien défini
+  if (!userId) {
+    console.error("ERREUR: Tentative de générer un token sans userId");
+    throw new Error("userId est requis pour générer un token");
+  }
+
   // Générer un identifiant unique pour le token (jti)
   const tokenId = crypto.randomBytes(16).toString("hex");
+
+  // Assurer que userId est une chaîne
+  const userIdStr = String(userId);
 
   // Générer le token d'accès avec des claims de sécurité
   const accessToken = jwt.sign(
     {
-      userId,
+      userId: userIdStr,
       role,
       iat: now, // Issued at (date d'émission)
       nbf: now, // Not before (pas valide avant)
@@ -96,11 +112,27 @@ function verifyAccessToken(token) {
       if (parts.length === 3) {
         const header = JSON.parse(Buffer.from(parts[0], "base64").toString());
         console.log("Token header:", header);
+
+        // Debug du payload
+        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
+        console.log("Token payload:", payload);
+
+        // Vérifier si userId est présent dans le payload - BLOCAGE si absent
+        if (!payload.userId) {
+          console.error(
+            "ERREUR CRITIQUE: Le payload du token ne contient pas d'userId!"
+          );
+          throw new Error("Token invalide: userId manquant dans le payload");
+        }
       } else {
         console.log("Format de token invalide (pas 3 parties)");
       }
     } catch (e) {
       console.log("Impossible de décoder l'en-tête du token:", e.message);
+      // Remonter l'erreur pour faire échouer la vérification du token
+      if (e.message.includes("userId manquant")) {
+        throw e;
+      }
     }
 
     const decoded = jwt.verify(cleanToken, ACCESS_TOKEN_SECRET);
@@ -114,6 +146,12 @@ function verifyAccessToken(token) {
         ? new Date(decoded.iat * 1000).toISOString()
         : "non défini",
     });
+
+    // Vérification supplémentaire que userId est bien présent
+    if (!decoded.userId) {
+      console.error("ERREUR: Le token ne contient pas d'ID utilisateur");
+    }
+
     return decoded;
   } catch (error) {
     console.error(

@@ -1,314 +1,231 @@
-// routes/employees.js
 const express = require("express");
 const router = express.Router();
 const Employee = require("../models/Employee");
-const { auth, checkRole } = require("../middleware/auth");
+const { auth } = require("../middleware/auth");
 const activitiesRouter = require("./activities");
 const db = require("../config/db");
 
 // @route   GET /api/employees
-// @desc    Obtenir tous les employés
-// @access  Public
+// @desc    Obtenir tous les employés du manager connecté
+// @access  Private
 router.get("/", auth, async (req, res) => {
   try {
-    const employees = await Employee.find();
+    const userId = req.user.id; // ID du manager connecté
+
+    const [employees] = await db.execute(
+      "SELECT * FROM employees WHERE user_id = ?",
+      [userId]
+    );
+
     res.json(employees);
   } catch (error) {
     console.error("Erreur lors de la récupération des employés:", error);
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la récupération des employés" });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
 // @route   GET /api/employees/:id
-// @desc    Obtenir un employé par ID
-// @access  Public
+// @desc    Obtenir un employé spécifique (du manager connecté uniquement)
+// @access  Private
 router.get("/:id", auth, async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) {
+    const userId = req.user.id;
+    const employeeId = req.params.id;
+
+    const [employees] = await db.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [employeeId, userId]
+    );
+
+    if (employees.length === 0) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
-    res.json(employee);
+
+    res.json(employees[0]);
   } catch (error) {
     console.error(
       `Erreur lors de la récupération de l'employé ${req.params.id}:`,
       error
     );
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la récupération de l'employé" });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
 // @route   POST /api/employees
-// @desc    Créer un nouvel employé
+// @desc    Créer un nouvel employé (ajout automatique du user_id)
 // @access  Private (Admin)
 router.post("/", auth, async (req, res) => {
   try {
-    const employeeData = req.body;
+    const { first_name, last_name, email, phone, role, department } = req.body;
 
-    // Log des données reçues pour le débogage
-    console.log(
-      "Données reçues pour la création de l'employé:",
-      JSON.stringify(employeeData, null, 2)
+    // Obtenir l'ID utilisateur strictement du token auth
+    // Ne pas utiliser de fallback avec ID 6
+    const userId = req.user?.id || req.userId;
+
+    // Débogage
+    console.log("=== CRÉATION EMPLOYÉ ===");
+    console.log("User info disponible:", req.user ? "OUI" : "NON");
+    console.log("User ID from req.user:", req.user?.id);
+    console.log("User ID from req.userId:", req.userId);
+    console.log("User ID final utilisé:", userId);
+    console.log("Token info:", req.tokenInfo);
+    console.log("User object:", JSON.stringify(req.user, null, 2));
+    console.log("=======================");
+
+    // Vérification stricte de l'ID utilisateur
+    if (!userId) {
+      console.error(
+        "ERREUR: Impossible de récupérer l'ID utilisateur pour la création d'employé"
+      );
+      return res.status(401).json({
+        message:
+          "Session invalide ou expirée. Veuillez vous reconnecter pour créer un employé.",
+        error: "NO_USER_ID",
+      });
+    }
+
+    if (!first_name || !last_name) {
+      return res
+        .status(400)
+        .json({ message: "Le prénom et le nom sont obligatoires" });
+    }
+
+    // Log de débogage SQL
+    console.log("Requête SQL pour insertion d'employé avec user_id:", userId);
+
+    const [result] = await db.execute(
+      `INSERT INTO employees (first_name, last_name, email, phone, role, department, user_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [first_name, last_name, email, phone, role, department, userId]
     );
 
-    // Supprimer hourlyRate des données reçues pour éviter l'erreur
-    if (employeeData.hourlyRate !== undefined) {
-      console.log("Suppression de hourlyRate des données reçues");
-      delete employeeData.hourlyRate;
-    }
-
-    // Validation des données
-    if (!employeeData.first_name || !employeeData.last_name) {
-      return res.status(400).json({
-        success: false,
-        message: "Veuillez fournir le prénom et le nom de l'employé",
-      });
-    }
-
-    // Créer l'employé
-    const employee = new Employee(employeeData);
-    await employee.save();
-
-    console.log("Employé créé avec succès:", JSON.stringify(employee, null, 2));
-
-    // L'ID est maintenant disponible dans l'objet employee
-    const employeeId = employee.id;
+    const employeeId = result.insertId;
 
     // Enregistrer l'activité
-    try {
-      console.log(
-        "Tentative d'enregistrement de l'activité de création pour l'employé:",
-        {
-          id: employeeId,
-          name: `${employeeData.first_name} ${employeeData.last_name}`,
-          userId: req.user.id,
-        }
-      );
-
-      await activitiesRouter.recordActivity({
-        type: "create",
-        entity_type: "employee",
-        entity_id: employeeId.toString(), // Convertir en string pour assurer la compatibilité
-        description: `Création de l'employé ${employeeData.first_name} ${employeeData.last_name}`,
-        user_id: req.user.id,
-        details: {
-          employeeId: employeeId,
-          employeeName: `${employeeData.first_name} ${employeeData.last_name}`,
-          department: employeeData.department || "Non spécifié",
-          action: "création",
-        },
-      });
-
-      console.log("Activité de création enregistrée avec succès");
-    } catch (activityError) {
-      console.error(
-        "Erreur lors de l'enregistrement de l'activité:",
-        activityError
-      );
-      console.error("Stack trace:", activityError.stack);
-      // On continue malgré l'erreur d'activité
-    }
-
-    res.status(201).json({
-      success: true,
-      message: "Employé créé avec succès",
-      employee: employee,
+    await activitiesRouter.recordActivity({
+      type: "create",
+      entity_type: "employee",
+      entity_id: employeeId.toString(),
+      description: `Création de l'employé ${first_name} ${last_name}`,
+      user_id: userId,
+      details: {
+        employeeId,
+        first_name,
+        last_name,
+        department,
+        action: "création",
+      },
     });
+
+    res.status(201).json({ message: "Employé créé avec succès", employeeId });
   } catch (error) {
     console.error("Erreur lors de la création de l'employé:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la création de l'employé",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
 // @route   PUT /api/employees/:id
-// @desc    Mettre à jour un employé
+// @desc    Mettre à jour un employé (du manager connecté uniquement)
 // @access  Private
 router.put("/:id", auth, async (req, res) => {
   try {
-    // Log des données reçues pour le débogage
-    console.log(
-      "Données reçues pour la mise à jour de l'employé:",
-      req.params.id,
-      JSON.stringify(req.body, null, 2)
+    const userId = req.user.id;
+    const employeeId = req.params.id;
+    const { first_name, last_name, email, phone, role, department } = req.body;
+
+    // Vérifier si l'employé appartient bien au manager
+    const [employees] = await db.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [employeeId, userId]
     );
 
-    // Supprimer hourlyRate des données reçues pour éviter l'erreur
-    if (req.body.hourlyRate !== undefined) {
-      console.log("Suppression de hourlyRate des données reçues");
-      delete req.body.hourlyRate;
+    if (employees.length === 0) {
+      return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    // Récupérer l'employé avant la mise à jour pour avoir les anciennes valeurs
-    const oldEmployee = await Employee.findById(req.params.id);
-    if (!oldEmployee) {
-      return res.status(404).json({
-        success: false,
-        message: "Employé non trouvé",
-      });
-    }
-
-    console.log(
-      "Employé avant mise à jour:",
-      JSON.stringify(oldEmployee, null, 2)
-    );
-
-    // Mettre à jour l'employé
-    const updatedEmployee = await Employee.findByIdAndUpdate(
-      req.params.id,
-      req.body
-    );
-
-    console.log(
-      "Employé après mise à jour:",
-      JSON.stringify(updatedEmployee, null, 2)
+    await db.execute(
+      `UPDATE employees SET first_name = ?, last_name = ?, email = ?, phone = ?, role = ?, department = ? 
+       WHERE id = ? AND user_id = ?`,
+      [
+        first_name,
+        last_name,
+        email,
+        phone,
+        role,
+        department,
+        employeeId,
+        userId,
+      ]
     );
 
     // Enregistrer l'activité
-    try {
-      console.log(
-        "Tentative d'enregistrement de l'activité de mise à jour pour l'employé:",
-        {
-          id: updatedEmployee.id,
-          name: `${updatedEmployee.first_name} ${updatedEmployee.last_name}`,
-          userId: req.user.id,
-        }
-      );
+    await activitiesRouter.recordActivity({
+      type: "update",
+      entity_type: "employee",
+      entity_id: employeeId.toString(),
+      description: `Mise à jour de l'employé ${first_name} ${last_name}`,
+      user_id: userId,
+      details: {
+        employeeId,
+        first_name,
+        last_name,
+        department,
+        action: "mise à jour",
+      },
+    });
 
-      // Déterminer les changements
-      const changes = {};
-      if (oldEmployee.department !== updatedEmployee.department) {
-        changes.department = {
-          old: oldEmployee.department || "Non spécifié",
-          new: updatedEmployee.department || "Non spécifié",
-        };
-      }
-      if (oldEmployee.role !== updatedEmployee.role) {
-        changes.role = {
-          old: oldEmployee.role || "Non spécifié",
-          new: updatedEmployee.role || "Non spécifié",
-        };
-      }
-
-      await activitiesRouter.recordActivity({
-        type: "update",
-        entity_type: "employee",
-        entity_id: updatedEmployee.id.toString(),
-        description: `Mise à jour de l'employé ${updatedEmployee.first_name} ${updatedEmployee.last_name}`,
-        user_id: req.user.id,
-        details: {
-          employeeId: updatedEmployee.id,
-          employeeName: `${updatedEmployee.first_name} ${updatedEmployee.last_name}`,
-          department: updatedEmployee.department || "Non spécifié",
-          changes: changes,
-          action: "mise à jour",
-        },
-      });
-
-      console.log("Activité de mise à jour enregistrée avec succès");
-    } catch (activityError) {
-      console.error(
-        "Erreur lors de l'enregistrement de l'activité:",
-        activityError
-      );
-      console.error("Stack trace:", activityError.stack);
-      // On continue malgré l'erreur d'activité
-    }
-
-    res.json(updatedEmployee);
+    res.json({ message: "Employé mis à jour avec succès" });
   } catch (error) {
     console.error(
       `Erreur lors de la mise à jour de l'employé ${req.params.id}:`,
       error
     );
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la mise à jour de l'employé",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
 // @route   DELETE /api/employees/:id
-// @desc    Supprimer un employé
+// @desc    Supprimer un employé (du manager connecté uniquement)
 // @access  Private (Admin)
 router.delete("/:id", auth, async (req, res) => {
   try {
-    const id = req.params.id;
+    const userId = req.user.id;
+    const employeeId = req.params.id;
 
-    // Vérifier si l'employé existe
+    // Vérifier si l'employé appartient bien au manager
     const [employees] = await db.execute(
-      "SELECT * FROM employees WHERE id = ?",
-      [id]
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [employeeId, userId]
     );
 
     if (employees.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Employé non trouvé",
-      });
+      return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    const employee = employees[0];
-    const employeeName = `${employee.first_name} ${employee.last_name}`.trim();
-    const employeeDepartment = employee.department || "Non spécifié";
-
-    // Supprimer l'employé
-    await db.execute("DELETE FROM employees WHERE id = ?", [id]);
+    await db.execute("DELETE FROM employees WHERE id = ? AND user_id = ?", [
+      employeeId,
+      userId,
+    ]);
 
     // Enregistrer l'activité
-    try {
-      console.log(
-        "Tentative d'enregistrement de l'activité de suppression pour l'employé:",
-        {
-          id,
-          name: employeeName,
-          userId: req.user.id,
-        }
-      );
-
-      await activitiesRouter.recordActivity({
-        type: "delete",
-        entity_type: "employee",
-        entity_id: id,
-        description: `Suppression de l'employé ${employeeName}`,
-        user_id: req.user.id,
-        details: {
-          employeeId: employee.id,
-          employeeName: employeeName,
-          department: employeeDepartment,
-          action: "suppression",
-        },
-      });
-
-      console.log("Activité de suppression enregistrée avec succès");
-    } catch (activityError) {
-      console.error(
-        "Erreur lors de l'enregistrement de l'activité:",
-        activityError
-      );
-      console.error("Stack trace:", activityError.stack);
-      // On continue malgré l'erreur d'activité
-    }
-
-    res.json({
-      success: true,
-      message: "Employé supprimé avec succès",
+    await activitiesRouter.recordActivity({
+      type: "delete",
+      entity_type: "employee",
+      entity_id: employeeId.toString(),
+      description: `Suppression de l'employé ${employees[0].first_name} ${employees[0].last_name}`,
+      user_id: userId,
+      details: {
+        employeeId,
+        first_name: employees[0].first_name,
+        last_name: employees[0].last_name,
+        action: "suppression",
+      },
     });
+
+    res.json({ message: "Employé supprimé avec succès" });
   } catch (error) {
     console.error("Erreur lors de la suppression de l'employé:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la suppression de l'employé",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
