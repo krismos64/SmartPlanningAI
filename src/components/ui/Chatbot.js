@@ -48,6 +48,14 @@ const ChatbotLottieAnimation = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       aria-label="Ouvrir l'assistant"
+      style={{
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        zIndex: 1000,
+        cursor: "pointer",
+        transition: "all 0.3s ease",
+      }}
     >
       <Lottie
         options={options}

@@ -225,8 +225,8 @@ const AppContent = () => {
             </MainContent>
           </HelmetProvider>
 
-          {/* Chatbot disponible sur toutes les pages */}
-          <Chatbot />
+          {/* Chatbot disponible uniquement pour les utilisateurs authentifiés et sur les pages protégées */}
+          {auth.isAuthenticated && isProtectedPage && <Chatbot />}
         </Suspense>
       </Router>
     </NotificationProvider>

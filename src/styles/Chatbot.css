@@ -52,19 +52,7 @@
 
 /* Animation du robot */
 .chatbot-toggle-lottie {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: var(--chatbot-toggle-size);
-  height: var(--chatbot-toggle-size);
-  border-radius: 50%;
-  background: var(--chatbot-gradient-1);
-  color: var(--chatbot-text-on-primary);
-  display: flex;
-  justify-content: center;
-  align-items: center;
   cursor: pointer;
-  box-shadow: var(--chatbot-shadow), var(--chatbot-glow);
   z-index: 1001;
   transition: transform 0.3s ease;
   animation: float 6s ease-in-out infinite;
