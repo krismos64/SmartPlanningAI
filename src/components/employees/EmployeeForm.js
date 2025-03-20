@@ -5,11 +5,44 @@ import { EMPLOYEE_STATUSES } from "../../config/constants";
 import { Button } from "../ui";
 import { FormInput, FormSelect } from "../ui/Form";
 
+// Style pour la section d'information en haut du formulaire
+const FormInfo = styled.div`
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-left: 4px solid #3f51b5;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+`;
+
+const RequiredInfo = styled.p`
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0;
+
+  span {
+    color: #e53935;
+    font-weight: 500;
+  }
+`;
+
 const FormGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
+`;
+
+const FormSection = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const SectionTitle = styled.h4`
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #3f51b5;
+  font-weight: 500;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.5rem;
 `;
 
 const FormActions = styled.div`
@@ -58,9 +91,20 @@ const ConfirmationActions = styled.div`
   gap: 1rem;
 `;
 
+const ValidationError = styled.div`
+  color: #e53935;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
 const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   // Fonction pour formater les dates ISO en format YYYY-MM-DD
   const formatDateForInput = (dateString) => {
@@ -119,16 +163,192 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
           formatDateForInput(new Date().toISOString()),
         contractHours: employee.contractHours ?? 35,
       });
+      setErrors({});
+      setTouched({});
     }
   }, [employee]);
 
-  const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  }, []);
+  // Validation du formulaire
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Validation du prénom
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = "Le prénom est obligatoire";
+    } else if (formData.first_name.length < 2) {
+      newErrors.first_name = "Le prénom doit contenir au moins 2 caractères";
+    }
+
+    // Validation du nom
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = "Le nom est obligatoire";
+    } else if (formData.last_name.length < 2) {
+      newErrors.last_name = "Le nom doit contenir au moins 2 caractères";
+    }
+
+    // Validation de l'email (si fourni)
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Format d'email invalide";
+    }
+
+    // Validation du téléphone (si fourni)
+    if (
+      formData.phone &&
+      !/^(\+\d{1,3})?[\s-]?\d{6,14}$/.test(formData.phone)
+    ) {
+      newErrors.phone = "Format de téléphone invalide";
+    }
+
+    // Validation du code postal (si fourni)
+    if (formData.zipCode && !/^\d{5}$/.test(formData.zipCode)) {
+      newErrors.zipCode = "Le code postal doit contenir 5 chiffres";
+    }
+
+    // Validation des heures contractuelles
+    if (formData.contractHours < 0) {
+      newErrors.contractHours =
+        "Les heures contractuelles ne peuvent pas être négatives";
+    } else if (formData.contractHours > 50) {
+      newErrors.contractHours =
+        "Les heures contractuelles ne peuvent pas dépasser 50 heures";
+    }
+
+    // Validation du statut
+    if (!formData.status) {
+      newErrors.status = "Le statut est obligatoire";
+    }
+
+    // Validation de la date d'embauche
+    if (!formData.hire_date) {
+      newErrors.hire_date = "La date d'embauche est obligatoire";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = useCallback(
+    (e) => {
+      const { name, value } = e.target;
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+
+      // Effacer l'erreur lorsque le champ est modifié
+      if (errors[name]) {
+        setErrors((prev) => ({
+          ...prev,
+          [name]: undefined,
+        }));
+      }
+    },
+    [errors]
+  );
+
+  const handleBlur = useCallback(
+    (e) => {
+      const { name } = e.target;
+      setTouched((prev) => ({ ...prev, [name]: true }));
+
+      // Valider le champ spécifique lors de la perte de focus
+      validateField(name);
+    },
+    [formData]
+  );
+
+  const validateField = (fieldName) => {
+    switch (fieldName) {
+      case "first_name":
+        if (!formData.first_name.trim()) {
+          setErrors((prev) => ({
+            ...prev,
+            first_name: "Le prénom est obligatoire",
+          }));
+        } else if (formData.first_name.length < 2) {
+          setErrors((prev) => ({
+            ...prev,
+            first_name: "Le prénom doit contenir au moins 2 caractères",
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, first_name: undefined }));
+        }
+        break;
+
+      case "last_name":
+        if (!formData.last_name.trim()) {
+          setErrors((prev) => ({
+            ...prev,
+            last_name: "Le nom est obligatoire",
+          }));
+        } else if (formData.last_name.length < 2) {
+          setErrors((prev) => ({
+            ...prev,
+            last_name: "Le nom doit contenir au moins 2 caractères",
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, last_name: undefined }));
+        }
+        break;
+
+      case "email":
+        if (
+          formData.email &&
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+        ) {
+          setErrors((prev) => ({ ...prev, email: "Format d'email invalide" }));
+        } else {
+          setErrors((prev) => ({ ...prev, email: undefined }));
+        }
+        break;
+
+      case "phone":
+        if (
+          formData.phone &&
+          !/^(\+\d{1,3})?[\s-]?\d{6,14}$/.test(formData.phone)
+        ) {
+          setErrors((prev) => ({
+            ...prev,
+            phone: "Format de téléphone invalide",
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, phone: undefined }));
+        }
+        break;
+
+      case "zipCode":
+        if (formData.zipCode && !/^\d{5}$/.test(formData.zipCode)) {
+          setErrors((prev) => ({
+            ...prev,
+            zipCode: "Le code postal doit contenir 5 chiffres",
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, zipCode: undefined }));
+        }
+        break;
+
+      case "contractHours":
+        if (formData.contractHours < 0) {
+          setErrors((prev) => ({
+            ...prev,
+            contractHours:
+              "Les heures contractuelles ne peuvent pas être négatives",
+          }));
+        } else if (formData.contractHours > 50) {
+          setErrors((prev) => ({
+            ...prev,
+            contractHours:
+              "Les heures contractuelles ne peuvent pas dépasser 50 heures",
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, contractHours: undefined }));
+        }
+        break;
+
+      default:
+        break;
+    }
+  };
 
   const handleSubmit = useCallback(
     (e) => {
@@ -138,6 +358,22 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
       const token = localStorage.getItem("token");
       if (!token) {
         toast.error("Veuillez vous connecter pour accéder à cette page.");
+        return;
+      }
+
+      // Marquer tous les champs comme touchés pour afficher toutes les erreurs
+      const allFields = Object.keys(formData);
+      const touchedFields = allFields.reduce((acc, field) => {
+        acc[field] = true;
+        return acc;
+      }, {});
+      setTouched(touchedFields);
+
+      // Valider le formulaire
+      const isValid = validateForm();
+
+      if (!isValid) {
+        toast.error("Veuillez corriger les erreurs dans le formulaire.");
         return;
       }
 
@@ -202,112 +438,161 @@ const EmployeeForm = ({ employee, onSubmit, onDelete }) => {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <FormGrid>
-          <FormInput
-            label="Prénom"
-            name="first_name"
-            value={formData.first_name}
-            onChange={handleChange}
-            required
-          />
-          <FormInput
-            label="Nom"
-            name="last_name"
-            value={formData.last_name}
-            onChange={handleChange}
-            required
-          />
-          <FormInput
-            label="Email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Téléphone"
-            name="phone"
-            type="tel"
-            value={formData.phone}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Adresse"
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Ville"
-            name="city"
-            value={formData.city}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Code postal"
-            name="zipCode"
-            value={formData.zipCode}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Date de naissance"
-            name="birthdate"
-            type="date"
-            value={formData.birthdate}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Département"
-            name="department"
-            value={formData.department}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Rôle"
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-          <FormInput
-            label="Heures contractuelles"
-            name="contractHours"
-            type="number"
-            min="0"
-            step="0.5"
-            value={formData.contractHours}
-            onChange={handleChange}
-            helpText="Nombre d'heures hebdomadaires"
-          />
-          <FormSelect
-            label="Statut"
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            required
-          >
-            {EMPLOYEE_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </FormSelect>
-          <FormInput
-            label="Date d'embauche"
-            name="hire_date"
-            type="date"
-            value={formData.hire_date}
-            onChange={handleChange}
-            helpText="Facultatif"
-          />
-        </FormGrid>
+        <FormInfo>
+          <RequiredInfo>
+            Les champs marqués d'un <span>*</span> sont obligatoires.
+          </RequiredInfo>
+        </FormInfo>
+
+        <FormSection>
+          <SectionTitle>Informations personnelles</SectionTitle>
+          <FormGrid>
+            <FormInput
+              label="Prénom"
+              name="first_name"
+              value={formData.first_name}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.first_name && errors.first_name}
+              required
+            />
+            <FormInput
+              label="Nom"
+              name="last_name"
+              value={formData.last_name}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.last_name && errors.last_name}
+              required
+            />
+            <FormInput
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.email && errors.email}
+              helpText="Format: exemple@domaine.com"
+            />
+            <FormInput
+              label="Téléphone"
+              name="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.phone && errors.phone}
+              helpText="Format: +33612345678 ou 0612345678"
+            />
+            <FormInput
+              label="Date de naissance"
+              name="birthdate"
+              type="date"
+              value={formData.birthdate}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.birthdate && errors.birthdate}
+              helpText="Facultatif"
+            />
+          </FormGrid>
+        </FormSection>
+
+        <FormSection>
+          <SectionTitle>Adresse</SectionTitle>
+          <FormGrid>
+            <FormInput
+              label="Adresse"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.address && errors.address}
+              helpText="Facultatif"
+            />
+            <FormInput
+              label="Ville"
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.city && errors.city}
+              helpText="Facultatif"
+            />
+            <FormInput
+              label="Code postal"
+              name="zipCode"
+              value={formData.zipCode}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.zipCode && errors.zipCode}
+              helpText="Format: 75001 (5 chiffres)"
+            />
+          </FormGrid>
+        </FormSection>
+
+        <FormSection>
+          <SectionTitle>Informations professionnelles</SectionTitle>
+          <FormGrid>
+            <FormInput
+              label="Département"
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.department && errors.department}
+              helpText="Facultatif"
+            />
+            <FormInput
+              label="Rôle"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.role && errors.role}
+              helpText="Facultatif"
+            />
+            <FormInput
+              label="Heures contractuelles"
+              name="contractHours"
+              type="number"
+              min="0"
+              max="50"
+              step="0.5"
+              value={formData.contractHours}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.contractHours && errors.contractHours}
+              helpText="Nombre d'heures hebdomadaires (max 50h)"
+              required
+            />
+            <FormSelect
+              label="Statut"
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.status && errors.status}
+              required
+            >
+              {EMPLOYEE_STATUSES.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </FormSelect>
+            <FormInput
+              label="Date d'embauche"
+              name="hire_date"
+              type="date"
+              value={formData.hire_date}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={touched.hire_date && errors.hire_date}
+              required
+            />
+          </FormGrid>
+        </FormSection>
 
         <FormActions>
           {onDelete && (
