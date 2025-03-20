@@ -450,107 +450,102 @@ class ChatbotRulesIntegration {
     try {
       this.onSetIsTyping(true);
 
-      // Simulation de données (puisque ChatbotDatabaseService a été supprimé)
-      let data = [];
+      const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:5001";
+      const token = localStorage.getItem("token");
 
-      // Simuler des données selon le type d'action
+      if (!token) {
+        console.error("Token d'authentification non trouvé");
+        return {
+          success: false,
+          response: "Veuillez vous connecter pour accéder à ces informations.",
+        };
+      }
+
+      let endpoint = "";
       switch (action) {
-        case "get_absences_today": {
-          // Aucune donnée simulée = personne n'est absent
-          if (data.length === 0) {
-            return {
-              success: true,
-              response: "Personne n'est absent aujourd'hui.",
-            };
-          }
-
-          const names = data
-            .map((employee) => `${employee.name} (${employee.reason})`)
-            .join(", ");
-          return {
-            success: true,
-            response: `Les personnes absentes aujourd'hui sont : ${names}.`,
-          };
-        }
-
-        case "get_upcoming_vacations": {
-          // Aucune donnée simulée = pas de congés prévus
-          if (data.length === 0) {
-            return {
-              success: true,
-              response: "Aucun congé n'est prévu prochainement.",
-            };
-          }
-
-          const vacations = data
-            .map(
-              (vacation) =>
-                `${vacation.name} (du ${vacation.start_date} au ${vacation.end_date})`
-            )
-            .join(", ");
-
-          return {
-            success: true,
-            response: `Les prochaines personnes en congés sont : ${vacations}.`,
-          };
-        }
-
-        case "get_missing_schedules": {
-          // Aucune donnée simulée = tous les plannings sont à jour
-          if (data.length === 0) {
-            return {
-              success: true,
-              response:
-                "Tous les plannings sont à jour pour la semaine prochaine.",
-            };
-          }
-
-          const missing = data
-            .map((schedule) => `${schedule.name} (${schedule.week})`)
-            .join(", ");
-
-          return {
-            success: true,
-            response: `Il manque des plannings pour : ${missing}.`,
-            suggestions: [
-              {
-                text: "Générer les plannings manquants",
-                action: "start_planning",
-              },
-            ],
-          };
-        }
-
-        case "get_negative_hours": {
-          // Aucune donnée simulée = aucun solde négatif
-          if (data.length === 0) {
-            return {
-              success: true,
-              response: "Aucun employé n'a un solde d'heures négatif.",
-            };
-          }
-
-          const negatives = data
-            .map((employee) => `${employee.name} (${employee.balance} heures)`)
-            .join(", ");
-
-          return {
-            success: true,
-            response: `Les employés avec un solde d'heures négatif sont : ${negatives}.`,
-          };
-        }
-
+        case "get_absences_today":
+          endpoint = "/api/chatbot/absences/today";
+          break;
+        case "get_upcoming_vacations":
+          endpoint = "/api/chatbot/vacations/upcoming";
+          break;
+        case "get_missing_schedules":
+          endpoint = "/api/chatbot/schedules/missing";
+          break;
+        case "get_negative_hours":
+          endpoint = "/api/chatbot/hours/negative";
+          break;
+        case "get_positive_hours":
+          endpoint = "/api/chatbot/hours/positive";
+          break;
+        case "get_working_today":
+          endpoint = "/api/chatbot/employees/working-today";
+          break;
+        case "get_employee_hours_today":
+          endpoint = "/api/chatbot/employees/hours-today";
+          break;
         default:
           return {
             success: false,
-            response: "Type de requête non reconnu.",
-            suggestions: [
-              {
-                text: "Aide",
-                action: "get_help",
-              },
-            ],
+            response: "Action de requête inconnue.",
           };
+      }
+
+      console.log(`Appel de l'API: ${baseUrl}${endpoint}`);
+
+      try {
+        const response = await fetch(`${baseUrl}${endpoint}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            return {
+              success: false,
+              response: "Votre session a expiré. Veuillez vous reconnecter.",
+            };
+          }
+
+          if (response.status === 403) {
+            return {
+              success: false,
+              response:
+                "Vous n'avez pas les droits nécessaires pour accéder à ces informations.",
+            };
+          }
+
+          const errorText = await response.text();
+          console.error(`Erreur API (${response.status}):`, errorText);
+          return {
+            success: false,
+            response: `Erreur lors de la récupération des données (${response.status}).`,
+          };
+        }
+
+        const data = await response.json();
+        console.log("Réponse API:", data);
+
+        if (!data.success) {
+          return {
+            success: false,
+            response:
+              data.message || "Erreur lors de la récupération des données.",
+          };
+        }
+
+        // Traitement des données selon le type de requête
+        return this.processQueryResult(action, data.data);
+      } catch (error) {
+        console.error("Erreur réseau:", error);
+        return {
+          success: false,
+          response:
+            "Erreur de connexion au serveur. Veuillez réessayer plus tard.",
+        };
       }
     } catch (error) {
       console.error(
@@ -570,6 +565,215 @@ class ChatbotRulesIntegration {
       };
     } finally {
       this.onSetIsTyping(false);
+    }
+  }
+
+  /**
+   * Traite les résultats d'une requête API et génère une réponse formatée
+   * @param {string} action - Action de requête exécutée
+   * @param {Array} data - Données reçues de l'API
+   * @returns {Object} Réponse formatée pour l'utilisateur
+   */
+  processQueryResult(action, data) {
+    if (!data || data.length === 0) {
+      // Réponses par défaut si aucune donnée n'est trouvée
+      switch (action) {
+        case "get_absences_today":
+          return {
+            success: true,
+            response: "Personne n'est absent aujourd'hui.",
+          };
+        case "get_upcoming_vacations":
+          return {
+            success: true,
+            response: "Aucun congé n'est prévu prochainement.",
+          };
+        case "get_missing_schedules":
+          return {
+            success: true,
+            response:
+              "Tous les plannings sont à jour pour la semaine prochaine.",
+          };
+        case "get_negative_hours":
+          return {
+            success: true,
+            response: "Aucun employé n'a un solde d'heures négatif.",
+          };
+        case "get_positive_hours":
+          return {
+            success: true,
+            response: "Aucun employé n'a un solde d'heures positif.",
+          };
+        case "get_working_today":
+          return {
+            success: true,
+            response: "Aucun employé ne travaille aujourd'hui.",
+          };
+        case "get_employee_hours_today":
+          return {
+            success: true,
+            response: "Aucun employé n'est programmé pour aujourd'hui.",
+          };
+        default:
+          return {
+            success: true,
+            response: "Aucune donnée trouvée.",
+          };
+      }
+    }
+
+    // Traitement des données selon le type de requête
+    switch (action) {
+      case "get_absences_today": {
+        // Regrouper par département
+        const byDepartment = {};
+        data.forEach((employee) => {
+          if (!byDepartment[employee.department]) {
+            byDepartment[employee.department] = [];
+          }
+          byDepartment[employee.department].push(
+            `${employee.name} (${employee.reason})`
+          );
+        });
+
+        // Formater la réponse par département
+        const formattedResponse = Object.entries(byDepartment)
+          .map(([dept, employees]) => `${dept}: ${employees.join(", ")}`)
+          .join("\n");
+
+        return {
+          success: true,
+          response: `Les personnes absentes aujourd'hui sont:\n${formattedResponse}`,
+        };
+      }
+
+      case "get_upcoming_vacations": {
+        // Regrouper par département
+        const byDepartment = {};
+        data.forEach((vacation) => {
+          if (!byDepartment[vacation.department]) {
+            byDepartment[vacation.department] = [];
+          }
+          byDepartment[vacation.department].push(
+            `${vacation.name} (du ${vacation.start_date} au ${vacation.end_date})`
+          );
+        });
+
+        // Formater la réponse par département
+        const formattedResponse = Object.entries(byDepartment)
+          .map(([dept, vacations]) => `${dept}: ${vacations.join(", ")}`)
+          .join("\n");
+
+        return {
+          success: true,
+          response: `Les prochaines personnes en congés sont:\n${formattedResponse}`,
+        };
+      }
+
+      case "get_missing_schedules": {
+        const departmentNames = data.map((dept) => dept.name).join(", ");
+        return {
+          success: true,
+          response: `Les départements suivants n'ont pas encore de planning pour la semaine prochaine: ${departmentNames}`,
+        };
+      }
+
+      case "get_negative_hours": {
+        // Regrouper par département
+        const byDepartment = {};
+        data.forEach((employee) => {
+          if (!byDepartment[employee.department]) {
+            byDepartment[employee.department] = [];
+          }
+          byDepartment[employee.department].push(
+            `${employee.name} (${employee.balance}h)`
+          );
+        });
+
+        // Formater la réponse par département
+        const formattedResponse = Object.entries(byDepartment)
+          .map(([dept, employees]) => `${dept}: ${employees.join(", ")}`)
+          .join("\n");
+
+        return {
+          success: true,
+          response: `Les employés avec un solde d'heures négatif sont:\n${formattedResponse}`,
+        };
+      }
+
+      case "get_positive_hours": {
+        // Regrouper par département
+        const byDepartment = {};
+        data.forEach((employee) => {
+          if (!byDepartment[employee.department]) {
+            byDepartment[employee.department] = [];
+          }
+          byDepartment[employee.department].push(
+            `${employee.name} (${employee.balance}h)`
+          );
+        });
+
+        // Formater la réponse par département
+        const formattedResponse = Object.entries(byDepartment)
+          .map(([dept, employees]) => `${dept}: ${employees.join(", ")}`)
+          .join("\n");
+
+        return {
+          success: true,
+          response: `Les employés avec un solde d'heures positif sont:\n${formattedResponse}`,
+        };
+      }
+
+      case "get_working_today": {
+        // Regrouper par département
+        const byDepartment = {};
+        data.forEach((employee) => {
+          if (!byDepartment[employee.department]) {
+            byDepartment[employee.department] = [];
+          }
+          byDepartment[employee.department].push(employee.name);
+        });
+
+        // Formater la réponse par département
+        const formattedResponse = Object.entries(byDepartment)
+          .map(([dept, employees]) => `${dept}: ${employees.join(", ")}`)
+          .join("\n");
+
+        return {
+          success: true,
+          response: `Les employés qui travaillent aujourd'hui sont:\n${formattedResponse}`,
+        };
+      }
+
+      case "get_employee_hours_today": {
+        // Regrouper par département
+        const byDepartment = {};
+        data.forEach((employee) => {
+          if (!byDepartment[employee.department]) {
+            byDepartment[employee.department] = [];
+          }
+          byDepartment[employee.department].push(
+            `${employee.name} (${employee.start_time}-${employee.end_time}, ${employee.hours}h)`
+          );
+        });
+
+        // Formater la réponse par département
+        const formattedResponse = Object.entries(byDepartment)
+          .map(([dept, employees]) => `${dept}: ${employees.join(", ")}`)
+          .join("\n");
+
+        return {
+          success: true,
+          response: `Les horaires des employés aujourd'hui sont:\n${formattedResponse}`,
+        };
+      }
+
+      default:
+        return {
+          success: true,
+          response:
+            "Données récupérées avec succès mais le formatage n'est pas défini pour cette action.",
+        };
     }
   }
 }
