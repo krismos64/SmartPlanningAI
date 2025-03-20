@@ -21,8 +21,10 @@ router.post("/process", async (req, res) => {
   try {
     const { message } = req.body;
     const userId = req.user.id;
+    const userRole = req.user.role;
 
     console.log("User ID reçu dans le chatbot :", userId);
+    console.log("Rôle de l'utilisateur :", userRole);
 
     if (!message) {
       return res
@@ -37,7 +39,19 @@ router.post("/process", async (req, res) => {
       )}..."`
     );
 
-    // Traiter le message avec le système de règles
+    // Vérifier d'abord si c'est une requête pour des données personnalisées
+    if (isPersonalDataQuery(message)) {
+      console.log("Requête pour données personnalisées détectée");
+      // Traiter comme une requête de données personnalisées
+      const personalDataResult = await handlePersonalDataQuery(
+        message,
+        userId,
+        userRole
+      );
+      return res.json(personalDataResult);
+    }
+
+    // Si ce n'est pas une requête de données personnalisées, traiter avec le système de règles standard
     const result = await findMatchingRule(message, userId);
 
     // Format de réponse
@@ -61,6 +75,198 @@ router.post("/process", async (req, res) => {
     });
   }
 });
+
+/**
+ * Détermine si une question concerne des données personnalisées
+ * @param {string} message - Message de l'utilisateur
+ * @returns {boolean} - True si c'est une requête pour des données personnalisées
+ */
+function isPersonalDataQuery(message) {
+  const personalDataKeywords = [
+    "qui ne travaille pas",
+    "qui travaille",
+    "absences",
+    "congés",
+    "horaires",
+    "employés aujourd'hui",
+    "solde d'heures",
+    "planning",
+    "prochaines personnes",
+    "heures positif",
+    "heures négatif",
+  ];
+
+  const normalizedMessage = message.toLowerCase().trim();
+  return personalDataKeywords.some((keyword) =>
+    normalizedMessage.includes(keyword)
+  );
+}
+
+/**
+ * Traite une requête pour des données personnalisées
+ * @param {string} message - Message de l'utilisateur
+ * @param {number} userId - ID de l'utilisateur
+ * @param {string} userRole - Rôle de l'utilisateur
+ * @returns {Object} - Résultat de la requête
+ */
+async function handlePersonalDataQuery(message, userId, userRole) {
+  const normalizedMessage = message.toLowerCase().trim();
+  const connectDB = require("../config/db");
+
+  // Mapping des requêtes aux actions
+  const queryActionMap = [
+    {
+      keywords: ["qui ne travaille pas"],
+      action: "get_absences_today",
+      adminOnly: true,
+    },
+    {
+      keywords: ["qui travaille aujourd'hui"],
+      action: "get_working_today",
+      adminOnly: true,
+    },
+    {
+      keywords: ["horaires des employés"],
+      action: "get_employee_hours_today",
+      adminOnly: true,
+    },
+    {
+      keywords: ["prochaines personnes en congés"],
+      action: "get_upcoming_vacations",
+      adminOnly: true,
+    },
+    {
+      keywords: ["solde d'heures positif"],
+      action: "get_positive_hours",
+      adminOnly: true,
+    },
+    {
+      keywords: ["solde d'heures négatif"],
+      action: "get_negative_hours",
+      adminOnly: true,
+    },
+    {
+      keywords: ["plannings à faire", "manque-t-il des plannings"],
+      action: "get_missing_schedules",
+      adminOnly: true,
+    },
+
+    // Questions personnelles (pour tous les utilisateurs)
+    {
+      keywords: ["mes congés", "mon solde"],
+      action: "get_my_vacation_balance",
+      adminOnly: false,
+    },
+    {
+      keywords: ["mes horaires", "mon planning"],
+      action: "get_my_schedule",
+      adminOnly: false,
+    },
+  ];
+
+  // Trouver l'action correspondante
+  const matchedQuery = queryActionMap.find((query) =>
+    query.keywords.some((keyword) => normalizedMessage.includes(keyword))
+  );
+
+  if (!matchedQuery) {
+    return {
+      success: true,
+      intent: "UNKNOWN_PERSONAL_QUERY",
+      message:
+        "Je ne comprends pas votre question sur les données personnalisées. Pourriez-vous reformuler ?",
+    };
+  }
+
+  // Vérifier les permissions
+  if (matchedQuery.adminOnly && userRole !== "admin") {
+    return {
+      success: true,
+      intent: "PERMISSION_DENIED",
+      message:
+        "Vous n'avez pas les permissions nécessaires pour accéder à ces données. Seuls les administrateurs peuvent consulter ces informations.",
+    };
+  }
+
+  // Si c'est une requête personnelle (non-admin)
+  if (!matchedQuery.adminOnly) {
+    // Récupérer l'ID de l'employé associé à cet utilisateur
+    const [employee] = await connectDB.execute(
+      "SELECT id FROM employees WHERE user_id = ?",
+      [userId]
+    );
+
+    if (employee.length === 0) {
+      return {
+        success: true,
+        intent: "NO_EMPLOYEE_RECORD",
+        message:
+          "Votre compte utilisateur n'est pas associé à un employé dans le système.",
+      };
+    }
+
+    const employeeId = employee[0].id;
+
+    // Traiter la requête personnelle
+    switch (matchedQuery.action) {
+      case "get_my_vacation_balance":
+        const [vacationData] = await connectDB.execute(
+          "SELECT vacation_balance FROM employees WHERE id = ?",
+          [employeeId]
+        );
+
+        if (vacationData.length > 0) {
+          return {
+            success: true,
+            intent: "MY_VACATION_BALANCE",
+            message: `Votre solde de congés actuel est de ${
+              vacationData[0].vacation_balance || 0
+            } jours.`,
+          };
+        }
+        break;
+
+      case "get_my_schedule":
+        const today = new Date().toISOString().split("T")[0];
+        const [scheduleData] = await connectDB.execute(
+          `SELECT ws.*, JSON_EXTRACT(schedule_data, '$.monday') as monday,
+          JSON_EXTRACT(schedule_data, '$.tuesday') as tuesday,
+          JSON_EXTRACT(schedule_data, '$.wednesday') as wednesday,
+          JSON_EXTRACT(schedule_data, '$.thursday') as thursday,
+          JSON_EXTRACT(schedule_data, '$.friday') as friday,
+          JSON_EXTRACT(schedule_data, '$.saturday') as saturday,
+          JSON_EXTRACT(schedule_data, '$.sunday') as sunday
+          FROM weekly_schedules ws 
+          WHERE employee_id = ? AND week_start <= ? AND week_end >= ?
+          ORDER BY week_start DESC LIMIT 1`,
+          [employeeId, today, today]
+        );
+
+        if (scheduleData.length > 0) {
+          return {
+            success: true,
+            intent: "MY_SCHEDULE",
+            message: `Votre planning pour cette semaine a été trouvé. Votre temps de travail total prévu est de ${scheduleData[0].total_hours} heures.`,
+          };
+        } else {
+          return {
+            success: true,
+            intent: "MY_SCHEDULE",
+            message: "Aucun planning n'a été trouvé pour vous cette semaine.",
+          };
+        }
+    }
+  }
+
+  // Définir l'action à utiliser pour les requêtes admin
+  return {
+    success: true,
+    intent: matchedQuery.action,
+    score: 1.0,
+    message: "",
+    actions: [matchedQuery.action],
+  };
+}
 
 /**
  * @route   POST /api/chatbot/generate-schedule
@@ -226,53 +432,96 @@ router.get("/absences/today", adminOnly, async (req, res) => {
     const todayFormatted = today.toISOString().split("T")[0];
     const dayOfWeek = today.getDay(); // 0 = dimanche, 1 = lundi, etc.
     const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0 = lundi, 1 = mardi, ..., 6 = dimanche
-
-    // Solution temporaire avec des données simulées
-    const [departments] = await connectDB.execute(
-      "SELECT name FROM departments LIMIT 3"
-    );
-    const departmentNames = departments.map((d) => d.name);
-
-    // Créer une liste statique d'employés absents aujourd'hui
-    const absencesToday = [
-      {
-        name: "Marie Dupont",
-        department: departmentNames[0] || "Caisses",
-        reason: "congé",
-      },
-      {
-        name: "Jean Michel",
-        department: departmentNames[0] || "Caisses",
-        reason: "repos",
-      },
-      {
-        name: "Sophie Marceau",
-        department: departmentNames[1] || "Informatique",
-        reason: "congé",
-      },
-      {
-        name: "Didier Deschamps",
-        department: departmentNames[2] || "Boutique",
-        reason: "repos",
-      },
-      {
-        name: "Céline Dion",
-        department: departmentNames[2] || "Boutique",
-        reason: "non programmé",
-      },
+    const dayNames = [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
     ];
+    const dayName = dayNames[dayIndex];
 
     console.log(
-      `Solution temporaire : retour de ${absencesToday.length} employés absents aujourd'hui`
+      `Date du jour: ${todayFormatted}, index: ${dayIndex}, nom: ${dayName}`
+    );
+
+    // Récupérer les employés qui sont en congés aujourd'hui
+    const [vacationAbsences] = await connectDB.execute(
+      `
+      SELECT e.id, e.first_name, e.last_name, d.name as department, 'congé' as reason
+      FROM vacation_requests vr
+      JOIN employees e ON vr.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE vr.status = 'approved'
+      AND ? BETWEEN vr.start_date AND vr.end_date
+    `,
+      [todayFormatted]
+    );
+
+    // Récupérer les employés qui n'ont pas de shift aujourd'hui
+    const [noShiftAbsences] = await connectDB.execute(
+      `
+      SELECT e.id, e.first_name, e.last_name, d.name as department, 'non programmé' as reason
+      FROM employees e
+      LEFT JOIN departments d ON e.department = d.id
+      LEFT JOIN shifts s ON e.id = s.employee_id 
+        AND DATE(s.start_time) = ?
+      WHERE s.id IS NULL AND e.status = 'active'
+    `,
+      [todayFormatted]
+    );
+
+    // Récupérer les employés qui ont 0 heures dans leur planning hebdomadaire pour aujourd'hui
+    const [zeroHoursAbsences] = await connectDB.execute(
+      `
+      SELECT e.id, e.first_name, e.last_name, d.name as department, 'repos' as reason
+      FROM weekly_schedules ws
+      JOIN employees e ON ws.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE ws.week_start <= ? AND ws.week_end >= ?
+      AND (
+        JSON_EXTRACT(ws.schedule_data, '$."${dayName}".hours') = 0
+        OR JSON_EXTRACT(ws.schedule_data, '$."${dayName}".absent') = true
+      )
+    `,
+      [todayFormatted, todayFormatted]
+    );
+
+    // Combiner les résultats
+    let absencesToday = [
+      ...vacationAbsences,
+      ...noShiftAbsences,
+      ...zeroHoursAbsences,
+    ];
+
+    // Dédupliquer les employés (un employé pourrait apparaître dans plusieurs requêtes)
+    const employeeIds = new Set();
+    absencesToday = absencesToday.filter((emp) => {
+      if (employeeIds.has(emp.id)) return false;
+      employeeIds.add(emp.id);
+      return true;
+    });
+
+    // Formater les données pour la réponse
+    const formattedAbsences = absencesToday.map((emp) => ({
+      name: `${emp.first_name} ${emp.last_name}`,
+      department: emp.department || "Non affecté",
+      reason: emp.reason,
+    }));
+
+    console.log(
+      `Récupération de ${formattedAbsences.length} employés absents aujourd'hui`
     );
 
     res.json({
       success: true,
-      data: absencesToday,
+      data: formattedAbsences,
       metadata: {
         today: todayFormatted,
         day_index: dayIndex,
-        info: "Solution temporaire : ceci est une liste fixe pour le développement",
+        day_name: dayName,
       },
     });
   } catch (error) {
@@ -294,51 +543,48 @@ router.get("/vacations/upcoming", adminOnly, async (req, res) => {
   try {
     console.log("Requête pour les prochains congés");
     const connectDB = require("../config/db");
-    const userId = req.user.id;
 
-    // Solution temporaire avec des données simulées
-    const [departments] = await connectDB.execute(
-      "SELECT name FROM departments LIMIT 3"
-    );
-    const departmentNames = departments.map((d) => d.name);
+    // Récupérer les congés approuvés à venir, commençant dans les 30 prochains jours
+    const [upcomingVacations] = await connectDB.execute(`
+      SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        d.name as department,
+        vr.start_date,
+        vr.end_date
+      FROM vacation_requests vr
+      JOIN employees e ON vr.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE vr.status = 'approved'
+      AND vr.start_date >= CURDATE()
+      AND vr.start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+      ORDER BY vr.start_date ASC
+    `);
 
-    // Créer une liste statique des prochains congés
-    const upcomingVacations = [
-      {
-        name: "Marie Dupont",
-        department: departmentNames[0] || "Caisses",
-        start_date: "25/03/2025",
-        end_date: "02/04/2025",
-      },
-      {
-        name: "Sophie Marceau",
-        department: departmentNames[1] || "Informatique",
-        start_date: "01/04/2025",
-        end_date: "15/04/2025",
-      },
-      {
-        name: "Quentin Tarantino",
-        department: departmentNames[0] || "Caisses",
-        start_date: "05/04/2025",
-        end_date: "12/04/2025",
-      },
-      {
-        name: "Didier Deschamps",
-        department: departmentNames[2] || "Boutique",
-        start_date: "10/04/2025",
-        end_date: "17/04/2025",
-      },
-    ];
+    // Formater les dates
+    const formattedVacations = upcomingVacations.map((vacation) => {
+      const startDate = new Date(vacation.start_date);
+      const endDate = new Date(vacation.end_date);
+      const options = { day: "2-digit", month: "2-digit", year: "numeric" };
+
+      return {
+        name: `${vacation.first_name} ${vacation.last_name}`,
+        department: vacation.department || "Non affecté",
+        start_date: startDate.toLocaleDateString("fr-FR", options),
+        end_date: endDate.toLocaleDateString("fr-FR", options),
+      };
+    });
 
     console.log(
-      `Solution temporaire : retour de ${upcomingVacations.length} prochains congés`
+      `Récupération de ${formattedVacations.length} prochains congés`
     );
 
     res.json({
       success: true,
-      data: upcomingVacations,
+      data: formattedVacations,
       metadata: {
-        info: "Solution temporaire : ceci est une liste fixe pour le développement",
+        period: "30 jours à venir",
       },
     });
   } catch (error) {
@@ -360,25 +606,43 @@ router.get("/schedules/missing", adminOnly, async (req, res) => {
   try {
     console.log("Requête pour les plannings manquants");
     const connectDB = require("../config/db");
-    const userId = req.user.id;
 
     // Calculer la date de début de la semaine prochaine (lundi)
     const today = new Date();
     const nextMonday = new Date(today);
     nextMonday.setDate(today.getDate() + ((7 - today.getDay() + 1) % 7) || 7);
     nextMonday.setHours(0, 0, 0, 0);
-
     const nextMondayFormatted = nextMonday.toISOString().split("T")[0];
 
-    // Solution temporaire avec des données simulées
-    const missingSchedules = [
-      { id: 1, name: "Boucherie" },
-      { id: 3, name: "Restaurant" },
-      { id: 5, name: "Service clients" },
-    ];
+    // Récupérer tous les départements
+    const [allDepartments] = await connectDB.execute(`
+      SELECT id, name FROM departments WHERE active = 1
+    `);
+
+    // Récupérer les départements qui ont déjà un planning pour la semaine prochaine
+    const [scheduledDepartments] = await connectDB.execute(
+      `
+      SELECT DISTINCT d.id
+      FROM weekly_schedules ws
+      JOIN employees e ON ws.employee_id = e.id
+      JOIN departments d ON e.department = d.id
+      WHERE ws.week_start = ?
+    `,
+      [nextMondayFormatted]
+    );
+
+    // Créer un set des IDs des départements avec planning
+    const scheduledDeptIds = new Set(
+      scheduledDepartments.map((dept) => dept.id)
+    );
+
+    // Filtrer les départements sans planning
+    const missingSchedules = allDepartments.filter(
+      (dept) => !scheduledDeptIds.has(dept.id)
+    );
 
     console.log(
-      `Solution temporaire : retour de ${missingSchedules.length} départements sans planning pour la semaine prochaine`
+      `Récupération de ${missingSchedules.length} départements sans planning pour la semaine prochaine`
     );
 
     res.json({
@@ -386,7 +650,6 @@ router.get("/schedules/missing", adminOnly, async (req, res) => {
       data: missingSchedules,
       metadata: {
         nextMonday: nextMondayFormatted,
-        info: "Solution temporaire : ceci est une liste fixe pour le développement",
       },
     });
   } catch (error) {
@@ -403,6 +666,58 @@ router.get("/schedules/missing", adminOnly, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/chatbot/hours/positive
+ * @desc    Obtenir la liste des employés avec un solde d'heures positif
+ * @access  Admin only
+ */
+router.get("/hours/positive", adminOnly, async (req, res) => {
+  try {
+    console.log("Requête pour les soldes d'heures positifs");
+    const connectDB = require("../config/db");
+
+    // Récupérer les employés avec un solde d'heures positif
+    const [positiveBalances] = await connectDB.execute(`
+      SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        d.name as department,
+        e.hour_balance as balance
+      FROM employees e
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE e.hour_balance > 0
+      ORDER BY e.hour_balance DESC
+    `);
+
+    // Formater les données pour la réponse
+    const formattedBalances = positiveBalances.map((emp) => ({
+      name: `${emp.first_name} ${emp.last_name}`,
+      department: emp.department || "Non affecté",
+      balance: parseFloat(emp.balance).toFixed(2),
+    }));
+
+    console.log(
+      `Récupération de ${formattedBalances.length} employés avec solde positif`
+    );
+
+    res.json({
+      success: true,
+      data: formattedBalances,
+    });
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des soldes d'heures positifs:",
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des soldes d'heures positifs",
+      error: error.message,
+    });
+  }
+});
+
+/**
  * @route   GET /api/chatbot/hours/negative
  * @desc    Obtenir la liste des employés avec un solde d'heures négatif
  * @access  Admin only
@@ -411,48 +726,35 @@ router.get("/hours/negative", adminOnly, async (req, res) => {
   try {
     console.log("Requête pour les soldes d'heures négatifs");
     const connectDB = require("../config/db");
-    const userId = req.user.id;
 
-    // Solution temporaire avec des données simulées
-    const [departments] = await connectDB.execute(
-      "SELECT name FROM departments LIMIT 3"
-    );
-    const departmentNames = departments.map((d) => d.name);
+    // Récupérer les employés avec un solde d'heures négatif
+    const [negativeBalances] = await connectDB.execute(`
+      SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        d.name as department,
+        e.hour_balance as balance
+      FROM employees e
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE e.hour_balance < 0
+      ORDER BY e.hour_balance ASC
+    `);
 
-    // Créer une liste statique d'employés avec solde négatif
-    const negativeBalances = [
-      {
-        name: "Pierre Martin",
-        department: departmentNames[2] || "Boutique",
-        balance: "-1.50",
-      },
-      {
-        name: "Jean Michel",
-        department: departmentNames[0] || "Caisses",
-        balance: "-3.25",
-      },
-      {
-        name: "Marie Dupont",
-        department: departmentNames[0] || "Caisses",
-        balance: "-0.75",
-      },
-      {
-        name: "Didier Deschamps",
-        department: departmentNames[1] || "Informatique",
-        balance: "-2.00",
-      },
-    ];
+    // Formater les données pour la réponse
+    const formattedBalances = negativeBalances.map((emp) => ({
+      name: `${emp.first_name} ${emp.last_name}`,
+      department: emp.department || "Non affecté",
+      balance: parseFloat(emp.balance).toFixed(2),
+    }));
 
     console.log(
-      `Solution temporaire : retour de ${negativeBalances.length} employés avec solde négatif`
+      `Récupération de ${formattedBalances.length} employés avec solde négatif`
     );
 
     res.json({
       success: true,
-      data: negativeBalances,
-      metadata: {
-        info: "Solution temporaire : ceci est une liste fixe pour le développement",
-      },
+      data: formattedBalances,
     });
   } catch (error) {
     console.error(
@@ -478,7 +780,6 @@ router.get("/employees/working-today", adminOnly, async (req, res) => {
       "Récupération des employés qui travaillent aujourd'hui (admin)"
     );
     const connectDB = require("../config/db");
-    const userId = req.user.id;
 
     // Date du jour formatée pour SQL
     const today = new Date();
@@ -487,31 +788,86 @@ router.get("/employees/working-today", adminOnly, async (req, res) => {
     // Déterminer l'index du jour pour l'accès aux données JSON
     const dayOfWeek = today.getDay(); // JS: 0=Dim, 1=Lun, ..., 4=Jeu, ...
     const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0=Lun, 1=Mar, ..., 3=Jeu, ...
+    const dayNames = [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ];
+    const dayName = dayNames[dayIndex];
 
     console.log(
-      `Date du jour: ${todayFormatted}, JS dayOfWeek: ${dayOfWeek}, index dans schedule_data: ${dayIndex}`
+      `Date du jour: ${todayFormatted}, JS dayOfWeek: ${dayOfWeek}, index: ${dayIndex}, nom: ${dayName}`
     );
 
-    // Solution temporaire avec des données simulées
-    const employeesToday = [
-      { name: "Stacy Menendez", department: "Caisses" },
-      { name: "Quentin Tarantino", department: "Caisses" },
-      { name: "Zinédine Zidane", department: "Informatique" },
-      { name: "Pierre Martin", department: "Boutique" },
-      { name: "Chris Moss", department: "Boutique" },
-    ];
+    // Récupérer les employés qui ont des shifts aujourd'hui
+    const [shiftsToday] = await connectDB.execute(
+      `
+      SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        d.name as department
+      FROM shifts s
+      JOIN employees e ON s.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE DATE(s.start_time) = ?
+      AND s.status = 'approved'
+    `,
+      [todayFormatted]
+    );
+
+    // Récupérer les employés qui ont des heures dans leur planning hebdomadaire pour aujourd'hui
+    const [scheduledToday] = await connectDB.execute(
+      `
+      SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        d.name as department
+      FROM weekly_schedules ws
+      JOIN employees e ON ws.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE ws.week_start <= ? AND ws.week_end >= ?
+      AND (
+        JSON_EXTRACT(ws.schedule_data, '$."${dayName}".hours') > 0
+        AND JSON_EXTRACT(ws.schedule_data, '$."${dayName}".absent') IS NULL
+      )
+    `,
+      [todayFormatted, todayFormatted]
+    );
+
+    // Combiner les résultats
+    let employeesToday = [...shiftsToday, ...scheduledToday];
+
+    // Dédupliquer les employés
+    const employeeIds = new Set();
+    employeesToday = employeesToday.filter((emp) => {
+      if (employeeIds.has(emp.id)) return false;
+      employeeIds.add(emp.id);
+      return true;
+    });
+
+    // Formater les données pour la réponse
+    const formattedEmployees = employeesToday.map((emp) => ({
+      name: `${emp.first_name} ${emp.last_name}`,
+      department: emp.department || "Non affecté",
+    }));
 
     console.log(
-      `Solution temporaire : retour de ${employeesToday.length} employés travaillant aujourd'hui`
+      `Récupération de ${formattedEmployees.length} employés travaillant aujourd'hui`
     );
 
     res.json({
       success: true,
-      data: employeesToday,
+      data: formattedEmployees,
       metadata: {
         today: todayFormatted,
         day_index: dayIndex,
-        info: "Solution temporaire : ceci est une liste fixe pour le développement",
+        day_name: dayName,
       },
     });
   } catch (error) {
@@ -533,67 +889,99 @@ router.get("/employees/hours-today", adminOnly, async (req, res) => {
   try {
     console.log("Requête pour les horaires des employés aujourd'hui");
     const connectDB = require("../config/db");
-    const userId = req.user.id;
 
     // Récupérer la date d'aujourd'hui et l'indice du jour de la semaine
     const today = new Date();
     const todayFormatted = today.toISOString().split("T")[0];
-
-    // Solution temporaire avec des données simulées
-    const [departments] = await connectDB.execute(
-      "SELECT name FROM departments LIMIT 3"
-    );
-    const departmentNames = departments.map((d) => d.name);
-
-    // Créer une liste statique d'employés avec leurs horaires aujourd'hui
-    const employeeHoursToday = [
-      {
-        name: "Stacy Menendez",
-        department: departmentNames[0] || "Caisses",
-        start_time: "09:00",
-        end_time: "17:00",
-        hours: "8.0",
-      },
-      {
-        name: "Quentin Tarantino",
-        department: departmentNames[0] || "Caisses",
-        start_time: "08:00",
-        end_time: "16:00",
-        hours: "8.0",
-      },
-      {
-        name: "Zinédine Zidane",
-        department: departmentNames[1] || "Informatique",
-        start_time: "10:00",
-        end_time: "18:00",
-        hours: "8.0",
-      },
-      {
-        name: "Pierre Martin",
-        department: departmentNames[2] || "Boutique",
-        start_time: "09:00",
-        end_time: "13:00",
-        hours: "4.0",
-      },
-      {
-        name: "Chris Moss",
-        department: departmentNames[2] || "Boutique",
-        start_time: "14:00",
-        end_time: "20:00",
-        hours: "6.0",
-      },
+    const dayOfWeek = today.getDay(); // JS: 0=Dim, 1=Lun, ..., 4=Jeu, ...
+    const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0=Lun, 1=Mar, ..., 3=Jeu, ...
+    const dayNames = [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
     ];
+    const dayName = dayNames[dayIndex];
+
+    // Récupérer les horaires des employés dans les shifts
+    const [shiftsHours] = await connectDB.execute(
+      `
+      SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        d.name as department,
+        TIME_FORMAT(s.start_time, '%H:%i') as start_time,
+        TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+        TIMESTAMPDIFF(HOUR, s.start_time, s.end_time) as hours
+      FROM shifts s
+      JOIN employees e ON s.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE DATE(s.start_time) = ?
+      AND s.status = 'approved'
+    `,
+      [todayFormatted]
+    );
+
+    // Récupérer les horaires des employés dans les plannings hebdomadaires
+    const [schedulesHours] = await connectDB.execute(
+      `
+      SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        d.name as department,
+        JSON_EXTRACT(ws.schedule_data, '$."${dayName}".start_time') as start_time,
+        JSON_EXTRACT(ws.schedule_data, '$."${dayName}".end_time') as end_time,
+        JSON_EXTRACT(ws.schedule_data, '$."${dayName}".hours') as hours
+      FROM weekly_schedules ws
+      JOIN employees e ON ws.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE ws.week_start <= ? AND ws.week_end >= ?
+      AND JSON_EXTRACT(ws.schedule_data, '$."${dayName}".hours') > 0
+    `,
+      [todayFormatted, todayFormatted]
+    );
+
+    // Combiner les résultats
+    let employeeHoursToday = [...shiftsHours];
+
+    // Ajouter les employés des plannings si pas déjà inclus dans les shifts
+    const employeeIds = new Set(shiftsHours.map((emp) => emp.id));
+    schedulesHours.forEach((emp) => {
+      if (!employeeIds.has(emp.id)) {
+        employeeHoursToday.push({
+          ...emp,
+          // Nettoyer les valeurs JSON (enlever les guillemets)
+          start_time: emp.start_time ? emp.start_time.replace(/"/g, "") : null,
+          end_time: emp.end_time ? emp.end_time.replace(/"/g, "") : null,
+          hours: emp.hours,
+        });
+      }
+    });
+
+    // Formater les données pour la réponse
+    const formattedHours = employeeHoursToday.map((emp) => ({
+      name: `${emp.first_name} ${emp.last_name}`,
+      department: emp.department || "Non affecté",
+      start_time: emp.start_time || "00:00",
+      end_time: emp.end_time || "00:00",
+      hours: parseFloat(emp.hours || 0).toFixed(1),
+    }));
 
     console.log(
-      `Solution temporaire : retour de ${employeeHoursToday.length} employés avec leurs horaires aujourd'hui`
+      `Récupération de ${formattedHours.length} employés avec leurs horaires aujourd'hui`
     );
 
     res.json({
       success: true,
-      data: employeeHoursToday,
+      data: formattedHours,
       metadata: {
         today: todayFormatted,
-        info: "Solution temporaire : ceci est une liste fixe pour le développement",
+        day_name: dayName,
       },
     });
   } catch (error) {
@@ -604,71 +992,6 @@ router.get("/employees/hours-today", adminOnly, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des horaires des employés",
-      error: error.message,
-    });
-  }
-});
-
-/**
- * @route   GET /api/chatbot/hours/positive
- * @desc    Obtenir la liste des employés avec un solde d'heures positif
- * @access  Admin only
- */
-router.get("/hours/positive", adminOnly, async (req, res) => {
-  try {
-    console.log("Requête pour les soldes d'heures positifs");
-    const connectDB = require("../config/db");
-    const userId = req.user.id;
-
-    // Solution temporaire avec des données simulées
-    const [departments] = await connectDB.execute(
-      "SELECT name FROM departments LIMIT 3"
-    );
-    const departmentNames = departments.map((d) => d.name);
-
-    // Créer une liste statique d'employés avec solde positif
-    const positiveBalances = [
-      {
-        name: "Stacy Menendez",
-        department: departmentNames[0] || "Caisses",
-        balance: "2.00",
-      },
-      {
-        name: "Quentin Tarantino",
-        department: departmentNames[0] || "Caisses",
-        balance: "5.30",
-      },
-      {
-        name: "Zinédine Zidane",
-        department: departmentNames[1] || "Informatique",
-        balance: "1.25",
-      },
-      {
-        name: "Chris Moss",
-        department: departmentNames[2] || "Boutique",
-        balance: "3.75",
-      },
-    ];
-
-    console.log(
-      `Solution temporaire : retour de ${positiveBalances.length} employés avec solde positif`
-    );
-
-    res.json({
-      success: true,
-      data: positiveBalances,
-      metadata: {
-        info: "Solution temporaire : ceci est une liste fixe pour le développement",
-      },
-    });
-  } catch (error) {
-    console.error(
-      "Erreur lors de la récupération des soldes d'heures positifs:",
-      error
-    );
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des soldes d'heures positifs",
       error: error.message,
     });
   }
