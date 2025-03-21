@@ -79,52 +79,29 @@ const mockDepartment = {
 };
 
 // Mock pour le modèle VacationRequest
-const mockVacationRequest = {
-  find: jest.fn(),
-  findById: jest.fn(),
-  findByEmployeeId: jest.fn(),
-  findByManagerId: jest.fn(),
-  save: jest.fn().mockImplementation(function () {
-    if (this.id) {
-      return Promise.resolve(this);
-    } else {
-      this.id = Math.floor(Math.random() * 1000) + 1;
-      return Promise.resolve(this);
-    }
-  }),
-  findByIdAndUpdate: jest.fn(),
-  updateStatus: jest.fn(),
-  delete: jest.fn(),
-  create: jest.fn(),
-  getStatistics: jest.fn(),
-  getWorkingDaysCount: jest.fn(),
-};
-
-// Constructeur pour VacationRequest qui correspond à celui du modèle réel
-mockVacationRequest.prototype = {
-  constructor: function (data) {
-    data = data || {};
-    this.id = data.id;
-    this.employee_id = data.employee_id;
-    this.employee_name = data.employee_name;
-    this.type = data.type || "paid";
-    this.start_date = data.start_date;
-    this.end_date = data.end_date;
-    this.duration = data.duration;
-    this.reason = data.reason;
-    this.status = data.status || "pending";
-    this.approved_by = data.approved_by ? parseInt(data.approved_by) : null;
-    this.approved_at = data.approved_at;
-    this.rejected_by = data.rejected_by ? parseInt(data.rejected_by) : null;
-    this.rejected_at = data.rejected_at;
-    this.rejection_reason = data.rejection_reason;
-    this.attachment = data.attachment;
-    this.created_at = data.created_at;
-    this.updated_at = data.updated_at;
-    this.save = mockVacationRequest.save;
-    return this;
-  },
-};
+const mockVacationRequest = jest.fn().mockImplementation((data) => {
+  return {
+    id: data.id,
+    employee_id: data.employee_id,
+    employee_name: data.employee_name,
+    creator_id: data.creator_id,
+    type: data.type || "paid",
+    start_date: data.start_date,
+    end_date: data.end_date,
+    duration: data.duration,
+    reason: data.reason,
+    status: data.status || "pending",
+    approved_by: data.approved_by ? parseInt(data.approved_by) : null,
+    approved_at: data.approved_at,
+    rejected_by: data.rejected_by ? parseInt(data.rejected_by) : null,
+    rejected_at: data.rejected_at,
+    attachment: data.attachment,
+    quota_exceeded: data.quota_exceeded || false,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    save: jest.fn().mockResolvedValue(data),
+  };
+});
 
 // Mock pour le modèle Activity
 const mockActivity = {

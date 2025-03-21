@@ -258,7 +258,7 @@ const AppContent = () => {
           </HelmetProvider>
 
           {/* Chatbot disponible uniquement pour les utilisateurs authentifiés et sur les pages protégées */}
-          {auth.isAuthenticated && isProtectedPage && <Chatbot />}
+          {auth.isAuthenticated && <Chatbot />}
 
           {/* Composant de débogage */}
           <DebugMode />

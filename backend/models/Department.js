@@ -13,6 +13,7 @@ class Department {
     this.name = data.name || null;
     this.description = data.description || null;
     this.manager_id = data.manager_id || null;
+    this.user_id = data.user_id || null;
     this.created_at = data.created_at || new Date();
     this.updated_at = data.updated_at || new Date();
   }
@@ -214,6 +215,7 @@ class Department {
             name VARCHAR(100) NOT NULL UNIQUE,
             description TEXT,
             manager_id INT,
+            user_id INT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (manager_id) REFERENCES employees(id) ON DELETE SET NULL
@@ -225,18 +227,26 @@ class Department {
       if (this.id) {
         // Mise à jour
         const result = await connectDB.query(
-          "UPDATE departments SET name = ?, description = ?, manager_id = ?, updated_at = ? WHERE id = ?",
-          [this.name, this.description, this.manager_id, new Date(), this.id]
+          "UPDATE departments SET name = ?, description = ?, manager_id = ?, user_id = ?, updated_at = ? WHERE id = ?",
+          [
+            this.name,
+            this.description,
+            this.manager_id,
+            this.user_id,
+            new Date(),
+            this.id,
+          ]
         );
         return this;
       } else {
         // Création
         const insertResult = await connectDB.query(
-          "INSERT INTO departments (name, description, manager_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO departments (name, description, manager_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
           [
             this.name,
             this.description,
             this.manager_id,
+            this.user_id,
             this.created_at,
             this.updated_at,
           ]
@@ -305,6 +315,28 @@ class Department {
     } catch (error) {
       console.error(
         `Erreur lors de la suppression du département ${id}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Récupère tous les départements créés par un utilisateur spécifique
+   * @param {number} userId - ID de l'utilisateur
+   * @returns {Promise<Array>} Liste des départements de l'utilisateur
+   */
+  static async findByUserId(userId) {
+    try {
+      const [rows] = await connectDB.query(
+        "SELECT * FROM departments WHERE user_id = ?",
+        [userId]
+      );
+
+      return rows.map((row) => new Department(row));
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des départements pour l'utilisateur ${userId}:`,
         error
       );
       throw error;

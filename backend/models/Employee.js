@@ -7,6 +7,7 @@ class Employee {
 
     // Initialisation des propriétés
     this.id = data.id;
+    this.user_id = data.user_id || null; // ID de l'utilisateur qui a créé l'employé
     this.first_name = data.first_name || null;
     this.last_name = data.last_name || null;
     this.email = data.email || null;
@@ -111,6 +112,7 @@ class Employee {
             start_date,
             this.status || "active",
             this.manager_id,
+            this.user_id,
             this.updated_at,
             this.id,
           ];
@@ -137,6 +139,7 @@ class Employee {
                 hire_date = ?, 
                 status = ?,
                 manager_id = ?,
+                user_id = ?,
                 updated_at = ? 
             WHERE id = ?
           `;
@@ -194,6 +197,7 @@ class Employee {
             start_date,
             this.status || "active",
             this.manager_id,
+            this.user_id,
             this.created_at,
             this.updated_at,
           ];
@@ -220,9 +224,10 @@ class Employee {
               hire_date, 
               status,
               manager_id,
+              user_id,
               created_at, 
               updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `;
 
           console.log("Requête SQL pour l'insertion:", insertQuery);
@@ -435,6 +440,26 @@ class Employee {
     } catch (error) {
       console.error(
         `Erreur lors de la récupération des employés pour le manager ${managerId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  static async findByUserId(userId) {
+    try {
+      console.log(`Récupération des employés pour l'utilisateur ID: ${userId}`);
+      const [rows] = await connectDB.execute(
+        "SELECT * FROM employees WHERE user_id = ?",
+        [userId]
+      );
+      console.log(
+        `${rows.length} employés trouvés pour l'utilisateur ID: ${userId}`
+      );
+      return rows.map((row) => new Employee(row));
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des employés pour l'utilisateur ${userId}:`,
         error
       );
       throw error;

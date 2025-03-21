@@ -41,13 +41,13 @@ class VacationRequest {
     this.start_date = data.start_date;
     this.end_date = data.end_date;
     this.duration = data.duration; // Durée en jours ouvrés
-    this.reason = data.reason;
+    this.reason = data.reason; // Contient la raison principale (et anciennement le contenu des champs comment et rejection_reason)
     this.status = data.status || "pending";
-    this.approved_by = data.approved_by ? parseInt(data.approved_by) : null; // Convertir en INT
+    this.approved_by = data.approved_by ? parseInt(data.approved_by) : null; // ID de l'utilisateur qui a approuvé
     this.approved_at = data.approved_at;
-    this.rejected_by = data.rejected_by ? parseInt(data.rejected_by) : null; // Convertir en INT
+    this.rejected_by = data.rejected_by ? parseInt(data.rejected_by) : null; // ID de l'utilisateur qui a rejeté
     this.rejected_at = data.rejected_at;
-    this.rejection_reason = data.rejection_reason;
+    // Les champs comment et rejection_reason sont désormais fusionnés dans reason
     this.attachment = data.attachment;
     this.quota_exceeded = data.quota_exceeded || false;
     this.created_at = data.created_at;
@@ -75,7 +75,18 @@ class VacationRequest {
 
       console.log(
         "VacationRequest.find() - Résultats bruts:",
-        rows.map((r) => ({
+        rows ? rows.length : 0
+      );
+
+      // Si aucun résultat n'est trouvé, retourner un tableau vide
+      if (!rows || rows.length === 0) {
+        console.log("VacationRequest.find() - Aucun résultat trouvé");
+        return [];
+      }
+
+      console.log(
+        "VacationRequest.find() - Détails des premiers résultats:",
+        rows.slice(0, 3).map((r) => ({
           id: r.id,
           employee_id: r.employee_id,
           creator_id: r.creator_id,
@@ -109,15 +120,77 @@ class VacationRequest {
         return request;
       });
     } catch (error) {
-      console.error(
-        "Erreur lors de la récupération des demandes de congés:",
-        error
-      );
-      throw error;
+      console.error("Erreur dans VacationRequest.find():", error);
+      // En cas d'erreur, retourner un tableau vide plutôt que de propager l'erreur
+      return [];
     }
   }
 
   static async findById(id) {
+    try {
+      const [rows] = await connectDB.execute(
+        `
+        SELECT vr.*, 
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+               a.first_name as approver_first_name, 
+               a.last_name as approver_last_name,
+               r.first_name as rejecter_first_name, 
+               r.last_name as rejecter_last_name,
+               cr.id as creator_id_check,
+               cr.email as creator_email
+        FROM vacation_requests vr
+        LEFT JOIN employees e ON vr.employee_id = e.id
+        LEFT JOIN users a ON vr.approved_by = a.id
+        LEFT JOIN users r ON vr.rejected_by = r.id
+        LEFT JOIN users cr ON vr.creator_id = cr.id
+        WHERE vr.id = ?
+      `,
+        [id]
+      );
+
+      console.log(
+        `VacationRequest.findById(${id}) - Résultat trouvé:`,
+        rows && rows.length > 0
+      );
+
+      // Si aucun résultat n'est trouvé, retourner null
+      if (!rows || rows.length === 0) {
+        console.log(`VacationRequest.findById(${id}) - Aucun résultat trouvé`);
+        return null;
+      }
+
+      const row = rows[0];
+      const request = new VacationRequest(row);
+
+      // Ajouter des noms complets pour les approbateurs/rejeteurs
+      if (row.approver_first_name && row.approver_last_name) {
+        request.approver_name =
+          `${row.approver_first_name} ${row.approver_last_name}`.trim();
+      }
+      if (row.rejecter_first_name && row.rejecter_last_name) {
+        request.rejecter_name =
+          `${row.rejecter_first_name} ${row.rejecter_last_name}`.trim();
+      }
+
+      // Pour le debugging, ajouter les informations du créateur
+      if (row.creator_email) {
+        request.creator_email = row.creator_email;
+      }
+
+      // S'assurer que creator_id est un nombre
+      if (request.creator_id) {
+        request.creator_id = Number(request.creator_id);
+      }
+
+      return request;
+    } catch (error) {
+      console.error(`Erreur dans VacationRequest.findById(${id}):`, error);
+      // En cas d'erreur, retourner null plutôt que de propager l'erreur
+      return null;
+    }
+  }
+
+  static async findByEmployeeId(employeeId) {
     try {
       const [rows] = await connectDB.execute(
         `
@@ -131,52 +204,45 @@ class VacationRequest {
         LEFT JOIN employees e ON vr.employee_id = e.id
         LEFT JOIN users a ON vr.approved_by = a.id
         LEFT JOIN users r ON vr.rejected_by = r.id
-        WHERE vr.id = ?
-      `,
-        [id]
-      );
-      if (rows.length === 0) return null;
-
-      const request = new VacationRequest(rows[0]);
-      // Ajouter des noms complets pour les approbateurs/rejeteurs
-      if (rows[0].approver_first_name && rows[0].approver_last_name) {
-        request.approver_name =
-          `${rows[0].approver_first_name} ${rows[0].approver_last_name}`.trim();
-      }
-      if (rows[0].rejecter_first_name && rows[0].rejecter_last_name) {
-        request.rejecter_name =
-          `${rows[0].rejecter_first_name} ${rows[0].rejecter_last_name}`.trim();
-      }
-      return request;
-    } catch (error) {
-      console.error(
-        `Erreur lors de la récupération de la demande de congé ${id}:`,
-        error
-      );
-      throw error;
-    }
-  }
-
-  static async findByEmployeeId(employeeId) {
-    try {
-      const [rows] = await connectDB.execute(
-        `
-        SELECT vr.*, 
-               CONCAT(e.first_name, ' ', e.last_name) as employee_name
-        FROM vacation_requests vr
-        LEFT JOIN employees e ON vr.employee_id = e.id
         WHERE vr.employee_id = ?
         ORDER BY vr.created_at DESC
       `,
         [employeeId]
       );
-      return rows.map((row) => new VacationRequest(row));
+
+      console.log(
+        `VacationRequest.findByEmployeeId(${employeeId}) - Résultats:`,
+        rows ? rows.length : 0
+      );
+
+      // Si aucun résultat n'est trouvé, retourner un tableau vide
+      if (!rows || rows.length === 0) {
+        console.log(
+          `VacationRequest.findByEmployeeId(${employeeId}) - Aucun résultat trouvé`
+        );
+        return [];
+      }
+
+      return rows.map((row) => {
+        const request = new VacationRequest(row);
+        // Ajouter des noms complets pour les approbateurs/rejeteurs
+        if (row.approver_first_name && row.approver_last_name) {
+          request.approver_name =
+            `${row.approver_first_name} ${row.approver_last_name}`.trim();
+        }
+        if (row.rejecter_first_name && row.rejecter_last_name) {
+          request.rejecter_name =
+            `${row.rejecter_first_name} ${row.rejecter_last_name}`.trim();
+        }
+        return request;
+      });
     } catch (error) {
       console.error(
-        `Erreur lors de la récupération des demandes de congé pour l'employé ${employeeId}:`,
+        `Erreur dans VacationRequest.findByEmployeeId(${employeeId}):`,
         error
       );
-      throw error;
+      // En cas d'erreur, retourner un tableau vide plutôt que de propager l'erreur
+      return [];
     }
   }
 
@@ -250,23 +316,36 @@ class VacationRequest {
         // Mise à jour pour approuver
         query = `
           UPDATE vacation_requests 
-          SET status = ?, approved_by = ?, approved_at = ?, rejected_by = NULL, rejected_at = NULL, rejection_reason = NULL, updated_at = NOW()
+          SET status = ?, approved_by = ?, approved_at = ?, rejected_by = NULL, rejected_at = NULL, updated_at = NOW()
           WHERE id = ?
         `;
         params = [status, adminId, now, id];
       } else if (status === "rejected") {
-        // Mise à jour pour rejeter
+        // Mise à jour pour rejeter avec raison de rejet ajoutée au champ reason
+        // D'abord, récupérer la demande actuelle pour ajouter le motif de rejet au reason existant
+        const [currentRequest] = await connectDB.execute(
+          "SELECT reason FROM vacation_requests WHERE id = ?",
+          [id]
+        );
+
+        let updatedReason = currentRequest[0].reason || "";
+        if (rejectionReason) {
+          updatedReason = updatedReason
+            ? `${updatedReason} | Motif de rejet: ${rejectionReason}`
+            : `Motif de rejet: ${rejectionReason}`;
+        }
+
         query = `
           UPDATE vacation_requests 
-          SET status = ?, rejected_by = ?, rejected_at = ?, rejection_reason = ?, approved_by = NULL, approved_at = NULL, updated_at = NOW()
+          SET status = ?, rejected_by = ?, rejected_at = ?, reason = ?, approved_by = NULL, approved_at = NULL, updated_at = NOW()
           WHERE id = ?
         `;
-        params = [status, adminId, now, rejectionReason, id];
+        params = [status, adminId, now, updatedReason, id];
       } else if (status === "pending") {
         // Réinitialisation à l'état en attente
         query = `
           UPDATE vacation_requests 
-          SET status = ?, approved_by = NULL, approved_at = NULL, rejected_by = NULL, rejected_at = NULL, rejection_reason = NULL, updated_at = NOW()
+          SET status = ?, approved_by = NULL, approved_at = NULL, rejected_by = NULL, rejected_at = NULL, updated_at = NOW()
           WHERE id = ?
         `;
         params = [status, id];
@@ -374,7 +453,6 @@ class VacationRequest {
         approved_at: approved_at,
         rejected_by: this.rejected_by,
         rejected_at: rejected_at,
-        rejection_reason: this.rejection_reason,
       });
 
       if (this.id) {
@@ -391,7 +469,6 @@ class VacationRequest {
                approved_at = ?,
                rejected_by = ?,
                rejected_at = ?,
-               rejection_reason = ?,
                updated_at = NOW()
            WHERE id = ?`;
 
@@ -422,7 +499,6 @@ class VacationRequest {
           approved_at,
           this.rejected_by,
           rejected_at,
-          this.rejection_reason,
           this.id,
         ];
 

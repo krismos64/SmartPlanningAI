@@ -6,23 +6,23 @@ const activitiesRouter = require("./activities");
 const db = require("../config/db");
 
 // @route   GET /api/employees
-// @desc    Obtenir tous les employés du manager connecté
+// @desc    Obtenir tous les employés de l'utilisateur connecté
 // @access  Private
 router.get("/", auth, async (req, res) => {
   try {
-    console.log("Récupération des employés pour l'admin connecté");
+    console.log("Récupération des employés pour l'utilisateur connecté");
 
-    // Récupérer l'ID de l'admin connecté
-    const adminId = req.user.id;
-    if (!adminId) {
-      return res.status(400).json({ message: "ID d'administrateur manquant" });
+    // Récupérer l'ID de l'utilisateur connecté
+    const userId = req.user.id;
+    if (!userId) {
+      return res.status(400).json({ message: "ID d'utilisateur manquant" });
     }
 
-    // Récupérer uniquement les employés gérés par cet admin
-    const employees = await Employee.findByManager(adminId);
+    // Récupérer les employés créés par cet utilisateur
+    const employees = await Employee.findByUserId(userId);
 
     console.log(
-      `${employees.length} employés trouvés pour l'admin ID: ${adminId}`
+      `${employees.length} employés trouvés pour l'utilisateur ID: ${userId}`
     );
     res.json(employees);
   } catch (error) {
@@ -32,11 +32,11 @@ router.get("/", auth, async (req, res) => {
 });
 
 // @route   GET /api/employees/:id
-// @desc    Obtenir un employé spécifique (du manager connecté uniquement)
+// @desc    Obtenir un employé spécifique (de l'utilisateur connecté uniquement)
 // @access  Private
 router.get("/:id", auth, async (req, res) => {
   try {
-    const adminId = req.user.id;
+    const userId = req.user.id;
     const employeeId = req.params.id;
 
     // Récupérer l'employé spécifique
@@ -46,8 +46,8 @@ router.get("/:id", auth, async (req, res) => {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    // Vérifier que l'employé est bien géré par l'admin connecté
-    if (employee.manager_id !== adminId) {
+    // Vérifier que l'employé appartient bien à l'utilisateur connecté
+    if (employee.user_id !== userId) {
       return res.status(403).json({
         message: "Vous n'êtes pas autorisé à accéder à cet employé",
       });
@@ -79,7 +79,8 @@ router.post("/", auth, async (req, res) => {
     // Ajouter l'ID du gestionnaire (admin connecté) aux données de l'employé
     const employeeData = {
       ...req.body,
-      manager_id: adminId, // Associer l'employé à l'admin qui le crée
+      manager_id: adminId, // Associer l'employé à l'admin qui le gère
+      user_id: adminId, // Associer l'employé à l'admin qui l'a créé
     };
 
     const employee = new Employee(employeeData);
@@ -133,31 +134,32 @@ router.post("/", auth, async (req, res) => {
 });
 
 // @route   PUT /api/employees/:id
-// @desc    Mettre à jour un employé (du manager connecté uniquement)
+// @desc    Mettre à jour un employé (de l'utilisateur connecté uniquement)
 // @access  Private
 router.put("/:id", auth, async (req, res) => {
   try {
-    const adminId = req.user.id;
+    const userId = req.user.id;
     const employeeId = req.params.id;
 
-    // Vérifier si l'employé appartient bien au manager connecté
+    // Vérifier si l'employé appartient bien à l'utilisateur connecté
     const employee = await Employee.findById(employeeId);
 
     if (!employee) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    // Vérifier que l'employé est bien géré par l'admin connecté
-    if (employee.manager_id !== adminId) {
+    // Vérifier que l'employé a été créé par l'utilisateur connecté
+    if (employee.user_id !== userId) {
       return res.status(403).json({
         message: "Vous n'êtes pas autorisé à modifier cet employé",
       });
     }
 
-    // Mettre à jour l'employé en conservant son manager_id
+    // Mettre à jour l'employé en conservant son user_id et manager_id
     const updateData = {
       ...req.body,
-      manager_id: adminId, // S'assurer que manager_id reste inchangé
+      user_id: userId, // S'assurer que user_id reste associé à l'utilisateur actuel
+      manager_id: userId, // S'assurer que manager_id reste cohérent
     };
 
     const updatedEmployee = await Employee.findByIdAndUpdate(
@@ -173,7 +175,7 @@ router.put("/:id", auth, async (req, res) => {
           entity_type: "employee",
           entity_id: employeeId,
           description: `Mise à jour de l'employé ${updatedEmployee.first_name} ${updatedEmployee.last_name}`,
-          user_id: adminId,
+          user_id: userId,
           details: {
             employee_id: employeeId,
             employee_name: `${updatedEmployee.first_name} ${updatedEmployee.last_name}`,
@@ -202,22 +204,22 @@ router.put("/:id", auth, async (req, res) => {
 });
 
 // @route   DELETE /api/employees/:id
-// @desc    Supprimer un employé (du manager connecté uniquement)
-// @access  Private (Admin)
+// @desc    Supprimer un employé (de l'utilisateur connecté uniquement)
+// @access  Private
 router.delete("/:id", auth, async (req, res) => {
   try {
-    const adminId = req.user.id;
+    const userId = req.user.id;
     const employeeId = req.params.id;
 
-    // Vérifier si l'employé appartient bien au manager connecté
+    // Vérifier si l'employé appartient bien à l'utilisateur connecté
     const employee = await Employee.findById(employeeId);
 
     if (!employee) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    // Vérifier que l'employé est bien géré par l'admin connecté
-    if (employee.manager_id !== adminId) {
+    // Vérifier que l'employé a été créé par l'utilisateur connecté
+    if (employee.user_id !== userId) {
       return res.status(403).json({
         message: "Vous n'êtes pas autorisé à supprimer cet employé",
       });
@@ -247,12 +249,12 @@ router.delete("/:id", auth, async (req, res) => {
           entity_type: "employee",
           entity_id: employeeId,
           description: description,
-          user_id: req.user.id,
+          user_id: userId,
           details: {
             employee_id: employeeId,
             employee_name: employeeName,
             deleted_by: userName,
-            deleted_by_id: req.user.id,
+            deleted_by_id: userId,
             timestamp: new Date().toISOString(),
           },
         });

@@ -37,6 +37,7 @@ const AuthContext = createContext({
   isLoading: true,
   user: null,
   token: null,
+  getToken: async () => {},
   login: async () => {},
   loginWithGoogle: async () => {},
   logout: async () => {},
@@ -60,6 +61,22 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorageToken);
   const [loginError, setLoginError] = useState(null);
   const { notifyDataChange, disconnect } = useWebSocket();
+
+  // Fonction pour récupérer le token d'authentification
+  const getToken = async () => {
+    // Si le token est déjà dans l'état, le retourner directement
+    if (token) return token;
+
+    // Sinon essayer de le récupérer du localStorage
+    const storedToken = localStorage.getItem("token");
+    if (storedToken) {
+      setToken(storedToken);
+      return storedToken;
+    }
+
+    // Si pas de token, retourner null
+    return null;
+  };
 
   // Fonction pour définir l'utilisateur avec le rôle admin
   const setUserWithAdminRole = (userData) => {
@@ -665,6 +682,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     isLoading,
     token,
+    getToken,
     login,
     loginWithGoogle,
     logout,

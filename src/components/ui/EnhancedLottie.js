@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 
 // Composant sécurisé pour les animations Lottie qui évite les problèmes de destroy()
 const EnhancedLottie = ({
+  options = {},
   animationData,
   width,
   height,
@@ -21,13 +22,21 @@ const EnhancedLottie = ({
 
     if (containerRef.current) {
       try {
+        // Utiliser soit les options directement, soit l'animationData fourni séparément
+        const animationDataToUse = options?.animationData || animationData;
+
+        if (!animationDataToUse) {
+          console.error("Aucune animation trouvée pour le composant Lottie");
+          return;
+        }
+
         animInstance = lottieWeb.loadAnimation({
           container: containerRef.current,
           renderer: "svg",
-          loop,
-          autoplay,
-          animationData,
-          rendererSettings: {
+          loop: options?.loop || loop,
+          autoplay: options?.autoplay || autoplay,
+          animationData: animationDataToUse,
+          rendererSettings: options?.rendererSettings || {
             preserveAspectRatio: "xMidYMid slice",
             progressiveLoad: true,
           },
@@ -35,8 +44,10 @@ const EnhancedLottie = ({
 
         // Stocker l'instance d'animation pour le nettoyage
         animationRef.current = animInstance;
+
+        console.log("Animation Lottie chargée avec succès");
       } catch (err) {
-        console.warn("Erreur lors du chargement de l'animation:", err);
+        console.error("Erreur lors du chargement de l'animation:", err);
       }
     }
 
@@ -59,7 +70,7 @@ const EnhancedLottie = ({
         animationRef.current = null;
       }
     };
-  }, [animationData, loop, autoplay]);
+  }, [animationData, options, loop, autoplay]);
 
   return (
     <div

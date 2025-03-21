@@ -15,6 +15,7 @@ class WorkHours {
         ? data.balance
         : this.actual_hours - this.expected_hours;
     this.description = data.description || "";
+    this.user_id = data.user_id || null;
     this.created_at = data.created_at || new Date();
   }
 
@@ -74,7 +75,7 @@ class WorkHours {
       if (this.id) {
         // Mise à jour
         await connectDB.execute(
-          "UPDATE work_hours SET employee_id = ?, date = ?, expected_hours = ?, actual_hours = ?, balance = ?, description = ? WHERE id = ?",
+          "UPDATE work_hours SET employee_id = ?, date = ?, expected_hours = ?, actual_hours = ?, balance = ?, description = ?, user_id = ? WHERE id = ?",
           [
             this.employee_id,
             formattedDate,
@@ -82,13 +83,14 @@ class WorkHours {
             this.actual_hours,
             this.balance,
             this.description,
+            this.user_id,
             this.id,
           ]
         );
       } else {
-        // Création
+        // Insertion
         const [result] = await connectDB.execute(
-          "INSERT INTO work_hours (employee_id, date, expected_hours, actual_hours, balance, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO work_hours (employee_id, date, expected_hours, actual_hours, balance, description, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           [
             this.employee_id,
             formattedDate,
@@ -96,7 +98,8 @@ class WorkHours {
             this.actual_hours,
             this.balance,
             this.description,
-            this.created_at,
+            this.user_id,
+            new Date(),
           ]
         );
         this.id = result.insertId;
@@ -167,6 +170,70 @@ class WorkHours {
     } catch (error) {
       console.error(
         `Erreur lors de la récupération du solde d'heures pour l'employé ${employeeId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Récupérer les heures de travail créées par un utilisateur spécifique
+   * @param {number} userId - ID de l'utilisateur
+   * @returns {Promise<Array>} Liste des heures de travail créées par l'utilisateur
+   */
+  static async findByUserId(userId) {
+    try {
+      const [rows] = await connectDB.execute(
+        "SELECT * FROM work_hours WHERE user_id = ? ORDER BY date DESC",
+        [userId]
+      );
+      return rows.map((row) => new WorkHours(row));
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des heures pour l'utilisateur ${userId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Récupérer les heures de travail pour un employé spécifique créées par un utilisateur spécifique
+   * @param {number} employeeId - ID de l'employé
+   * @param {number} userId - ID de l'utilisateur
+   * @param {string} startDate - Date de début (optionnelle)
+   * @param {string} endDate - Date de fin (optionnelle)
+   * @returns {Promise<Array>} Liste des heures de travail
+   */
+  static async findByEmployeeAndUser(
+    employeeId,
+    userId,
+    startDate = null,
+    endDate = null
+  ) {
+    try {
+      let query =
+        "SELECT * FROM work_hours WHERE employee_id = ? AND user_id = ?";
+      const params = [employeeId, userId];
+
+      if (startDate && endDate) {
+        query += " AND date BETWEEN ? AND ?";
+        params.push(startDate, endDate);
+      } else if (startDate) {
+        query += " AND date >= ?";
+        params.push(startDate);
+      } else if (endDate) {
+        query += " AND date <= ?";
+        params.push(endDate);
+      }
+
+      query += " ORDER BY date DESC";
+
+      const [rows] = await connectDB.execute(query, params);
+      return rows.map((row) => new WorkHours(row));
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des heures pour l'employé ${employeeId} et l'utilisateur ${userId}:`,
         error
       );
       throw error;

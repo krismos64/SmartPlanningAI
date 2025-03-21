@@ -55,14 +55,20 @@ const ChatbotLottieAnimation = ({
         zIndex: 1000,
         cursor: "pointer",
         transition: "all 0.3s ease",
+        width: isHovered ? "100px" : "80px",
+        height: isHovered ? "100px" : "80px",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
       <EnhancedLottie
         options={options}
-        height={isHovered ? 100 : 80}
-        width={isHovered ? 100 : 80}
+        height="100%"
+        width="100%"
         isStopped={false}
         isPaused={false}
+        animationData={robotAnimation}
       />
     </div>
   );
@@ -97,6 +103,8 @@ const Chatbot = ({ onGenerate, onClose }) => {
 
   // Effet d'initialisation
   useEffect(() => {
+    console.log("Initialisation du chatbot, état d'ouverture:", isOpen);
+
     // Initialiser l'intégration du chatbot
     chatbotIntegration.current = new ChatbotRulesIntegration({
       onAddBotMessage: (message) => {
@@ -136,7 +144,7 @@ const Chatbot = ({ onGenerate, onClose }) => {
 
       return () => clearTimeout(timer);
     }
-  }, [isOpen, messages.length]);
+  }, [isOpen, messages.length, onGenerate]);
 
   // Effet de défilement automatique
   useEffect(() => {

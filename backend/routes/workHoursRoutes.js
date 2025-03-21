@@ -28,15 +28,31 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
 });
 
 // @route   GET /api/work-hours/employee/:employeeId
-// @desc    Obtenir toutes les heures travaillées d'un employé
+// @desc    Obtenir toutes les heures travaillées d'un employé (appartenant à l'utilisateur connecté)
 // @access  Private
 router.get("/employee/:employeeId", auth, async (req, res) => {
   try {
     const { employeeId } = req.params;
     const { startDate, endDate } = req.query;
+    const userId = req.user.id;
 
-    const workHours = await WorkHours.findByEmployeeId(
+    // Vérifier que l'employé appartient bien à l'utilisateur connecté
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ message: "Employé non trouvé" });
+    }
+
+    if (employee.user_id !== userId) {
+      return res.status(403).json({
+        message:
+          "Vous n'êtes pas autorisé à accéder aux données de cet employé",
+      });
+    }
+
+    // Récupérer les heures travaillées pour cet employé et cet utilisateur
+    const workHours = await WorkHours.findByEmployeeAndUser(
       employeeId,
+      userId,
       startDate,
       endDate
     );
@@ -48,23 +64,33 @@ router.get("/employee/:employeeId", auth, async (req, res) => {
       error
     );
     res.status(500).json({
-      message: "Erreur lors de la récupération des heures travaillées",
-      error: error.message,
+      message: "Erreur serveur lors de la récupération des heures travaillées",
     });
   }
 });
 
 // @route   GET /api/work-hours/:id
-// @desc    Obtenir un enregistrement d'heures travaillées par ID
+// @desc    Obtenir un enregistrement d'heures travaillées par ID (appartenant à l'utilisateur connecté)
 // @access  Private
 router.get("/:id", auth, async (req, res) => {
   try {
-    const workHours = await WorkHours.findById(req.params.id);
+    const userId = req.user.id;
+    const workHoursId = req.params.id;
+
+    // Récupérer l'enregistrement des heures
+    const workHours = await WorkHours.findById(workHoursId);
 
     if (!workHours) {
-      return res
-        .status(404)
-        .json({ message: "Enregistrement d'heures non trouvé" });
+      return res.status(404).json({
+        message: "Enregistrement d'heures non trouvé",
+      });
+    }
+
+    // Vérifier que ces heures appartiennent à l'utilisateur connecté
+    if (workHours.user_id !== userId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas autorisé à accéder à cet enregistrement",
+      });
     }
 
     res.json(workHours);
@@ -74,8 +100,7 @@ router.get("/:id", auth, async (req, res) => {
       error
     );
     res.status(500).json({
-      message: "Erreur lors de la récupération des heures travaillées",
-      error: error.message,
+      message: "Erreur serveur lors de la récupération des heures travaillées",
     });
   }
 });
@@ -85,61 +110,48 @@ router.get("/:id", auth, async (req, res) => {
 // @access  Private
 router.post("/", auth, async (req, res) => {
   try {
-    const {
-      employee_id,
-      employeeId,
-      date,
-      expected_hours,
-      expectedHours,
-      actual_hours,
-      actualHours,
-      hours,
-      balance,
-      description,
-    } = req.body;
+    const userId = req.user.id;
+    const { employee_id, date, expected_hours, actual_hours, description } =
+      req.body;
 
-    // Utiliser les versions camelCase ou snake_case selon ce qui est disponible
-    const employeeID = employee_id || employeeId;
-    const expectedHrs = expected_hours || expectedHours || 7.0;
-    const actualHrs = actual_hours || actualHours || hours || 0.0;
-
-    // Validation des données
-    if (!employeeID || !date) {
-      return res.status(400).json({
-        message: "L'ID de l'employé et la date sont requis",
-      });
-    }
-
-    // Vérifier si l'employé existe
-    const employee = await Employee.findById(employeeID);
+    // Vérifier que l'employé appartient bien à l'utilisateur connecté
+    const employee = await Employee.findById(employee_id);
     if (!employee) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    // Créer l'enregistrement d'heures
-    const workHours = await WorkHours.create({
-      employee_id: employeeID,
+    if (employee.user_id !== userId) {
+      return res.status(403).json({
+        message:
+          "Vous n'êtes pas autorisé à enregistrer des heures pour cet employé",
+      });
+    }
+
+    // Créer l'enregistrement des heures avec le user_id
+    const workHoursData = {
+      employee_id,
       date,
-      expected_hours: expectedHrs,
-      actual_hours: actualHrs,
-      balance: balance !== undefined ? balance : actualHrs - expectedHrs,
-      description: description || "Ajout manuel",
-    });
+      expected_hours,
+      actual_hours,
+      description,
+      user_id: userId,
+    };
+
+    const workHours = new WorkHours(workHoursData);
+    await workHours.save();
 
     // Mettre à jour le solde d'heures de l'employé
-    await Employee.updateHourBalance(employeeID);
+    await Employee.updateHourBalance(employee_id);
 
-    res.status(201).json({
-      success: true,
-      message: "Heures travaillées enregistrées avec succès",
-      workHours,
-    });
+    res.status(201).json(workHours);
   } catch (error) {
-    console.error("Erreur lors de la création des heures travaillées:", error);
+    console.error(
+      "Erreur lors de la création de l'enregistrement des heures:",
+      error
+    );
     res.status(500).json({
-      success: false,
-      message: "Erreur lors de la création des heures travaillées",
-      error: error.message,
+      message:
+        "Erreur serveur lors de la création de l'enregistrement des heures",
     });
   }
 });

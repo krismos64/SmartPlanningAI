@@ -346,11 +346,25 @@ const Vacations = () => {
 
         // Mettre à jour l'affichage localement pour une réponse immédiate
         setVacations((prevVacations) =>
-          prevVacations.map((vacation) =>
-            vacation && vacation.id === Number(id)
-              ? { ...vacation, status: "rejected", rejected_reason: comment }
-              : vacation
-          )
+          prevVacations.map((vacation) => {
+            if (vacation && vacation.id === Number(id)) {
+              // Mettre à jour l'état avec le nouveau statut et ajouter le commentaire à la raison
+              const updatedVacation = {
+                ...vacation,
+                status: "rejected",
+              };
+
+              // Ajouter le commentaire à la raison existante
+              if (comment) {
+                updatedVacation.reason = vacation.reason
+                  ? `${vacation.reason} | Motif de rejet: ${comment}`
+                  : `Motif de rejet: ${comment}`;
+              }
+
+              return updatedVacation;
+            }
+            return vacation;
+          })
         );
       } else {
         const errorMessage =
@@ -450,7 +464,12 @@ const Vacations = () => {
                 Liste des demandes de congés
               </Typography>
               <Box sx={{ display: "flex", gap: 1 }}>
-                <VacationExport vacations={filteredVacations} isGlobal={true} />
+                {filteredVacations.length > 0 && (
+                  <VacationExport
+                    vacations={filteredVacations}
+                    isGlobal={true}
+                  />
+                )}
                 <Button
                   variant="contained"
                   color="primary"
@@ -522,14 +541,71 @@ const Vacations = () => {
               </Box>
             )}
 
-            <VacationList
-              vacations={filteredVacations}
-              loading={loading && !refreshing}
-              onEdit={handleOpenEditForm}
-              onDelete={handleDeleteVacation}
-              onApprove={handleApproveVacation}
-              onReject={handleOpenRejectDialog}
-            />
+            {filteredVacations.length === 0 ? (
+              // Afficher un message convivial lorsqu'il n'y a pas de congés
+              <Box
+                sx={{
+                  p: 4,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  minHeight: "250px",
+                  backgroundColor: isDarkMode
+                    ? alpha("#1F2937", 0.5)
+                    : alpha("#F9FAFB", 0.5),
+                  borderRadius: 2,
+                  border: `1px dashed ${isDarkMode ? "#4B5563" : "#E5E7EB"}`,
+                }}
+              >
+                <BeachAccess
+                  sx={{
+                    fontSize: 60,
+                    color: isDarkMode ? "#6366F1" : "#4F46E5",
+                    mb: 2,
+                    opacity: 0.7,
+                  }}
+                />
+                <Typography
+                  variant="h6"
+                  color={isDarkMode ? "#F9FAFB" : "inherit"}
+                  gutterBottom
+                >
+                  Aucune demande de congés pour le moment
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                  sx={{ mb: 3 }}
+                >
+                  Cliquez sur "Nouvelle demande" pour créer votre première
+                  demande de congés.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Add />}
+                  onClick={handleOpenCreateForm}
+                  sx={{
+                    transition: "all 0.2s ease",
+                    "&:hover": { transform: "scale(1.05)" },
+                  }}
+                >
+                  Créer une demande
+                </Button>
+              </Box>
+            ) : (
+              // Afficher la liste des congés s'il y en a
+              <VacationList
+                vacations={filteredVacations}
+                loading={loading && !refreshing}
+                onEdit={handleOpenEditForm}
+                onDelete={handleDeleteVacation}
+                onApprove={handleApproveVacation}
+                onReject={handleOpenRejectDialog}
+              />
+            )}
           </Paper>
         </Grid>
       </Grid>

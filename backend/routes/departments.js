@@ -19,86 +19,66 @@ router.get("/test", (req, res) => {
 
 /**
  * @route   GET /api/departments
- * @desc    Récupérer tous les départements
- * @access  Public
+ * @desc    Récupérer tous les départements de l'utilisateur connecté
+ * @access  Private
  */
-router.get("/", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   console.log("Route GET /api/departments appelée");
 
   try {
-    // Version simplifiée pour déboguer
-    console.log(
-      "Récupération des départements directement depuis la base de données"
-    );
-
-    // Vérifier la connexion à la base de données
-    try {
-      await db.query("SELECT 1");
-      console.log("Connexion à la base de données vérifiée avec succès");
-    } catch (dbError) {
-      console.error("Erreur de connexion à la base de données:", dbError);
-      return res.status(500).json({
-        message: "Erreur de connexion à la base de données",
-        error: dbError.message,
-      });
+    // Récupérer l'ID de l'utilisateur connecté
+    const userId = req.user.id;
+    if (!userId) {
+      return res.status(400).json({ message: "ID d'utilisateur manquant" });
     }
 
-    const [departments] = await db.query(
-      "SELECT DISTINCT department FROM employees WHERE department IS NOT NULL"
+    console.log(
+      `Récupération des départements pour l'utilisateur ID: ${userId}`
     );
 
-    console.log("Départements trouvés:", departments);
+    // Récupérer les départements de l'utilisateur
+    const departments = await Department.findByUserId(userId);
 
-    // Transformer en format simplifié
-    const formattedDepartments = departments.map((dept) => ({
-      id: dept.department.toLowerCase().replace(/\s+/g, "-"),
-      name: dept.department,
-    }));
-
-    console.log("Départements formatés:", formattedDepartments);
-    res.json(formattedDepartments);
+    console.log(
+      `${departments.length} départements trouvés pour l'utilisateur`
+    );
+    res.json(departments);
   } catch (error) {
     console.error("Erreur lors de la récupération des départements:", error);
-    console.error("Stack trace:", error.stack);
-
     res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des départements",
-      error: error.message,
+      message: "Erreur serveur lors de la récupération des départements",
     });
   }
 });
 
 /**
  * @route   GET /api/departments/:id
- * @desc    Récupérer un département par son ID
+ * @desc    Récupérer un département par son ID (appartenant à l'utilisateur connecté)
  * @access  Private
  */
 router.get("/:id", auth, async (req, res) => {
   try {
-    const department = await Department.findById(req.params.id);
+    const userId = req.user.id;
+    const departmentId = req.params.id;
+
+    // Récupérer le département
+    const department = await Department.findById(departmentId);
 
     if (!department) {
-      return res.status(404).json({
-        success: false,
-        message: "Département non trouvé",
+      return res.status(404).json({ message: "Département non trouvé" });
+    }
+
+    // Vérifier que le département appartient à l'utilisateur connecté
+    if (department.user_id !== userId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas autorisé à accéder à ce département",
       });
     }
 
-    res.json({
-      success: true,
-      department,
-    });
+    res.json(department);
   } catch (error) {
-    console.error(
-      `Erreur lors de la récupération du département ${req.params.id}:`,
-      error
-    );
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération du département",
-      error: error.message,
-    });
+    console.error("Erreur lors de la récupération du département:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
@@ -150,68 +130,49 @@ router.get("/:id/employees", auth, async (req, res) => {
 /**
  * @route   POST /api/departments
  * @desc    Créer un nouveau département
- * @access  Private (Admin)
+ * @access  Private
  */
-router.post("/", auth, checkRole(["admin"]), async (req, res) => {
+router.post("/", auth, async (req, res) => {
   try {
-    const { name, description, manager_id } = req.body;
-
-    // Vérifier si le nom est fourni
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "Le nom du département est requis",
-      });
+    // Récupérer l'ID de l'utilisateur connecté
+    const userId = req.user.id;
+    if (!userId) {
+      return res.status(400).json({ message: "ID d'utilisateur manquant" });
     }
 
-    // Vérifier si le département existe déjà
-    const existingDepartment = await Department.findByName(name);
-    if (existingDepartment) {
-      return res.status(409).json({
-        success: false,
-        message: "Un département avec ce nom existe déjà",
-      });
-    }
+    // Ajouter l'ID de l'utilisateur aux données du département
+    const departmentData = {
+      ...req.body,
+      user_id: userId, // Associer le département à l'utilisateur qui le crée
+    };
 
     // Créer le département
-    const department = await Department.create({
-      name,
-      description,
-      manager_id,
-    });
+    const department = new Department(departmentData);
+    await department.save();
 
-    // Enregistrer l'activité
-    try {
-      await recordActivity({
-        type: "create",
-        entity_type: "department",
-        entity_id: department.id,
-        description: `Création du département ${department.name}`,
-        user_id: req.user.id,
-        details: {
-          department_id: department.id,
-          department_name: department.name,
-        },
-      });
-    } catch (activityError) {
-      console.error(
-        "Erreur lors de l'enregistrement de l'activité:",
-        activityError
-      );
+    // Journaliser l'activité
+    if (global.Activity) {
+      try {
+        await global.Activity.logActivity({
+          type: "create",
+          entity_type: "department",
+          entity_id: department.id,
+          description: `Création du département ${department.name}`,
+          user_id: userId,
+          details: {
+            department_id: department.id,
+            department_name: department.name,
+          },
+        });
+      } catch (logError) {
+        console.error("Erreur lors de la journalisation:", logError);
+      }
     }
 
-    res.status(201).json({
-      success: true,
-      message: "Département créé avec succès",
-      department,
-    });
+    res.status(201).json(department);
   } catch (error) {
     console.error("Erreur lors de la création du département:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la création du département",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 

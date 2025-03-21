@@ -28,7 +28,6 @@ describe("VacationRequest Model", () => {
         approved_at: "2023-07-01 10:00:00",
         rejected_by: null,
         rejected_at: null,
-        rejection_reason: null,
         attachment: null,
         quota_exceeded: false,
         created_at: "2023-06-20 10:00:00",
@@ -51,9 +50,6 @@ describe("VacationRequest Model", () => {
       expect(vacationRequest.approved_at).toBe(requestData.approved_at);
       expect(vacationRequest.rejected_by).toBe(requestData.rejected_by);
       expect(vacationRequest.rejected_at).toBe(requestData.rejected_at);
-      expect(vacationRequest.rejection_reason).toBe(
-        requestData.rejection_reason
-      );
       expect(vacationRequest.attachment).toBe(requestData.attachment);
       expect(vacationRequest.quota_exceeded).toBe(requestData.quota_exceeded);
       expect(vacationRequest.created_at).toBe(requestData.created_at);
@@ -132,7 +128,6 @@ describe("VacationRequest Model", () => {
         approved_at: "2023-07-01 10:00:00",
         rejected_by: null,
         rejected_at: null,
-        rejection_reason: null,
       };
 
       const request = new VacationRequest(requestData);
@@ -159,7 +154,6 @@ describe("VacationRequest Model", () => {
           expect.any(Object), // approved_at (Date ou null)
           request.rejected_by,
           expect.any(Object), // rejected_at (Date ou null)
-          request.rejection_reason,
           request.id,
         ])
       );
@@ -584,6 +578,49 @@ describe("VacationRequest Model", () => {
       await expect(
         VacationRequest.updateStatus(id, status, adminId)
       ).rejects.toThrow(dbError);
+    });
+
+    it("devrait mettre à jour une demande existante avec rejected_by et motif de rejet", async () => {
+      // Arrange
+      const adminId = 2;
+      const vacationId = 1;
+      const status = "rejected";
+      const rejectionReason = "Période chargée";
+
+      connectDB.execute.mockResolvedValueOnce([
+        [{ reason: "Congés d'été" }],
+        null,
+      ]);
+
+      connectDB.execute.mockResolvedValueOnce([{ affectedRows: 1 }, null]);
+
+      // Act
+      const result = await VacationRequest.updateStatus(
+        vacationId,
+        status,
+        adminId,
+        rejectionReason
+      );
+
+      // Assert
+      expect(result).toBe(true);
+      expect(connectDB.execute).toHaveBeenCalledTimes(2);
+      expect(connectDB.execute).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /SELECT reason FROM vacation_requests WHERE id = \?/s
+        ),
+        [vacationId]
+      );
+      expect(connectDB.execute).toHaveBeenCalledWith(
+        expect.stringMatching(/UPDATE vacation_requests.*SET.*WHERE id = \?/s),
+        [
+          status,
+          adminId,
+          expect.any(Date),
+          "Congés d'été | Motif de rejet: Période chargée",
+          vacationId,
+        ]
+      );
     });
   });
 
