@@ -61,7 +61,7 @@ const StyledIcon = styled(Box)(({ theme }) => {
 
 /**
  * Page de gestion des congés
- * Version optimisée sans websocket et avec un chargement simplifié
+ * Version adaptée à la nouvelle API avec structure { success, message, data }
  */
 const Vacations = () => {
   const theme = useTheme();
@@ -93,7 +93,9 @@ const Vacations = () => {
       toast.success("Données des congés rafraîchies");
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des données:", error);
-      toast.error("Erreur lors du rafraîchissement des données");
+      toast.error(
+        error.message || "Erreur lors du rafraîchissement des données"
+      );
     } finally {
       setRefreshing(false);
     }
@@ -125,18 +127,29 @@ const Vacations = () => {
   // Soumettre le formulaire
   const handleSubmitForm = async (data) => {
     try {
+      let result;
+
       if (selectedVacation) {
         // Mise à jour d'un congé existant
-        await updateVacation(selectedVacation.id, data);
+        result = await updateVacation(selectedVacation.id, data);
       } else {
         // Création d'un nouveau congé
-        await createVacation(data);
+        result = await createVacation(data);
       }
-      handleCloseForm();
+
+      if (result && result.success) {
+        toast.success(result.message || "Opération réussie");
+        handleCloseForm();
+      } else {
+        toast.error(
+          result?.message || "Une erreur est survenue lors de l'opération"
+        );
+      }
     } catch (error) {
       console.error("Erreur lors de la soumission du formulaire:", error);
       toast.error(
-        "Une erreur est survenue lors de la soumission du formulaire"
+        error.message ||
+          "Une erreur est survenue lors de la soumission du formulaire"
       );
     }
   };
@@ -144,38 +157,70 @@ const Vacations = () => {
   // Supprimer un congé
   const handleDeleteVacation = async (id) => {
     try {
-      await deleteVacation(id);
+      const result = await deleteVacation(id);
+      if (result && result.success) {
+        toast.success(result.message || "Congé supprimé avec succès");
+      } else {
+        toast.error(
+          result?.message || "Une erreur est survenue lors de la suppression"
+        );
+      }
     } catch (error) {
       console.error("Erreur lors de la suppression du congé:", error);
-      toast.error("Une erreur est survenue lors de la suppression du congé");
+      toast.error(
+        error.message ||
+          "Une erreur est survenue lors de la suppression du congé"
+      );
     }
   };
 
   // Approuver un congé
   const handleApproveVacation = async (id) => {
     try {
-      await updateVacationStatus(id, "approved");
+      const result = await updateVacationStatus(id, "approved");
+      if (result && result.success) {
+        toast.success(result.message || "Congé approuvé avec succès");
+      } else {
+        toast.error(
+          result?.message || "Une erreur est survenue lors de l'approbation"
+        );
+      }
     } catch (error) {
       console.error("Erreur lors de l'approbation du congé:", error);
-      toast.error("Une erreur est survenue lors de l'approbation du congé");
+      toast.error(
+        error.message ||
+          "Une erreur est survenue lors de l'approbation du congé"
+      );
     }
   };
 
   // Rejeter un congé
   const handleRejectVacation = async (id, comment) => {
     try {
-      await updateVacationStatus(id, "rejected", comment);
+      const result = await updateVacationStatus(id, "rejected", comment);
+      if (result && result.success) {
+        toast.success(result.message || "Congé rejeté avec succès");
+      } else {
+        toast.error(result?.message || "Une erreur est survenue lors du rejet");
+      }
     } catch (error) {
       console.error("Erreur lors du rejet du congé:", error);
-      toast.error("Une erreur est survenue lors du rejet du congé");
+      toast.error(
+        error.message || "Une erreur est survenue lors du rejet du congé"
+      );
     }
   };
 
   // Filtrer les congés en fonction de l'onglet sélectionné
   const filteredVacations = useMemo(() => {
+    // Vérifie si vacations est un array ou s'il est contenu dans data
+    const vacationData = Array.isArray(vacations)
+      ? vacations
+      : vacations?.data || [];
+
     switch (tabValue) {
       case 0:
-        return vacations; // Tous les congés
+        return vacationData; // Tous les congés
       case 1:
         return getVacationsByStatus("pending"); // Congés en attente
       case 2:
@@ -183,7 +228,7 @@ const Vacations = () => {
       case 3:
         return getVacationsByStatus("rejected"); // Congés rejetés
       default:
-        return vacations;
+        return vacationData;
     }
   }, [vacations, tabValue, getVacationsByStatus]);
 
@@ -255,53 +300,74 @@ const Vacations = () => {
               </Box>
             </Box>
 
-            <Tabs
-              value={tabValue}
-              onChange={handleTabChange}
-              indicatorColor="primary"
-              textColor="primary"
-              variant={isMobile ? "scrollable" : "fullWidth"}
-              scrollButtons={isMobile ? "auto" : false}
-              sx={{
-                mb: 2,
-                "& .MuiTab-root": {
-                  color: isDarkMode ? "#9CA3AF" : undefined,
-                  "&.Mui-selected": {
-                    color: isDarkMode ? "#F9FAFB" : undefined,
+            <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+              <Tabs
+                value={tabValue}
+                onChange={handleTabChange}
+                aria-label="vacation tabs"
+                variant={isMobile ? "scrollable" : "standard"}
+                scrollButtons={isMobile ? "auto" : false}
+                textColor="primary"
+                indicatorColor="primary"
+                sx={{
+                  "& .MuiTab-root": {
+                    color: isDarkMode ? "#9CA3AF" : "inherit",
+                    "&.Mui-selected": {
+                      color: isDarkMode ? "#93C5FD" : undefined,
+                    },
                   },
-                },
-                "& .MuiTabs-indicator": {
-                  backgroundColor: isDarkMode ? "#6366F1" : undefined,
-                },
-              }}
-            >
-              <Tab label="Tous" />
-              <Tab label="En attente" />
-              <Tab label="Approuvés" />
-              <Tab label="Rejetés" />
-            </Tabs>
+                }}
+              >
+                <Tab
+                  label="Tous"
+                  id="vacation-tab-0"
+                  aria-controls="vacation-tabpanel-0"
+                />
+                <Tab
+                  label="En attente"
+                  id="vacation-tab-1"
+                  aria-controls="vacation-tabpanel-1"
+                />
+                <Tab
+                  label="Approuvés"
+                  id="vacation-tab-2"
+                  aria-controls="vacation-tabpanel-2"
+                />
+                <Tab
+                  label="Rejetés"
+                  id="vacation-tab-3"
+                  aria-controls="vacation-tabpanel-3"
+                />
+              </Tabs>
+            </Box>
 
-            {/* Affichage de la liste des congés avec indicateur de chargement */}
-            {loading && refreshing ? (
-              <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
-                <CircularProgress />
+            {refreshing && (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  mb: 2,
+                }}
+              >
+                <CircularProgress
+                  size={24}
+                  sx={{ color: isDarkMode ? "#6366F1" : undefined }}
+                />
               </Box>
-            ) : (
-              <VacationList
-                vacations={filteredVacations}
-                loading={loading || refreshing}
-                onEdit={handleOpenEditForm}
-                onDelete={handleDeleteVacation}
-                onApprove={handleApproveVacation}
-                onReject={handleRejectVacation}
-                onCreateNew={handleOpenCreateForm}
-              />
             )}
+
+            <VacationList
+              vacations={filteredVacations}
+              loading={loading && !refreshing}
+              onEdit={handleOpenEditForm}
+              onDelete={handleDeleteVacation}
+              onApprove={handleApproveVacation}
+              onReject={handleRejectVacation}
+            />
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Formulaire de création/édition de congé */}
       <VacationForm
         open={showForm}
         onClose={handleCloseForm}

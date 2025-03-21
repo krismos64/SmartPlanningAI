@@ -51,10 +51,13 @@ const useVacations = () => {
         return;
       }
 
-      const data = await api.get(API_ENDPOINTS.VACATIONS);
+      const response = await api.get(API_ENDPOINTS.VACATIONS);
+
+      // Adaptation à la nouvelle structure de réponse API
+      const vacationsData = response.data || [];
 
       if (isComponentMountedRef.current) {
-        setVacations(data || []);
+        setVacations(vacationsData || []);
         setError(null);
       }
     } catch (error) {
@@ -121,9 +124,14 @@ const useVacations = () => {
 
         const response = await api.post(API_ENDPOINTS.VACATIONS, formattedData);
 
+        // Adaptation à la nouvelle structure de réponse API
+        const newVacation = response.data || response;
+
         if (isComponentMountedRef.current) {
-          setVacations((prev) => [...prev, response]);
-          toast.success("Demande de congé créée avec succès");
+          setVacations((prev) => [...prev, newVacation]);
+          toast.success(
+            response.message || "Demande de congé créée avec succès"
+          );
 
           // Uniquement si le composant est toujours monté
           if (isComponentMountedRef.current) {
@@ -131,7 +139,11 @@ const useVacations = () => {
           }
         }
 
-        return { success: true, data: response };
+        return {
+          success: response.success !== undefined ? response.success : true,
+          data: newVacation,
+          message: response.message || "Demande de congé créée avec succès",
+        };
       } catch (error) {
         const errorMessage =
           error.response?.data?.message ||
@@ -184,16 +196,28 @@ const useVacations = () => {
           formattedData
         );
 
+        // Adaptation à la nouvelle structure de réponse API
+        const updatedVacation = response.data || response;
+
         if (isComponentMountedRef.current) {
           setVacations((prev) =>
             prev.map((vacation) =>
-              vacation.id === id ? { ...vacation, ...response } : vacation
+              vacation.id === id
+                ? { ...vacation, ...updatedVacation }
+                : vacation
             )
           );
-          toast.success("Demande de congé mise à jour avec succès");
+          toast.success(
+            response.message || "Demande de congé mise à jour avec succès"
+          );
         }
 
-        return { success: true, data: response };
+        return {
+          success: response.success !== undefined ? response.success : true,
+          data: updatedVacation,
+          message:
+            response.message || "Demande de congé mise à jour avec succès",
+        };
       } catch (error) {
         const errorMessage =
           error.response?.data?.message ||
@@ -222,14 +246,19 @@ const useVacations = () => {
 
       try {
         setLoading(true);
-        await api.delete(`${API_ENDPOINTS.VACATIONS}/${id}`);
+        const response = await api.delete(`${API_ENDPOINTS.VACATIONS}/${id}`);
 
         if (isComponentMountedRef.current) {
           setVacations((prev) => prev.filter((vacation) => vacation.id !== id));
-          toast.success("Demande de congé supprimée avec succès");
+          toast.success(
+            response.message || "Demande de congé supprimée avec succès"
+          );
         }
 
-        return { success: true };
+        return {
+          success: response.success !== undefined ? response.success : true,
+          message: response.message || "Demande de congé supprimée avec succès",
+        };
       } catch (error) {
         const errorMessage =
           error.response?.data?.message ||

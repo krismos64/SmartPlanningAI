@@ -223,8 +223,23 @@ const VacationList = ({
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("startDate");
 
-  // Vérifier si l'utilisateur est admin
+  // Vérifier si l'utilisateur est admin (seul rôle supporté maintenant)
   const isAdmin = user && user.role === "admin";
+
+  // Vérifier que l'utilisateur a l'autorisation d'accéder aux employés (via manager_id)
+  const canAccessEmployees = useCallback(
+    (employee) => {
+      // Si pas d'employé, pas d'accès
+      if (!employee) return false;
+
+      // Si l'utilisateur n'est pas admin, pas d'accès
+      if (!isAdmin) return false;
+
+      // Vérifier si l'employé est rattaché au manager connecté
+      return employee.manager_id === user?.id;
+    },
+    [isAdmin, user?.id]
+  );
 
   // Gérer le changement de page
   const handleChangePage = (event, newPage) => {
@@ -369,6 +384,42 @@ const VacationList = ({
   const visibleRows = sortedRows.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
+  );
+
+  // Vérifier si l'utilisateur peut éditer une demande de congé
+  const canEdit = useCallback(
+    (vacation) => {
+      // Les admins peuvent éditer les congés des employés qui leur sont rattachés
+      if (isAdmin && vacation && vacation.employee) {
+        return vacation.employee.manager_id === user?.id;
+      }
+      return false;
+    },
+    [isAdmin, user?.id]
+  );
+
+  // Vérifier si l'utilisateur peut supprimer une demande de congé
+  const canDelete = useCallback(
+    (vacation) => {
+      // Les admins peuvent supprimer les congés des employés qui leur sont rattachés
+      if (isAdmin && vacation && vacation.employee) {
+        return vacation.employee.manager_id === user?.id;
+      }
+      return false;
+    },
+    [isAdmin, user?.id]
+  );
+
+  // Vérifier si l'utilisateur peut approuver/rejeter une demande de congé
+  const canApproveReject = useCallback(
+    (vacation) => {
+      // Les admins peuvent approuver/rejeter les congés des employés qui leur sont rattachés
+      if (isAdmin && vacation && vacation.employee) {
+        return vacation.employee.manager_id === user?.id;
+      }
+      return false;
+    },
+    [isAdmin, user?.id]
   );
 
   return (
@@ -571,32 +622,7 @@ const VacationList = ({
                               gap: 1,
                             }}
                           >
-                            {/* Boutons d'approbation/rejet (admin uniquement) */}
-                            {isAdmin && vacation.status === "pending" && (
-                              <>
-                                <Tooltip title="Approuver">
-                                  <ActionButton
-                                    size="small"
-                                    onClick={() => onApprove(vacation.id)}
-                                    $actionType="approve"
-                                  >
-                                    <CheckCircle fontSize="small" />
-                                  </ActionButton>
-                                </Tooltip>
-                                <Tooltip title="Rejeter">
-                                  <ActionButton
-                                    size="small"
-                                    onClick={() => onReject(vacation.id)}
-                                    $actionType="reject"
-                                  >
-                                    <RemoveCircle fontSize="small" />
-                                  </ActionButton>
-                                </Tooltip>
-                              </>
-                            )}
-
-                            {/* Bouton d'édition (admin ou propriétaire) */}
-                            {(isAdmin || vacation.employeeId === user?.id) && (
+                            {canEdit(vacation) && (
                               <Tooltip title="Modifier">
                                 <ActionButton
                                   size="small"
@@ -608,8 +634,7 @@ const VacationList = ({
                               </Tooltip>
                             )}
 
-                            {/* Bouton de suppression (admin ou propriétaire) */}
-                            {(isAdmin || vacation.employeeId === user?.id) && (
+                            {canDelete(vacation) && (
                               <Tooltip title="Supprimer">
                                 <ActionButton
                                   size="small"
@@ -620,6 +645,31 @@ const VacationList = ({
                                 </ActionButton>
                               </Tooltip>
                             )}
+
+                            {canApproveReject(vacation) &&
+                              vacation.status === "pending" && (
+                                <>
+                                  <Tooltip title="Approuver">
+                                    <ActionButton
+                                      size="small"
+                                      onClick={() => onApprove(vacation.id)}
+                                      $actionType="approve"
+                                    >
+                                      <CheckCircle fontSize="small" />
+                                    </ActionButton>
+                                  </Tooltip>
+
+                                  <Tooltip title="Rejeter">
+                                    <ActionButton
+                                      size="small"
+                                      onClick={() => onReject(vacation.id)}
+                                      $actionType="reject"
+                                    >
+                                      <RemoveCircle fontSize="small" />
+                                    </ActionButton>
+                                  </Tooltip>
+                                </>
+                              )}
                           </Box>
                         </StyledTableCell>
                       </StyledTableRow>

@@ -10,7 +10,12 @@ class DepartmentService {
           "X-CSRF-TOKEN": csrfToken,
         },
       });
-      return response;
+      return {
+        ...response,
+        data: response.data.data || response.data,
+        success: response.data.success,
+        message: response.data.message,
+      };
     } catch (error) {
       console.error("Error fetching departments:", error);
       throw error;
@@ -25,7 +30,12 @@ class DepartmentService {
           "X-CSRF-TOKEN": csrfToken,
         },
       });
-      return response;
+      return {
+        ...response,
+        data: response.data.data || response.data,
+        success: response.data.success,
+        message: response.data.message,
+      };
     } catch (error) {
       console.error(`Error fetching department ${id}:`, error);
       throw error;
@@ -41,7 +51,12 @@ class DepartmentService {
           "X-CSRF-TOKEN": csrfToken,
         },
       });
-      return response;
+      return {
+        ...response,
+        data: response.data.data || response.data,
+        success: response.data.success,
+        message: response.data.message,
+      };
     } catch (error) {
       console.error("Error creating department:", error);
       throw error;
@@ -61,7 +76,12 @@ class DepartmentService {
           },
         }
       );
-      return response;
+      return {
+        ...response,
+        data: response.data.data || response.data,
+        success: response.data.success,
+        message: response.data.message,
+      };
     } catch (error) {
       console.error(`Error updating department ${id}:`, error);
       throw error;
@@ -76,7 +96,12 @@ class DepartmentService {
           "X-CSRF-TOKEN": csrfToken,
         },
       });
-      return response;
+      return {
+        ...response,
+        data: response.data.data || response.data,
+        success: response.data.success,
+        message: response.data.message,
+      };
     } catch (error) {
       console.error(`Error deleting department ${id}:`, error);
       throw error;

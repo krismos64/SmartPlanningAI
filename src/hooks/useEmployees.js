@@ -68,15 +68,27 @@ const useEmployees = () => {
         );
       }
 
-      const data = await response.json();
+      const jsonResponse = await response.json();
+
+      // Adapter à la nouvelle structure de réponse API { success, message, data }
+      let employeesData = [];
+      if (jsonResponse && typeof jsonResponse === "object") {
+        if ("success" in jsonResponse && "data" in jsonResponse) {
+          // Nouvelle structure
+          employeesData = jsonResponse.data || [];
+        } else {
+          // Ancienne structure (directement un tableau)
+          employeesData = Array.isArray(jsonResponse) ? jsonResponse : [];
+        }
+      }
 
       // Vérifier si le composant est toujours monté avant de mettre à jour l'état
       if (isMountedRef.current) {
-        setEmployees(Array.isArray(data) ? data : []);
+        setEmployees(employeesData);
         setError(null);
       }
 
-      return data;
+      return employeesData;
     } catch (error) {
       console.error("Erreur lors du chargement des employés:", error);
 
@@ -130,8 +142,21 @@ const useEmployees = () => {
         );
       }
 
-      const data = await response.json();
-      return data;
+      const jsonResponse = await response.json();
+
+      // Adapter à la nouvelle structure de réponse API { success, message, data }
+      let employeeData = null;
+      if (jsonResponse && typeof jsonResponse === "object") {
+        if ("success" in jsonResponse && "data" in jsonResponse) {
+          // Nouvelle structure
+          employeeData = jsonResponse.data || null;
+        } else {
+          // Ancienne structure (directement l'objet)
+          employeeData = jsonResponse;
+        }
+      }
+
+      return employeeData;
     } catch (error) {
       console.error(
         `Erreur lors de la récupération de l'employé ${id}:`,

@@ -32,6 +32,7 @@ export const API_ENDPOINTS = {
   },
   WEEKLY_SCHEDULES: "/api/weekly-schedules",
   VACATIONS: "/api/vacations",
+  VACATIONS_MANAGER: "/api/vacations?manager=true",
   SHIFTS: {
     BASE: "/api/shifts",
     BY_ID: (id) => `/api/shifts/${id}`,
@@ -147,6 +148,20 @@ export const apiRequest = async (
         hasData: !!response.data,
       });
 
+      // Adaptation à la nouvelle structure de l'API
+      if (response.data && typeof response.data === "object") {
+        // Si la réponse a la nouvelle structure { success, message, data }
+        if ("success" in response.data && "data" in response.data) {
+          return {
+            ...response.data.data,
+            success: response.data.success,
+            message: response.data.message,
+            // Garder les données originales accessibles si nécessaire
+            _originalResponse: response.data,
+          };
+        }
+      }
+
       return response.data;
     } catch (axiosError) {
       console.error(
@@ -169,16 +184,27 @@ export const apiRequest = async (
         window.location.href = "/login";
       }
 
-      // Propager l'erreur avec les détails
-      const errorMessage =
-        axiosError.response.data.message || "Une erreur est survenue";
-      const errorDetails = axiosError.response.data.details || "";
+      // Propager l'erreur avec les détails selon la nouvelle structure de réponse
+      let errorMessage = "Une erreur est survenue";
+      let errorDetails = "";
+
+      if (axiosError.response.data) {
+        if (typeof axiosError.response.data === "object") {
+          // Nouvelle structure { success: false, message: "..." }
+          errorMessage = axiosError.response.data.message || errorMessage;
+          errorDetails = axiosError.response.data.error || "";
+        } else if (typeof axiosError.response.data === "string") {
+          errorMessage = axiosError.response.data;
+        }
+      }
+
       console.error(`[apiRequest] Message d'erreur:`, errorMessage);
       console.error(`[apiRequest] Détails d'erreur:`, errorDetails);
 
       const error = new Error(errorMessage);
       error.details = errorDetails;
       error.status = axiosError.response.status;
+      error.success = false;
       throw error;
     }
   } catch (error) {
@@ -193,9 +219,18 @@ export const apiRequest = async (
 export const handleApiError = (error) => {
   if (error.response) {
     const { status, data } = error.response;
+
+    // Extraire le message d'erreur selon la nouvelle structure
+    let errorMessage = "Une erreur est survenue";
+    if (data && typeof data === "object" && "message" in data) {
+      errorMessage = data.message;
+    } else if (data && typeof data === "string") {
+      errorMessage = data;
+    }
+
     switch (status) {
       case 400:
-        return data.message || "Requête invalide";
+        return errorMessage || "Requête invalide";
       case 401:
         return "Non autorisé - Veuillez vous reconnecter";
       case 403:
@@ -211,15 +246,103 @@ export const handleApiError = (error) => {
       case 500:
         return "Erreur serveur - Veuillez réessayer plus tard";
       default:
-        return `Erreur ${status} - ${
-          data.message || "Une erreur est survenue"
-        }`;
+        return `Erreur ${status} - ${errorMessage}`;
     }
   }
   if (error.request) {
     return "Impossible de contacter le serveur";
   }
   return error.message || "Une erreur est survenue";
+};
+
+/**
+ * Fonction utilitaire pour normaliser les réponses API
+ * Permet de garantir une structure de données cohérente quelle que soit la version de l'API
+ * @param {object} response - Réponse brute de l'API
+ * @returns {object} - Réponse normalisée avec success, message, data
+ */
+export const normalizeApiResponse = (response) => {
+  if (!response) {
+    return { success: false, message: "Réponse vide", data: null };
+  }
+
+  // Si c'est déjà un format normalisé
+  if (typeof response === "object" && "success" in response) {
+    return {
+      success: response.success,
+      message: response.message || "",
+      data: response.data || null,
+      ...response, // Garder les autres propriétés éventuelles
+    };
+  }
+
+  // Si c'est une structure issue de l'ancienne API où les données sont directement retournées
+  if (typeof response === "object") {
+    // Si c'est un tableau, on considère que ce sont directement les données
+    if (Array.isArray(response)) {
+      return {
+        success: true,
+        message: "Données récupérées avec succès",
+        data: response,
+      };
+    }
+
+    // Si c'est un objet mais pas au format attendu
+    return {
+      success: true,
+      message: "Données récupérées avec succès",
+      data: response,
+    };
+  }
+
+  // Cas improbable mais on gère quand même
+  return {
+    success: true,
+    message: "Données récupérées",
+    data: response,
+  };
+};
+
+/**
+ * Fonction utilitaire pour gérer les erreurs API de manière uniforme
+ * @param {Error} error - Erreur capturée
+ * @returns {object} - Objet d'erreur normalisé
+ */
+export const normalizeApiError = (error) => {
+  let errorMessage = error.message || "Une erreur est survenue";
+  let errorData = null;
+
+  // Si l'erreur contient une réponse (erreur HTTP)
+  if (error.response) {
+    const { status, data } = error.response;
+
+    // Extraire le message selon la structure
+    if (data) {
+      if (typeof data === "object" && "message" in data) {
+        errorMessage = data.message;
+        errorData = data.error || data.data || null;
+      } else if (typeof data === "string") {
+        errorMessage = data;
+      }
+    }
+
+    return {
+      success: false,
+      message: errorMessage,
+      status: status,
+      data: errorData,
+      error: true,
+    };
+  }
+
+  // Erreur réseau ou autre
+  return {
+    success: false,
+    message: errorMessage,
+    data: null,
+    error: true,
+    network: !error.response,
+  };
 };
 
 export default apiRequest;
