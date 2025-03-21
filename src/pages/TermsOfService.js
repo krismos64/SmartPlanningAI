@@ -61,6 +61,7 @@ const PageContainer = styled.div`
   color: ${({ theme }) => theme.colors.text.primary};
   animation: ${fadeIn} 0.5s ease-in-out;
   transition: background-color 0.3s ease, color 0.3s ease;
+  margin-top: -64px; /* Compenser la hauteur de la navbar */
 `;
 
 const Header = styled.header`
@@ -73,6 +74,7 @@ const Header = styled.header`
   position: sticky;
   top: 0;
   z-index: 100;
+  margin-top: 64px; /* Ajouter un margin pour compenser le margin-top négatif du container */
 
   @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
     padding: ${({ theme }) => theme.spacing.md};

@@ -95,6 +95,7 @@ const LandingContainer = styled.div`
   animation: ${fadeIn} 0.5s ease-in-out;
   transition: background-color 0.3s ease, color 0.3s ease;
   overflow-x: hidden;
+  margin-top: -64px;
 `;
 
 const Header = styled.header`
@@ -107,6 +108,7 @@ const Header = styled.header`
   position: sticky;
   top: 0;
   z-index: 100;
+  margin-top: 64px;
 
   @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
     padding: ${({ theme }) => theme.spacing.md};
