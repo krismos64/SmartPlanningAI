@@ -1,4 +1,3 @@
-import Lottie from "lottie-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -7,6 +6,7 @@ import planningAnimation from "../../assets/animations/planning-animation.json";
 import { useTheme } from "../../components/ThemeProvider";
 import { useAuth } from "../../contexts/AuthContext";
 import LanguageSelector from "../LanguageSelector";
+import EnhancedLottie from "../ui/EnhancedLottie";
 import NotificationCenter from "../ui/NotificationCenter";
 import { useRealTimeNotifications } from "../ui/RealTimeNotification";
 
@@ -827,7 +827,7 @@ const Navbar = () => {
     <NavbarContainer>
       <Logo to="/" onClick={closeMobileMenu}>
         <LogoAnimation>
-          <Lottie animationData={planningAnimation} loop={true} />
+          <EnhancedLottie animationData={planningAnimation} loop={true} />
         </LogoAnimation>
         SmartPlanning AI
       </Logo>

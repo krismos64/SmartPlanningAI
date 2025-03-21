@@ -1,4 +1,3 @@
-import Lottie from "lottie-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
@@ -7,6 +6,7 @@ import EmployeeCard from "../components/employees/EmployeeCard";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import HourBalanceManager from "../components/employees/HourBalanceManager";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
+import EnhancedLottie from "../components/ui/EnhancedLottie";
 import { FormSelect } from "../components/ui/Form";
 import { useNotification } from "../components/ui/Notification";
 import { EMPLOYEE_STATUSES, EMPLOYEE_TABLE_COLUMNS } from "../config/constants";
@@ -431,11 +431,12 @@ const Employees = () => {
       <PageHeader>
         <HeaderLeft>
           <AnimationContainer>
-            <Lottie
+            <EnhancedLottie
               animationData={employeesAnimation}
               loop={true}
               autoplay={true}
-              style={{ width: 80, height: 80 }}
+              width={80}
+              height={80}
               rendererSettings={{
                 preserveAspectRatio: "xMidYMid slice",
               }}

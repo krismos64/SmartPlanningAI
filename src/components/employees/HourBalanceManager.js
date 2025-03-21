@@ -244,6 +244,7 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
           entity_type: "employee",
           entity_id: employeeId,
           description: description,
+          user_id: user?.id,
           details: {
             userName,
             employeeName,

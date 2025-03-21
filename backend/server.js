@@ -273,7 +273,13 @@ app.use("/api/auth", applyCsrfProtection, authRoutes);
 app.use("/api/employees", secureAuth, employeesRoutes);
 app.use("/api/vacations", secureAuth, vacationRequestsRoutes);
 app.use("/api/weekly-schedules", secureAuth, weeklySchedulesRoutes);
+
+// Utiliser le routeur de test pour les activités (sans authentification)
+app.use("/api/activities/test", activitiesRoutes.testRouter);
+
+// Protéger les autres routes des activités
 app.use("/api/activities", secureAuth, activitiesRoutes);
+
 app.use("/api/schedule-stats", secureAuth, scheduleStatsRoutes);
 app.use("/api/work-hours", secureAuth, workHoursRoutes);
 app.use("/api/hour-balance", secureAuth, hourBalanceRoutes);

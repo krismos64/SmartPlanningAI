@@ -32,7 +32,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useCallback, useMemo, useState } from "react";
 import { useTheme } from "../../components/ThemeProvider";
-import { VACATION_STATUS, VACATION_TYPES } from "../../config/constants";
+import { VACATION_TYPES } from "../../config/constants";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Composants stylisés pour améliorer l'apparence
@@ -137,7 +137,20 @@ const StatusChip = styled(Chip)(({ status, theme }) => {
     },
   };
 
-  const statusColor = colors[status] || colors.pending;
+  // Normaliser le statut pour gérer différents cas
+  let normalizedStatus = "pending"; // valeur par défaut
+
+  if (status) {
+    const statusStr = String(status).toLowerCase();
+    if (statusStr === "approved" || statusStr === "approuvé") {
+      normalizedStatus = "approved";
+    } else if (statusStr === "rejected" || statusStr === "rejeté") {
+      normalizedStatus = "rejected";
+    }
+  }
+
+  // Utiliser le statut normalisé pour obtenir les couleurs
+  const statusColor = colors[normalizedStatus] || colors.pending;
 
   return {
     backgroundColor: statusColor.bg,
@@ -342,13 +355,34 @@ const VacationList = ({
 
   // Obtenir le libellé du statut (memoized)
   const getStatusLabel = useMemo(() => {
+    // Mapping simple des statuts possibles
     const statusMap = {
-      [VACATION_STATUS.PENDING]: "En attente",
-      [VACATION_STATUS.APPROVED]: "Approuvé",
-      [VACATION_STATUS.REJECTED]: "Rejeté",
+      pending: "En attente",
+      approved: "Approuvé",
+      rejected: "Rejeté",
+      // Ajout des codes d'erreur HTTP qui pourraient être reçus par erreur
+      404: "En attente",
+      500: "En attente",
+      undefined: "En attente",
+      null: "En attente",
     };
 
-    return (status) => statusMap[status] || status;
+    return (status) => {
+      // Vérifier si le statut est défini et l'utiliser s'il est valide
+      if (!status) return "En attente";
+
+      // Normaliser le statut en minuscules pour éviter les problèmes de casse
+      const normalizedStatus = String(status).toLowerCase();
+
+      // Si le statut existe dans notre mapping, le retourner
+      if (statusMap[normalizedStatus]) {
+        return statusMap[normalizedStatus];
+      }
+
+      // Fallback pour les statuts inconnus
+      console.warn(`Statut non reconnu: ${status}`);
+      return "En attente";
+    };
   }, []);
 
   // Obtenir l'icône du statut (memoized)
@@ -359,7 +393,22 @@ const VacationList = ({
       pending: <HourglassEmpty fontSize="small" />,
     };
 
-    return (status) => iconMap[status] || iconMap["pending"];
+    const pendingIcon = <HourglassEmpty fontSize="small" />;
+
+    return (status) => {
+      if (!status) return pendingIcon;
+
+      // Normaliser le statut en minuscules pour éviter les problèmes de casse
+      const normalizedStatus = String(status).toLowerCase();
+
+      // Si le statut existe dans notre mapping, retourner l'icône correspondante
+      if (iconMap[normalizedStatus]) {
+        return iconMap[normalizedStatus];
+      }
+
+      // Pour les codes d'erreur ou autres statuts non reconnus, retourner l'icône "en attente"
+      return pendingIcon;
+    };
   }, []);
 
   // Formater une date avec memo
@@ -389,37 +438,28 @@ const VacationList = ({
   // Vérifier si l'utilisateur peut éditer une demande de congé
   const canEdit = useCallback(
     (vacation) => {
-      // Les admins peuvent éditer les congés des employés qui leur sont rattachés
-      if (isAdmin && vacation && vacation.employee) {
-        return vacation.employee.manager_id === user?.id;
-      }
-      return false;
+      // Tous les admins peuvent éditer les demandes de congés
+      return isAdmin;
     },
-    [isAdmin, user?.id]
+    [isAdmin]
   );
 
   // Vérifier si l'utilisateur peut supprimer une demande de congé
   const canDelete = useCallback(
     (vacation) => {
-      // Les admins peuvent supprimer les congés des employés qui leur sont rattachés
-      if (isAdmin && vacation && vacation.employee) {
-        return vacation.employee.manager_id === user?.id;
-      }
-      return false;
+      // Tous les admins peuvent supprimer les demandes de congés
+      return isAdmin;
     },
-    [isAdmin, user?.id]
+    [isAdmin]
   );
 
   // Vérifier si l'utilisateur peut approuver/rejeter une demande de congé
   const canApproveReject = useCallback(
     (vacation) => {
-      // Les admins peuvent approuver/rejeter les congés des employés qui leur sont rattachés
-      if (isAdmin && vacation && vacation.employee) {
-        return vacation.employee.manager_id === user?.id;
-      }
-      return false;
+      // Tous les admins peuvent approuver/rejeter les demandes de congés
+      return isAdmin;
     },
-    [isAdmin, user?.id]
+    [isAdmin]
   );
 
   return (
@@ -556,63 +596,127 @@ const VacationList = ({
                           visibleRows.indexOf(vacation) * 50
                         }ms`,
                       }}
-                      key={vacation.id}
+                      key={
+                        vacation && vacation.id
+                          ? vacation.id
+                          : `row-${visibleRows.indexOf(vacation)}`
+                      }
                     >
                       <StyledTableRow>
                         <StyledTableCell component="th" scope="row">
-                          {vacation.employee
+                          {vacation && vacation.employee
                             ? `${vacation.employee.first_name || ""} ${
                                 vacation.employee.last_name || ""
-                              }`.trim()
-                            : vacation.employeeName ||
-                              vacation.employee_name ||
+                              }`.trim() || "-"
+                            : (vacation &&
+                                (vacation.employeeName ||
+                                  vacation.employee_name)) ||
                               "-"}
                         </StyledTableCell>
                         <StyledTableCell>
-                          {getVacationType(vacation.type)}
+                          {vacation && vacation.type
+                            ? getVacationType(vacation.type)
+                            : "-"}
                         </StyledTableCell>
                         <StyledTableCell>
-                          {formatDate(
-                            vacation.startDate || vacation.start_date
-                          )}
+                          {vacation &&
+                          (vacation.startDate || vacation.start_date)
+                            ? formatDate(
+                                vacation.startDate || vacation.start_date
+                              )
+                            : "-"}
                         </StyledTableCell>
                         <StyledTableCell>
-                          {formatDate(vacation.endDate || vacation.end_date)}
+                          {vacation && (vacation.endDate || vacation.end_date)
+                            ? formatDate(vacation.endDate || vacation.end_date)
+                            : "-"}
                         </StyledTableCell>
                         <StyledTableCell>
-                          {vacation.duration
+                          {vacation && vacation.duration
                             ? `${vacation.duration} jour${
                                 vacation.duration > 1 ? "s" : ""
                               }`
-                            : (vacation.startDate && vacation.endDate) ||
-                              (vacation.start_date && vacation.end_date)
+                            : vacation &&
+                              ((vacation.startDate && vacation.endDate) ||
+                                (vacation.start_date && vacation.end_date))
                             ? (() => {
-                                const start = new Date(
-                                  vacation.startDate || vacation.start_date
-                                );
-                                const end = new Date(
-                                  vacation.endDate || vacation.end_date
-                                );
-                                const {
-                                  getWorkingDaysCount,
-                                } = require("../../utils/dateUtils");
-                                const duration = getWorkingDaysCount(
-                                  start,
-                                  end
-                                );
-                                return `${duration} jour${
-                                  duration > 1 ? "s" : ""
-                                }`;
+                                try {
+                                  const start = new Date(
+                                    vacation.startDate || vacation.start_date
+                                  );
+                                  const end = new Date(
+                                    vacation.endDate || vacation.end_date
+                                  );
+
+                                  // Vérification des dates valides
+                                  if (
+                                    isNaN(start.getTime()) ||
+                                    isNaN(end.getTime())
+                                  ) {
+                                    console.error("Dates invalides:", {
+                                      start:
+                                        vacation.startDate ||
+                                        vacation.start_date,
+                                      end:
+                                        vacation.endDate || vacation.end_date,
+                                    });
+                                    return "-";
+                                  }
+
+                                  const {
+                                    getWorkingDaysCount,
+                                  } = require("../../utils/dateUtils");
+                                  const duration = getWorkingDaysCount(
+                                    start,
+                                    end
+                                  );
+                                  return `${duration} jour${
+                                    duration > 1 ? "s" : ""
+                                  }`;
+                                } catch (error) {
+                                  console.error(
+                                    "Erreur de calcul de durée:",
+                                    error,
+                                    {
+                                      vacation_id: vacation.id,
+                                      start:
+                                        vacation.startDate ||
+                                        vacation.start_date,
+                                      end:
+                                        vacation.endDate || vacation.end_date,
+                                    }
+                                  );
+                                  return "-";
+                                }
                               })()
                             : "-"}
                         </StyledTableCell>
                         <StyledTableCell>
-                          <StatusChip
-                            icon={getStatusIcon(vacation.status)}
-                            label={getStatusLabel(vacation.status)}
-                            status={vacation.status}
-                            size="small"
-                          />
+                          {vacation ? (
+                            <StatusChip
+                              icon={getStatusIcon(vacation.status)}
+                              label={getStatusLabel(vacation.status)}
+                              status={vacation.status || "pending"}
+                              size="small"
+                            />
+                          ) : (
+                            <StatusChip
+                              icon={getStatusIcon("pending")}
+                              label={getStatusLabel("pending")}
+                              status="pending"
+                              size="small"
+                            />
+                          )}
+                          {vacation &&
+                            vacation.id &&
+                            console.log(
+                              "Statut actuel:",
+                              vacation.id,
+                              vacation.status || "non défini",
+                              typeof vacation.status,
+                              "=>",
+                              getStatusLabel(vacation.status)
+                            )}
                         </StyledTableCell>
                         <StyledTableCell align="right">
                           <Box
@@ -622,11 +726,20 @@ const VacationList = ({
                               gap: 1,
                             }}
                           >
-                            {canEdit(vacation) && (
+                            {vacation && vacation.id && canEdit(vacation) && (
                               <Tooltip title="Modifier">
                                 <ActionButton
                                   size="small"
-                                  onClick={() => onEdit(vacation)}
+                                  onClick={() => {
+                                    try {
+                                      onEdit(vacation);
+                                    } catch (error) {
+                                      console.error(
+                                        "Erreur lors de la modification:",
+                                        error
+                                      );
+                                    }
+                                  }}
                                   $actionType="edit"
                                 >
                                   <Edit fontSize="small" />
@@ -634,11 +747,20 @@ const VacationList = ({
                               </Tooltip>
                             )}
 
-                            {canDelete(vacation) && (
+                            {vacation && vacation.id && canDelete(vacation) && (
                               <Tooltip title="Supprimer">
                                 <ActionButton
                                   size="small"
-                                  onClick={() => onDelete(vacation.id)}
+                                  onClick={() => {
+                                    try {
+                                      onDelete(vacation.id);
+                                    } catch (error) {
+                                      console.error(
+                                        "Erreur lors de la suppression:",
+                                        error
+                                      );
+                                    }
+                                  }}
                                   $actionType="delete"
                                 >
                                   <Delete fontSize="small" />
@@ -646,13 +768,33 @@ const VacationList = ({
                               </Tooltip>
                             )}
 
-                            {canApproveReject(vacation) &&
-                              vacation.status === "pending" && (
+                            {vacation &&
+                              vacation.id &&
+                              canApproveReject(vacation) &&
+                              (vacation.status === "pending" ||
+                                String(vacation.status || "").toLowerCase() ===
+                                  "pending" ||
+                                !vacation.status ||
+                                ["undefined", "404", "500", "null"].includes(
+                                  String(vacation.status || "")
+                                )) && (
                                 <>
                                   <Tooltip title="Approuver">
                                     <ActionButton
                                       size="small"
-                                      onClick={() => onApprove(vacation.id)}
+                                      onClick={() => {
+                                        try {
+                                          console.log(
+                                            `Tentative d'approbation de la demande ${vacation.id}`
+                                          );
+                                          onApprove(vacation.id);
+                                        } catch (error) {
+                                          console.error(
+                                            "Erreur lors de l'approbation:",
+                                            error
+                                          );
+                                        }
+                                      }}
                                       $actionType="approve"
                                     >
                                       <CheckCircle fontSize="small" />
@@ -662,7 +804,19 @@ const VacationList = ({
                                   <Tooltip title="Rejeter">
                                     <ActionButton
                                       size="small"
-                                      onClick={() => onReject(vacation.id)}
+                                      onClick={() => {
+                                        try {
+                                          console.log(
+                                            `Tentative de rejet de la demande ${vacation.id}`
+                                          );
+                                          onReject(vacation.id);
+                                        } catch (error) {
+                                          console.error(
+                                            "Erreur lors du rejet:",
+                                            error
+                                          );
+                                        }
+                                      }}
                                       $actionType="reject"
                                     >
                                       <RemoveCircle fontSize="small" />

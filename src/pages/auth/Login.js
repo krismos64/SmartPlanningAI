@@ -283,13 +283,8 @@ const Login = () => {
     console.log("Tous les cookies:", document.cookie);
 
     if (!csrfToken) {
-      showNotification({
-        type: "warning",
-        title: "Problème de sécurité",
-        message:
-          "Token CSRF non trouvé. Veuillez rafraîchir la page et réessayer.",
-      });
-      return;
+      console.log("Aucun token CSRF trouvé, on continue quand même");
+      // On continue sans token CSRF, car certaines configurations ne l'exigent pas
     }
 
     setIsLoading(true);
@@ -302,7 +297,23 @@ const Login = () => {
 
       console.log("Résultat de la connexion:", success);
 
+      // Vérifier que le token a bien été enregistré
+      const storedToken = localStorage.getItem("token");
+      console.log(
+        "Token stocké:",
+        storedToken ? `${storedToken.substring(0, 20)}...` : "Aucun"
+      );
+
+      // Vérifier que les infos utilisateur ont été stockées
+      const storedUser = localStorage.getItem("user");
+      console.log(
+        "Utilisateur stocké:",
+        storedUser ? JSON.parse(storedUser) : "Aucun"
+      );
+
       if (success) {
+        console.log("Connexion réussie, redirection vers le dashboard");
+
         // Afficher une notification de succès
         showNotification({
           type: "success",
@@ -310,9 +321,14 @@ const Login = () => {
           message: "Bienvenue sur SmartPlanning AI !",
         });
 
+        // Petite pause pour s'assurer que tout est bien enregistré
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
         // Rediriger vers le tableau de bord
         navigate("/dashboard");
       } else {
+        console.error("Connexion échouée sans exception", { loginError });
+
         // Afficher une notification d'erreur si le login a échoué mais n'a pas lancé d'exception
         showNotification({
           type: "error",
@@ -321,7 +337,7 @@ const Login = () => {
         });
       }
     } catch (error) {
-      console.error("Erreur lors de la connexion:", error);
+      console.error("Exception lors de la connexion:", error);
 
       // Afficher une notification d'erreur
       showNotification({

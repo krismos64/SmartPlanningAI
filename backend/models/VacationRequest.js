@@ -36,6 +36,7 @@ class VacationRequest {
     this.id = data.id;
     this.employee_id = data.employee_id;
     this.employee_name = data.employee_name;
+    this.creator_id = data.creator_id; // Identifiant de l'utilisateur qui a créé la demande
     this.type = data.type || "paid"; // Type de congé (paid, unpaid, sick, rtt, exceptional, recovery)
     this.start_date = data.start_date;
     this.end_date = data.end_date;
@@ -61,13 +62,28 @@ class VacationRequest {
                a.first_name as approver_first_name, 
                a.last_name as approver_last_name,
                r.first_name as rejecter_first_name, 
-               r.last_name as rejecter_last_name
+               r.last_name as rejecter_last_name,
+               cr.id as creator_id_check,
+               cr.email as creator_email
         FROM vacation_requests vr
         LEFT JOIN employees e ON vr.employee_id = e.id
         LEFT JOIN users a ON vr.approved_by = a.id
         LEFT JOIN users r ON vr.rejected_by = r.id
+        LEFT JOIN users cr ON vr.creator_id = cr.id
         ORDER BY vr.created_at DESC
       `);
+
+      console.log(
+        "VacationRequest.find() - Résultats bruts:",
+        rows.map((r) => ({
+          id: r.id,
+          employee_id: r.employee_id,
+          creator_id: r.creator_id,
+          creator_id_check: r.creator_id_check,
+          creator_email: r.creator_email,
+        }))
+      );
+
       return rows.map((row) => {
         const request = new VacationRequest(row);
         // Ajouter des noms complets pour les approbateurs/rejeteurs
@@ -79,6 +95,17 @@ class VacationRequest {
           request.rejecter_name =
             `${row.rejecter_first_name} ${row.rejecter_last_name}`.trim();
         }
+
+        // Pour le debugging, ajouter les informations du créateur
+        if (row.creator_email) {
+          request.creator_email = row.creator_email;
+        }
+
+        // S'assurer que creator_id est un nombre
+        if (request.creator_id) {
+          request.creator_id = Number(request.creator_id);
+        }
+
         return request;
       });
     } catch (error) {
@@ -558,20 +585,107 @@ class VacationRequest {
    */
   static async create(data) {
     try {
-      console.log(
-        "Création d'une nouvelle demande de congé avec les données:",
-        data
+      console.log("VacationRequest.create - Données reçues:", data);
+
+      // Vérifier si l'employé existe
+      const [employeeCheck] = await connectDB.execute(
+        "SELECT id FROM employees WHERE id = ?",
+        [data.employee_id]
       );
 
-      const vacationRequest = new VacationRequest(data);
-      await vacationRequest.save();
+      if (employeeCheck.length === 0) {
+        console.error(
+          `L'employé avec l'ID ${data.employee_id} n'existe pas dans la base de données`
+        );
+        return {
+          success: false,
+          message: "L'employé spécifié n'existe pas",
+        };
+      }
 
-      return {
-        success: true,
-        id: vacationRequest.id,
-        message: "Demande de congé créée avec succès",
-        vacationRequest,
-      };
+      // Calculer la durée en jours ouvrés si elle n'est pas spécifiée
+      if (!data.duration) {
+        data.duration = getWorkingDaysCount(data.start_date, data.end_date);
+      }
+
+      // Construire la requête d'insertion
+      let query = "INSERT INTO vacation_requests (";
+      let placeholders = "";
+      let values = [];
+      let fields = [];
+
+      // Ajouter chaque champ valide à l'insertion
+      if (data.employee_id) {
+        fields.push("employee_id");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.employee_id);
+      }
+
+      if (data.creator_id) {
+        fields.push("creator_id");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.creator_id);
+      }
+
+      if (data.start_date) {
+        fields.push("start_date");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.start_date);
+      }
+
+      if (data.end_date) {
+        fields.push("end_date");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.end_date);
+      }
+
+      if (data.duration) {
+        fields.push("duration");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.duration);
+      }
+
+      if (data.type) {
+        fields.push("type");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.type);
+      }
+
+      if (data.reason) {
+        fields.push("reason");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.reason);
+      }
+
+      if (data.status) {
+        fields.push("status");
+        placeholders += placeholders ? ", ?" : "?";
+        values.push(data.status);
+      }
+
+      // Compléter la requête
+      query += fields.join(", ") + ") VALUES (" + placeholders + ")";
+
+      console.log("Requête SQL:", query);
+      console.log("Valeurs:", values);
+
+      // Exécuter la requête
+      const [result] = await connectDB.execute(query, values);
+
+      if (result.insertId) {
+        console.log(`Demande de congé créée avec l'ID ${result.insertId}`);
+        return {
+          success: true,
+          message: "Demande de congé créée avec succès",
+          id: result.insertId,
+        };
+      } else {
+        console.error("Échec de la création de la demande de congé:", result);
+        return {
+          success: false,
+          message: "Échec de la création de la demande de congé",
+        };
+      }
     } catch (error) {
       console.error(
         "Erreur lors de la création de la demande de congé:",
@@ -579,8 +693,7 @@ class VacationRequest {
       );
       return {
         success: false,
-        message:
-          error.message || "Erreur lors de la création de la demande de congé",
+        message: `Erreur lors de la création de la demande de congé: ${error.message}`,
       };
     }
   }

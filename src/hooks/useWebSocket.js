@@ -1,85 +1,144 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 /**
- * Hook personnalisé pour gérer une connexion WebSocket - DÉSACTIVÉ pour des raisons de performance
- * Cette version retourne uniquement des méthodes factices pour maintenir la compatibilité
- * tout en désactivant la fonctionnalité WebSocket qui ralentit l'application
- *
- * @returns {Object} - Objet contenant des fonctions factices
+ * Hook pour gérer les connexions WebSocket
+ * @returns {Object} État et méthodes liés au WebSocket
  */
 const useWebSocket = () => {
-  console.log(
-    "useWebSocket: Connexion WebSocket désactivée pour améliorer les performances"
-  );
+  const [socket, setSocket] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [fallbackMode, setFallbackMode] = useState(false);
+  const { user } = useAuth();
 
-  // Fonction factice pour envoyer un message
-  const sendMessage = useCallback(() => {
-    console.log("WebSocket désactivé: sendMessage n'a aucun effet");
-    return Promise.resolve(null);
-  }, []);
-
-  // Fonction factice pour se connecter
-  const connect = useCallback(() => {
-    console.log("WebSocket désactivé: connect n'a aucun effet");
+  // Note: Cette version est une simulation simplifiée pour le développement
+  // Dans votre version réelle, vous devrez connecter à un vrai serveur WebSocket
+  const connectWebSocket = useCallback(() => {
+    console.log(
+      "useWebSocket: Connexion WebSocket désactivée pour améliorer les performances"
+    );
+    setFallbackMode(true);
     return null;
   }, []);
 
-  // Fonction factice pour se déconnecter
-  const disconnect = useCallback(() => {
-    console.log("WebSocket désactivé: disconnect n'a aucun effet");
-  }, []);
-
-  // Fonction factice pour ajouter un écouteur d'événements
-  const addMessageListener = useCallback(() => {
-    console.log("WebSocket désactivé: addMessageListener n'a aucun effet");
-    // Retourner une fonction de nettoyage factice pour maintenir la compatibilité
-    return () => {};
-  }, []);
-
-  // Fonction factice pour demander les activités
+  // Demander une mise à jour des activités
   const requestActivitiesUpdate = useCallback(() => {
-    console.log("WebSocket désactivé: requestActivitiesUpdate n'a aucun effet");
-    return false;
-  }, []);
+    if (socket) {
+      socket.send(
+        JSON.stringify({
+          type: "REQUEST_ACTIVITIES_UPDATE",
+        })
+      );
+    } else {
+      console.log(
+        "WebSocket non connecté, impossible de demander une mise à jour des activités"
+      );
+    }
+  }, [socket]);
 
-  // Fonction factice pour notifier les changements de données
-  const notifyDataChange = useCallback(() => {
-    console.log("WebSocket désactivé: notifyDataChange n'a aucun effet");
-    return false;
-  }, []);
+  // Filtrer les activités pour n'afficher que celles liées à l'utilisateur connecté
+  const filterActivitiesByUser = useCallback(
+    (activitiesList) => {
+      if (!user || !user.id) return [];
 
-  // Fonction factice pour effacer les messages
-  const clearMessages = useCallback(() => {
-    console.log("WebSocket désactivé: clearMessages n'a aucun effet");
-  }, []);
+      return activitiesList.filter((activity) => {
+        // Si l'activité a un user_id, vérifier qu'il correspond à l'utilisateur connecté
+        if (activity.user_id) {
+          return activity.user_id.toString() === user.id.toString();
+        }
 
-  // Fonction factice pour réinitialiser le mode de secours
-  const resetFallbackMode = useCallback(() => {
-    console.log("WebSocket désactivé: resetFallbackMode n'a aucun effet");
-  }, []);
+        // Si l'activité a des détails avec created_by_id ou deleted_by_id, vérifier la correspondance
+        if (activity.details) {
+          const details =
+            typeof activity.details === "string"
+              ? JSON.parse(activity.details)
+              : activity.details;
 
-  // Fonction factice pour activer le mode de secours
-  const activateFallbackMode = useCallback(() => {
-    console.log("WebSocket désactivé: activateFallbackMode n'a aucun effet");
-  }, []);
+          if (details.created_by_id) {
+            return details.created_by_id.toString() === user.id.toString();
+          }
 
-  // Retourner l'interface du hook avec des fonctions factices
+          if (details.deleted_by_id) {
+            return details.deleted_by_id.toString() === user.id.toString();
+          }
+        }
+
+        // Par défaut, ne pas inclure les activités sans attribution claire
+        return false;
+      });
+    },
+    [user]
+  );
+
+  // Gérer les événements WebSocket
+  const handleWebSocketMessage = useCallback(
+    (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        switch (data.type) {
+          case "ACTIVITIES_UPDATE":
+            if (data.activities && Array.isArray(data.activities)) {
+              // Filtrer les activités pour n'afficher que celles de l'utilisateur connecté
+              const filteredActivities = filterActivitiesByUser(
+                data.activities
+              );
+              setActivities(filteredActivities);
+            }
+            break;
+          case "NEW_ACTIVITY":
+            if (data.activity) {
+              // Vérifier si l'activité est liée à l'utilisateur connecté
+              const isUserActivity =
+                filterActivitiesByUser([data.activity]).length > 0;
+
+              if (isUserActivity) {
+                setActivities((prevActivities) => [
+                  data.activity,
+                  ...prevActivities,
+                ]);
+              }
+            }
+            break;
+          case "NEW_NOTIFICATION":
+            if (data.notification) {
+              setNotifications((prevNotifications) => [
+                data.notification,
+                ...prevNotifications,
+              ]);
+            }
+            break;
+          default:
+            console.log("Type de message WebSocket inconnu:", data.type);
+        }
+      } catch (error) {
+        console.error("Erreur lors du traitement du message WebSocket:", error);
+      }
+    },
+    [filterActivitiesByUser]
+  );
+
+  // Connecter au WebSocket au montage du composant
+  useEffect(() => {
+    const newSocket = connectWebSocket();
+    if (newSocket) {
+      newSocket.addEventListener("message", handleWebSocketMessage);
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.removeEventListener("message", handleWebSocketMessage);
+        newSocket.close();
+      };
+    }
+  }, [connectWebSocket, handleWebSocketMessage]);
+
   return {
-    socket: null,
-    isConnected: false,
-    fallbackMode: true,
-    messages: [],
-    activities: [],
-    sendMessage,
-    connect,
-    disconnect,
-    addMessageListener,
+    socket,
+    activities,
+    notifications,
     requestActivitiesUpdate,
-    notifyDataChange,
-    clearMessages,
-    resetFallbackMode,
-    activateFallbackMode,
-    setActivities: () => {},
+    fallbackMode,
   };
 };
 

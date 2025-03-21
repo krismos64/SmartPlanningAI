@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import Lottie from "lottie-react";
 import { useEffect, useState } from "react";
 import {
   FiArrowRight,
@@ -14,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import robotAnimation from "../assets/animations/robot.json";
 import RecentActivities from "../components/dashboard/RecentActivities";
+import EnhancedLottie from "../components/ui/EnhancedLottie";
 import SearchBar from "../components/ui/SearchBar";
 import { useAuth } from "../contexts/AuthContext";
 import useEmployees from "../hooks/useEmployees";
@@ -547,7 +547,7 @@ const Dashboard = () => {
       <DashboardHeader>
         <HeaderLeft>
           <AnimationContainer>
-            <Lottie
+            <EnhancedLottie
               animationData={robotAnimation}
               loop={true}
               style={{ width: "100%", height: "100%" }}

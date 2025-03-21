@@ -18,6 +18,7 @@ import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
 import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
 import Button from "../components/ui/Button";
 import Card, { CardContent, CardHeader } from "../components/ui/Card";
+import EnhancedLottie from "../components/ui/EnhancedLottie";
 import { FormInput, FormSelect } from "../components/ui/Form";
 import Spinner from "../components/ui/Spinner";
 import useEmployees from "../hooks/useEmployees";
@@ -34,9 +35,6 @@ import {
   isWeekend,
 } from "../utils/dateUtils";
 import { standardizeScheduleData } from "../utils/scheduleUtils";
-
-// Importer react-lottie avec require pour éviter les problèmes de compatibilité
-const Lottie = require("react-lottie").default;
 
 // Styles
 const ScheduleContainer = styled.div`
@@ -1399,17 +1397,15 @@ const WeeklySchedulePage = () => {
         <ScheduleHeader>
           <HeaderLeft>
             <AnimationContainer>
-              <Lottie
-                options={{
-                  loop: true,
-                  autoplay: true,
-                  animationData: thinkingAnimation,
-                  rendererSettings: {
-                    preserveAspectRatio: "xMidYMid slice",
-                  },
-                }}
+              <EnhancedLottie
+                animationData={thinkingAnimation}
+                loop={true}
+                autoplay={true}
                 height={80}
                 width={80}
+                rendererSettings={{
+                  preserveAspectRatio: "xMidYMid slice",
+                }}
               />
             </AnimationContainer>
             <TitleContainer>

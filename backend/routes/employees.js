@@ -88,15 +88,31 @@ router.post("/", auth, async (req, res) => {
     // Vérifier si global.Activity existe et journaliser l'activité
     if (global.Activity) {
       try {
+        // Obtenir le nom complet de l'utilisateur qui a créé l'employé
+        const userName =
+          req.user.fullName ||
+          `${req.user.first_name || ""} ${req.user.last_name || ""}`.trim() ||
+          `Utilisateur #${req.user.id}`;
+
+        // Obtenir le nom complet de l'employé créé
+        const employeeName =
+          `${employee.first_name} ${employee.last_name}`.trim();
+
+        // Créer une description détaillée incluant qui a créé quel employé
+        const description = `${userName} a créé un nouvel employé : ${employeeName}`;
+
         await global.Activity.logActivity({
           type: "create",
           entity_type: "employee",
           entity_id: employee.id,
-          description: `Création de l'employé ${employee.first_name} ${employee.last_name}`,
+          description: description,
           user_id: req.user.id,
           details: {
             employee_id: employee.id,
-            employee_name: `${employee.first_name} ${employee.last_name}`,
+            employee_name: employeeName,
+            created_by: userName,
+            created_by_id: req.user.id,
+            timestamp: new Date().toISOString(),
           },
         });
         console.log(`Activité de création d'employé journalisée avec succès`);
@@ -213,15 +229,31 @@ router.delete("/:id", auth, async (req, res) => {
     // Journaliser l'activité si global.Activity existe
     if (global.Activity) {
       try {
+        // Obtenir le nom complet de l'utilisateur qui a supprimé l'employé
+        const userName =
+          req.user.fullName ||
+          `${req.user.first_name || ""} ${req.user.last_name || ""}`.trim() ||
+          `Utilisateur #${req.user.id}`;
+
+        // Obtenir le nom complet de l'employé supprimé
+        const employeeName =
+          `${employee.first_name} ${employee.last_name}`.trim();
+
+        // Créer une description détaillée incluant qui a supprimé quel employé
+        const description = `${userName} a supprimé l'employé : ${employeeName}`;
+
         await global.Activity.logActivity({
           type: "delete",
           entity_type: "employee",
           entity_id: employeeId,
-          description: `Suppression de l'employé ${employee.first_name} ${employee.last_name}`,
-          user_id: adminId,
+          description: description,
+          user_id: req.user.id,
           details: {
             employee_id: employeeId,
-            employee_name: `${employee.first_name} ${employee.last_name}`,
+            employee_name: employeeName,
+            deleted_by: userName,
+            deleted_by_id: req.user.id,
+            timestamp: new Date().toISOString(),
           },
         });
         console.log(
@@ -243,6 +275,52 @@ router.delete("/:id", auth, async (req, res) => {
       error
     );
     res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+// Récupérer tous les employés associés à un utilisateur
+router.get("/by-user/:userId", auth, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Vérifier que l'utilisateur a accès à cette information
+    if (req.user.id.toString() !== userId && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas l'autorisation d'accéder à ces données",
+      });
+    }
+
+    // Récupérer les employés associés à cet utilisateur
+    const [rows] = await db.execute(
+      "SELECT id, first_name, last_name, email FROM employees WHERE user_id = ?",
+      [userId]
+    );
+
+    // Si aucun employé n'est trouvé, retourner un tableau vide
+    if (rows.length === 0) {
+      return res.json({
+        success: true,
+        message: "Aucun employé associé à cet utilisateur",
+        data: [],
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Employés récupérés avec succès",
+      data: rows,
+    });
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des employés par utilisateur:",
+      error
+    );
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des employés",
+      error: error.message,
+    });
   }
 });
 

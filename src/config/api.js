@@ -10,6 +10,9 @@ export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
 // Fonction pour vérifier si l'URL est correcte
 console.log("API_URL configurée:", API_URL);
 
+// Constante pour activer/désactiver les logs de débogage API
+export const API_DEBUG = true;
+
 // Fonction utilitaire pour récupérer le token CSRF depuis les cookies
 export const getCsrfToken = () => {
   const cookies = document.cookie.split(";");
@@ -24,6 +27,9 @@ export const getCsrfToken = () => {
 
 // Routes de l'API
 export const API_ENDPOINTS = {
+  LOGIN: "/api/auth/login",
+  REGISTER: "/api/auth/register",
+  LOGOUT: "/api/auth/logout",
   EMPLOYEES: {
     BASE: "/api/employees",
     BY_ID: (id) => `/api/employees/${id}`,
@@ -41,6 +47,11 @@ export const API_ENDPOINTS = {
     BASE: "/api/activities",
     BY_ID: (id) => `/api/activities/${id}`,
     LOG: "/api/activities/log",
+    BY_USER: (userId) => `/api/activities/user/${userId}`,
+    LIST: "/api/activities",
+    CREATE: "/api/activities",
+    UPDATE: (id) => `/api/activities/${id}`,
+    DELETE: (id) => `/api/activities/${id}`,
   },
   WORK_HOURS: {
     BASE: "/api/work-hours",
@@ -86,6 +97,20 @@ export const API_ENDPOINTS = {
 };
 
 /**
+ * Fonction utilitaire pour logger les messages de débogage API
+ * Ne fait rien si API_DEBUG est false
+ */
+export const apiDebug = (message, data = null) => {
+  if (!API_DEBUG) return;
+
+  if (data) {
+    console.log(`[API Debug] ${message}`, data);
+  } else {
+    console.log(`[API Debug] ${message}`);
+  }
+};
+
+/**
  * Fonction pour effectuer des requêtes API
  * @param {string} url - URL de la requête
  * @param {string} method - Méthode HTTP (GET, POST, PUT, DELETE)
@@ -99,16 +124,24 @@ export const apiRequest = async (
   data = null,
   headers = {}
 ) => {
+  apiDebug(`${method} ${url}`, data ? { payload: data } : null);
+
   try {
+    // Vérifier si l'URL est définie
+    if (!url) {
+      console.error("[apiRequest] URL non définie");
+      throw new Error("URL non définie pour la requête API");
+    }
+
     const token = localStorage.getItem("token");
     console.log(
       `[apiRequest] ${method} ${url} - Token:`,
-      token ? "Présent" : "Manquant"
+      token ? `Présent (${token.substring(0, 15)}...)` : "Manquant"
     );
 
     // Ajouter le token CSRF pour les routes d'authentification
     let csrfHeader = {};
-    if (url.startsWith("/api/auth/")) {
+    if (url && url.startsWith("/api/auth/")) {
       const csrfToken = getCsrfToken();
       if (csrfToken) {
         csrfHeader = { "X-CSRF-Token": csrfToken };
@@ -116,6 +149,48 @@ export const apiRequest = async (
       } else {
         console.warn(
           `[apiRequest] Pas de token CSRF trouvé pour la route ${url}`
+        );
+      }
+    }
+
+    console.log(`[apiRequest] Préparation de la requête ${method} vers ${url}`);
+
+    // Vérification plus détaillée du token
+    if (token) {
+      try {
+        // Analyser le JWT pour voir s'il est bien formé
+        const tokenParts = token.split(".");
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          console.log("[apiRequest] Payload du token JWT:", {
+            id: payload.id || "non défini",
+            userId: payload.userId || "non défini",
+            role: payload.role || "non défini",
+            exp: payload.exp
+              ? new Date(payload.exp * 1000).toISOString()
+              : "non défini",
+            iat: payload.iat
+              ? new Date(payload.iat * 1000).toISOString()
+              : "non défini",
+          });
+
+          // Vérifier si le token est expiré
+          if (payload.exp) {
+            const now = Math.floor(Date.now() / 1000);
+            if (payload.exp < now) {
+              console.warn("[apiRequest] Le token JWT est expiré!", {
+                expiration: new Date(payload.exp * 1000).toISOString(),
+                maintenant: new Date(now * 1000).toISOString(),
+              });
+            }
+          }
+        } else {
+          console.warn("[apiRequest] Format de token JWT invalide");
+        }
+      } catch (tokenError) {
+        console.error(
+          "[apiRequest] Erreur lors de l'analyse du token:",
+          tokenError.message
         );
       }
     }
@@ -136,22 +211,49 @@ export const apiRequest = async (
     console.log(`[apiRequest] Configuration:`, {
       method: config.method,
       url: config.url,
-      headers: config.headers,
+      headers: Object.keys(config.headers),
       hasData: !!data,
+      authorization: token
+        ? `Bearer ${token.substring(0, 10)}...`
+        : "Non fourni",
     });
 
     try {
+      console.log(`[apiRequest] Envoi de la requête...`);
       const response = await axios(config);
       console.log(`[apiRequest] Réponse reçue:`, {
         status: response.status,
         statusText: response.statusText,
-        hasData: !!response.data,
+        responseType: typeof response.data,
+        isObject: typeof response.data === "object",
+        properties: response.data ? Object.keys(response.data) : [],
       });
+
+      // Analyse détaillée de la réponse
+      if (response.data) {
+        if (typeof response.data === "object") {
+          console.log("[apiRequest] Structure de la réponse:", {
+            hasSuccess: "success" in response.data,
+            hasData: "data" in response.data,
+            hasMessage: "message" in response.data,
+            successValue:
+              "success" in response.data ? response.data.success : "non défini",
+          });
+        } else {
+          console.log(
+            "[apiRequest] La réponse n'est pas un objet:",
+            typeof response.data
+          );
+        }
+      }
 
       // Adaptation à la nouvelle structure de l'API
       if (response.data && typeof response.data === "object") {
         // Si la réponse a la nouvelle structure { success, message, data }
         if ("success" in response.data && "data" in response.data) {
+          console.log(
+            "[apiRequest] Retour de la réponse au format standardisé"
+          );
           return {
             ...response.data.data,
             success: response.data.success,
@@ -162,6 +264,7 @@ export const apiRequest = async (
         }
       }
 
+      apiDebug(`${method} ${url} - Réponse`, response);
       return response.data;
     } catch (axiosError) {
       console.error(
@@ -205,6 +308,8 @@ export const apiRequest = async (
       error.details = errorDetails;
       error.status = axiosError.response.status;
       error.success = false;
+
+      apiDebug(`${method} ${url} - Erreur`, error);
       throw error;
     }
   } catch (error) {
@@ -212,6 +317,7 @@ export const apiRequest = async (
       `[apiRequest] Erreur lors de la requête ${method} ${url}:`,
       error
     );
+    apiDebug(`${method} ${url} - Erreur`, error);
     throw error;
   }
 };

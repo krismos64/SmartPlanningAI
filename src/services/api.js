@@ -1,5 +1,41 @@
 import { API_ENDPOINTS, API_URL, apiRequest } from "../config/api";
 import { formatDateForAPI } from "../utils/dateUtils";
+import { formatError } from "../utils/errorHandling";
+
+/**
+ * Fonction utilitaire pour normaliser les réponses API
+ * Assure que les réponses ont toujours la structure { success, message, data }
+ * @param {*} response - La réponse à normaliser
+ * @returns {Object} - Réponse normalisée
+ */
+const normalizeResponse = (response) => {
+  // Cas d'erreur
+  if (!response) {
+    return { success: false, message: "Aucune réponse reçue", data: null };
+  }
+
+  // Si la réponse a déjà la structure attendue
+  if (typeof response.success === "boolean") {
+    // S'assurer que le message est une chaîne
+    const message =
+      response.message ||
+      (response.success ? "Opération réussie" : "Erreur lors de l'opération");
+
+    return {
+      success: response.success,
+      message: typeof message === "string" ? message : String(message),
+      data: response.data || null,
+      error: response.error ? formatError(response.error) : null,
+    };
+  }
+
+  // Si la réponse est un objet direct (ancienne API)
+  return {
+    success: true,
+    message: "Opération réussie",
+    data: response,
+  };
+};
 
 export const AuthService = {
   login: async (email, password) => {
@@ -157,16 +193,13 @@ export const EmployeeService = {
   getAll: async () => {
     try {
       const response = await apiRequest(API_ENDPOINTS.EMPLOYEES.BASE, "GET");
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, employees: response };
+      return normalizeResponse(response);
     } catch (error) {
+      console.error("Erreur EmployeeService.getAll:", error);
       return {
         success: false,
-        message: error.message || "Erreur lors de la récupération des employés",
+        error: formatError(error),
+        message: formatError(error),
       };
     }
   },
@@ -177,20 +210,13 @@ export const EmployeeService = {
         API_ENDPOINTS.EMPLOYEES.BY_ID(id),
         "GET"
       );
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return {
-        ...response,
-        first_name: response.first_name,
-        last_name: response.last_name,
-      };
+      return normalizeResponse(response);
     } catch (error) {
+      console.error(`Erreur EmployeeService.getById(${id}):`, error);
       return {
         success: false,
-        message: error.message || "Erreur lors de la récupération de l'employé",
+        error: formatError(error),
+        message: formatError(error),
       };
     }
   },
@@ -261,17 +287,62 @@ export const EmployeeService = {
 export const VacationService = {
   getAll: async () => {
     try {
+      // Ajout de logs détaillés
+      console.log("VacationService.getAll - Début de l'appel API");
+
       const response = await apiRequest(API_ENDPOINTS.VACATIONS, "GET");
 
-      if (response.error) {
-        return { success: false, message: response.error };
+      console.log(
+        "VacationService.getAll - Réponse brute:",
+        typeof response === "object"
+          ? Array.isArray(response)
+            ? `Array[${response.length}]`
+            : JSON.stringify(response).substring(0, 100) + "..."
+          : typeof response
+      );
+
+      // Normalisation spéciale pour les vacations
+      let normalizedResponse = normalizeResponse(response);
+
+      // Vérification supplémentaire des données
+      if (normalizedResponse.success && !normalizedResponse.data) {
+        console.log(
+          "VacationService.getAll - Réponse sans données, tentative de récupération alternative"
+        );
+
+        // Si la réponse n'a pas de données mais que la réponse originale est un tableau
+        if (Array.isArray(response)) {
+          normalizedResponse.data = response;
+        }
+        // Si la réponse a une propriété qui est un tableau
+        else if (typeof response === "object" && response !== null) {
+          const arrayProps = Object.keys(response).filter((key) =>
+            Array.isArray(response[key])
+          );
+          if (arrayProps.length > 0) {
+            normalizedResponse.data = response[arrayProps[0]];
+          }
+        }
       }
 
-      return { success: true, vacations: response };
+      console.log("VacationService.getAll - Réponse normalisée:", {
+        success: normalizedResponse.success,
+        hasData: !!normalizedResponse.data,
+        dataType: normalizedResponse.data
+          ? Array.isArray(normalizedResponse.data)
+            ? `Array[${normalizedResponse.data.length}]`
+            : typeof normalizedResponse.data
+          : "undefined",
+      });
+
+      return normalizedResponse;
     } catch (error) {
+      console.error("Erreur VacationService.getAll:", error);
       return {
         success: false,
-        message: error.message || "Erreur lors de la récupération des congés",
+        error: formatError(error),
+        message: formatError(error),
+        data: [], // Renvoyer un tableau vide pour éviter les erreurs
       };
     }
   },
@@ -282,58 +353,69 @@ export const VacationService = {
         `${API_ENDPOINTS.VACATIONS}/${id}`,
         "GET"
       );
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, vacation: response };
+      return normalizeResponse(response);
     } catch (error) {
+      console.error(`Erreur VacationService.getById(${id}):`, error);
       return {
         success: false,
-        message: error.message || "Erreur lors de la récupération du congé",
+        error: formatError(error),
+        message: formatError(error),
       };
     }
   },
 
   create: async (vacationData) => {
     try {
+      const formattedData = {
+        ...vacationData,
+        start_date: formatDateForAPI(
+          vacationData.startDate || vacationData.start_date
+        ),
+        end_date: formatDateForAPI(
+          vacationData.endDate || vacationData.end_date
+        ),
+      };
+
       const response = await apiRequest(
         API_ENDPOINTS.VACATIONS,
         "POST",
-        vacationData
+        formattedData
       );
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, vacation: response };
+      return normalizeResponse(response);
     } catch (error) {
+      console.error("Erreur VacationService.create:", error);
       return {
         success: false,
-        message: error.message || "Erreur lors de la création du congé",
+        error: formatError(error),
+        message: formatError(error),
       };
     }
   },
 
   update: async (id, vacationData) => {
     try {
+      const formattedData = {
+        ...vacationData,
+        start_date: formatDateForAPI(
+          vacationData.startDate || vacationData.start_date
+        ),
+        end_date: formatDateForAPI(
+          vacationData.endDate || vacationData.end_date
+        ),
+      };
+
       const response = await apiRequest(
         `${API_ENDPOINTS.VACATIONS}/${id}`,
         "PUT",
-        vacationData
+        formattedData
       );
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true, vacation: response };
+      return normalizeResponse(response);
     } catch (error) {
+      console.error(`Erreur VacationService.update(${id}):`, error);
       return {
         success: false,
-        message: error.message || "Erreur lors de la mise à jour du congé",
+        error: formatError(error),
+        message: formatError(error),
       };
     }
   },
@@ -344,16 +426,34 @@ export const VacationService = {
         `${API_ENDPOINTS.VACATIONS}/${id}`,
         "DELETE"
       );
-
-      if (response.error) {
-        return { success: false, message: response.error };
-      }
-
-      return { success: true };
+      return normalizeResponse(response);
     } catch (error) {
+      console.error(`Erreur VacationService.delete(${id}):`, error);
       return {
         success: false,
-        message: error.message || "Erreur lors de la suppression du congé",
+        error: formatError(error),
+        message: formatError(error),
+      };
+    }
+  },
+
+  updateStatus: async (id, status, comment = "") => {
+    try {
+      const response = await apiRequest(
+        `${API_ENDPOINTS.VACATIONS}/${id}/status`,
+        "PUT",
+        { status, comment }
+      );
+      return normalizeResponse(response);
+    } catch (error) {
+      console.error(
+        `Erreur VacationService.updateStatus(${id}, ${status}):`,
+        error
+      );
+      return {
+        success: false,
+        error: formatError(error),
+        message: formatError(error),
       };
     }
   },
@@ -374,6 +474,28 @@ export const ActivityService = {
         success: false,
         message:
           error.message || "Erreur lors de la récupération des activités",
+      };
+    }
+  },
+
+  getByUser: async (userId) => {
+    try {
+      const response = await apiRequest(
+        API_ENDPOINTS.ACTIVITIES.BY_USER(userId),
+        "GET"
+      );
+
+      if (response.error) {
+        return { success: false, message: response.error };
+      }
+
+      return { success: true, activities: response };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error.message ||
+          "Erreur lors de la récupération des activités de l'utilisateur",
       };
     }
   },
@@ -855,6 +977,22 @@ export const NotificationService = {
         error
       );
       throw error;
+    }
+  },
+};
+
+export const UserService = {
+  getAll: async () => {
+    try {
+      const response = await apiRequest("GET", API_ENDPOINTS.USERS);
+      return normalizeResponse(response);
+    } catch (error) {
+      console.error("Erreur UserService.getAll:", error);
+      return {
+        success: false,
+        error: formatError(error),
+        message: formatError(error),
+      };
     }
   },
 };

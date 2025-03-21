@@ -121,6 +121,48 @@ export const AuthProvider = ({ children }) => {
               });
               setUser(parsedUser);
               setIsAuthenticated(true);
+
+              // Récupérer les employés associés à cet utilisateur
+              try {
+                const response = await fetch(
+                  `${API_URL}/api/employees/by-user/${parsedUser.id}`,
+                  {
+                    method: "GET",
+                    headers: {
+                      Authorization: `Bearer ${savedToken}`,
+                    },
+                  }
+                );
+
+                if (response.ok) {
+                  const employeesData = await response.json();
+                  if (
+                    employeesData.success &&
+                    Array.isArray(employeesData.data)
+                  ) {
+                    // Extraire les IDs des employés
+                    const employeeIds = employeesData.data.map((emp) => emp.id);
+                    console.log(
+                      "Employés associés à l'utilisateur:",
+                      employeeIds
+                    );
+                    localStorage.setItem(
+                      "userEmployees",
+                      JSON.stringify(employeeIds)
+                    );
+                  }
+                }
+              } catch (error) {
+                console.error(
+                  "Erreur lors de la récupération des employés associés:",
+                  error
+                );
+                // Fallback - stocker au moins l'ID de l'utilisateur comme employé
+                localStorage.setItem(
+                  "userEmployees",
+                  JSON.stringify([parsedUser.id])
+                );
+              }
             } catch (e) {
               console.error("Erreur lors du parsing de l'utilisateur:", e);
               localStorage.removeItem("user");

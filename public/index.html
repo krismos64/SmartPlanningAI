@@ -29,6 +29,72 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Script de correction des erreurs [object Object] -->
+    <script>
+      // Fonction de formatage des erreurs pour éviter [object Object]
+      window.formatErrorMessage = function (error) {
+        if (!error) return "Erreur inconnue";
+
+        // Si l'erreur est déjà une chaîne
+        if (typeof error === "string") return error;
+
+        // Si l'erreur a une propriété message
+        if (error.message && typeof error.message === "string")
+          return error.message;
+
+        // Si l'erreur a une propriété error
+        if (error.error && typeof error.error === "string") return error.error;
+
+        // Si l'erreur est convertissable en JSON
+        try {
+          return JSON.stringify(error);
+        } catch (e) {
+          return "Erreur non formatée";
+        }
+      };
+
+      // Script pour interception de la fonction handleError
+      // Cette fonction sera remplacée par notre version améliorée
+      (function () {
+        var originalHandleError = window.handleError;
+
+        window.handleError = function (error) {
+          console.log("handleError intercepté:", error);
+
+          var formattedError = window.formatErrorMessage(error);
+
+          if (typeof originalHandleError === "function") {
+            // Appeler la fonction originale avec l'erreur formatée
+            return originalHandleError(formattedError);
+          } else {
+            // Retourner l'erreur formatée si la fonction originale n'existe pas
+            console.error("Erreur formatée:", formattedError);
+            return formattedError;
+          }
+        };
+
+        // Surveiller l'apparition dynamique de la fonction handleError
+        var originalDefineProperty = Object.defineProperty;
+        Object.defineProperty = function (obj, prop, descriptor) {
+          if (prop === "handleError" && obj === window) {
+            console.log("Tentative de définition de handleError détectée");
+
+            // Assurons-nous que la fonction définie utilise notre formateur
+            if (descriptor && typeof descriptor.value === "function") {
+              var originalFn = descriptor.value;
+              descriptor.value = function (error) {
+                console.log("handleError redéfini appelé:", error);
+                var formattedError = window.formatErrorMessage(error);
+                return originalFn(formattedError);
+              };
+            }
+          }
+
+          return originalDefineProperty.call(this, obj, prop, descriptor);
+        };
+      })();
+    </script>
   </head>
   <body>
     <noscript

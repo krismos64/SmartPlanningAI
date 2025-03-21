@@ -336,7 +336,7 @@ class Activity {
           details, 
           timestamp
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
       console.log("Exécution de la requête SQL:", query);
@@ -407,12 +407,16 @@ class Activity {
         entity_type,
         entity_id,
         description,
+        user_id,
         userId,
         userName,
         details,
         ipAddress,
         userAgent,
       } = activityData;
+
+      // Déterminer l'ID utilisateur à utiliser (préférer user_id si disponible)
+      const finalUserId = user_id || userId;
 
       // Préparer les détails avec le nom d'utilisateur
       const detailsWithUserName = {
@@ -436,11 +440,13 @@ class Activity {
         entity_type,
         entity_id,
         description,
-        userId,
+        finalUserId,
         detailsJson,
         ipAddress,
         userAgent,
       ];
+
+      console.log("Paramètres de logActivity:", params);
 
       const [result] = await db.query(sql, params);
       const activityId = result.insertId;
@@ -747,6 +753,45 @@ class Activity {
     } catch (error) {
       console.error("Erreur lors du formatage de la description:", error);
       return "Activité inconnue";
+    }
+  }
+
+  /**
+   * Récupère toutes les activités d'un utilisateur spécifique
+   * @param {number} userId - ID de l'utilisateur
+   * @param {Object} options - Options de pagination et filtrage
+   * @returns {Promise<Object>} - Activités de l'utilisateur et métadonnées
+   */
+  static async getByUser(userId, options = {}) {
+    try {
+      if (!userId) {
+        throw new Error("L'ID de l'utilisateur est requis");
+      }
+
+      // Utiliser la méthode getAll existante avec le user_id spécifié
+      const userOptions = {
+        ...options,
+        user_id: userId,
+        // Assurer une limite raisonnable pour les performances
+        limit: options.limit || 100,
+        page: options.page || 1,
+        // Par défaut, trier par date la plus récente
+        sortBy: options.sortBy || "timestamp",
+        sortOrder: options.sortOrder || "DESC",
+      };
+
+      console.log(
+        `Récupération des activités pour l'utilisateur ID: ${userId} avec options:`,
+        userOptions
+      );
+
+      return await this.getAll(userOptions);
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des activités pour l'utilisateur ${userId}:`,
+        error
+      );
+      throw error;
     }
   }
 }

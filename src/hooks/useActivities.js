@@ -32,27 +32,67 @@ const useActivities = () => {
     async (refresh = false) => {
       try {
         setLoading(true);
-        const response = await api.get(API_ENDPOINTS.ACTIVITIES.BASE);
 
-        // Vérifier si la réponse est un tableau ou contient des données valides
-        if (response && (Array.isArray(response) || response.data)) {
-          // S'assurer que les données sont un tableau
-          const activitiesData = Array.isArray(response)
-            ? response
-            : Array.isArray(response.data)
-            ? response.data
+        // Vérifier si l'utilisateur est connecté
+        if (!user || !user.id) {
+          console.warn(
+            "Aucun utilisateur connecté, impossible de récupérer les activités personnelles"
+          );
+          setActivities([]);
+          setError("Vous devez être connecté pour voir vos activités");
+          setLoading(false);
+          return;
+        }
+
+        // Utiliser l'endpoint BY_USER pour récupérer uniquement les activités de l'utilisateur actuel
+        const response = await api.get(
+          API_ENDPOINTS.ACTIVITIES.BY_USER(user.id)
+        );
+
+        console.log("Réponse des activités:", response);
+
+        // Vérifier si la réponse est au format attendu (success, message, data)
+        if (response && response.success === true && response.data) {
+          // S'assurer que les activités sont bien un tableau
+          const activitiesData = Array.isArray(response.data.activities)
+            ? response.data.activities
             : [];
 
+          console.log("Activités récupérées et formatées:", activitiesData);
           setActivities(activitiesData);
           setError(null);
+        }
+        // Compatibilité avec l'ancien format de réponse (tableau direct)
+        else if (response && Array.isArray(response)) {
+          console.log(
+            "Format de réponse ancien (tableau):",
+            response.length,
+            "activités"
+          );
+          setActivities(response);
+          setError(null);
+        }
+        // Si le format est différent mais contient des données sous forme d'array
+        else if (response && Array.isArray(response.data)) {
+          console.log(
+            "Format de réponse différent avec données en tableau:",
+            response.data.length,
+            "activités"
+          );
+          setActivities(response.data);
+          setError(null);
         } else {
+          console.error("Format de réponse invalide:", response);
           throw new Error(
             "Erreur lors du chargement des activités: format de réponse invalide"
           );
         }
       } catch (err) {
         console.error("Erreur lors du chargement des activités:", err);
-        setError("Erreur lors du chargement des activités");
+        setError(
+          "Erreur lors du chargement des activités: " +
+            (err.message || "Erreur inconnue")
+        );
         toast.error("Erreur lors du chargement des activités");
         // En cas d'erreur, s'assurer que activities reste un tableau vide
         setActivities([]);
@@ -60,15 +100,21 @@ const useActivities = () => {
         setLoading(false);
       }
     },
-    [api]
+    [api, user]
   );
 
   const createActivity = useCallback(
     async (activityData) => {
       try {
+        // Ajouter l'ID de l'utilisateur actuel aux données de l'activité
+        const activityWithUserId = {
+          ...activityData,
+          user_id: user?.id,
+        };
+
         const response = await api.post(
-          API_ENDPOINTS.ACTIVITIES.BASE,
-          activityData
+          API_ENDPOINTS.ACTIVITIES.CREATE,
+          activityWithUserId
         );
 
         if (response.ok) {
@@ -86,14 +132,14 @@ const useActivities = () => {
         return { success: false, error: err.message };
       }
     },
-    [api]
+    [api, user]
   );
 
   const updateActivity = useCallback(
     async (id, activityData) => {
       try {
         const response = await api.put(
-          `${API_ENDPOINTS.ACTIVITIES.BASE}/${id}`,
+          API_ENDPOINTS.ACTIVITIES.UPDATE(id),
           activityData
         );
 
@@ -123,9 +169,7 @@ const useActivities = () => {
   const deleteActivity = useCallback(
     async (id) => {
       try {
-        const response = await api.delete(
-          `${API_ENDPOINTS.ACTIVITIES.BASE}/${id}`
-        );
+        const response = await api.delete(API_ENDPOINTS.ACTIVITIES.DELETE(id));
 
         if (response.ok) {
           setActivities((prev) =>
@@ -267,6 +311,46 @@ const useActivities = () => {
           parsedDetails = details;
         }
 
+        // Cas spécial pour les employés
+        if (entity_type === "employee") {
+          // Pour la création d'employé
+          if (type === "create" && parsedDetails.employee_name) {
+            // Si on a le créateur de l'employé et l'employé créé
+            if (parsedDetails.created_by && parsedDetails.employee_name) {
+              return `${parsedDetails.created_by} a créé un nouvel employé : ${parsedDetails.employee_name}`;
+            }
+            // Fallback sur le format standard avec le nom de l'employé
+            return `${userName} a créé un nouvel employé : ${parsedDetails.employee_name}`;
+          }
+
+          // Pour la suppression d'employé
+          if (type === "delete" && parsedDetails.employee_name) {
+            // Si on a l'auteur de la suppression et l'employé supprimé
+            if (parsedDetails.deleted_by && parsedDetails.employee_name) {
+              return `${parsedDetails.deleted_by} a supprimé l'employé : ${parsedDetails.employee_name}`;
+            }
+            // Fallback sur le format standard avec le nom de l'employé
+            return `${userName} a supprimé l'employé : ${parsedDetails.employee_name}`;
+          }
+
+          // Pour les modifications de solde d'heures
+          if (
+            parsedDetails.action &&
+            (parsedDetails.action === "Ajout d'heures" ||
+              parsedDetails.action === "Soustraction d'heures")
+          ) {
+            const employeeName =
+              parsedDetails.employeeName || `Employé #${entity_id}`;
+            const hours = parsedDetails.hours || "?";
+            const action =
+              parsedDetails.action === "Ajout d'heures"
+                ? "ajouté"
+                : "soustrait";
+
+            return `${userName} a ${action} ${hours}h au solde d'heures de ${employeeName}`;
+          }
+        }
+
         // Cas spécial pour les demandes de congés
         if (entity_type === "vacation") {
           // Pour la création de congés
@@ -351,22 +435,6 @@ const useActivities = () => {
               typeConge ? " " + typeConge : ""
             } de ${employeeName}${dateRange ? " " + dateRange : ""}`;
           }
-        }
-
-        // Cas spécial pour les modifications de solde d'heures
-        if (
-          entity_type === "employee" &&
-          parsedDetails.action &&
-          (parsedDetails.action === "Ajout d'heures" ||
-            parsedDetails.action === "Soustraction d'heures")
-        ) {
-          const employeeName =
-            parsedDetails.employeeName || `Employé #${entity_id}`;
-          const hours = parsedDetails.hours || "?";
-          const action =
-            parsedDetails.action === "Ajout d'heures" ? "ajouté" : "soustrait";
-
-          return `${userName} a ${action} ${hours}h au solde d'heures de ${employeeName}`;
         }
 
         if (typeof parsedDetails === "string") {

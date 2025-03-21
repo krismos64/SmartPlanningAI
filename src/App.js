@@ -8,13 +8,18 @@ import {
   useNavigate,
 } from "react-router-dom";
 import styled from "styled-components";
+import DebugMode from "./components/DebugMode";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/layout/Footer";
 import Navbar from "./components/layout/Navbar";
 import ThemeProvider from "./components/ThemeProvider";
 import Chatbot from "./components/ui/Chatbot";
 import { NotificationProvider } from "./components/ui/Notification";
+import ApiProvider from "./contexts/ApiContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import theme from "./theme";
+import { initializeErrorHandling } from "./utils/errorHandling";
+import { setupErrorInterceptors } from "./utils/errorInterceptor";
 
 // Layouts
 import AuthLayout from "./layouts/AuthLayout";
@@ -92,17 +97,36 @@ const MainContent = styled.div`
 
 const App = () => {
   return (
-    <ThemeProvider theme={theme}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <AuthProvider>
+          <ApiProvider>
+            <AppContent />
+          </ApiProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 
 const AppContent = () => {
   const auth = useAuth();
   const location = window.location;
+
+  // Initialiser les gestionnaires d'erreurs
+  useEffect(() => {
+    // Initialisation de notre gestionnaire d'erreur global amélioré
+    const cleanupErrorHandling = initializeErrorHandling();
+
+    // Intercepteur pour débogage spécifique des erreurs [object Object]
+    const cleanupInterceptor = setupErrorInterceptors();
+
+    // Nettoyer lors du démontage
+    return () => {
+      cleanupErrorHandling();
+      cleanupInterceptor();
+    };
+  }, []);
 
   // Vérifier les pages publiques
   const isPublicPage = ["/", "/terms", "/privacy", "/contact"].includes(
@@ -163,70 +187,81 @@ const AppContent = () => {
               hasNavbar={shouldShowNavbar}
               isPublicPage={isPublicPage}
             >
-              <Routes>
-                {/* Pages publiques avec PublicLayout */}
-                <Route element={<PublicLayout />}>
-                  {/* Landing Page */}
-                  <Route path="/" element={<LandingPage />} />
+              <ErrorBoundary>
+                <Routes>
+                  {/* Pages publiques avec PublicLayout */}
+                  <Route element={<PublicLayout />}>
+                    {/* Landing Page */}
+                    <Route path="/" element={<LandingPage />} />
 
-                  {/* Pages légales */}
-                  <Route path="/terms" element={<TermsOfService />} />
-                  <Route path="/privacy" element={<PrivacyPolicy />} />
-                  <Route path="/contact" element={<Contact />} />
-                </Route>
+                    {/* Pages légales */}
+                    <Route path="/terms" element={<TermsOfService />} />
+                    <Route path="/privacy" element={<PrivacyPolicy />} />
+                    <Route path="/contact" element={<Contact />} />
+                  </Route>
 
-                {/* Routes d'authentification */}
-                <Route element={<AuthLayout />}>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route
-                    path="/reset-password/:token"
-                    element={<ResetPassword />}
-                  />
-                  <Route
-                    path="/account/delete-confirmation/:token"
-                    element={<ConfirmDeletionPage />}
-                  />
-                  <Route path="/unauthorized" element={<Unauthorized />} />
-                </Route>
+                  {/* Routes d'authentification */}
+                  <Route element={<AuthLayout />}>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route
+                      path="/forgot-password"
+                      element={<ForgotPassword />}
+                    />
+                    <Route
+                      path="/reset-password/:token"
+                      element={<ResetPassword />}
+                    />
+                    <Route
+                      path="/account/delete-confirmation/:token"
+                      element={<ConfirmDeletionPage />}
+                    />
+                    <Route path="/unauthorized" element={<Unauthorized />} />
+                  </Route>
 
-                {/* Routes protégées */}
-                <Route
-                  element={
-                    <ProtectedRoute>
-                      <MainLayout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/employees" element={<Employees />} />
+                  {/* Routes protégées */}
                   <Route
-                    path="/employees/:employeeId"
-                    element={<Employees />}
-                  />
-                  <Route path="/schedule" element={<WeeklySchedule />} />
-                  <Route path="/weekly-schedule" element={<WeeklySchedule />} />
-                  <Route
-                    path="/weekly-schedule/:weekStart"
-                    element={<WeeklySchedule />}
-                  />
-                  <Route path="/vacations" element={<Vacations />} />
-                  <Route path="/activities" element={<Activities />} />
-                  <Route path="/stats" element={<Stats />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/profile" element={<Profile />} />
-                </Route>
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/employees" element={<Employees />} />
+                    <Route
+                      path="/employees/:employeeId"
+                      element={<Employees />}
+                    />
+                    <Route path="/schedule" element={<WeeklySchedule />} />
+                    <Route
+                      path="/weekly-schedule"
+                      element={<WeeklySchedule />}
+                    />
+                    <Route
+                      path="/weekly-schedule/:weekStart"
+                      element={<WeeklySchedule />}
+                    />
+                    <Route path="/vacations" element={<Vacations />} />
+                    <Route path="/activities" element={<Activities />} />
+                    <Route path="/stats" element={<Stats />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/profile" element={<Profile />} />
+                  </Route>
 
-                {/* Page 404 */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+                  {/* Page 404 */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </ErrorBoundary>
               {!isAuthPage && <Footer />}
             </MainContent>
           </HelmetProvider>
 
           {/* Chatbot disponible uniquement pour les utilisateurs authentifiés et sur les pages protégées */}
           {auth.isAuthenticated && isProtectedPage && <Chatbot />}
+
+          {/* Composant de débogage */}
+          <DebugMode />
         </Suspense>
       </Router>
     </NotificationProvider>

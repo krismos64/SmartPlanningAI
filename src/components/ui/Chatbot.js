@@ -16,9 +16,9 @@ import {
 } from "@mui/material";
 
 // Import des composants personnalisés
-import Lottie from "react-lottie";
 import robotAnimation from "../../assets/animations/robot.json";
 import ChatbotRulesIntegration from "./ChatbotRulesIntegration";
+import EnhancedLottie from "./EnhancedLottie";
 
 // CSS
 import "../../styles/Chatbot.css";
@@ -57,7 +57,7 @@ const ChatbotLottieAnimation = ({
         transition: "all 0.3s ease",
       }}
     >
-      <Lottie
+      <EnhancedLottie
         options={options}
         height={isHovered ? 100 : 80}
         width={isHovered ? 100 : 80}

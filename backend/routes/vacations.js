@@ -11,27 +11,142 @@ const Notification = require("../models/Notification");
 // Récupérer toutes les demandes de congés
 router.get("/", auth, async (req, res) => {
   try {
-    // Si l'utilisateur est un employé normal, ne montrer que ses propres demandes
-    if (req.user.role === "employee") {
-      // Nous devons implémenter cette fonctionnalité dans le modèle
-      // Pour l'instant, filtrons côté serveur
-      const allRequests = await VacationRequest.find();
-      const userRequests = allRequests.filter(
-        (req) => req.employee_id === req.user.id
+    console.log(
+      "GET /api/vacations - Utilisateur connecté:",
+      req.user.id,
+      "Role:",
+      req.user.role
+    );
+
+    // Débogage du token utilisé pour l'authentification
+    const token = req.headers.authorization
+      ? req.headers.authorization.split(" ")[1]
+      : "Non fourni";
+    console.log(
+      "Token utilisé (premières 10 caractères):",
+      token.substring(0, 10) + "..."
+    );
+
+    // Récupérer tous les employés associés à cet utilisateur
+    let employeeIds = [];
+
+    // Ajouter l'ID de l'utilisateur lui-même
+    employeeIds.push(req.user.id);
+
+    // Pour les utilisateurs admin, récupérer tous les employés associés
+    if (req.user.role === "admin") {
+      const [employees] = await db.execute(
+        "SELECT id FROM employees WHERE user_id = ?",
+        [req.user.id]
       );
-      return res.json(userRequests);
+
+      if (employees.length > 0) {
+        // Ajouter les IDs des employés à la liste
+        employees.forEach((emp) => {
+          if (!employeeIds.includes(emp.id)) {
+            employeeIds.push(emp.id);
+          }
+        });
+      }
+
+      console.log("Employés associés:", employeeIds);
     }
 
-    // Pour les admins et managers, montrer toutes les demandes
-    const vacationRequests = await VacationRequest.find();
-    res.json(vacationRequests);
+    // Récupérer toutes les demandes, puis filtrer
+    console.log("Récupération de toutes les demandes de congés...");
+    const allRequests = await VacationRequest.find();
+    console.log(`${allRequests.length} demandes trouvées au total`);
+
+    // Debug: Afficher toutes les demandes avec les IDs des employés et des créateurs
+    console.log("Liste de toutes les demandes:");
+    allRequests.forEach((req) => {
+      console.log(
+        `Demande #${req.id}: employee_id=${req.employee_id}, creator_id=${req.creator_id}, status=${req.status}`
+      );
+    });
+
+    // Filtrer les demandes pour ne garder que celles des employés associés ou créées par l'utilisateur
+    const vacationRequests = allRequests.filter((vacation) => {
+      // Si l'utilisateur est l'employé concerné par la demande
+      if (
+        vacation.employee_id &&
+        Number(vacation.employee_id) === Number(req.user.id)
+      ) {
+        console.log(
+          `Demande #${vacation.id}: L'utilisateur est l'employé concerné`
+        );
+        return true;
+      }
+
+      // Si l'utilisateur est le créateur de la demande
+      if (
+        vacation.creator_id &&
+        Number(vacation.creator_id) === Number(req.user.id)
+      ) {
+        console.log(
+          `Demande #${vacation.id}: L'utilisateur est le créateur de la demande`
+        );
+        return true;
+      }
+
+      // Debug pour comprendre pourquoi la demande 33 n'est pas incluse si l'utilisateur est 12
+      if (vacation.id === 33 && req.user.id === 12) {
+        console.log("ANALYSE DÉTAILLÉE DEMANDE #33:");
+        console.log(
+          `- employee_id: ${
+            vacation.employee_id
+          } (${typeof vacation.employee_id})`
+        );
+        console.log(
+          `- creator_id: ${vacation.creator_id} (${typeof vacation.creator_id})`
+        );
+        console.log(`- user.id: ${req.user.id} (${typeof req.user.id})`);
+        console.log(
+          `- Comparaison creator_id === user.id: ${
+            Number(vacation.creator_id) === Number(req.user.id)
+          }`
+        );
+      }
+
+      // Pour les autres demandes, vérifier si c'est un employé associé à l'utilisateur
+      const isEmployeeAssociated = employeeIds.includes(
+        Number(vacation.employee_id)
+      );
+      if (isEmployeeAssociated) {
+        console.log(
+          `Demande #${vacation.id}: L'employé est associé à l'utilisateur`
+        );
+      }
+      return isEmployeeAssociated;
+    });
+
+    console.log(
+      `Après filtrage: ${vacationRequests.length} demandes pour l'utilisateur ${req.user.id} (incluant celles qu'il a créées)`
+    );
+
+    // Debug: Afficher les demandes filtrées
+    console.log("Liste des demandes filtrées:");
+    vacationRequests.forEach((req) => {
+      console.log(
+        `Demande #${req.id}: employee_id=${req.employee_id}, creator_id=${req.creator_id}, status=${req.status}`
+      );
+    });
+
+    // Retourner avec le format standardisé
+    return res.json({
+      success: true,
+      message: "Demandes de congés récupérées avec succès",
+      data: vacationRequests,
+    });
   } catch (error) {
     console.error(
       "Erreur lors de la récupération des demandes de congés:",
       error
     );
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
       message: "Erreur lors de la récupération des demandes de congés",
+      error: error.message,
     });
   }
 });
@@ -72,6 +187,7 @@ router.post("/", auth, async (req, res) => {
   try {
     console.log("POST /api/vacations - Création d'une demande de congés");
     console.log("Body:", req.body);
+    console.log("Utilisateur connecté:", req.user);
 
     // Si l'utilisateur est un employé, s'assurer qu'il ne crée une demande que pour lui-même
     if (
@@ -79,6 +195,7 @@ router.post("/", auth, async (req, res) => {
       req.body.employee_id.toString() !== req.user.id.toString()
     ) {
       return res.status(403).json({
+        success: false,
         message:
           "Vous ne pouvez créer des demandes de congé que pour vous-même",
       });
@@ -92,6 +209,7 @@ router.post("/", auth, async (req, res) => {
       !req.body.type
     ) {
       return res.status(400).json({
+        success: false,
         message:
           "Les champs employee_id, start_date, end_date et type sont obligatoires",
       });
@@ -101,6 +219,7 @@ router.post("/", auth, async (req, res) => {
     const validTypes = ["paid", "unpaid", "sick", "other"];
     if (!validTypes.includes(req.body.type)) {
       return res.status(400).json({
+        success: false,
         message:
           "Le type de congé doit être l'un des suivants : paid, unpaid, sick, other",
       });
@@ -111,6 +230,7 @@ router.post("/", auth, async (req, res) => {
 
     if (!employee) {
       return res.status(404).json({
+        success: false,
         message: "Employé non trouvé",
       });
     }
@@ -118,6 +238,7 @@ router.post("/", auth, async (req, res) => {
     // Filtrer les champs pour ne garder que ceux qui existent dans la table
     const vacationData = {
       employee_id: req.body.employee_id,
+      creator_id: req.user.id, // Ajouter l'ID de l'utilisateur connecté comme créateur
       start_date: req.body.start_date,
       end_date: req.body.end_date,
       type: req.body.type,
@@ -142,8 +263,8 @@ router.post("/", auth, async (req, res) => {
         action: "create",
         entity_type: "vacation_request",
         entity_id: result.id,
-        description: `Demande de congés créée pour l'employé ${
-          req.body.employee_id
+        description: `Demande de congés créée pour ${employee.first_name} ${
+          employee.last_name
         } du ${new Date(
           req.body.start_date
         ).toLocaleDateString()} au ${new Date(
@@ -152,6 +273,7 @@ router.post("/", auth, async (req, res) => {
         type: "create",
         details: {
           employee_id: req.body.employee_id,
+          employee_name: `${employee.first_name} ${employee.last_name}`.trim(),
           start_date: req.body.start_date,
           end_date: req.body.end_date,
           type: req.body.type,

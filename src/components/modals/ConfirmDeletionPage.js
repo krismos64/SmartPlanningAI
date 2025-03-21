@@ -1,9 +1,9 @@
-import Lottie from "lottie-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import { useAuth } from "../../contexts/AuthContext";
+import EnhancedLottie from "../ui/EnhancedLottie";
 import { useNotification } from "../ui/Notification";
 
 // Styles
@@ -146,7 +146,12 @@ const ConfirmDeletionPage = () => {
       return (
         <>
           <LoadingContainer>
-            <Lottie animationData={planningAnimation} loop={true} />
+            <EnhancedLottie
+              animationData={planningAnimation}
+              loop={true}
+              width={120}
+              height={120}
+            />
           </LoadingContainer>
           <Title>Traitement en cours</Title>
           <Message>
