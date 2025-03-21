@@ -287,62 +287,66 @@ export const EmployeeService = {
 export const VacationService = {
   getAll: async () => {
     try {
-      // Ajout de logs détaillés
-      console.log("VacationService.getAll - Début de l'appel API");
+      console.log("VacationService.getAll - Appel de l'API");
 
-      const response = await apiRequest(API_ENDPOINTS.VACATIONS, "GET");
-
-      console.log(
-        "VacationService.getAll - Réponse brute:",
-        typeof response === "object"
-          ? Array.isArray(response)
-            ? `Array[${response.length}]`
-            : JSON.stringify(response).substring(0, 100) + "..."
-          : typeof response
-      );
-
-      // Normalisation spéciale pour les vacations
-      let normalizedResponse = normalizeResponse(response);
-
-      // Vérification supplémentaire des données
-      if (normalizedResponse.success && !normalizedResponse.data) {
-        console.log(
-          "VacationService.getAll - Réponse sans données, tentative de récupération alternative"
+      // Récupérer le token et l'utilisateur du localStorage pour le débogage
+      const token = localStorage.getItem("token");
+      const userString = localStorage.getItem("user");
+      let user = null;
+      try {
+        user = JSON.parse(userString);
+        console.log("VacationService.getAll - Utilisateur courant:", user);
+      } catch (e) {
+        console.error(
+          "VacationService.getAll - Erreur parsing utilisateur:",
+          e
         );
-
-        // Si la réponse n'a pas de données mais que la réponse originale est un tableau
-        if (Array.isArray(response)) {
-          normalizedResponse.data = response;
-        }
-        // Si la réponse a une propriété qui est un tableau
-        else if (typeof response === "object" && response !== null) {
-          const arrayProps = Object.keys(response).filter((key) =>
-            Array.isArray(response[key])
-          );
-          if (arrayProps.length > 0) {
-            normalizedResponse.data = response[arrayProps[0]];
-          }
-        }
       }
 
-      console.log("VacationService.getAll - Réponse normalisée:", {
-        success: normalizedResponse.success,
-        hasData: !!normalizedResponse.data,
-        dataType: normalizedResponse.data
-          ? Array.isArray(normalizedResponse.data)
-            ? `Array[${normalizedResponse.data.length}]`
-            : typeof normalizedResponse.data
-          : "undefined",
+      console.log(
+        "VacationService.getAll - Envoi de la requête avec token:",
+        token ? token.substring(0, 15) + "..." : "non défini"
+      );
+
+      // Appel direct à l'API pour accéder aux détails complets de la réponse
+      const response = await fetch(API_URL + API_ENDPOINTS.VACATIONS, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      return normalizedResponse;
+      console.log("VacationService.getAll - Réponse status:", response.status);
+      console.log("VacationService.getAll - Headers:", [
+        ...response.headers.entries(),
+      ]);
+
+      // Obtenir le corps de la réponse
+      const responseText = await response.text();
+      console.log(
+        "VacationService.getAll - Texte brut de la réponse:",
+        responseText
+      );
+
+      // Tenter de parser la réponse en JSON
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+        console.log("VacationService.getAll - Données JSON:", data);
+      } catch (e) {
+        console.error("VacationService.getAll - Erreur parsing JSON:", e);
+        return { success: false, message: "Erreur de format dans la réponse" };
+      }
+
+      // Normaliser et retourner la réponse
+      return normalizeResponse(data);
     } catch (error) {
-      console.error("Erreur VacationService.getAll:", error);
+      console.error("VacationService.getAll - Erreur:", error);
       return {
         success: false,
         error: formatError(error),
         message: formatError(error),
-        data: [], // Renvoyer un tableau vide pour éviter les erreurs
       };
     }
   },
@@ -366,15 +370,35 @@ export const VacationService = {
 
   create: async (vacationData) => {
     try {
+      console.log("VacationService.create - Données reçues:", vacationData);
+
+      // S'assurer que les champs obligatoires sont présents
+      if (
+        !vacationData.employee_id ||
+        !vacationData.start_date ||
+        !vacationData.end_date ||
+        !vacationData.type
+      ) {
+        console.error(
+          "Erreur VacationService.create: Champs obligatoires manquants"
+        );
+        return {
+          success: false,
+          error:
+            "Les champs employee_id, start_date, end_date et type sont obligatoires",
+          message:
+            "Les champs employee_id, start_date, end_date et type sont obligatoires",
+        };
+      }
+
+      // Formater les dates au format ISO (YYYY-MM-DD)
       const formattedData = {
         ...vacationData,
-        start_date: formatDateForAPI(
-          vacationData.startDate || vacationData.start_date
-        ),
-        end_date: formatDateForAPI(
-          vacationData.endDate || vacationData.end_date
-        ),
+        start_date: formatDateForAPI(vacationData.start_date),
+        end_date: formatDateForAPI(vacationData.end_date),
       };
+
+      console.log("VacationService.create - Données formatées:", formattedData);
 
       const response = await apiRequest(
         API_ENDPOINTS.VACATIONS,

@@ -27,149 +27,38 @@ router.get("/", auth, async (req, res) => {
       token.substring(0, 10) + "..."
     );
 
-    // Récupérer tous les employés associés à cet utilisateur
-    let employeeIds = [];
+    // DEBUG: Vérification complète de la demande
+    console.log("Headers de la requête:", req.headers);
+    console.log("Paramètres de la requête:", req.query);
+    console.log("Corps de la requête:", req.body);
 
-    // Ajouter l'ID de l'utilisateur lui-même
-    employeeIds.push(req.user.id);
-
-    // Pour les utilisateurs admin, récupérer tous les employés associés
-    if (req.user.role === "admin") {
-      const [employees] = await db.execute(
-        "SELECT id FROM employees WHERE user_id = ?",
-        [req.user.id]
-      );
-
-      if (employees.length > 0) {
-        // Ajouter les IDs des employés à la liste
-        employees.forEach((emp) => {
-          if (!employeeIds.includes(emp.id)) {
-            employeeIds.push(emp.id);
-          }
-        });
-      }
-
-      console.log("Employés associés:", employeeIds);
-    }
-
-    // Récupérer toutes les demandes, puis filtrer
-    console.log("Récupération de toutes les demandes de congés...");
-    const allRequests = await VacationRequest.find();
-    console.log(`${allRequests.length} demandes trouvées au total`);
-
-    // Si aucune demande n'est trouvée, retourner un tableau vide avec succès
-    if (!allRequests || allRequests.length === 0) {
-      console.log("Aucune demande de congés trouvée dans la base de données");
-      return res.json({
-        success: true,
-        message: "Aucune demande de congés trouvée",
-        data: [],
-      });
-    }
-
-    // Debug: Afficher toutes les demandes avec les IDs des employés et des créateurs
-    console.log("Liste de toutes les demandes:");
-    allRequests.forEach((req) => {
-      console.log(
-        `Demande #${req.id}: employee_id=${req.employee_id}, creator_id=${req.creator_id}, status=${req.status}`
-      );
-    });
-
-    // Filtrer les demandes pour ne garder que celles des employés associés ou créées par l'utilisateur
-    const vacationRequests = allRequests.filter((vacation) => {
-      // Si l'utilisateur est l'employé concerné par la demande
-      if (
-        vacation.employee_id &&
-        Number(vacation.employee_id) === Number(req.user.id)
-      ) {
-        console.log(
-          `Demande #${vacation.id}: L'utilisateur est l'employé concerné`
-        );
-        return true;
-      }
-
-      // Si l'utilisateur est le créateur de la demande
-      if (
-        vacation.creator_id &&
-        Number(vacation.creator_id) === Number(req.user.id)
-      ) {
-        console.log(
-          `Demande #${vacation.id}: L'utilisateur est le créateur de la demande`
-        );
-        return true;
-      }
-
-      // Debug pour comprendre pourquoi la demande 33 n'est pas incluse si l'utilisateur est 12
-      if (vacation.id === 33 && req.user.id === 12) {
-        console.log("ANALYSE DÉTAILLÉE DEMANDE #33:");
-        console.log(
-          `- employee_id: ${
-            vacation.employee_id
-          } (${typeof vacation.employee_id})`
-        );
-        console.log(
-          `- creator_id: ${vacation.creator_id} (${typeof vacation.creator_id})`
-        );
-        console.log(`- user.id: ${req.user.id} (${typeof req.user.id})`);
-        console.log(
-          `- Comparaison creator_id === user.id: ${
-            Number(vacation.creator_id) === Number(req.user.id)
-          }`
-        );
-      }
-
-      // Pour les autres demandes, vérifier si c'est un employé associé à l'utilisateur
-      const isEmployeeAssociated = employeeIds.includes(
-        Number(vacation.employee_id)
-      );
-      if (isEmployeeAssociated) {
-        console.log(
-          `Demande #${vacation.id}: L'employé est associé à l'utilisateur`
-        );
-      }
-      return isEmployeeAssociated;
-    });
-
+    // Récupérer directement toutes les demandes de congés, sans filtrage
+    // Cela nous permettra de vérifier si des données existent dans la BDD
+    console.log("Récupération SANS FILTRE de toutes les demandes de congés...");
+    const [allRequestsRaw] = await db.execute(
+      "SELECT * FROM vacation_requests"
+    );
     console.log(
-      `Après filtrage: ${vacationRequests.length} demandes pour l'utilisateur ${req.user.id} (incluant celles qu'il a créées)`
+      `${allRequestsRaw.length} demandes trouvées au total dans la BDD`
     );
 
-    // Si aucune demande n'est trouvée après filtrage, retourner un tableau vide avec succès
-    if (vacationRequests.length === 0) {
-      console.log(
-        "Aucune demande de congés trouvée pour cet utilisateur après filtrage"
-      );
-      return res.json({
-        success: true,
-        message: "Aucune demande de congés trouvée pour cet utilisateur",
-        data: [],
-      });
-    }
+    // IMPORTANT: Toujours retourner les données, même en mode débug
+    console.log("Renvoyer toutes les demandes au client sans filtrage");
 
-    // Debug: Afficher les demandes filtrées
-    console.log("Liste des demandes filtrées:");
-    vacationRequests.forEach((req) => {
-      console.log(
-        `Demande #${req.id}: employee_id=${req.employee_id}, creator_id=${req.creator_id}, status=${req.status}`
-      );
-    });
-
-    // Retourner avec le format standardisé
     return res.json({
       success: true,
-      message: "Demandes de congés récupérées avec succès",
-      data: vacationRequests,
+      message: `${allRequestsRaw.length} demandes de congés trouvées`,
+      data: allRequestsRaw,
     });
   } catch (error) {
     console.error(
-      "Erreur lors de la récupération des demandes de congés:",
+      "Erreur lors de la récupération des demandes de congé:",
       error
     );
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des demandes de congés",
+      message: "Erreur lors de la récupération des demandes de congé",
       error: error.message,
-      data: [], // Toujours inclure un champ data même en cas d'erreur
     });
   }
 });

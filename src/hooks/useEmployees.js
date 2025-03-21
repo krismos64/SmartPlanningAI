@@ -52,6 +52,21 @@ const useEmployees = () => {
         throw new Error("Veuillez vous connecter pour accéder à cette page.");
       }
 
+      // Récupérer l'utilisateur connecté
+      const userString = localStorage.getItem("user");
+      let user = null;
+      if (userString) {
+        try {
+          user = JSON.parse(userString);
+          console.log("[fetchEmployees] Utilisateur connecté:", user);
+        } catch (e) {
+          console.error(
+            "[fetchEmployees] Erreur lors du parsing de l'utilisateur:",
+            e
+          );
+        }
+      }
+
       // Utiliser fetch directement avec l'URL correcte
       const response = await fetch(`${apiUrl}/api/employees`, {
         method: "GET",
@@ -69,6 +84,14 @@ const useEmployees = () => {
       }
 
       const jsonResponse = await response.json();
+      console.log(
+        "[fetchEmployees] Réponse brute:",
+        typeof jsonResponse === "object"
+          ? Array.isArray(jsonResponse)
+            ? `Array[${jsonResponse.length}]`
+            : Object.keys(jsonResponse).join(", ")
+          : typeof jsonResponse
+      );
 
       // Adapter à la nouvelle structure de réponse API { success, message, data }
       let employeesData = [];
@@ -79,6 +102,46 @@ const useEmployees = () => {
         } else {
           // Ancienne structure (directement un tableau)
           employeesData = Array.isArray(jsonResponse) ? jsonResponse : [];
+        }
+      }
+
+      console.log(
+        `[fetchEmployees] ${employeesData.length} employés récupérés`
+      );
+
+      // Détails des employés pour le débogage
+      if (employeesData.length > 0) {
+        console.log("[fetchEmployees] Premier employé:", {
+          id: employeesData[0].id,
+          nom: `${employeesData[0].first_name} ${employeesData[0].last_name}`,
+          user_id: employeesData[0].user_id,
+        });
+
+        // Vérifier que les employés appartiennent bien à l'utilisateur actuel
+        if (user && user.id) {
+          const userEmployees = employeesData.filter(
+            (emp) => Number(emp.user_id) === Number(user.id)
+          );
+          console.log(
+            `[fetchEmployees] ${userEmployees.length} employés appartiennent à l'utilisateur ${user.id}`
+          );
+
+          // Si aucun employé n'appartient à l'utilisateur, c'est peut-être une erreur
+          if (userEmployees.length === 0 && employeesData.length > 0) {
+            console.warn(
+              "[fetchEmployees] Aucun employé n'est associé à l'utilisateur courant!"
+            );
+            console.log(
+              "IDs utilisateur des employés:",
+              employeesData.map((emp) => emp.user_id)
+            );
+          }
+
+          // Stocker les IDs des employés de l'utilisateur pour une utilisation ultérieure
+          localStorage.setItem(
+            "userEmployees",
+            JSON.stringify(userEmployees.map((emp) => emp.id))
+          );
         }
       }
 

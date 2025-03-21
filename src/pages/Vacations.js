@@ -153,6 +153,17 @@ const Vacations = () => {
     }
   }, [user, vacations]);
 
+  // Ajouter ce code pour le débogage des données reçues
+  useEffect(() => {
+    console.log("Vacations - Données du hook:", {
+      nombreVacations: vacations?.length || 0,
+      loading,
+      error,
+      premiereVacation:
+        vacations?.length > 0 ? JSON.stringify(vacations[0]) : "aucune",
+    });
+  }, [vacations, loading, error]);
+
   // Fonction pour rafraîchir manuellement les données
   const handleRefresh = async () => {
     setRefreshing(true);

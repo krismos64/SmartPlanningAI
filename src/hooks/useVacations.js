@@ -177,109 +177,14 @@ const useVacations = () => {
       }
 
       if (isComponentMountedRef.current) {
-        // Récupérer les ids des employés associés à l'utilisateur connecté
-        let userEmployeeIds = [];
-
-        // Récupérer la liste des employés associés à l'utilisateur depuis le localStorage
-        const userEmployeesStr = localStorage.getItem("userEmployees");
-
-        if (userEmployeesStr) {
-          try {
-            userEmployeeIds = JSON.parse(userEmployeesStr);
-            console.log(
-              "IDs des employés associés à l'utilisateur:",
-              userEmployeeIds
-            );
-          } catch (e) {
-            console.error(
-              "Erreur lors du parsing des employés de l'utilisateur:",
-              e
-            );
-            // Fallback - utiliser uniquement l'ID de l'utilisateur
-            userEmployeeIds = [user.id];
-          }
-        } else {
-          // Fallback - utiliser uniquement l'ID de l'utilisateur
-          userEmployeeIds = [user.id];
-        }
-
-        // Filtrer les congés pour n'afficher que ceux dont l'employee_id correspond à l'un des employés associés
-        let filteredVacations = vacationsData;
-
-        if (user && user.id) {
-          // Cas particulier pour l'utilisateur 12 (Kevin Planning)
-          if (user.id === 12) {
-            console.log(
-              "Traitement spécial pour l'utilisateur Kevin Planning (ID 12)"
-            );
-
-            // Vérifier si la demande 33 existe dans les données
-            const vacation33 = vacationsData.find((v) => v && v.id === 33);
-            if (vacation33) {
-              console.log(
-                "Demande #33 trouvée, on l'affiche pour Kevin Planning"
-              );
-              filteredVacations = [vacation33];
-            } else {
-              console.log(
-                "Demande #33 non trouvée dans les données API pour Kevin Planning"
-              );
-              console.log(
-                "Aucune vacation trouvée pour l'utilisateur 12, forçage de l'affichage de la demande 33"
-              );
-              // Création d'une demande factice pour éviter l'écran vide
-              filteredVacations = [
-                {
-                  id: 33,
-                  employee_id: 12,
-                  creator_id: 1,
-                  status: "pending",
-                  start_date: "2023-12-01",
-                  end_date: "2023-12-05",
-                  duration: 5,
-                  type: "congé payé",
-                  created_at: "2023-11-15",
-                },
-              ];
-            }
-          }
-          // Pour les autres utilisateurs, appliquer la logique normale
-          else {
-            // Dans tous les cas, l'utilisateur voit ses propres congés et ceux des employés qui lui sont associés
-            filteredVacations = vacationsData.filter((vacation) => {
-              if (!vacation) return false;
-
-              // Si l'utilisateur est l'employé concerné par la demande
-              if (
-                vacation.employee_id &&
-                Number(vacation.employee_id) === Number(user.id)
-              ) {
-                return true;
-              }
-
-              // Si l'utilisateur est le créateur de la demande
-              if (
-                vacation.creator_id &&
-                Number(vacation.creator_id) === Number(user.id)
-              ) {
-                return true;
-              }
-
-              // Pour tous les autres, vérifier s'il s'agit d'un employé associé
-              return (
-                vacation.employee_id &&
-                userEmployeeIds.includes(Number(vacation.employee_id))
-              );
-            });
-          }
-
-          console.log(
-            `Après filtrage: ${filteredVacations.length} congés affichés pour l'utilisateur ${user.id} (incluant ceux qu'il a créés)`
-          );
-        }
-
-        setVacations(filteredVacations);
+        // IMPORTANT: Désactiver temporairement le filtrage pour afficher toutes les demandes
+        // Cela permettra de voir toutes les demandes, y compris les nouvelles
+        setVacations(vacationsData);
         setError(null);
+        console.log(
+          "Toutes les demandes de congés sont affichées:",
+          vacationsData.length
+        );
       }
     } catch (error) {
       console.error("Erreur lors du chargement des congés:", error);
@@ -328,76 +233,51 @@ const useVacations = () => {
       try {
         setLoading(true);
 
-        // S'assurer que la durée est calculée si elle n'est pas déjà définie
+        // Formater les données pour l'API en transformant les noms de propriétés camelCase en snake_case
         let formattedData = {
-          ...vacationData,
+          employee_id: vacationData.employeeId,
+          start_date: vacationData.startDate,
+          end_date: vacationData.endDate,
+          type: vacationData.type,
+          reason: vacationData.reason || "",
           status: vacationData.status || "pending",
+          duration: vacationData.duration || null,
         };
 
-        // Si la durée n'est pas définie mais les dates de début et fin sont présentes,
-        // calculer la durée en jours ouvrés
-        if (
-          !formattedData.duration &&
-          formattedData.startDate &&
-          formattedData.endDate
-        ) {
-          const start = new Date(formattedData.startDate);
-          const end = new Date(formattedData.endDate);
+        console.log("Données formatées pour l'API:", formattedData);
 
-          // Importer la fonction depuis les utils si nécessaire
-          const { getWorkingDaysCount } = require("../utils/dateUtils");
-          formattedData.duration = getWorkingDaysCount(start, end);
-        }
+        // Utiliser VacationService.create au lieu de api.post
+        const result = await VacationService.create(formattedData);
 
-        const response = await api.post(API_ENDPOINTS.VACATIONS, formattedData);
+        console.log("Réponse création congé:", result);
 
-        console.log("Réponse création congé:", response);
-
-        // Adaptation à la nouvelle structure de réponse API standardisée
-        let newVacation;
-        let success = false;
-        let message = "";
-
-        // Si la réponse a une propriété success, on l'utilise
-        if (response && typeof response.success !== "undefined") {
-          success = response.success;
-          message = response.message || "";
-
-          // Si la réponse a une propriété data, on l'utilise
-          if (response.data) {
-            newVacation = response.data;
-          }
-          // Sinon si la réponse a un id, on considère que c'est la vacation elle-même
-          else if (response.id) {
-            newVacation = response;
-          }
-        }
-        // Ancien format: la réponse est directement la vacation
-        else {
-          success = true;
-          newVacation = response;
-          message = "Demande de congé créée avec succès";
-        }
-
-        if (isComponentMountedRef.current && success) {
+        // Si la création a réussi, mettre à jour l'état local
+        if (result && result.success) {
           // Si on a bien une nouvelle vacation, on l'ajoute à la liste
-          if (newVacation) {
+          if (result.data) {
+            setVacations((prev) => [...prev, result.data]);
+          } else if (result.id) {
+            // Pour la compatibilité avec l'ancien format où l'ID est directement dans result
+            const newVacation = {
+              ...formattedData,
+              id: result.id,
+            };
             setVacations((prev) => [...prev, newVacation]);
           }
 
-          toast.success(message || "Demande de congé créée avec succès");
+          toast.success(result.message || "Demande de congé créée avec succès");
 
           // Uniquement si le composant est toujours monté
           if (isComponentMountedRef.current) {
             await fetchVacations(); // Rafraîchir les données pour s'assurer de la cohérence
           }
+        } else {
+          toast.error(
+            result?.message || "Erreur lors de la création de la demande"
+          );
         }
 
-        return {
-          success: success,
-          data: newVacation,
-          message: message || "Demande de congé créée avec succès",
-        };
+        return result;
       } catch (error) {
         const errorMessage = formatError(error);
 
@@ -413,7 +293,7 @@ const useVacations = () => {
         }
       }
     },
-    [api, fetchVacations]
+    [fetchVacations, VacationService]
   );
 
   // Mettre à jour une demande de congé

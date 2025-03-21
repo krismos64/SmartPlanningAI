@@ -172,26 +172,44 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
   useEffect(() => {
     if (vacation) {
       setFormData({
-        employeeId: vacation.employeeId || "",
-        startDate: vacation.startDate ? new Date(vacation.startDate) : null,
-        endDate: vacation.endDate ? new Date(vacation.endDate) : null,
+        employeeId: vacation.employee_id?.toString() || "",
+        startDate: vacation.start_date ? new Date(vacation.start_date) : null,
+        endDate: vacation.end_date ? new Date(vacation.end_date) : null,
         type: vacation.type || "paid",
         reason: vacation.reason || "",
-        duration: vacation.duration || null,
       });
     } else {
-      // Initialiser avec l'ID de l'utilisateur courant pour une nouvelle demande
+      // Valeurs par défaut pour un nouveau congé
       setFormData({
-        employeeId: currentUser?.id || "",
+        employeeId: currentUser ? currentUser.id.toString() : "",
         startDate: null,
         endDate: null,
         type: "paid",
         reason: "",
-        duration: null,
       });
     }
-    setErrors({});
   }, [vacation, currentUser]);
+
+  // S'assurer que l'employé sélectionné est disponible dans la liste
+  useEffect(() => {
+    if (employees && employees.length > 0 && formData.employeeId) {
+      // Vérifier si l'employé sélectionné existe dans la liste
+      const employeeExists = employees.some(
+        (emp) => emp.id.toString() === formData.employeeId.toString()
+      );
+
+      // Si l'employé n'existe pas, sélectionner le premier de la liste
+      if (!employeeExists) {
+        console.log(
+          `Employé ID ${formData.employeeId} non disponible, sélection du premier employé disponible`
+        );
+        setFormData((prev) => ({
+          ...prev,
+          employeeId: employees[0].id.toString(),
+        }));
+      }
+    }
+  }, [employees, formData.employeeId]);
 
   // Gérer les changements dans les champs du formulaire
   const handleChange = (e) => {
