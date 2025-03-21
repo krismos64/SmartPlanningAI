@@ -1,5 +1,5 @@
-const bcrypt = require("bcrypt");
-const pool = require("../config/db");
+const bcrypt = require("bcryptjs");
+const connectDB = require("../config/db");
 
 class User {
   constructor(data) {
@@ -19,7 +19,7 @@ class User {
 
   static async find() {
     try {
-      const [rows] = await pool.execute(
+      const [rows] = await connectDB.execute(
         "SELECT id, email, role, first_name, last_name, created_at, company, phone, jobTitle FROM users"
       );
       return rows.map((row) => new User(row));
@@ -31,7 +31,7 @@ class User {
 
   static async findById(id) {
     try {
-      const [rows] = await pool.execute(
+      const [rows] = await connectDB.execute(
         "SELECT id, email, password, role, first_name, last_name, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?",
         [id]
       );
@@ -51,12 +51,13 @@ class User {
       console.log(`Recherche de l'utilisateur avec l'email: ${email}`);
 
       // Vérifier que la base de données est bien sélectionnée
-      const [dbCheck] = await pool.query("SELECT DATABASE() as db");
+      const [dbCheck] = await connectDB.query("SELECT DATABASE() as db");
       console.log(`Base de données sélectionnée: ${dbCheck[0].db}`);
 
-      const [rows] = await pool.execute("SELECT * FROM users WHERE email = ?", [
-        email,
-      ]);
+      const [rows] = await connectDB.execute(
+        "SELECT * FROM users WHERE email = ?",
+        [email]
+      );
 
       console.log(
         `Résultat de la recherche: ${rows.length} utilisateur(s) trouvé(s)`
@@ -75,7 +76,7 @@ class User {
 
   static async findByUsername(username) {
     try {
-      const [rows] = await pool.execute(
+      const [rows] = await connectDB.execute(
         "SELECT * FROM users WHERE username = ?",
         [username]
       );
@@ -92,110 +93,90 @@ class User {
 
   async save() {
     try {
-      // Si le mot de passe est en texte brut, le hacher
-      if (
-        this.password &&
-        !this.password.startsWith("$2b$") &&
-        !this.password.startsWith("$2a$")
-      ) {
+      // Hash du mot de passe si celui-ci est fourni et a été modifié
+      if (this.password && !this.password.startsWith("$2")) {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
       }
 
-      // Définir le rôle comme admin si non défini
-      this.role = this.role || "admin";
+      // S'assurer que le rôle est 'admin'
+      this.role = "admin";
 
-      // Remplacer les valeurs undefined par null pour éviter l'erreur MySQL
-      // Utiliser des variables locales pour éviter de modifier directement les propriétés de l'objet
-      const profileImage =
-        this.profileImage === undefined ? null : this.profileImage;
-      const company = this.company === undefined ? null : this.company;
-      const phone = this.phone === undefined ? null : this.phone;
-      const jobTitle = this.jobTitle === undefined ? null : this.jobTitle;
-      const first_name = this.first_name === undefined ? null : this.first_name;
-      const last_name = this.last_name === undefined ? null : this.last_name;
-      const email = this.email === undefined ? null : this.email;
-      const role = this.role === undefined ? "admin" : this.role;
-
-      console.log("Sauvegarde de l'utilisateur avec les données:", {
+      // Pour debug
+      console.log(`Sauvegarde de l'utilisateur:`, {
         id: this.id,
-        email,
-        role,
-        first_name,
-        last_name,
-        profileImageLength: profileImage ? profileImage.length : 0,
-        company,
-        phone,
-        jobTitle,
+        email: this.email,
+        role: this.role,
+        name: `${this.first_name} ${this.last_name}`,
+        hasPassword: !!this.password,
       });
 
+      // Si l'ID existe, mettre à jour l'utilisateur existant
       if (this.id) {
-        // Pour une mise à jour, si le mot de passe est null ou undefined, récupérer le mot de passe existant
-        let password = this.password;
+        const query = `UPDATE users SET 
+          email = ?, 
+          ${this.password ? "password = ?," : ""} 
+          role = ?, 
+          first_name = ?, 
+          last_name = ?, 
+          updated_at = NOW(),
+          company = ?,
+          phone = ?,
+          jobTitle = ?,
+          profileImage = ?
+          WHERE id = ?`;
 
-        if (password === undefined || password === null) {
-          // Récupérer le mot de passe existant de la base de données
-          const [rows] = await pool.execute(
-            "SELECT password FROM users WHERE id = ?",
-            [this.id]
-          );
+        const params = [
+          this.email,
+          ...(this.password ? [this.password] : []),
+          this.role,
+          this.first_name,
+          this.last_name,
+          this.company,
+          this.phone,
+          this.jobTitle,
+          this.profileImage,
+          this.id,
+        ];
 
-          if (rows.length > 0) {
-            password = rows[0].password;
-            console.log(
-              "Utilisation du mot de passe existant pour la mise à jour"
-            );
-          } else {
-            throw new Error(`Utilisateur avec l'ID ${this.id} non trouvé`);
-          }
-        }
-
-        // Mise à jour avec updated_at = NOW()
-        await pool.execute(
-          "UPDATE users SET email = ?, password = ?, role = ?, first_name = ?, last_name = ?, profileImage = ?, company = ?, phone = ?, jobTitle = ?, updated_at = NOW() WHERE id = ?",
-          [
-            email,
-            password,
-            role,
-            first_name,
-            last_name,
-            profileImage,
-            company,
-            phone,
-            jobTitle,
-            this.id,
-          ]
-        );
+        await connectDB.execute(query, params);
+        console.log(`Utilisateur ${this.id} mis à jour avec succès`);
         return this;
       } else {
-        // Création - le mot de passe est obligatoire
-        if (!this.password) {
-          throw new Error(
-            "Le mot de passe est requis pour créer un utilisateur"
-          );
-        }
+        // Sinon, créer un nouvel utilisateur
+        const query = `INSERT INTO users 
+          (email, password, role, first_name, last_name, created_at, updated_at, company, phone, jobTitle, profileImage) 
+          VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?)`;
 
-        // Création
-        const [result] = await pool.execute(
-          "INSERT INTO users (email, password, role, first_name, last_name, profileImage, company, phone, jobTitle, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-          [
-            email,
-            this.password,
-            role,
-            first_name,
-            last_name,
-            profileImage,
-            company,
-            phone,
-            jobTitle,
-          ]
-        );
+        const params = [
+          this.email,
+          this.password,
+          this.role,
+          this.first_name,
+          this.last_name,
+          this.company,
+          this.phone,
+          this.jobTitle,
+          this.profileImage,
+        ];
+
+        const [result] = await connectDB.execute(query, params);
         this.id = result.insertId;
+        console.log(`Nouvel utilisateur créé avec l'ID ${this.id}`);
         return this;
       }
     } catch (error) {
-      console.error("Erreur lors de l'enregistrement de l'utilisateur:", error);
-      console.error("Stack trace:", error.stack);
+      console.error("Erreur lors de la sauvegarde de l'utilisateur:", error);
+
+      // Vérifier s'il s'agit d'une violation de contrainte d'unicité
+      if (error.code === "ER_DUP_ENTRY") {
+        if (error.sqlMessage.includes("email")) {
+          throw new Error(
+            "Cet email est déjà utilisé par un autre compte. Veuillez en choisir un autre."
+          );
+        }
+      }
+
       throw error;
     }
   }
@@ -236,7 +217,7 @@ class User {
 
   static async delete(id) {
     try {
-      await pool.execute("DELETE FROM users WHERE id = ?", [id]);
+      await connectDB.execute("DELETE FROM users WHERE id = ?", [id]);
       return true;
     } catch (error) {
       console.error(

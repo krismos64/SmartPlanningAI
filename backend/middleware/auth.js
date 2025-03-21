@@ -176,9 +176,21 @@ const generateToken = (userId) => {
   );
 };
 
+// Fonction pour récupérer l'ID de l'admin connecté
+const getCurrentAdminId = (req) => {
+  if (!req.user || !req.user.id) {
+    console.error(
+      "getCurrentAdminId: Aucun utilisateur connecté ou ID manquant"
+    );
+    return null;
+  }
+  return req.user.id;
+};
+
 module.exports = {
   auth,
   checkRole,
   generateToken,
   JWT_SECRET,
+  getCurrentAdminId,
 };

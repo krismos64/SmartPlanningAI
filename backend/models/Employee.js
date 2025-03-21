@@ -21,6 +21,7 @@ class Employee {
     this.hire_date = data.hire_date || null;
     this.status = data.status || "active";
     this.hour_balance = data.hour_balance || 0; // Ajout du solde d'heures
+    this.manager_id = data.manager_id || null; // Ajout de l'ID du manager
     this.created_at = data.created_at || new Date();
     this.updated_at = data.updated_at || new Date(); // Ajout du champ updated_at
   }
@@ -73,6 +74,7 @@ class Employee {
             birthdate: this.birthdate,
             hire_date: this.hire_date,
             status: this.status,
+            manager_id: this.manager_id,
           },
           null,
           2
@@ -108,6 +110,7 @@ class Employee {
             birth_date,
             start_date,
             this.status || "active",
+            this.manager_id,
             this.updated_at,
             this.id,
           ];
@@ -132,7 +135,8 @@ class Employee {
                 contractHours = ?, 
                 birthdate = ?, 
                 hire_date = ?, 
-                status = ?, 
+                status = ?,
+                manager_id = ?,
                 updated_at = ? 
             WHERE id = ?
           `;
@@ -168,6 +172,7 @@ class Employee {
                 birthdate: birth_date,
                 hire_date: start_date,
                 status: this.status,
+                manager_id: this.manager_id,
               },
               null,
               2
@@ -188,6 +193,7 @@ class Employee {
             birth_date,
             start_date,
             this.status || "active",
+            this.manager_id,
             this.created_at,
             this.updated_at,
           ];
@@ -212,10 +218,11 @@ class Employee {
               contractHours, 
               birthdate, 
               hire_date, 
-              status, 
+              status,
+              manager_id,
               created_at, 
               updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `;
 
           console.log("Requête SQL pour l'insertion:", insertQuery);
@@ -408,6 +415,26 @@ class Employee {
     } catch (error) {
       console.error(
         "Erreur lors de la mise à jour du compteur horaire :",
+        error
+      );
+      throw error;
+    }
+  }
+
+  static async findByManager(managerId) {
+    try {
+      console.log(`Récupération des employés pour le manager ID: ${managerId}`);
+      const [rows] = await connectDB.execute(
+        "SELECT * FROM employees WHERE manager_id = ?",
+        [managerId]
+      );
+      console.log(
+        `${rows.length} employés trouvés pour le manager ID: ${managerId}`
+      );
+      return rows.map((row) => new Employee(row));
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des employés pour le manager ${managerId}:`,
         error
       );
       throw error;

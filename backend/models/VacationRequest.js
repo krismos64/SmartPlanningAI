@@ -42,9 +42,9 @@ class VacationRequest {
     this.duration = data.duration; // Durée en jours ouvrés
     this.reason = data.reason;
     this.status = data.status || "pending";
-    this.approved_by = data.approved_by;
+    this.approved_by = data.approved_by ? parseInt(data.approved_by) : null; // Convertir en INT
     this.approved_at = data.approved_at;
-    this.rejected_by = data.rejected_by;
+    this.rejected_by = data.rejected_by ? parseInt(data.rejected_by) : null; // Convertir en INT
     this.rejected_at = data.rejected_at;
     this.rejection_reason = data.rejection_reason;
     this.attachment = data.attachment;
@@ -57,12 +57,30 @@ class VacationRequest {
     try {
       const [rows] = await connectDB.execute(`
         SELECT vr.*, 
-               CONCAT(e.first_name, ' ', e.last_name) as employee_name
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+               a.first_name as approver_first_name, 
+               a.last_name as approver_last_name,
+               r.first_name as rejecter_first_name, 
+               r.last_name as rejecter_last_name
         FROM vacation_requests vr
         LEFT JOIN employees e ON vr.employee_id = e.id
+        LEFT JOIN users a ON vr.approved_by = a.id
+        LEFT JOIN users r ON vr.rejected_by = r.id
         ORDER BY vr.created_at DESC
       `);
-      return rows.map((row) => new VacationRequest(row));
+      return rows.map((row) => {
+        const request = new VacationRequest(row);
+        // Ajouter des noms complets pour les approbateurs/rejeteurs
+        if (row.approver_first_name && row.approver_last_name) {
+          request.approver_name =
+            `${row.approver_first_name} ${row.approver_last_name}`.trim();
+        }
+        if (row.rejecter_first_name && row.rejecter_last_name) {
+          request.rejecter_name =
+            `${row.rejecter_first_name} ${row.rejecter_last_name}`.trim();
+        }
+        return request;
+      });
     } catch (error) {
       console.error(
         "Erreur lors de la récupération des demandes de congés:",
@@ -77,15 +95,32 @@ class VacationRequest {
       const [rows] = await connectDB.execute(
         `
         SELECT vr.*, 
-               CONCAT(e.first_name, ' ', e.last_name) as employee_name
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+               a.first_name as approver_first_name, 
+               a.last_name as approver_last_name,
+               r.first_name as rejecter_first_name, 
+               r.last_name as rejecter_last_name
         FROM vacation_requests vr
         LEFT JOIN employees e ON vr.employee_id = e.id
+        LEFT JOIN users a ON vr.approved_by = a.id
+        LEFT JOIN users r ON vr.rejected_by = r.id
         WHERE vr.id = ?
       `,
         [id]
       );
       if (rows.length === 0) return null;
-      return new VacationRequest(rows[0]);
+
+      const request = new VacationRequest(rows[0]);
+      // Ajouter des noms complets pour les approbateurs/rejeteurs
+      if (rows[0].approver_first_name && rows[0].approver_last_name) {
+        request.approver_name =
+          `${rows[0].approver_first_name} ${rows[0].approver_last_name}`.trim();
+      }
+      if (rows[0].rejecter_first_name && rows[0].rejecter_last_name) {
+        request.rejecter_name =
+          `${rows[0].rejecter_first_name} ${rows[0].rejecter_last_name}`.trim();
+      }
+      return request;
     } catch (error) {
       console.error(
         `Erreur lors de la récupération de la demande de congé ${id}:`,
@@ -112,6 +147,112 @@ class VacationRequest {
     } catch (error) {
       console.error(
         `Erreur lors de la récupération des demandes de congé pour l'employé ${employeeId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  static async findByManagerId(managerId) {
+    try {
+      // D'abord, récupérer tous les employés gérés par ce manager
+      const [employees] = await connectDB.execute(
+        `SELECT id FROM employees WHERE manager_id = ?`,
+        [managerId]
+      );
+
+      if (employees.length === 0) {
+        return [];
+      }
+
+      // Extraire les IDs des employés
+      const employeeIds = employees.map((emp) => emp.id);
+
+      // Construire la chaîne de paramètres pour la requête IN
+      const placeholders = employeeIds.map(() => "?").join(",");
+
+      // Récupérer les demandes de congés pour ces employés
+      const [rows] = await connectDB.execute(
+        `
+        SELECT vr.*, 
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+               a.first_name as approver_first_name, 
+               a.last_name as approver_last_name,
+               r.first_name as rejecter_first_name, 
+               r.last_name as rejecter_last_name
+        FROM vacation_requests vr
+        LEFT JOIN employees e ON vr.employee_id = e.id
+        LEFT JOIN users a ON vr.approved_by = a.id
+        LEFT JOIN users r ON vr.rejected_by = r.id
+        WHERE vr.employee_id IN (${placeholders})
+        ORDER BY vr.created_at DESC
+        `,
+        [...employeeIds]
+      );
+
+      return rows.map((row) => {
+        const request = new VacationRequest(row);
+        // Ajouter des noms complets pour les approbateurs/rejeteurs
+        if (row.approver_first_name && row.approver_last_name) {
+          request.approver_name =
+            `${row.approver_first_name} ${row.approver_last_name}`.trim();
+        }
+        if (row.rejecter_first_name && row.rejecter_last_name) {
+          request.rejecter_name =
+            `${row.rejecter_first_name} ${row.rejecter_last_name}`.trim();
+        }
+        return request;
+      });
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération des demandes de congé pour le manager ${managerId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  static async updateStatus(id, status, adminId, rejectionReason = null) {
+    try {
+      let query = "";
+      let params = [];
+
+      const now = new Date();
+
+      if (status === "approved") {
+        // Mise à jour pour approuver
+        query = `
+          UPDATE vacation_requests 
+          SET status = ?, approved_by = ?, approved_at = ?, rejected_by = NULL, rejected_at = NULL, rejection_reason = NULL, updated_at = NOW()
+          WHERE id = ?
+        `;
+        params = [status, adminId, now, id];
+      } else if (status === "rejected") {
+        // Mise à jour pour rejeter
+        query = `
+          UPDATE vacation_requests 
+          SET status = ?, rejected_by = ?, rejected_at = ?, rejection_reason = ?, approved_by = NULL, approved_at = NULL, updated_at = NOW()
+          WHERE id = ?
+        `;
+        params = [status, adminId, now, rejectionReason, id];
+      } else if (status === "pending") {
+        // Réinitialisation à l'état en attente
+        query = `
+          UPDATE vacation_requests 
+          SET status = ?, approved_by = NULL, approved_at = NULL, rejected_by = NULL, rejected_at = NULL, rejection_reason = NULL, updated_at = NOW()
+          WHERE id = ?
+        `;
+        params = [status, id];
+      } else {
+        // Statut invalide
+        return false;
+      }
+
+      const [result] = await connectDB.execute(query, params);
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error(
+        `Erreur lors de la mise à jour du statut de la demande de congé ${id}:`,
         error
       );
       throw error;

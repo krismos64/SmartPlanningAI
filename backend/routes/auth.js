@@ -14,6 +14,14 @@ const {
   generateCsrfToken,
 } = require("../middleware/csrfMiddleware");
 
+// Route pour obtenir un token CSRF
+router.get("/csrf-token", csrfProtection, generateCsrfToken, (req, res) => {
+  res.json({
+    success: true,
+    csrfToken: req.csrfToken,
+  });
+});
+
 // Route d'inscription
 router.post("/register", async (req, res) => {
   try {
@@ -573,6 +581,47 @@ router.post("/refresh", async (req, res) => {
       message: "Erreur lors du rafraîchissement de la session",
       code: "REFRESH_ERROR",
     });
+  }
+});
+
+/**
+ * @route   GET /api/auth/current-admin
+ * @desc    Récupérer l'ID et les informations de l'admin connecté
+ * @access  Private
+ */
+router.get("/current-admin", auth, async (req, res) => {
+  try {
+    // Récupérer l'ID de l'admin connecté
+    const adminId = req.user.id;
+    if (!adminId) {
+      return res.status(400).json({ message: "Non authentifié" });
+    }
+
+    // Récupérer les informations complètes de l'admin
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Administrateur non trouvé" });
+    }
+
+    // Retourner les informations sécurisées (sans le mot de passe)
+    const safeAdmin = {
+      id: admin.id,
+      email: admin.email,
+      first_name: admin.first_name,
+      last_name: admin.last_name,
+      role: admin.role,
+      company: admin.company,
+      phone: admin.phone,
+      jobTitle: admin.jobTitle,
+      fullName:
+        `${admin.first_name || ""} ${admin.last_name || ""}`.trim() ||
+        "Administrateur",
+    };
+
+    res.json(safeAdmin);
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'admin:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 

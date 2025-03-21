@@ -10,13 +10,20 @@ const db = require("../config/db");
 // @access  Private
 router.get("/", auth, async (req, res) => {
   try {
-    const userId = req.user.id; // ID du manager connecté
+    console.log("Récupération des employés pour l'admin connecté");
 
-    const [employees] = await db.execute(
-      "SELECT * FROM employees WHERE user_id = ?",
-      [userId]
+    // Récupérer l'ID de l'admin connecté
+    const adminId = req.user.id;
+    if (!adminId) {
+      return res.status(400).json({ message: "ID d'administrateur manquant" });
+    }
+
+    // Récupérer uniquement les employés gérés par cet admin
+    const employees = await Employee.findByManager(adminId);
+
+    console.log(
+      `${employees.length} employés trouvés pour l'admin ID: ${adminId}`
     );
-
     res.json(employees);
   } catch (error) {
     console.error("Erreur lors de la récupération des employés:", error);
@@ -29,19 +36,24 @@ router.get("/", auth, async (req, res) => {
 // @access  Private
 router.get("/:id", auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const adminId = req.user.id;
     const employeeId = req.params.id;
 
-    const [employees] = await db.execute(
-      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
-      [employeeId, userId]
-    );
+    // Récupérer l'employé spécifique
+    const employee = await Employee.findById(employeeId);
 
-    if (employees.length === 0) {
+    if (!employee) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    res.json(employees[0]);
+    // Vérifier que l'employé est bien géré par l'admin connecté
+    if (employee.manager_id !== adminId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas autorisé à accéder à cet employé",
+      });
+    }
+
+    res.json(employee);
   } catch (error) {
     console.error(
       `Erreur lors de la récupération de l'employé ${req.params.id}:`,
@@ -56,68 +68,48 @@ router.get("/:id", auth, async (req, res) => {
 // @access  Private (Admin)
 router.post("/", auth, async (req, res) => {
   try {
-    const { first_name, last_name, email, phone, role, department } = req.body;
+    console.log("Création d'un nouvel employé avec les données:", req.body);
 
-    // Obtenir l'ID utilisateur strictement du token auth
-    // Ne pas utiliser de fallback avec ID 6
-    const userId = req.user?.id || req.userId;
-
-    // Débogage
-    console.log("=== CRÉATION EMPLOYÉ ===");
-    console.log("User info disponible:", req.user ? "OUI" : "NON");
-    console.log("User ID from req.user:", req.user?.id);
-    console.log("User ID from req.userId:", req.userId);
-    console.log("User ID final utilisé:", userId);
-    console.log("Token info:", req.tokenInfo);
-    console.log("User object:", JSON.stringify(req.user, null, 2));
-    console.log("=======================");
-
-    // Vérification stricte de l'ID utilisateur
-    if (!userId) {
-      console.error(
-        "ERREUR: Impossible de récupérer l'ID utilisateur pour la création d'employé"
-      );
-      return res.status(401).json({
-        message:
-          "Session invalide ou expirée. Veuillez vous reconnecter pour créer un employé.",
-        error: "NO_USER_ID",
-      });
+    // Récupérer l'ID de l'admin connecté
+    const adminId = req.user.id;
+    if (!adminId) {
+      return res.status(400).json({ message: "ID d'administrateur manquant" });
     }
 
-    if (!first_name || !last_name) {
-      return res
-        .status(400)
-        .json({ message: "Le prénom et le nom sont obligatoires" });
+    // Ajouter l'ID du gestionnaire (admin connecté) aux données de l'employé
+    const employeeData = {
+      ...req.body,
+      manager_id: adminId, // Associer l'employé à l'admin qui le crée
+    };
+
+    const employee = new Employee(employeeData);
+    await employee.save();
+
+    // Vérifier si global.Activity existe et journaliser l'activité
+    if (global.Activity) {
+      try {
+        await global.Activity.logActivity({
+          type: "create",
+          entity_type: "employee",
+          entity_id: employee.id,
+          description: `Création de l'employé ${employee.first_name} ${employee.last_name}`,
+          user_id: req.user.id,
+          details: {
+            employee_id: employee.id,
+            employee_name: `${employee.first_name} ${employee.last_name}`,
+          },
+        });
+        console.log(`Activité de création d'employé journalisée avec succès`);
+      } catch (logError) {
+        console.error(
+          "Erreur lors de la journalisation de l'activité de création:",
+          logError
+        );
+        // Ne pas bloquer la création si la journalisation échoue
+      }
     }
 
-    // Log de débogage SQL
-    console.log("Requête SQL pour insertion d'employé avec user_id:", userId);
-
-    const [result] = await db.execute(
-      `INSERT INTO employees (first_name, last_name, email, phone, role, department, user_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [first_name, last_name, email, phone, role, department, userId]
-    );
-
-    const employeeId = result.insertId;
-
-    // Enregistrer l'activité
-    await activitiesRouter.recordActivity({
-      type: "create",
-      entity_type: "employee",
-      entity_id: employeeId.toString(),
-      description: `Création de l'employé ${first_name} ${last_name}`,
-      user_id: userId,
-      details: {
-        employeeId,
-        first_name,
-        last_name,
-        department,
-        action: "création",
-      },
-    });
-
-    res.status(201).json({ message: "Employé créé avec succès", employeeId });
+    res.status(201).json(employee);
   } catch (error) {
     console.error("Erreur lors de la création de l'employé:", error);
     res.status(500).json({ message: "Erreur serveur" });
@@ -129,52 +121,61 @@ router.post("/", auth, async (req, res) => {
 // @access  Private
 router.put("/:id", auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const adminId = req.user.id;
     const employeeId = req.params.id;
-    const { first_name, last_name, email, phone, role, department } = req.body;
 
-    // Vérifier si l'employé appartient bien au manager
-    const [employees] = await db.execute(
-      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
-      [employeeId, userId]
-    );
+    // Vérifier si l'employé appartient bien au manager connecté
+    const employee = await Employee.findById(employeeId);
 
-    if (employees.length === 0) {
+    if (!employee) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    await db.execute(
-      `UPDATE employees SET first_name = ?, last_name = ?, email = ?, phone = ?, role = ?, department = ? 
-       WHERE id = ? AND user_id = ?`,
-      [
-        first_name,
-        last_name,
-        email,
-        phone,
-        role,
-        department,
-        employeeId,
-        userId,
-      ]
+    // Vérifier que l'employé est bien géré par l'admin connecté
+    if (employee.manager_id !== adminId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas autorisé à modifier cet employé",
+      });
+    }
+
+    // Mettre à jour l'employé en conservant son manager_id
+    const updateData = {
+      ...req.body,
+      manager_id: adminId, // S'assurer que manager_id reste inchangé
+    };
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      employeeId,
+      updateData
     );
 
-    // Enregistrer l'activité
-    await activitiesRouter.recordActivity({
-      type: "update",
-      entity_type: "employee",
-      entity_id: employeeId.toString(),
-      description: `Mise à jour de l'employé ${first_name} ${last_name}`,
-      user_id: userId,
-      details: {
-        employeeId,
-        first_name,
-        last_name,
-        department,
-        action: "mise à jour",
-      },
-    });
+    // Journaliser l'activité si global.Activity existe
+    if (global.Activity) {
+      try {
+        await global.Activity.logActivity({
+          type: "update",
+          entity_type: "employee",
+          entity_id: employeeId,
+          description: `Mise à jour de l'employé ${updatedEmployee.first_name} ${updatedEmployee.last_name}`,
+          user_id: adminId,
+          details: {
+            employee_id: employeeId,
+            employee_name: `${updatedEmployee.first_name} ${updatedEmployee.last_name}`,
+          },
+        });
+        console.log(
+          `Activité de mise à jour d'employé journalisée avec succès`
+        );
+      } catch (logError) {
+        console.error(
+          "Erreur lors de la journalisation de l'activité de mise à jour:",
+          logError
+        );
+        // Ne pas bloquer la mise à jour si la journalisation échoue
+      }
+    }
 
-    res.json({ message: "Employé mis à jour avec succès" });
+    res.json(updatedEmployee);
   } catch (error) {
     console.error(
       `Erreur lors de la mise à jour de l'employé ${req.params.id}:`,
@@ -189,42 +190,58 @@ router.put("/:id", auth, async (req, res) => {
 // @access  Private (Admin)
 router.delete("/:id", auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const adminId = req.user.id;
     const employeeId = req.params.id;
 
-    // Vérifier si l'employé appartient bien au manager
-    const [employees] = await db.execute(
-      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
-      [employeeId, userId]
-    );
+    // Vérifier si l'employé appartient bien au manager connecté
+    const employee = await Employee.findById(employeeId);
 
-    if (employees.length === 0) {
+    if (!employee) {
       return res.status(404).json({ message: "Employé non trouvé" });
     }
 
-    await db.execute("DELETE FROM employees WHERE id = ? AND user_id = ?", [
-      employeeId,
-      userId,
-    ]);
+    // Vérifier que l'employé est bien géré par l'admin connecté
+    if (employee.manager_id !== adminId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas autorisé à supprimer cet employé",
+      });
+    }
 
-    // Enregistrer l'activité
-    await activitiesRouter.recordActivity({
-      type: "delete",
-      entity_type: "employee",
-      entity_id: employeeId.toString(),
-      description: `Suppression de l'employé ${employees[0].first_name} ${employees[0].last_name}`,
-      user_id: userId,
-      details: {
-        employeeId,
-        first_name: employees[0].first_name,
-        last_name: employees[0].last_name,
-        action: "suppression",
-      },
-    });
+    // Supprimer l'employé
+    await Employee.delete(employeeId);
+
+    // Journaliser l'activité si global.Activity existe
+    if (global.Activity) {
+      try {
+        await global.Activity.logActivity({
+          type: "delete",
+          entity_type: "employee",
+          entity_id: employeeId,
+          description: `Suppression de l'employé ${employee.first_name} ${employee.last_name}`,
+          user_id: adminId,
+          details: {
+            employee_id: employeeId,
+            employee_name: `${employee.first_name} ${employee.last_name}`,
+          },
+        });
+        console.log(
+          `Activité de suppression d'employé journalisée avec succès`
+        );
+      } catch (logError) {
+        console.error(
+          "Erreur lors de la journalisation de l'activité de suppression:",
+          logError
+        );
+        // Ne pas bloquer la suppression si la journalisation échoue
+      }
+    }
 
     res.json({ message: "Employé supprimé avec succès" });
   } catch (error) {
-    console.error("Erreur lors de la suppression de l'employé:", error);
+    console.error(
+      `Erreur lors de la suppression de l'employé ${req.params.id}:`,
+      error
+    );
     res.status(500).json({ message: "Erreur serveur" });
   }
 });

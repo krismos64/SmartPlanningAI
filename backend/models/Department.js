@@ -24,13 +24,21 @@ class Department {
   static async find() {
     try {
       // Vérifier si la table departments existe
-      const [tables] = await connectDB.query("SHOW TABLES LIKE 'departments'");
+      const tablesResult = await connectDB.query(
+        "SHOW TABLES LIKE 'departments'"
+      );
+      const tables = Array.isArray(tablesResult[0])
+        ? tablesResult[0]
+        : tablesResult;
 
       // Si la table n'existe pas, on extrait les départements uniques des employés
       if (tables.length === 0) {
-        const [departments] = await connectDB.query(
+        const departmentsResult = await connectDB.query(
           "SELECT DISTINCT department FROM employees WHERE department IS NOT NULL"
         );
+        const departments = Array.isArray(departmentsResult[0])
+          ? departmentsResult[0]
+          : departmentsResult;
 
         // Transformer les résultats en objets Department
         return departments.map(
@@ -44,7 +52,9 @@ class Department {
       }
 
       // Si la table existe, on récupère les départements
-      const [rows] = await connectDB.query("SELECT * FROM departments");
+      const rowsResult = await connectDB.query("SELECT * FROM departments");
+      const rows = Array.isArray(rowsResult[0]) ? rowsResult[0] : rowsResult;
+
       return rows.map((row) => new Department(row));
     } catch (error) {
       console.error("Erreur lors de la récupération des départements:", error);
@@ -60,7 +70,12 @@ class Department {
   static async findById(id) {
     try {
       // Vérifier si la table departments existe
-      const [tables] = await connectDB.query("SHOW TABLES LIKE 'departments'");
+      const tablesResult = await connectDB.query(
+        "SHOW TABLES LIKE 'departments'"
+      );
+      const tables = Array.isArray(tablesResult[0])
+        ? tablesResult[0]
+        : tablesResult;
 
       // Si la table n'existe pas, on extrait les départements uniques des employés
       if (tables.length === 0) {
@@ -69,10 +84,11 @@ class Department {
       }
 
       // Si la table existe, on récupère le département par son ID
-      const [rows] = await connectDB.query(
+      const rowsResult = await connectDB.query(
         "SELECT * FROM departments WHERE id = ?",
         [id]
       );
+      const rows = Array.isArray(rowsResult[0]) ? rowsResult[0] : rowsResult;
 
       if (rows.length === 0) return null;
       return new Department(rows[0]);
@@ -93,19 +109,29 @@ class Department {
   static async findByName(name) {
     try {
       // Vérifier si la table departments existe
-      const [tables] = await connectDB.query("SHOW TABLES LIKE 'departments'");
+      const tablesResult = await connectDB.query(
+        "SHOW TABLES LIKE 'departments'"
+      );
+      const tables = Array.isArray(tablesResult[0])
+        ? tablesResult[0]
+        : tablesResult;
 
       // Si la table n'existe pas, on extrait les départements uniques des employés
       if (tables.length === 0) {
         const departments = await this.find();
-        return departments.find((dept) => dept.name === name) || null;
+        return (
+          departments.find(
+            (dept) => dept.name.toLowerCase() === name.toLowerCase()
+          ) || null
+        );
       }
 
       // Si la table existe, on récupère le département par son nom
-      const [rows] = await connectDB.query(
+      const rowsResult = await connectDB.query(
         "SELECT * FROM departments WHERE name = ?",
         [name]
       );
+      const rows = Array.isArray(rowsResult[0]) ? rowsResult[0] : rowsResult;
 
       if (rows.length === 0) return null;
       return new Department(rows[0]);
@@ -119,7 +145,7 @@ class Department {
   }
 
   /**
-   * Récupère les employés d'un département
+   * Récupère tous les employés d'un département
    * @param {number} departmentId - ID du département
    * @returns {Promise<Array>} Liste des employés du département
    */
@@ -132,10 +158,13 @@ class Department {
       }
 
       // Récupérer les employés du département
-      const [employees] = await connectDB.query(
+      const employeesResult = await connectDB.query(
         "SELECT * FROM employees WHERE department = ?",
-        [department.name]
+        [departmentId]
       );
+      const employees = Array.isArray(employeesResult[0])
+        ? employeesResult[0]
+        : employeesResult;
 
       return employees;
     } catch (error) {
@@ -149,13 +178,14 @@ class Department {
 
   /**
    * Crée un nouveau département
-   * @param {Object} departmentData - Données du département
+   * @param {Object} departmentData - Données du département à créer
    * @returns {Promise<Department>} Le département créé
    */
   static async create(departmentData) {
     try {
       const department = new Department(departmentData);
-      return await department.save();
+      await department.save();
+      return department;
     } catch (error) {
       console.error("Erreur lors de la création du département:", error);
       throw error;
@@ -163,13 +193,18 @@ class Department {
   }
 
   /**
-   * Enregistre le département dans la base de données
-   * @returns {Promise<Department>} Le département enregistré
+   * Sauvegarde le département en base de données
+   * @returns {Promise<Department>} Le département sauvegardé
    */
   async save() {
     try {
       // Vérifier si la table departments existe
-      const [tables] = await connectDB.query("SHOW TABLES LIKE 'departments'");
+      const tablesResult = await connectDB.query(
+        "SHOW TABLES LIKE 'departments'"
+      );
+      const tables = Array.isArray(tablesResult[0])
+        ? tablesResult[0]
+        : tablesResult;
 
       // Si la table n'existe pas, on la crée
       if (tables.length === 0) {
@@ -186,24 +221,17 @@ class Department {
         `);
       }
 
-      // Mettre à jour la date de modification
-      this.updated_at = new Date();
-
+      // Préparation de la requête et des paramètres
       if (this.id) {
         // Mise à jour
-        await connectDB.query(
+        const result = await connectDB.query(
           "UPDATE departments SET name = ?, description = ?, manager_id = ?, updated_at = ? WHERE id = ?",
-          [
-            this.name,
-            this.description,
-            this.manager_id,
-            this.updated_at,
-            this.id,
-          ]
+          [this.name, this.description, this.manager_id, new Date(), this.id]
         );
+        return this;
       } else {
         // Création
-        const [result] = await connectDB.query(
+        const insertResult = await connectDB.query(
           "INSERT INTO departments (name, description, manager_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
           [
             this.name,
@@ -213,10 +241,17 @@ class Department {
             this.updated_at,
           ]
         );
-        this.id = result.insertId;
-      }
 
-      return this;
+        // Récupérer l'ID inséré
+        this.id =
+          Array.isArray(insertResult) &&
+          insertResult[0] &&
+          insertResult[0].insertId
+            ? insertResult[0].insertId
+            : insertResult.insertId || null;
+
+        return this;
+      }
     } catch (error) {
       console.error("Erreur lors de l'enregistrement du département:", error);
       throw error;
@@ -225,21 +260,21 @@ class Department {
 
   /**
    * Met à jour un département
-   * @param {number} id - ID du département
+   * @param {number} id - ID du département à mettre à jour
    * @param {Object} updateData - Données à mettre à jour
    * @returns {Promise<Department|null>} Le département mis à jour ou null s'il n'existe pas
    */
   static async update(id, updateData) {
     try {
+      // Récupérer le département
       const department = await this.findById(id);
       if (!department) return null;
 
       // Mettre à jour les propriétés
       Object.assign(department, updateData);
 
-      // Enregistrer les modifications
+      // Sauvegarder les changements
       await department.save();
-
       return department;
     } catch (error) {
       console.error(
@@ -252,24 +287,19 @@ class Department {
 
   /**
    * Supprime un département
-   * @param {number} id - ID du département
-   * @returns {Promise<boolean>} true si le département a été supprimé, false sinon
+   * @param {number} id - ID du département à supprimer
+   * @returns {Promise<boolean>} True si le département a été supprimé, false sinon
    */
   static async delete(id) {
     try {
-      // Vérifier si la table departments existe
-      const [tables] = await connectDB.query("SHOW TABLES LIKE 'departments'");
-
-      // Si la table n'existe pas, on ne peut pas supprimer
-      if (tables.length === 0) {
-        return false;
-      }
-
       // Supprimer le département
-      const [result] = await connectDB.query(
+      const resultData = await connectDB.query(
         "DELETE FROM departments WHERE id = ?",
         [id]
       );
+
+      const result =
+        Array.isArray(resultData) && resultData[0] ? resultData[0] : resultData;
 
       return result.affectedRows > 0;
     } catch (error) {

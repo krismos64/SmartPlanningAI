@@ -1,7 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const Department = require("../models/Department");
-const { auth, checkRole } = require("../middleware/auth");
+const Employee = require("../models/Employee");
+const { auth } = require("../middleware/auth");
+const { checkRole } = require("../middleware/secureAuth");
 const { recordActivity } = require("./activities");
 const db = require("../config/db");
 

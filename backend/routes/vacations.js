@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const VacationRequest = require("../models/VacationRequest");
 const { auth } = require("../middleware/auth");
+const { getCurrentAdminId } = require("../middleware/auth");
 const db = require("../config/db");
 const Employee = require("../models/Employee");
 const Activity = require("../models/Activity");
@@ -272,37 +273,28 @@ router.put("/:id", auth, async (req, res) => {
     ) {
       const updateData = { ...req.body };
 
-      // Afficher les informations de l'utilisateur pour le débogage
-      console.log("Informations utilisateur pour approbation/rejet:", {
-        id: req.user.id,
-        role: req.user.role,
-        fullName: req.user.fullName,
-        first_name: req.user.first_name,
-        last_name: req.user.last_name,
-      });
+      // Obtenir l'ID de l'administrateur qui approuve/rejette
+      const adminId = req.user.id;
+      if (!adminId) {
+        return res
+          .status(400)
+          .json({ message: "ID d'administrateur manquant" });
+      }
 
-      // Récupérer les informations de l'utilisateur qui approuve/rejette
-      const Employee = require("../models/Employee");
-      const approver = await Employee.findById(req.user.id);
-
-      // Définir le nom de l'approbateur
-      const approverName = approver
-        ? `${approver.first_name} ${approver.last_name}`.trim()
-        : "Admin Système";
-
+      // Selon le statut, mettre à jour les informations appropriées
       if (req.body.status === "approved") {
-        // Stocker les informations sur l'approbateur
-        updateData.approved_by = approverName;
+        // Stocker les informations d'approbation
+        updateData.approved_by = adminId; // Utiliser l'ID au lieu du nom
         updateData.approved_at = new Date();
-        // Réinitialiser les informations de rejet si la demande était précédemment rejetée
+        // Réinitialiser les informations de rejet
         updateData.rejected_by = null;
         updateData.rejected_at = null;
         updateData.rejection_reason = null;
       } else if (req.body.status === "rejected") {
-        // Stocker les informations sur le rejeteur
-        updateData.rejected_by = approverName;
+        // Stocker les informations de rejet
+        updateData.rejected_by = adminId; // Utiliser l'ID au lieu du nom
         updateData.rejected_at = new Date();
-        // Réinitialiser les informations d'approbation si la demande était précédemment approuvée
+        // Réinitialiser les informations d'approbation
         updateData.approved_by = null;
         updateData.approved_at = null;
       } else if (req.body.status === "pending") {
@@ -840,6 +832,28 @@ router.put("/:id/status", auth, async (req, res) => {
       message: "Erreur lors de la mise à jour du statut de la demande de congé",
       details: error.message,
     });
+  }
+});
+
+// Récupérer toutes les demandes de congés pour les employés d'un manager
+router.get("/manager", auth, async (req, res) => {
+  try {
+    // Récupérer l'ID de l'admin connecté
+    const adminId = req.user.id;
+    if (!adminId) {
+      return res.status(400).json({ message: "ID d'administrateur manquant" });
+    }
+
+    // Utiliser la méthode dédiée pour récupérer les demandes des employés de ce manager
+    const requests = await VacationRequest.findByManagerId(adminId);
+
+    res.json(requests);
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des demandes de congés:",
+      error
+    );
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
