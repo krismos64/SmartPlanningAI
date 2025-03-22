@@ -1,4 +1,4 @@
-const db = require("../config/database");
+const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
 
 class Notification {
@@ -36,10 +36,10 @@ class Notification {
         this.entity_id,
       ];
 
-      const result = await db.query(query, params);
+      const [result] = await db.execute(query, params);
 
       // Récupérer la notification créée avec la date correcte
-      const [rows] = await db.query(
+      const [rows] = await db.execute(
         "SELECT * FROM notifications WHERE id = ?",
         [this.id]
       );
@@ -67,7 +67,7 @@ class Notification {
   static async markAsRead(id) {
     try {
       const query = "UPDATE notifications SET `read` = 1 WHERE id = ?";
-      const result = await db.query(query, [id]);
+      const [result] = await db.execute(query, [id]);
 
       return {
         success: true,
@@ -89,7 +89,7 @@ class Notification {
   static async markAllAsRead(userId) {
     try {
       const query = "UPDATE notifications SET `read` = 1 WHERE user_id = ?";
-      const result = await db.query(query, [userId]);
+      const [result] = await db.execute(query, [userId]);
 
       return {
         success: true,
@@ -120,7 +120,7 @@ class Notification {
 
       query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
 
-      const notifications = await db.query(query, [userId, limit, offset]);
+      const [notifications] = await db.execute(query, [userId, limit, offset]);
 
       return {
         success: true,
@@ -140,7 +140,7 @@ class Notification {
     try {
       const query =
         "SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND `read` = 0";
-      const result = await db.query(query, [userId]);
+      const [result] = await db.execute(query, [userId]);
 
       return {
         success: true,
@@ -162,7 +162,7 @@ class Notification {
   static async delete(id) {
     try {
       const query = "DELETE FROM notifications WHERE id = ?";
-      const result = await db.query(query, [id]);
+      const [result] = await db.execute(query, [id]);
 
       return {
         success: true,
@@ -181,7 +181,7 @@ class Notification {
   static async deleteAllByUserId(userId) {
     try {
       const query = "DELETE FROM notifications WHERE user_id = ?";
-      const result = await db.query(query, [userId]);
+      const [result] = await db.execute(query, [userId]);
 
       return {
         success: true,

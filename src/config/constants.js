@@ -142,6 +142,79 @@ export const EMPLOYEE_TABLE_COLUMNS = [
   },
 ];
 
+// Constantes pour les colonnes du tableau des demandes de congés
+export const VACATION_TABLE_COLUMNS = [
+  {
+    id: "employee",
+    header: "Employé",
+    accessor: (vacation) => {
+      // Construction standardisée du nom d'employé comme dans la table des employés
+      if (vacation.employee_name && vacation.employee_name.trim() !== "") {
+        return vacation.employee_name;
+      } else if (
+        vacation.employee &&
+        vacation.employee.first_name &&
+        vacation.employee.last_name
+      ) {
+        return `${vacation.employee.first_name} ${vacation.employee.last_name}`;
+      } else if (vacation.employee_first_name && vacation.employee_last_name) {
+        return `${vacation.employee_first_name} ${vacation.employee_last_name}`;
+      } else if (vacation.first_name && vacation.last_name) {
+        return `${vacation.first_name} ${vacation.last_name}`;
+      } else {
+        return `Employé #${vacation.employee_id || "?"}`;
+      }
+    },
+    sortable: true,
+  },
+  {
+    id: "type",
+    header: "Type",
+    accessor: (vacation) => vacation.type,
+    sortable: true,
+  },
+  {
+    id: "start_date",
+    header: "Date de début",
+    accessor: (vacation) => {
+      if (!vacation.start_date && !vacation.startDate) return "";
+      const date = new Date(vacation.start_date || vacation.startDate);
+      return date.toLocaleDateString("fr-FR");
+    },
+    sortable: true,
+    type: "date",
+  },
+  {
+    id: "end_date",
+    header: "Date de fin",
+    accessor: (vacation) => {
+      if (!vacation.end_date && !vacation.endDate) return "";
+      const date = new Date(vacation.end_date || vacation.endDate);
+      return date.toLocaleDateString("fr-FR");
+    },
+    sortable: true,
+    type: "date",
+  },
+  {
+    id: "duration",
+    header: "Durée",
+    accessor: (vacation) => {
+      if (vacation.duration) {
+        return `${vacation.duration} jour${vacation.duration > 1 ? "s" : ""}`;
+      }
+      return "-";
+    },
+    sortable: true,
+  },
+  {
+    id: "status",
+    header: "Statut",
+    accessor: (vacation) => vacation.status,
+    sortable: true,
+    type: "status",
+  },
+];
+
 // URL de l'API
 export const API_URL =
   process.env.REACT_APP_API_URL || "http://localhost:5001/api";

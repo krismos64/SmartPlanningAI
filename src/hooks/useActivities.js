@@ -376,22 +376,22 @@ const useActivities = () => {
             const employeeName =
               parsedDetails.employee_name ||
               `Employé #${parsedDetails.employee_id || entity_id}`;
+            const approverName = parsedDetails.approver_name || userName;
             const dateRange =
               parsedDetails.start_date && parsedDetails.end_date
-                ? formatVacationDates(
-                    parsedDetails.start_date,
-                    parsedDetails.end_date
-                  )
+                ? ` du ${new Date(parsedDetails.start_date).toLocaleDateString(
+                    "fr-FR"
+                  )} au ${new Date(parsedDetails.end_date).toLocaleDateString(
+                    "fr-FR"
+                  )}`
                 : "";
             const typeConge = parsedDetails.vacation_type
-              ? translateVacationType(parsedDetails.vacation_type)
+              ? ` ${translateVacationType(parsedDetails.vacation_type)}`
               : "";
 
             let statusText = translateVacationStatus(newStatus);
 
-            return `${userName} a ${statusText} la demande de congé${
-              typeConge ? " " + typeConge : ""
-            } de ${employeeName}${dateRange ? " " + dateRange : ""}`;
+            return `Demande de congés${typeConge} ${statusText}e pour ${employeeName} ${statusText} par ${approverName}${dateRange}`;
           }
 
           // Pour la mise à jour générale des congés

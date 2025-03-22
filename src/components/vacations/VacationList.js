@@ -32,7 +32,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useCallback, useMemo, useState } from "react";
 import { useTheme } from "../../components/ThemeProvider";
-import { VACATION_TYPES } from "../../config/constants";
+import { VACATION_TABLE_COLUMNS, VACATION_TYPES } from "../../config/constants";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Composants stylisés pour améliorer l'apparence
@@ -238,21 +238,6 @@ const VacationList = ({
 
   // Vérifier si l'utilisateur est admin (seul rôle supporté maintenant)
   const isAdmin = user && user.role === "admin";
-
-  // Vérifier que l'utilisateur a l'autorisation d'accéder aux employés (via manager_id)
-  const canAccessEmployees = useCallback(
-    (employee) => {
-      // Si pas d'employé, pas d'accès
-      if (!employee) return false;
-
-      // Si l'utilisateur n'est pas admin, pas d'accès
-      if (!isAdmin) return false;
-
-      // Vérifier si l'employé est rattaché au manager connecté
-      return employee.manager_id === user?.id;
-    },
-    [isAdmin, user?.id]
-  );
 
   // Gérer le changement de page
   const handleChangePage = (event, newPage) => {
@@ -604,14 +589,18 @@ const VacationList = ({
                     >
                       <StyledTableRow>
                         <StyledTableCell component="th" scope="row">
-                          {vacation && vacation.employee
-                            ? `${vacation.employee.first_name || ""} ${
-                                vacation.employee.last_name || ""
-                              }`.trim() || "-"
-                            : (vacation &&
-                                (vacation.employeeName ||
-                                  vacation.employee_name)) ||
-                              "-"}
+                          {console.log("Données de l'employé:", {
+                            vacation_id: vacation?.id,
+                            employee_name: vacation?.employee_name,
+                            employee_obj: vacation?.employee,
+                            employee_first_name: vacation?.employee?.first_name,
+                            employee_last_name: vacation?.employee?.last_name,
+                            // Afficher toutes les propriétés pour voir si le nom est disponible sous un autre format
+                            all_props: Object.keys(vacation || {}),
+                          })}
+                          {/* Utiliser l'accesseur standardisé de VACATION_TABLE_COLUMNS pour le nom de l'employé */}
+                          {vacation &&
+                            VACATION_TABLE_COLUMNS[0].accessor(vacation)}
                         </StyledTableCell>
                         <StyledTableCell>
                           {vacation && vacation.type

@@ -715,6 +715,10 @@ const Dashboard = () => {
                   <UpcomingContent>
                     <UpcomingTitle>
                       {vacation.employee_name ||
+                        (vacation.employee &&
+                          `${vacation.employee.first_name || ""} ${
+                            vacation.employee.last_name || ""
+                          }`.trim()) ||
                         `Employé #${vacation.employee_id}`}
                     </UpcomingTitle>
                     <UpcomingDate>

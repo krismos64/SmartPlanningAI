@@ -719,13 +719,28 @@ class Activity {
           ) {
             const previousStatus = parsedDetails.previous_status;
             const newStatus = parsedDetails.new_status;
+            const employeeName =
+              parsedDetails.employee_name ||
+              `Employé #${parsedDetails.employee_id || entity_id}`;
+            const approverName = parsedDetails.approver_name || userName;
 
             let statusText = "";
             if (newStatus === "approved") statusText = "approuvé";
             else if (newStatus === "rejected") statusText = "rejeté";
             else if (newStatus === "pending") statusText = "remis en attente";
 
-            return `${userName} a ${statusText} la demande de congé #${entity_id}`;
+            let dateRange = "";
+            if (parsedDetails.start_date && parsedDetails.end_date) {
+              const startDate = new Date(
+                parsedDetails.start_date
+              ).toLocaleDateString("fr-FR");
+              const endDate = new Date(
+                parsedDetails.end_date
+              ).toLocaleDateString("fr-FR");
+              dateRange = ` du ${startDate} au ${endDate}`;
+            }
+
+            return `Demande de congés ${statusText}e pour ${employeeName} ${statusText} par ${approverName}${dateRange}`;
           }
 
           // Pour la mise à jour générale des congés

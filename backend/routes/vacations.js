@@ -35,20 +35,45 @@ router.get("/", auth, async (req, res) => {
     // Récupérer directement toutes les demandes de congés, sans filtrage
     // Cela nous permettra de vérifier si des données existent dans la BDD
     console.log("Récupération SANS FILTRE de toutes les demandes de congés...");
-    const [allRequestsRaw] = await db.execute(
-      "SELECT * FROM vacation_requests"
-    );
+    const [allRequestsRaw] = await db.execute(`
+      SELECT vr.*, 
+             e.first_name as employee_first_name, 
+             e.last_name as employee_last_name,
+             CONCAT(e.first_name, ' ', e.last_name) as employee_name
+      FROM vacation_requests vr
+      LEFT JOIN employees e ON vr.employee_id = e.id
+    `);
     console.log(
       `${allRequestsRaw.length} demandes trouvées au total dans la BDD`
     );
+
+    // Traiter les données pour s'assurer que employee_name est défini
+    const processedRequests = allRequestsRaw.map((request) => {
+      // Vérifier et corriger employee_name si nécessaire
+      if (!request.employee_name || request.employee_name.trim() === " ") {
+        if (request.employee_first_name && request.employee_last_name) {
+          request.employee_name =
+            `${request.employee_first_name} ${request.employee_last_name}`.trim();
+          console.log(
+            `Vacation ID ${request.id}: nom reconstruit = ${request.employee_name}`
+          );
+        } else {
+          request.employee_name = `Employé #${request.employee_id}`;
+          console.log(
+            `Vacation ID ${request.id}: aucun nom trouvé, ID utilisé = ${request.employee_name}`
+          );
+        }
+      }
+      return request;
+    });
 
     // IMPORTANT: Toujours retourner les données, même en mode débug
     console.log("Renvoyer toutes les demandes au client sans filtrage");
 
     return res.json({
       success: true,
-      message: `${allRequestsRaw.length} demandes de congés trouvées`,
-      data: allRequestsRaw,
+      message: `${processedRequests.length} demandes de congés trouvées`,
+      data: processedRequests,
     });
   } catch (error) {
     console.error(
@@ -193,30 +218,71 @@ router.post("/", auth, async (req, res) => {
         },
       });
 
-      // Créer une notification pour les administrateurs et managers
-      // Les employés n'ont pas accès à l'application, donc on notifie uniquement les utilisateurs avec rôle admin/manager
-      const users = await db.query(
-        "SELECT id FROM users WHERE role IN ('admin', 'manager')"
-      );
+      // Créer des notifications pour tous les utilisateurs admin et managers
+      try {
+        const [users] = await db.execute(
+          "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+        );
 
-      if (users && users[0] && users[0].length > 0) {
-        for (const user of users[0]) {
-          await Notification.createAndBroadcast({
-            user_id: user.id,
-            title: "Nouvelle demande de congés",
-            message: `Une nouvelle demande de congés a été soumise par ${
-              employee.first_name
-            } ${employee.last_name} du ${new Date(
-              req.body.start_date
-            ).toLocaleDateString()} au ${new Date(
-              req.body.end_date
-            ).toLocaleDateString()}.`,
-            type: "info",
-            entity_type: "vacation_request",
-            entity_id: result.id,
-            link: `/vacations/${result.id}`,
-          });
+        if (users && users.length > 0) {
+          for (const user of users) {
+            console.log(
+              `Tentative de création de notification pour l'utilisateur ${user.id}`
+            );
+
+            const statusText =
+              result.status === "approved"
+                ? "approuvée"
+                : result.status === "rejected"
+                ? "rejetée"
+                : "remise en attente";
+
+            const notificationTitle = `Demande de congé ${statusText}`;
+            const notificationMessage = `La demande de congés de ${
+              vacationData.employee_name
+            } du ${new Date(req.body.start_date).toLocaleDateString(
+              "fr-FR"
+            )} au ${new Date(req.body.end_date).toLocaleDateString(
+              "fr-FR"
+            )} a été ${statusText} par ${req.user.first_name} ${
+              req.user.last_name
+            }.${
+              result.status === "rejected" && req.body.comment
+                ? ` Motif: ${req.body.comment}`
+                : ""
+            }`;
+
+            const notificationResult = await Notification.createAndBroadcast({
+              user_id: user.id,
+              title: notificationTitle,
+              message: notificationMessage,
+              type:
+                result.status === "approved"
+                  ? "success"
+                  : result.status === "rejected"
+                  ? "warning"
+                  : "info",
+              entity_type: "vacation_request",
+              entity_id: result.id,
+              link: `/vacations/${result.id}`,
+            });
+
+            console.log(
+              `Notification pour utilisateur ${user.id} créée:`,
+              notificationResult.success ? "succès" : "échec"
+            );
+          }
+        } else {
+          console.log(
+            "Aucun utilisateur admin ou manager trouvé pour envoyer des notifications"
+          );
         }
+      } catch (notifError) {
+        console.error(
+          "Erreur lors de la création des notifications:",
+          notifError
+        );
+        // Ne pas bloquer la mise à jour si la création de notification échoue
       }
 
       res.status(201).json({
@@ -635,67 +701,90 @@ router.get("/test-stats", async (req, res) => {
  */
 router.put("/:id/status", auth, async (req, res) => {
   try {
-    const { id } = req.params;
+    // Récupérer l'ID de la demande de congé à partir de l'URL
+    const id = req.params.id;
+    // Récupérer le nouveau statut et le commentaire de rejet du corps de la requête
     const { status, comment } = req.body;
 
-    console.log(
-      `Tentative de mise à jour du statut de la demande de congé ${id} à "${status}"`,
-      comment ? `avec commentaire: "${comment}"` : "sans commentaire"
-    );
-
     // Vérifier que le statut est valide
-    if (!["approved", "rejected", "pending"].includes(status)) {
-      console.log(`Statut invalide: ${status}`);
+    if (!status || !["pending", "approved", "rejected"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Statut invalide. Les valeurs acceptées sont: approved, rejected, pending",
+        message: "Statut invalide",
+        details: "Le statut doit être 'pending', 'approved' ou 'rejected'",
         data: null,
       });
     }
 
-    // Vérifier que l'utilisateur est un admin ou un manager
-    if (req.user.role !== "admin" && req.user.role !== "manager") {
-      console.log(`Utilisateur non autorisé: ${req.user.role}`);
+    // Vérifier les droits d'accès (seuls les admins et les managers peuvent changer le statut)
+    if (!["admin", "manager"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message:
-          "Vous n'êtes pas autorisé à modifier le statut des demandes de congé",
+        message: "Accès refusé",
+        details:
+          "Seuls les administrateurs et les managers peuvent modifier le statut des demandes de congé",
         data: null,
       });
     }
 
-    // Récupérer la demande de congé
+    // Récupérer la demande de congé existante
     const vacationRequest = await VacationRequest.findById(id);
+
     if (!vacationRequest) {
-      console.log(`Demande de congé non trouvée: ${id}`);
       return res.status(404).json({
         success: false,
         message: "Demande de congé non trouvée",
+        details: `La demande de congé avec l'ID ${id} n'existe pas`,
         data: null,
       });
     }
 
     console.log(`Demande de congé trouvée:`, vacationRequest);
 
-    // Récupérer les informations de l'utilisateur qui approuve/rejette
-    const Employee = require("../models/Employee");
-    const approver = await Employee.findById(req.user.id);
+    // Vérifier si le statut est déjà celui demandé
+    if (vacationRequest.status === status) {
+      return res.json({
+        success: true,
+        message: `La demande de congé a déjà le statut "${status}"`,
+        data: vacationRequest,
+      });
+    }
 
-    // Définir le nom de l'approbateur
-    const approverName = approver
-      ? `${approver.first_name} ${approver.last_name}`.trim()
-      : "Admin Système";
+    // Récupérer les informations sur l'utilisateur qui approuve/rejette
+    const [userResult] = await db.execute(
+      "SELECT first_name, last_name FROM users WHERE id = ?",
+      [req.user.id]
+    );
+
+    const approverName =
+      userResult && userResult.length > 0
+        ? `${userResult[0].first_name} ${userResult[0].last_name}`.trim()
+        : `Utilisateur #${req.user.id}`;
 
     console.log(`Approbateur: ${approverName} (ID: ${req.user.id})`);
 
-    // Préparer les données de mise à jour
-    const updateData = { status };
+    // Récupérer les informations sur l'employé concerné
+    const Employee = require("../models/Employee");
+    const employee = await Employee.findById(vacationRequest.employee_id);
+    const employeeName = employee
+      ? `${employee.first_name} ${employee.last_name}`.trim()
+      : `Employé #${vacationRequest.employee_id}`;
 
+    console.log(
+      `Employé: ${employeeName} (ID: ${vacationRequest.employee_id})`
+    );
+
+    // Préparer les données à mettre à jour
+    const updateData = {
+      status: status,
+    };
+
+    // Ajouter des informations supplémentaires selon le statut
     if (status === "approved") {
       // Stocker les informations sur l'approbateur
       updateData.approved_by = req.user.id; // Utiliser l'ID utilisateur au lieu du nom
       updateData.approved_at = new Date();
+
       // Réinitialiser les informations de rejet si la demande était précédemment rejetée
       updateData.rejected_by = null;
       updateData.rejected_at = null;
@@ -725,13 +814,15 @@ router.put("/:id/status", auth, async (req, res) => {
     console.log(`Données de mise à jour:`, updateData);
 
     try {
-      // Mettre à jour la demande de congé
-      const updatedVacationRequest = await VacationRequest.findByIdAndUpdate(
+      // Mettre à jour le statut de la demande de congé en utilisant la méthode dédiée
+      const updateResult = await VacationRequest.updateStatus(
         id,
-        updateData
+        status,
+        req.user.id, // adminId
+        comment // rejectionReason
       );
 
-      if (!updatedVacationRequest) {
+      if (!updateResult) {
         console.log(`Échec de la mise à jour de la demande de congé ${id}`);
         return res.status(500).json({
           success: false,
@@ -742,50 +833,72 @@ router.put("/:id/status", auth, async (req, res) => {
         });
       }
 
+      // Récupérer la demande mise à jour
+      const updatedVacationRequest = await VacationRequest.findById(id);
+
       console.log(
         `Demande de congé mise à jour avec succès:`,
         updatedVacationRequest
       );
 
       // Journaliser l'activité
-      if (global.Activity) {
-        try {
-          // Récupérer les informations de l'employé concerné
-          const employee = await Employee.findById(vacationRequest.employee_id);
-          const employeeName = employee
-            ? `${employee.first_name} ${employee.last_name}`.trim()
-            : `Employé #${vacationRequest.employee_id}`;
+      try {
+        const statusText =
+          status === "approved"
+            ? "approuvée"
+            : status === "rejected"
+            ? "rejetée"
+            : "mise à jour";
 
-          // Log de l'activité
-          await global.Activity.logActivity({
-            user_id: req.user.id,
-            action: "update_status",
-            entity_type: "vacation_request",
-            entity_id: id,
-            description: `Statut de la demande de congé #${id} mis à jour en "${status}" par ${approverName}`,
-            details: {
-              previous_status: vacationRequest.status,
-              new_status: status,
-              comment: comment || null,
-              employee_id: vacationRequest.employee_id,
-              employee_name: employeeName,
-            },
-          });
-        } catch (logError) {
-          console.error(
-            "Erreur lors de la journalisation de l'activité:",
-            logError
-          );
-          // Ne pas bloquer la mise à jour si la journalisation échoue
-        }
+        // Log de l'activité
+        await Activity.logActivity({
+          type: "vacation_status_update",
+          entity_type: "vacation",
+          entity_id: id,
+          user_id: req.user.id,
+          description: `Demande de congés ${statusText} pour ${employeeName} ${
+            status === "approved"
+              ? "approuvée"
+              : status === "rejected"
+              ? "rejetée"
+              : ""
+          } par ${approverName} du ${new Date(
+            vacationRequest.start_date
+          ).toLocaleDateString("fr-FR")} au ${new Date(
+            vacationRequest.end_date
+          ).toLocaleDateString("fr-FR")}`,
+          details: {
+            previous_status: vacationRequest.status,
+            new_status: status,
+            comment: comment || null,
+            employee_id: vacationRequest.employee_id,
+            employee_name: employeeName,
+            start_date: vacationRequest.start_date,
+            end_date: vacationRequest.end_date,
+            vacation_type: vacationRequest.type,
+            approver_name: approverName,
+            approver_id: req.user.id,
+          },
+        });
+
+        console.log("Activité journalisée avec succès");
+      } catch (logError) {
+        console.error(
+          "Erreur lors de la journalisation de l'activité:",
+          logError
+        );
+        // Ne pas bloquer la mise à jour si la journalisation échoue
       }
 
-      // Créer une notification pour l'employé concerné
+      // Créer des notifications pour tous les utilisateurs admin et managers
       try {
-        const employee = await Employee.findById(vacationRequest.employee_id);
+        // Récupérer tous les utilisateurs admin et managers
+        const [users] = await db.execute(
+          "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+        );
 
-        // Si l'employé a un user_id associé, on peut lui envoyer une notification
-        if (employee && employee.user_id) {
+        if (users && users.length > 0) {
+          // Préparer le contenu de la notification
           const statusText =
             status === "approved"
               ? "approuvée"
@@ -793,31 +906,61 @@ router.put("/:id/status", auth, async (req, res) => {
               ? "rejetée"
               : "remise en attente";
 
-          const notificationMessage =
-            status === "rejected" && comment
-              ? `Votre demande de congé a été ${statusText}. Motif: ${comment}`
-              : `Votre demande de congé a été ${statusText}.`;
+          const notificationTitle = `Demande de congé ${statusText}`;
+          const notificationMessage = `La demande de congés de ${employeeName} du ${new Date(
+            vacationRequest.start_date
+          ).toLocaleDateString("fr-FR")} au ${new Date(
+            vacationRequest.end_date
+          ).toLocaleDateString(
+            "fr-FR"
+          )} a été ${statusText} par ${approverName}.${
+            status === "rejected" && comment ? ` Motif: ${comment}` : ""
+          }`;
 
-          if (global.Notification) {
-            await global.Notification.createAndBroadcast({
-              user_id: employee.user_id,
-              title: `Demande de congé ${statusText}`,
-              message: notificationMessage,
-              type:
-                status === "approved"
-                  ? "success"
-                  : status === "rejected"
-                  ? "warning"
-                  : "info",
-              entity_type: "vacation_request",
-              entity_id: id,
-              link: `/vacations/${id}`,
-            });
+          const notificationType =
+            status === "approved"
+              ? "success"
+              : status === "rejected"
+              ? "warning"
+              : "info";
+
+          // Créer une notification pour chaque utilisateur
+          for (const user of users) {
+            console.log(
+              `Création d'une notification pour l'utilisateur ${user.id}`
+            );
+
+            try {
+              // Utiliser createAndBroadcast au lieu de new Notification().save()
+              const result = await Notification.createAndBroadcast({
+                user_id: user.id,
+                title: notificationTitle,
+                message: notificationMessage,
+                type: notificationType,
+                entity_type: "vacation_request",
+                entity_id: id,
+                link: `/vacations/${id}`,
+              });
+
+              console.log(
+                `Notification créée pour l'utilisateur ${user.id}:`,
+                result.success ? "succès" : "échec"
+              );
+            } catch (error) {
+              console.error(
+                `Erreur lors de la création de la notification pour l'utilisateur ${user.id}:`,
+                error
+              );
+            }
           }
+        } else {
+          console.log(
+            "Aucun utilisateur admin ou manager trouvé pour envoyer des notifications"
+          );
         }
       } catch (notifError) {
         console.error(
-          "Erreur lors de la création de notification:",
+          "Erreur lors de la création des notifications:",
           notifError
         );
         // Ne pas bloquer la mise à jour si la création de notification échoue

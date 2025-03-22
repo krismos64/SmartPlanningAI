@@ -21,11 +21,6 @@ const useVacations = () => {
   const isComponentMountedRef = useRef(true);
   const isFetchingRef = useRef(false);
 
-  // Fonction utilitaire pour obtenir l'ID de l'utilisateur connecté
-  const getUserId = () => {
-    return user ? user.id : null;
-  };
-
   // Marquer le composant comme monté/démonté
   useEffect(() => {
     // Réinitialiser l'état au montage
@@ -173,8 +168,87 @@ const useVacations = () => {
       // Log des données extraites
       console.log(`Vacations extraites: ${vacationsData.length} éléments`);
       if (vacationsData.length > 0) {
-        console.log("Exemple de vacation:", JSON.stringify(vacationsData[0]));
+        console.log(
+          "Exemple de vacation:",
+          JSON.stringify(vacationsData[0], null, 2)
+        );
       }
+
+      // Vérifier et corriger les noms d'employés dans les données
+      vacationsData = vacationsData.map((vacation) => {
+        // Log détaillé des données d'employé avant traitement
+        console.log("Données brutes d'employé:", {
+          id: vacation.id,
+          employee_id: vacation.employee_id,
+          employee_name: vacation.employee_name,
+          employee_first_name:
+            vacation.employee_first_name ||
+            (vacation.employee && vacation.employee.first_name),
+          employee_last_name:
+            vacation.employee_last_name ||
+            (vacation.employee && vacation.employee.last_name),
+          employee_obj: vacation.employee
+            ? Object.keys(vacation.employee)
+            : "absent",
+        });
+
+        // S'assurer que employee_name est défini
+        if (!vacation.employee_name) {
+          if (
+            vacation.employee &&
+            vacation.employee.first_name &&
+            vacation.employee.last_name
+          ) {
+            vacation.employee_name =
+              `${vacation.employee.first_name} ${vacation.employee.last_name}`.trim();
+            console.log(
+              `ID ${vacation.id}: Nom construit depuis employee.first_name et employee.last_name: ${vacation.employee_name}`
+            );
+          } else if (
+            vacation.employee_first_name &&
+            vacation.employee_last_name
+          ) {
+            vacation.employee_name =
+              `${vacation.employee_first_name} ${vacation.employee_last_name}`.trim();
+            console.log(
+              `ID ${vacation.id}: Nom construit depuis employee_first_name et employee_last_name: ${vacation.employee_name}`
+            );
+          } else {
+            // Récupération du nom depuis les champs plats de la réponse API
+            if (vacation.first_name && vacation.last_name) {
+              vacation.employee_name =
+                `${vacation.first_name} ${vacation.last_name}`.trim();
+              console.log(
+                `ID ${vacation.id}: Nom construit depuis first_name et last_name: ${vacation.employee_name}`
+              );
+            } else {
+              vacation.employee_name = `Employé #${vacation.employee_id}`;
+              console.log(
+                `ID ${vacation.id}: Aucun nom trouvé, utilisation de l'ID: ${vacation.employee_name}`
+              );
+            }
+          }
+        } else {
+          console.log(
+            `ID ${vacation.id}: Nom d'employé déjà défini: ${vacation.employee_name}`
+          );
+        }
+
+        // Vérifier si le nom est vide ou contient seulement des espaces
+        if (!vacation.employee_name || vacation.employee_name.trim() === "") {
+          vacation.employee_name = `Employé #${vacation.employee_id}`;
+          console.log(
+            `ID ${vacation.id}: Nom vide ou espaces détectés, utilisation de l'ID: ${vacation.employee_name}`
+          );
+        }
+
+        // Log pour débogage
+        console.log(
+          `Vacation ID ${vacation.id}: employee_name final = ${vacation.employee_name}`
+        );
+
+        return vacation;
+      });
 
       if (isComponentMountedRef.current) {
         // IMPORTANT: Désactiver temporairement le filtrage pour afficher toutes les demandes
@@ -293,7 +367,7 @@ const useVacations = () => {
         }
       }
     },
-    [fetchVacations, VacationService]
+    [fetchVacations]
   );
 
   // Mettre à jour une demande de congé
@@ -410,6 +484,9 @@ const useVacations = () => {
     async (id, status, comment = "") => {
       if (!isComponentMountedRef.current) return { success: false };
 
+      // Déplacer la fonction getUserId à l'intérieur du callback
+      const getUserId = () => (user ? user.id : null);
+
       try {
         setLoading(true);
 
@@ -476,7 +553,7 @@ const useVacations = () => {
         }
       }
     },
-    [getUserId, VacationService]
+    [user] // Remplacer getUserId par user comme dépendance
   );
 
   // Filtrer les congés par statut

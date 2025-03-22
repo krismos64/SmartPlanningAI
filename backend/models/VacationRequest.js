@@ -58,6 +58,8 @@ class VacationRequest {
     try {
       const [rows] = await connectDB.execute(`
         SELECT vr.*, 
+               e.first_name as employee_first_name, 
+               e.last_name as employee_last_name,
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
                a.first_name as approver_first_name, 
                a.last_name as approver_last_name,
@@ -89,14 +91,45 @@ class VacationRequest {
         rows.slice(0, 3).map((r) => ({
           id: r.id,
           employee_id: r.employee_id,
+          employee_first_name: r.employee_first_name,
+          employee_last_name: r.employee_last_name,
+          employee_name: r.employee_name,
           creator_id: r.creator_id,
           creator_id_check: r.creator_id_check,
           creator_email: r.creator_email,
         }))
       );
 
+      // Inspecter en détail un enregistrement pour déboguer
+      if (rows.length > 0) {
+        console.log(
+          "Inspection détaillée du premier enregistrement:",
+          JSON.stringify(rows[0], null, 2)
+        );
+      }
+
       return rows.map((row) => {
+        // Création d'une instance avec les données de base
         const request = new VacationRequest(row);
+
+        // Assigner explicitement le nom de l'employé à partir des colonnes jointes
+        if (row.employee_first_name && row.employee_last_name) {
+          request.employee_name =
+            `${row.employee_first_name} ${row.employee_last_name}`.trim();
+          // Ajouter également les champs individuels pour permettre le formatage flexible
+          request.employee_first_name = row.employee_first_name;
+          request.employee_last_name = row.employee_last_name;
+        } else if (row.employee_name) {
+          request.employee_name = row.employee_name;
+        } else {
+          request.employee_name = `Employé #${row.employee_id}`;
+        }
+
+        // Documenter explicitement la structure
+        console.log(
+          `Traitement de la demande ID ${row.id}: employee_name=${request.employee_name}`
+        );
+
         // Ajouter des noms complets pour les approbateurs/rejeteurs
         if (row.approver_first_name && row.approver_last_name) {
           request.approver_name =
@@ -131,6 +164,8 @@ class VacationRequest {
       const [rows] = await connectDB.execute(
         `
         SELECT vr.*, 
+               e.first_name as employee_first_name, 
+               e.last_name as employee_last_name,
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
                a.first_name as approver_first_name, 
                a.last_name as approver_last_name,
@@ -160,7 +195,31 @@ class VacationRequest {
       }
 
       const row = rows[0];
+
+      // Inspecter en détail cet enregistrement pour déboguer
+      console.log(
+        `Détails complets de la demande ${id}:`,
+        JSON.stringify(row, null, 2)
+      );
+
       const request = new VacationRequest(row);
+
+      // Assigner explicitement le nom de l'employé à partir des colonnes jointes
+      if (row.employee_first_name && row.employee_last_name) {
+        request.employee_name =
+          `${row.employee_first_name} ${row.employee_last_name}`.trim();
+        // Ajouter également les champs individuels pour permettre le formatage flexible
+        request.employee_first_name = row.employee_first_name;
+        request.employee_last_name = row.employee_last_name;
+      } else if (row.employee_name) {
+        request.employee_name = row.employee_name;
+      } else {
+        request.employee_name = `Employé #${row.employee_id}`;
+      }
+
+      console.log(
+        `Traitement de la demande ID ${id}: employee_name=${request.employee_name}`
+      );
 
       // Ajouter des noms complets pour les approbateurs/rejeteurs
       if (row.approver_first_name && row.approver_last_name) {
