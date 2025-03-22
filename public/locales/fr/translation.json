@@ -107,6 +107,13 @@
     "push": "Notifications push",
     "pushDescription": "Recevoir des notifications push dans le navigateur."
   },
+  "pagination": {
+    "rowsPerPage": "Lignes par page :",
+    "of": "sur",
+    "page": "Page",
+    "showRows": "Afficher",
+    "rows": "lignes"
+  },
   "common": {
     "loading": "Chargement...",
     "save": "Enregistrer",

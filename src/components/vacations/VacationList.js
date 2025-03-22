@@ -31,6 +31,7 @@ import {
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../components/ThemeProvider";
 import { VACATION_TABLE_COLUMNS, VACATION_TYPES } from "../../config/constants";
 import { useAuth } from "../../contexts/AuthContext";
@@ -216,6 +217,56 @@ const EmptyStateContainer = styled(Box)(({ theme }) => {
   };
 });
 
+// Composant de pagination avec thème
+const TablePaginationWithTheme = (props) => {
+  const { theme: themeMode } = useTheme();
+  const isDarkMode = themeMode === "dark";
+
+  return (
+    <TablePagination
+      {...props}
+      sx={{
+        "&": {
+          color: isDarkMode ? "#D1D5DB" : "inherit",
+          overflow: "visible",
+        },
+        "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+          {
+            margin: 0,
+            fontSize: "0.875rem",
+          },
+        "& .MuiTablePagination-select": {
+          paddingRight: "24px",
+          paddingLeft: "8px",
+          borderRadius: "4px",
+          backgroundColor: isDarkMode
+            ? "rgba(255, 255, 255, 0.05)"
+            : "rgba(0, 0, 0, 0.04)",
+          marginLeft: "8px",
+          marginRight: "16px",
+          fontWeight: 500,
+        },
+        "& .MuiTablePagination-actions": {
+          marginLeft: "20px",
+          "& button": {
+            color: isDarkMode ? "#6366F1" : "#4F46E5",
+            "&:disabled": {
+              color: isDarkMode
+                ? "rgba(255, 255, 255, 0.3)"
+                : "rgba(0, 0, 0, 0.26)",
+            },
+            "&:hover:not(:disabled)": {
+              backgroundColor: isDarkMode
+                ? "rgba(255, 255, 255, 0.08)"
+                : "rgba(0, 0, 0, 0.04)",
+            },
+          },
+        },
+      }}
+    />
+  );
+};
+
 /**
  * Composant affichant la liste des congés
  */
@@ -235,6 +286,7 @@ const VacationList = ({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("startDate");
+  const { t, i18n } = useTranslation();
 
   // Vérifier si l'utilisateur est admin (seul rôle supporté maintenant)
   const isAdmin = user && user.role === "admin";
@@ -856,23 +908,18 @@ const VacationList = ({
                   ))}
                 </TableBody>
               </Table>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
+              <TablePaginationWithTheme
+                rowsPerPageOptions={[5, 10, 25, 50]}
                 component="div"
                 count={vacations.length}
                 rowsPerPage={rowsPerPage}
                 page={page}
                 onPageChange={handleChangePage}
                 onRowsPerPageChange={handleChangeRowsPerPage}
-                sx={{
-                  color: isDarkMode ? "#D1D5DB" : "inherit",
-                  "& .MuiToolbar-root": {
-                    color: isDarkMode ? "#D1D5DB" : "inherit",
-                  },
-                  "& .MuiSvgIcon-root": {
-                    color: isDarkMode ? "#9CA3AF" : undefined,
-                  },
-                }}
+                labelRowsPerPage={t("pagination.rowsPerPage")}
+                labelDisplayedRows={({ from, to, count }) =>
+                  `${from}–${to} ${t("pagination.of")} ${count}`
+                }
               />
             </>
           ) : (

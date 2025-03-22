@@ -105,7 +105,14 @@
     "email": "Email notifications",
     "emailDescription": "Receive email notifications for important events.",
     "push": "Push notifications",
-    "pushDescription": "Receive push notifications in your browser."
+    "pushDescription": "Receive push notifications in the browser."
+  },
+  "pagination": {
+    "rowsPerPage": "Rows per page:",
+    "of": "of",
+    "page": "Page",
+    "showRows": "Show",
+    "rows": "rows"
   },
   "common": {
     "loading": "Loading...",

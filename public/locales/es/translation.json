@@ -107,6 +107,13 @@
     "push": "Notificaciones push",
     "pushDescription": "Recibir notificaciones push en el navegador."
   },
+  "pagination": {
+    "rowsPerPage": "Filas por página:",
+    "of": "de",
+    "page": "Página",
+    "showRows": "Mostrar",
+    "rows": "filas"
+  },
   "common": {
     "loading": "Cargando...",
     "save": "Guardar",
