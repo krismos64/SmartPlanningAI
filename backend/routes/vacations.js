@@ -513,18 +513,30 @@ router.delete("/:id", auth, async (req, res) => {
     // Journaliser l'activité de suppression
     if (global.Activity) {
       try {
+        // Récupérer les informations de l'employé
+        const Employee = require("../models/Employee");
+        const employee = await Employee.findById(vacationRequest.employee_id);
+        const employeeName = employee
+          ? `${employee.first_name} ${employee.last_name}`.trim()
+          : `Employé #${vacationRequest.employee_id}`;
+
+        // Générer la description
+        const description = `Suppression de la demande de congé pour ${employeeName} du ${new Date(
+          vacationRequest.start_date
+        ).toLocaleDateString("fr-FR")} au ${new Date(
+          vacationRequest.end_date
+        ).toLocaleDateString("fr-FR")}`;
+
         // Utiliser la méthode logActivity qui existe dans le modèle
         await global.Activity.logActivity({
           type: "delete",
           entity_type: "vacation",
           entity_id: req.params.id,
-          description: `Suppression de la demande de congé #${req.params.id}`,
+          description: description,
           user_id: req.user.id,
           details: {
             employee_id: vacationRequest.employee_id,
-            employee_name:
-              vacationRequest.employee_name ||
-              `Employé #${vacationRequest.employee_id}`,
+            employee_name: employeeName,
             vacation_type: vacationRequest.type,
             start_date: vacationRequest.start_date,
             end_date: vacationRequest.end_date,

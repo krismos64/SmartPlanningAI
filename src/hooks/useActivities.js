@@ -268,7 +268,10 @@ const useActivities = () => {
       if (!activity) return "";
 
       // Si l'activité a une description, l'utiliser directement
-      if (activity.description) {
+      if (
+        activity.description &&
+        !activity.description.includes("Suppression de la demande de congé #")
+      ) {
         return activity.description;
       }
 

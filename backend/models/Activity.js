@@ -745,12 +745,56 @@ class Activity {
 
           // Pour la mise à jour générale des congés
           if (type === "update") {
-            return `${userName} a modifié la demande de congé #${entity_id}`;
+            const employeeName =
+              parsedDetails && parsedDetails.employee_name
+                ? parsedDetails.employee_name
+                : parsedDetails && parsedDetails.employee_id
+                ? `Employé #${parsedDetails.employee_id}`
+                : `#${entity_id}`;
+
+            let dateRange = "";
+            if (
+              parsedDetails &&
+              parsedDetails.start_date &&
+              parsedDetails.end_date
+            ) {
+              const startDate = new Date(
+                parsedDetails.start_date
+              ).toLocaleDateString("fr-FR");
+              const endDate = new Date(
+                parsedDetails.end_date
+              ).toLocaleDateString("fr-FR");
+              dateRange = ` du ${startDate} au ${endDate}`;
+            }
+
+            return `${userName} a modifié la demande de congé pour ${employeeName}${dateRange}`;
           }
 
           // Pour la suppression des congés
           if (type === "delete") {
-            return `${userName} a supprimé la demande de congé #${entity_id}`;
+            const employeeName =
+              parsedDetails && parsedDetails.employee_name
+                ? parsedDetails.employee_name
+                : parsedDetails && parsedDetails.employee_id
+                ? `Employé #${parsedDetails.employee_id}`
+                : `#${entity_id}`;
+
+            let dateRange = "";
+            if (
+              parsedDetails &&
+              parsedDetails.start_date &&
+              parsedDetails.end_date
+            ) {
+              const startDate = new Date(
+                parsedDetails.start_date
+              ).toLocaleDateString("fr-FR");
+              const endDate = new Date(
+                parsedDetails.end_date
+              ).toLocaleDateString("fr-FR");
+              dateRange = ` du ${startDate} au ${endDate}`;
+            }
+
+            return `${userName} a supprimé la demande de congé pour ${employeeName}${dateRange}`;
           }
         }
 
