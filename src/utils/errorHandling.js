@@ -41,8 +41,43 @@ export const formatError = (error) => {
     return `${error.status}: ${error.statusText}`;
   }
 
-  // Tente de convertir en JSON
+  // Pour les tableaux, formater chaque élément
+  if (Array.isArray(error)) {
+    try {
+      return `[${error
+        .map((item) =>
+          typeof item === "object" ? formatError(item) : String(item)
+        )
+        .join(", ")}]`;
+    } catch (e) {
+      return "Tableau d'erreurs non formaté";
+    }
+  }
+
+  // Tente de convertir en JSON de manière sécurisée
   try {
+    if (typeof error === "object" && error !== null) {
+      // Créer une version sécurisée de l'objet pour la sérialisation
+      const safeError = Object.keys(error).reduce((acc, key) => {
+        try {
+          const value = error[key];
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            !(value instanceof Date)
+          ) {
+            acc[key] = "[Objet complexe]";
+          } else {
+            acc[key] = value;
+          }
+        } catch (e) {
+          acc[key] = "[Inaccessible]";
+        }
+        return acc;
+      }, {});
+
+      return replaceObjectObjectInString(JSON.stringify(safeError));
+    }
     return replaceObjectObjectInString(JSON.stringify(error));
   } catch (e) {
     // Ne pas appeler logger.error ici pour éviter la récursion
@@ -63,6 +98,7 @@ export const replaceObjectObjectInString = (str) => {
  */
 export const setupGlobalErrorHandler = () => {
   const originalConsoleError = console.error;
+  const originalConsoleLog = console.log;
 
   // Remplacer console.error pour capturer les erreurs sans créer de boucle infinie
   console.error = function (...args) {
@@ -76,12 +112,57 @@ export const setupGlobalErrorHandler = () => {
       isLoggingError = true;
 
       // Formater les arguments
-      const formattedArgs = args.map((arg) =>
-        typeof arg === "object" && arg !== null ? formatError(arg) : arg
-      );
+      const formattedArgs = args.map((arg) => {
+        if (typeof arg === "object" && arg !== null) {
+          try {
+            return formatError(arg);
+          } catch (e) {
+            return "Erreur lors du formatage";
+          }
+        }
+        return arg;
+      });
 
       // Utiliser la fonction originale
       originalConsoleError.apply(console, formattedArgs);
+    } finally {
+      isLoggingError = false;
+    }
+  };
+
+  // Sécuriser également console.log pour éviter les [object Object]
+  console.log = function (...args) {
+    if (isLoggingError) {
+      return originalConsoleLog.apply(console, args);
+    }
+
+    try {
+      isLoggingError = true;
+
+      const formattedArgs = args.map((arg) => {
+        if (typeof arg === "object" && arg !== null) {
+          try {
+            // Pour les objets en log, utiliser une version simplifiée pour éviter d'alourdir les logs
+            if (arg instanceof Error) {
+              return arg.message || "Erreur sans message";
+            }
+
+            // Pour les objets DOM ou les objets circulaires, éviter la sérialisation
+            if (arg instanceof Element || arg instanceof Node) {
+              return "[Élément DOM]";
+            }
+
+            return arg.toString !== Object.prototype.toString
+              ? arg.toString()
+              : JSON.stringify(arg);
+          } catch (e) {
+            return "[Objet non affichable]";
+          }
+        }
+        return arg;
+      });
+
+      originalConsoleLog.apply(console, formattedArgs);
     } finally {
       isLoggingError = false;
     }
@@ -151,6 +232,7 @@ export const setupGlobalErrorHandler = () => {
   // Fonction de nettoyage
   return () => {
     console.error = originalConsoleError;
+    console.log = originalConsoleLog;
     window.removeEventListener("error", errorHandler);
     window.removeEventListener("unhandledrejection", unhandledRejectionHandler);
   };

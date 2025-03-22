@@ -134,24 +134,29 @@ export const getActivityTypeLabel = (type, entity_type, details) => {
 
     switch (type) {
       case "create":
-        return `Nouvelle demande${vacationType ? " " + vacationType : ""}`;
+        return "Nouvelle demande";
       case "update":
-        return `Modification congé${vacationType ? " " + vacationType : ""}`;
+        return "Modification congé";
       case "delete":
-        return `Suppression congé${vacationType ? " " + vacationType : ""}`;
+        return "Suppression congé";
       case "approve":
-        return `Approbation congé${vacationType ? " " + vacationType : ""}`;
+        return "Approbation congé";
       case "reject":
-        return `Rejet congé${vacationType ? " " + vacationType : ""}`;
+        return "Rejet congé";
       case "vacation_status_update":
         // Récupérer le nouveau statut si disponible
-        let statusText = "";
         if (details && typeof details === "object" && details.new_status) {
-          statusText = translateVacationStatus(details.new_status);
+          if (details.new_status === "approved") {
+            return "Congé approuvé";
+          } else if (details.new_status === "rejected") {
+            return "Congé rejeté";
+          } else if (details.new_status === "pending") {
+            return "Congé en attente";
+          }
         }
-        return `Congé ${statusText}${vacationType ? " " + vacationType : ""}`;
+        return "Changement statut";
       default:
-        return `Congé${vacationType ? " " + vacationType : ""}`;
+        return `Congé`;
     }
   }
 

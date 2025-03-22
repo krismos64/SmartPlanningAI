@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "react-hot-toast";
 import { API_ENDPOINTS } from "../config/api";
 import { useApi } from "../contexts/ApiContext";
 import { useAuth } from "../contexts/AuthContext";
 import { VacationService } from "../services/api";
 import { formatError } from "../utils/errorHandling";
+import { notifyError } from "../utils/notificationUtils";
 
 /**
  * Hook personnalisé pour gérer les congés
@@ -45,6 +45,7 @@ const useVacations = () => {
 
     isFetchingRef.current = true;
     setLoading(true);
+    setError(null);
 
     try {
       const token = localStorage.getItem("token");
@@ -260,26 +261,20 @@ const useVacations = () => {
           vacationsData.length
         );
       }
-    } catch (error) {
-      console.error("Erreur lors du chargement des congés:", error);
-      // Affichez plus de détails sur l'erreur
-      if (error.response) {
-        console.error("Détails de l'erreur de réponse:", {
-          status: error.response.status,
-          data: error.response.data,
-        });
-      }
-      if (isComponentMountedRef.current) {
-        const errorMessage = formatError(error);
-        setError(`Erreur lors du chargement des congés: ${errorMessage}`);
-      }
+
+      return { success: true, data: vacationsData };
+    } catch (err) {
+      const errorMessage = formatError(err);
+      console.error("Erreur lors du chargement des congés:", errorMessage);
+      notifyError(errorMessage, setError);
+      return { success: false, error: errorMessage };
     } finally {
       if (isComponentMountedRef.current) {
         setLoading(false);
       }
       isFetchingRef.current = false;
     }
-  }, []);
+  }, [user]);
 
   // Rafraîchissement des données
   const refreshVacations = useCallback(
@@ -339,16 +334,14 @@ const useVacations = () => {
             setVacations((prev) => [...prev, newVacation]);
           }
 
-          toast.success(result.message || "Demande de congé créée avec succès");
+          // Suppression de la notification ici - elle sera gérée par le composant appelant
 
           // Uniquement si le composant est toujours monté
           if (isComponentMountedRef.current) {
             await fetchVacations(); // Rafraîchir les données pour s'assurer de la cohérence
           }
         } else {
-          toast.error(
-            result?.message || "Erreur lors de la création de la demande"
-          );
+          // Suppression de la notification d'erreur ici - elle sera gérée par le composant appelant
         }
 
         return result;
@@ -356,7 +349,7 @@ const useVacations = () => {
         const errorMessage = formatError(error);
 
         if (isComponentMountedRef.current) {
-          toast.error(errorMessage);
+          // Ne pas afficher de notification d'erreur ici, laisser le composant le faire
           setError(errorMessage);
         }
 
@@ -396,10 +389,8 @@ const useVacations = () => {
           formattedData.duration = getWorkingDaysCount(start, end);
         }
 
-        const response = await api.put(
-          `${API_ENDPOINTS.VACATIONS}/${id}`,
-          formattedData
-        );
+        // Utiliser VacationService.update au lieu de api.put
+        const response = await VacationService.update(id, formattedData);
 
         // Adaptation à la nouvelle structure de réponse API
         const updatedVacation = response.data || response;
@@ -412,9 +403,7 @@ const useVacations = () => {
                 : vacation
             )
           );
-          toast.success(
-            response.message || "Demande de congé mise à jour avec succès"
-          );
+          // Suppression de la notification ici - elle sera gérée par le composant appelant
         }
 
         return {
@@ -427,7 +416,7 @@ const useVacations = () => {
         const errorMessage = formatError(error);
 
         if (isComponentMountedRef.current) {
-          toast.error(errorMessage);
+          // Ne pas afficher de notification d'erreur ici, laisser le composant le faire
           setError(errorMessage);
         }
 
@@ -438,7 +427,7 @@ const useVacations = () => {
         }
       }
     },
-    [api]
+    [isComponentMountedRef]
   );
 
   // Supprimer une demande de congé
@@ -448,13 +437,13 @@ const useVacations = () => {
 
       try {
         setLoading(true);
-        const response = await api.delete(`${API_ENDPOINTS.VACATIONS}/${id}`);
+        // Utiliser VacationService.delete au lieu de api.delete
+        const response = await VacationService.delete(id);
 
         if (isComponentMountedRef.current) {
+          // Mettre à jour l'état local sans afficher de notification
           setVacations((prev) => prev.filter((vacation) => vacation.id !== id));
-          toast.success(
-            response.message || "Demande de congé supprimée avec succès"
-          );
+          // Suppression de la notification ici - elle sera gérée par le composant appelant
         }
 
         return {
@@ -465,7 +454,7 @@ const useVacations = () => {
         const errorMessage = formatError(error);
 
         if (isComponentMountedRef.current) {
-          toast.error(errorMessage);
+          // Ne pas afficher de notification d'erreur ici, laisser le composant le faire
           setError(errorMessage);
         }
 
@@ -476,19 +465,52 @@ const useVacations = () => {
         }
       }
     },
-    [api]
+    [isComponentMountedRef]
   );
 
-  // Mettre à jour le statut d'une demande de congé
+  /**
+   * Met à jour le statut d'une demande de congés (approve/reject/pending)
+   * @param {number} id - L'ID de la demande de congés
+   * @param {string} action - L'action à effectuer ('approved', 'rejected', 'pending') ou le statut directement
+   * @param {string} comment - Le commentaire en cas de rejet
+   * @returns {Promise<Object>} - Le résultat de l'opération
+   */
   const updateVacationStatus = useCallback(
-    async (id, status, comment = "") => {
+    async (id, action, comment = "") => {
       if (!isComponentMountedRef.current) return { success: false };
 
-      // Déplacer la fonction getUserId à l'intérieur du callback
-      const getUserId = () => (user ? user.id : null);
+      // Vérifier que l'ID est bien défini
+      if (!id) {
+        console.error("ID manquant pour la mise à jour du statut");
+        return {
+          success: false,
+          error: "ID manquant pour la mise à jour du statut",
+        };
+      }
 
       try {
         setLoading(true);
+
+        // Déterminer le statut en fonction de l'action
+        let status;
+        if (
+          action === "approved" ||
+          action === "rejected" ||
+          action === "pending"
+        ) {
+          // Si action est déjà un statut valide, l'utiliser directement
+          status = action;
+        } else {
+          // Sinon, interpréter l'action comme avant
+          status = action === "rejected" ? "rejected" : "approved";
+        }
+
+        // Construire l'URL de l'endpoint et préparer les données
+        const url = `${API_ENDPOINTS.VACATIONS.UPDATE_STATUS(id)}`;
+        const data = { status, comment };
+
+        // Déplacer la fonction getUserId à l'intérieur du callback
+        const getUserId = () => (user ? user.id : null);
 
         console.log(`Mise à jour du statut de la demande ${id} à ${status}`);
 
@@ -530,11 +552,9 @@ const useVacations = () => {
             })
           );
 
-          toast.success(result.message || "Statut mis à jour avec succès");
+          // Suppression de la notification ici - elle sera gérée par le composant appelant
         } else {
-          toast.error(
-            result.message || "Erreur lors de la mise à jour du statut"
-          );
+          // Suppression de la notification d'erreur ici - elle sera gérée par le composant appelant
         }
 
         return result;
@@ -542,7 +562,7 @@ const useVacations = () => {
         const errorMessage = formatError(error);
 
         if (isComponentMountedRef.current) {
-          toast.error(errorMessage);
+          // Ne pas afficher de notification d'erreur ici, laisser le composant le faire
           setError(errorMessage);
         }
 
@@ -553,7 +573,7 @@ const useVacations = () => {
         }
       }
     },
-    [user] // Remplacer getUserId par user comme dépendance
+    [user]
   );
 
   // Filtrer les congés par statut

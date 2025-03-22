@@ -37,7 +37,11 @@ export const API_ENDPOINTS = {
     VACATIONS: (id) => `/api/employees/${id}/vacations`,
   },
   WEEKLY_SCHEDULES: "/api/weekly-schedules",
-  VACATIONS: "/api/vacations",
+  VACATIONS: {
+    BASE: "/api/vacations",
+    BY_ID: (id) => `/api/vacations/${id}`,
+    UPDATE_STATUS: (id) => `/api/vacations/${id}/status`,
+  },
   VACATIONS_MANAGER: "/api/vacations?manager=true",
   SHIFTS: {
     BASE: "/api/shifts",

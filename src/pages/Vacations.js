@@ -15,8 +15,8 @@ import {
   useTheme,
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "react-hot-toast";
 import { useTheme as useThemeProvider } from "../components/ThemeProvider";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ErrorDisplay from "../components/ui/ErrorDisplay";
 import LoadingScreen from "../components/ui/LoadingScreen";
 import PageHeader from "../components/ui/PageHeader";
@@ -26,6 +26,7 @@ import VacationForm from "../components/vacations/VacationForm";
 import VacationList from "../components/vacations/VacationList";
 import { useAuth } from "../contexts/AuthContext";
 import useVacations from "../hooks/useVacations";
+import { notifyError, notifySuccess } from "../utils/notificationUtils";
 
 // Icône stylisée pour les congés
 const StyledIcon = styled(Box)(({ theme }) => {
@@ -73,6 +74,7 @@ const Vacations = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [vacationToReject, setVacationToReject] = useState(null);
+  const [localError, setError] = useState(null);
   const { user } = useAuth();
   const {
     vacations,
@@ -88,6 +90,10 @@ const Vacations = () => {
   } = useVacations();
   const { theme: themeMode } = useThemeProvider();
   const isDarkMode = theme?.palette?.mode === "dark" || themeMode === "dark";
+
+  // États pour le dialogue de confirmation de suppression
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [vacationToDelete, setVacationToDelete] = useState(null);
 
   // Backup: Si les employés associés ne sont pas dans le localStorage, les ajouter avec les valeurs connues
   useEffect(() => {
@@ -169,10 +175,10 @@ const Vacations = () => {
     setRefreshing(true);
     try {
       await refreshVacations();
-      toast.success("Données des congés rafraîchies");
+      notifySuccess("Données des congés rafraîchies");
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des données:", error);
-      toast.error(
+      notifyError(
         error.message || "Erreur lors du rafraîchissement des données"
       );
     } finally {
@@ -193,6 +199,15 @@ const Vacations = () => {
 
   // Ouvrir le formulaire pour éditer un congé existant
   const handleOpenEditForm = (vacation) => {
+    // Vérifier si la demande n'est pas en attente (approved ou rejected)
+    if (vacation && vacation.status && vacation.status !== "pending") {
+      notifyError(
+        "Impossible de modifier une demande déjà traitée. Vous pouvez la remettre en attente d'abord."
+      );
+      return;
+    }
+
+    // Si la demande est en attente ou n'a pas de statut, permettre la modification
     setSelectedVacation(vacation);
     setShowForm(true);
   };
@@ -217,16 +232,16 @@ const Vacations = () => {
       }
 
       if (result && result.success) {
-        toast.success(result.message || "Opération réussie");
+        notifySuccess(result.message || "Opération réussie");
         handleCloseForm();
       } else {
-        toast.error(
+        notifyError(
           result?.message || "Une erreur est survenue lors de l'opération"
         );
       }
     } catch (error) {
       console.error("Erreur lors de la soumission du formulaire:", error);
-      toast.error(
+      notifyError(
         error.message ||
           "Une erreur est survenue lors de la soumission du formulaire"
       );
@@ -235,31 +250,38 @@ const Vacations = () => {
 
   // Supprimer un congé
   const handleDeleteVacation = async (id) => {
+    // Ouvrir le dialogue de confirmation
+    setVacationToDelete(id);
+    setConfirmDeleteOpen(true);
+  };
+
+  // Confirmer la suppression
+  const confirmDeleteVacation = async () => {
     try {
-      const result = await deleteVacation(id);
+      const result = await deleteVacation(vacationToDelete);
       if (result && result.success) {
-        toast.success(result.message || "Congé supprimé avec succès");
+        notifySuccess(result.message || "Congé supprimé avec succès");
         // Rafraîchir les données après la suppression
         await refreshVacations();
       } else {
-        toast.error(
+        notifyError(
           result?.message || "Une erreur est survenue lors de la suppression"
         );
       }
     } catch (error) {
       console.error("Erreur lors de la suppression du congé:", error);
-      toast.error(
+      notifyError(
         error.message ||
           "Une erreur est survenue lors de la suppression du congé"
       );
     }
   };
 
-  // Approuver un congé
-  const handleApproveVacation = async (id) => {
+  // Approuver ou mettre à jour le statut d'un congé
+  const handleApproveVacation = async (id, status = "approved") => {
     if (!id) {
       console.error("ID de vacation manquant");
-      toast.error("Impossible d'approuver cette demande : ID manquant");
+      notifyError("Impossible de modifier cette demande : ID manquant");
       return;
     }
 
@@ -267,13 +289,30 @@ const Vacations = () => {
       // Activer l'indicateur de rafraîchissement pour montrer qu'une action est en cours
       setRefreshing(true);
 
+      // Déterminer le message en fonction du statut
+      const actionText =
+        status === "approved"
+          ? "approbation"
+          : status === "pending"
+          ? "remise en attente"
+          : "mise à jour";
+
       // Appeler l'API pour mettre à jour le statut
-      console.log(`Tentative d'approbation de la demande ${id}`);
-      const result = await updateVacationStatus(id, "approved");
-      console.log("Résultat de l'approbation:", result);
+      console.log(
+        `Tentative de ${actionText} de la demande ${id} (statut: ${status})`
+      );
+      const result = await updateVacationStatus(id, status);
+      console.log(`Résultat de la ${actionText}:`, result);
 
       if (result && result.success) {
-        toast.success(result.message || "Congé approuvé avec succès");
+        const successMessage =
+          status === "approved"
+            ? "Congé approuvé avec succès"
+            : status === "pending"
+            ? "Congé remis en attente avec succès"
+            : "Statut du congé mis à jour avec succès";
+
+        notifySuccess(result.message || successMessage);
 
         // Forcer un rafraîchissement des données
         await refreshVacations();
@@ -282,7 +321,7 @@ const Vacations = () => {
         setVacations((prevVacations) =>
           prevVacations.map((vacation) =>
             vacation && vacation.id === Number(id)
-              ? { ...vacation, status: "approved" }
+              ? { ...vacation, status: status }
               : vacation
           )
         );
@@ -290,10 +329,10 @@ const Vacations = () => {
         const errorMessage =
           result && typeof result.error === "string"
             ? result.error
-            : "Une erreur est survenue lors de l'approbation";
+            : `Une erreur est survenue lors de la ${actionText}`;
 
-        console.error("Erreur d'approbation:", errorMessage);
-        toast.error(errorMessage);
+        console.error(`Erreur de ${actionText}:`, errorMessage);
+        notifyError(errorMessage);
       }
     } catch (error) {
       const errorMessage =
@@ -301,10 +340,10 @@ const Vacations = () => {
           ? typeof error.message === "string"
             ? error.message
             : JSON.stringify(error)
-          : "Erreur inconnue lors de l'approbation du congé";
+          : "Erreur inconnue lors de la modification du statut du congé";
 
-      console.error("Exception lors de l'approbation du congé:", error);
-      toast.error(errorMessage);
+      console.error("Exception lors de la modification du statut:", error);
+      notifyError(errorMessage);
     } finally {
       // Désactiver l'indicateur de rafraîchissement
       setRefreshing(false);
@@ -336,7 +375,7 @@ const Vacations = () => {
   const handleRejectVacation = async (id, comment) => {
     if (!id) {
       console.error("ID de vacation manquant");
-      toast.error("Impossible de rejeter cette demande : ID manquant");
+      notifyError("Impossible de rejeter cette demande : ID manquant");
       return;
     }
 
@@ -350,7 +389,7 @@ const Vacations = () => {
       console.log("Résultat du rejet:", result);
 
       if (result && result.success) {
-        toast.success(result.message || "Congé rejeté avec succès");
+        notifySuccess(result.message || "Congé rejeté avec succès");
 
         // Forcer un rafraîchissement des données
         await refreshVacations();
@@ -384,7 +423,7 @@ const Vacations = () => {
             : "Une erreur est survenue lors du rejet";
 
         console.error("Erreur de rejet:", errorMessage);
-        toast.error(errorMessage);
+        notifyError(errorMessage);
       }
     } catch (error) {
       const errorMessage =
@@ -395,7 +434,7 @@ const Vacations = () => {
           : "Erreur inconnue lors du rejet du congé";
 
       console.error("Exception lors du rejet du congé:", error);
-      toast.error(errorMessage);
+      notifyError(errorMessage);
     } finally {
       // Désactiver l'indicateur de rafraîchissement
       setRefreshing(false);
@@ -633,6 +672,17 @@ const Vacations = () => {
         open={rejectionDialogOpen}
         onClose={handleCloseRejectDialog}
         onConfirm={handleConfirmReject}
+      />
+
+      {/* Dialogue de confirmation de suppression */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={confirmDeleteVacation}
+        title="Supprimer la demande de congés"
+        message="Êtes-vous sûr de vouloir supprimer cette demande de congés ? Cette action est irréversible."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
       />
     </Container>
   );

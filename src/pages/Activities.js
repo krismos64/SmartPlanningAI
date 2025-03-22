@@ -320,7 +320,19 @@ const Badge = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: ${({ color }) => color};
+  background-color: ${({ color, label }) => {
+    // Couleurs spécifiques selon le type de badge
+    if (label === "Congé rejeté") {
+      return "#e53e3e"; // Rouge
+    }
+    if (label === "Congé approuvé") {
+      return "#3182ce"; // Bleu
+    }
+    if (label === "Congé en attente") {
+      return "#d69e2e"; // Jaune/orange
+    }
+    return color;
+  }};
   color: white;
   border-radius: 12px;
   padding: 0.25rem 0.5rem;
@@ -950,7 +962,14 @@ const Activities = () => {
                     <ActivityContent>
                       <ActivityDescription>
                         {formatActivityDescription(activity)}
-                        <Badge color={color}>
+                        <Badge
+                          color={color}
+                          label={getActivityTypeLabel(
+                            activity.type,
+                            activity.entity_type,
+                            activity.details
+                          )}
+                        >
                           {getActivityTypeLabel(
                             activity.type,
                             activity.entity_type,

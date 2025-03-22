@@ -255,51 +255,12 @@ const VacationList = ({
     const isAsc = orderBy === property && order === "asc";
     setOrder(isAsc ? "desc" : "asc");
     setOrderBy(property);
+
+    // Log uniquement du texte pour éviter les erreurs [object Object]
+    console.log(
+      `Tri par ${property} en ordre ${isAsc ? "descendant" : "ascendant"}`
+    );
   };
-
-  // Fonction de comparaison pour le tri
-  const compareValues = useCallback((a, b, orderByField, sortOrder) => {
-    // Traitement spécial pour le tri par employé
-    if (orderByField === "employee") {
-      const nameA = a.employee
-        ? `${a.employee.first_name || ""} ${a.employee.last_name || ""}`.trim()
-        : a.employeeName || "";
-      const nameB = b.employee
-        ? `${b.employee.first_name || ""} ${b.employee.last_name || ""}`.trim()
-        : b.employeeName || "";
-
-      return sortOrder === "asc"
-        ? nameA.localeCompare(nameB)
-        : nameB.localeCompare(nameA);
-    }
-
-    // Gestion des valeurs nulles ou undefined
-    const valueA =
-      a[orderByField] === null || a[orderByField] === undefined
-        ? ""
-        : a[orderByField];
-    const valueB =
-      b[orderByField] === null || b[orderByField] === undefined
-        ? ""
-        : b[orderByField];
-
-    // Comparer des dates
-    if (orderByField === "startDate" || orderByField === "endDate") {
-      const dateA = valueA ? new Date(valueA).getTime() : 0;
-      const dateB = valueB ? new Date(valueB).getTime() : 0;
-      return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-    }
-
-    // Comparaison standard pour les strings et autres types
-    if (typeof valueA === "string" && typeof valueB === "string") {
-      return sortOrder === "asc"
-        ? valueA.localeCompare(valueB)
-        : valueB.localeCompare(valueA);
-    }
-
-    // Comparaison numérique par défaut
-    return sortOrder === "asc" ? valueA - valueB : valueB - valueA;
-  }, []);
 
   // Obtenir le libellé du type de congé
   const getVacationType = useMemo(() => {
@@ -403,7 +364,11 @@ const VacationList = ({
       // Format français plus lisible
       return format(new Date(dateString), "dd MMMM yyyy", { locale: fr });
     } catch (error) {
-      console.error("Erreur de formatage de la date:", error);
+      console.error(
+        `Erreur de formatage de la date: ${
+          error?.message || "Erreur inconnue"
+        }, valeur: ${dateString}`
+      );
       return dateString || "-";
     }
   }, []);
@@ -412,8 +377,68 @@ const VacationList = ({
   const sortedRows = useMemo(() => {
     if (!vacations) return [];
 
-    return [...vacations].sort((a, b) => compareValues(a, b, orderBy, order));
-  }, [vacations, orderBy, order, compareValues]);
+    // Log uniquement du texte pour éviter les erreurs [object Object]
+    console.log(
+      `Tri appliqué: ${orderBy} en ${order} sur ${vacations.length} entrées`
+    );
+
+    // Fonction pour obtenir la valeur d'une propriété, y compris les propriétés imbriquées
+    const getValue = (obj, property) => {
+      if (property === "employee") {
+        // Cas spécial pour le nom d'employé
+        return obj.employee
+          ? `${obj.employee.first_name || ""} ${
+              obj.employee.last_name || ""
+            }`.trim()
+          : obj.employee_name || "";
+      } else if (property === "startDate") {
+        // Normaliser les dates au format Date
+        const dateValue = obj.startDate || obj.start_date;
+        return dateValue ? new Date(dateValue) : new Date(0);
+      } else if (property === "endDate") {
+        // Normaliser les dates au format Date
+        const dateValue = obj.endDate || obj.end_date;
+        return dateValue ? new Date(dateValue) : new Date(0);
+      } else if (property === "duration") {
+        // Calculer la durée si elle n'est pas déjà définie
+        if (obj.duration) return obj.duration;
+
+        const start = new Date(obj.startDate || obj.start_date || 0);
+        const end = new Date(obj.endDate || obj.end_date || 0);
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+
+        // Calcul simple des jours entre les deux dates
+        const diffTime = Math.abs(end - start);
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 pour inclure le jour de début
+      }
+
+      // Cas général
+      return obj[property] === undefined ? "" : obj[property];
+    };
+
+    return [...vacations].sort((a, b) => {
+      const valueA = getValue(a, orderBy);
+      const valueB = getValue(b, orderBy);
+
+      // Comparaison de dates
+      if (valueA instanceof Date && valueB instanceof Date) {
+        return order === "asc"
+          ? valueA.getTime() - valueB.getTime()
+          : valueB.getTime() - valueA.getTime();
+      }
+
+      // Comparaison de chaînes de caractères
+      if (typeof valueA === "string" && typeof valueB === "string") {
+        return order === "asc"
+          ? valueA.localeCompare(valueB)
+          : valueB.localeCompare(valueA);
+      }
+
+      // Comparaison numérique par défaut
+      return order === "asc" ? valueA - valueB : valueB - valueA;
+    });
+  }, [vacations, orderBy, order]);
 
   const visibleRows = sortedRows.slice(
     page * rowsPerPage,
@@ -589,15 +614,6 @@ const VacationList = ({
                     >
                       <StyledTableRow>
                         <StyledTableCell component="th" scope="row">
-                          {console.log("Données de l'employé:", {
-                            vacation_id: vacation?.id,
-                            employee_name: vacation?.employee_name,
-                            employee_obj: vacation?.employee,
-                            employee_first_name: vacation?.employee?.first_name,
-                            employee_last_name: vacation?.employee?.last_name,
-                            // Afficher toutes les propriétés pour voir si le nom est disponible sous un autre format
-                            all_props: Object.keys(vacation || {}),
-                          })}
                           {/* Utiliser l'accesseur standardisé de VACATION_TABLE_COLUMNS pour le nom de l'employé */}
                           {vacation &&
                             VACATION_TABLE_COLUMNS[0].accessor(vacation)}
@@ -642,13 +658,14 @@ const VacationList = ({
                                     isNaN(start.getTime()) ||
                                     isNaN(end.getTime())
                                   ) {
-                                    console.error("Dates invalides:", {
-                                      start:
+                                    console.error(
+                                      `Dates invalides: start=${String(
                                         vacation.startDate ||
-                                        vacation.start_date,
-                                      end:
-                                        vacation.endDate || vacation.end_date,
-                                    });
+                                          vacation.start_date
+                                      )}, end=${String(
+                                        vacation.endDate || vacation.end_date
+                                      )}`
+                                    );
                                     return "-";
                                   }
 
@@ -664,16 +681,16 @@ const VacationList = ({
                                   }`;
                                 } catch (error) {
                                   console.error(
-                                    "Erreur de calcul de durée:",
-                                    error,
-                                    {
-                                      vacation_id: vacation.id,
-                                      start:
+                                    `Erreur de calcul de durée: ${
+                                      error?.message || "Erreur inconnue"
+                                    } - vacation_id=${vacation.id}, ` +
+                                      `start=${String(
                                         vacation.startDate ||
-                                        vacation.start_date,
-                                      end:
-                                        vacation.endDate || vacation.end_date,
-                                    }
+                                          vacation.start_date
+                                      )}, ` +
+                                      `end=${String(
+                                        vacation.endDate || vacation.end_date
+                                      )}`
                                   );
                                   return "-";
                                 }
@@ -696,16 +713,6 @@ const VacationList = ({
                               size="small"
                             />
                           )}
-                          {vacation &&
-                            vacation.id &&
-                            console.log(
-                              "Statut actuel:",
-                              vacation.id,
-                              vacation.status || "non défini",
-                              typeof vacation.status,
-                              "=>",
-                              getStatusLabel(vacation.status)
-                            )}
                         </StyledTableCell>
                         <StyledTableCell align="right">
                           <Box
@@ -725,7 +732,7 @@ const VacationList = ({
                                     } catch (error) {
                                       console.error(
                                         "Erreur lors de la modification:",
-                                        error
+                                        error?.message || "Erreur inconnue"
                                       );
                                     }
                                   }}
@@ -746,7 +753,7 @@ const VacationList = ({
                                     } catch (error) {
                                       console.error(
                                         "Erreur lors de la suppression:",
-                                        error
+                                        error?.message || "Erreur inconnue"
                                       );
                                     }
                                   }}
@@ -780,7 +787,7 @@ const VacationList = ({
                                         } catch (error) {
                                           console.error(
                                             "Erreur lors de l'approbation:",
-                                            error
+                                            error?.message || "Erreur inconnue"
                                           );
                                         }
                                       }}
@@ -802,7 +809,7 @@ const VacationList = ({
                                         } catch (error) {
                                           console.error(
                                             "Erreur lors du rejet:",
-                                            error
+                                            error?.message || "Erreur inconnue"
                                           );
                                         }
                                       }}
@@ -812,6 +819,35 @@ const VacationList = ({
                                     </ActionButton>
                                   </Tooltip>
                                 </>
+                              )}
+
+                            {vacation &&
+                              vacation.id &&
+                              canApproveReject(vacation) &&
+                              (vacation.status === "approved" ||
+                                vacation.status === "rejected") && (
+                                <Tooltip title="Remettre en attente">
+                                  <ActionButton
+                                    size="small"
+                                    onClick={() => {
+                                      try {
+                                        console.log(
+                                          `Tentative de remise en attente de la demande ${vacation.id}`
+                                        );
+                                        // Appel à la fonction de mise à jour du statut avec "pending"
+                                        onApprove(vacation.id, "pending");
+                                      } catch (error) {
+                                        console.error(
+                                          "Erreur lors de la remise en attente:",
+                                          error?.message || "Erreur inconnue"
+                                        );
+                                      }
+                                    }}
+                                    $actionType="reset"
+                                  >
+                                    <HourglassEmpty fontSize="small" />
+                                  </ActionButton>
+                                </Tooltip>
                               )}
                           </Box>
                         </StyledTableCell>

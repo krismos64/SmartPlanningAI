@@ -1,8 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const VacationRequest = require("../models/VacationRequest");
-const { auth } = require("../middleware/auth");
-const { getCurrentAdminId } = require("../middleware/auth");
+const { auth, getCurrentAdminId } = require("../middleware/auth");
 const db = require("../config/db");
 const Employee = require("../models/Employee");
 const Activity = require("../models/Activity");
@@ -230,38 +229,20 @@ router.post("/", auth, async (req, res) => {
               `Tentative de création de notification pour l'utilisateur ${user.id}`
             );
 
-            const statusText =
-              result.status === "approved"
-                ? "approuvée"
-                : result.status === "rejected"
-                ? "rejetée"
-                : "remise en attente";
-
-            const notificationTitle = `Demande de congé ${statusText}`;
-            const notificationMessage = `La demande de congés de ${
+            const notificationTitle = `Nouvelle demande de congés`;
+            const notificationMessage = `Une nouvelle demande de congés a été créée pour ${
               vacationData.employee_name
             } du ${new Date(req.body.start_date).toLocaleDateString(
               "fr-FR"
             )} au ${new Date(req.body.end_date).toLocaleDateString(
               "fr-FR"
-            )} a été ${statusText} par ${req.user.first_name} ${
-              req.user.last_name
-            }.${
-              result.status === "rejected" && req.body.comment
-                ? ` Motif: ${req.body.comment}`
-                : ""
-            }`;
+            )} par ${req.user.first_name} ${req.user.last_name}.`;
 
             const notificationResult = await Notification.createAndBroadcast({
               user_id: user.id,
               title: notificationTitle,
               message: notificationMessage,
-              type:
-                result.status === "approved"
-                  ? "success"
-                  : result.status === "rejected"
-                  ? "warning"
-                  : "info",
+              type: "info",
               entity_type: "vacation_request",
               entity_id: result.id,
               link: `/vacations/${result.id}`,
@@ -764,7 +745,6 @@ router.put("/:id/status", auth, async (req, res) => {
     console.log(`Approbateur: ${approverName} (ID: ${req.user.id})`);
 
     // Récupérer les informations sur l'employé concerné
-    const Employee = require("../models/Employee");
     const employee = await Employee.findById(vacationRequest.employee_id);
     const employeeName = employee
       ? `${employee.first_name} ${employee.last_name}`.trim()
@@ -856,17 +836,12 @@ router.put("/:id/status", auth, async (req, res) => {
           entity_type: "vacation",
           entity_id: id,
           user_id: req.user.id,
-          description: `Demande de congés ${statusText} pour ${employeeName} ${
+          description:
             status === "approved"
-              ? "approuvée"
+              ? `Demande de congés pour ${employeeName} approuvée par ${approverName}`
               : status === "rejected"
-              ? "rejetée"
-              : ""
-          } par ${approverName} du ${new Date(
-            vacationRequest.start_date
-          ).toLocaleDateString("fr-FR")} au ${new Date(
-            vacationRequest.end_date
-          ).toLocaleDateString("fr-FR")}`,
+              ? `Demande de congés pour ${employeeName} rejetée par ${approverName}`
+              : `Statut de la demande de congés pour ${employeeName} mis à jour par ${approverName}`,
           details: {
             previous_status: vacationRequest.status,
             new_status: status,
@@ -892,9 +867,17 @@ router.put("/:id/status", auth, async (req, res) => {
 
       // Créer des notifications pour tous les utilisateurs admin et managers
       try {
+        console.log(
+          "Début de la création des notifications pour le changement de statut"
+        );
+
         // Récupérer tous les utilisateurs admin et managers
         const [users] = await db.execute(
           "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+        );
+
+        console.log(
+          `Nombre d'utilisateurs admin/manager trouvés: ${users.length}`
         );
 
         if (users && users.length > 0) {
@@ -907,30 +890,31 @@ router.put("/:id/status", auth, async (req, res) => {
               : "remise en attente";
 
           const notificationTitle = `Demande de congé ${statusText}`;
-          const notificationMessage = `La demande de congés de ${employeeName} du ${new Date(
+          const notificationMessage = `La demande de congé de ${employeeName} du ${new Date(
             vacationRequest.start_date
           ).toLocaleDateString("fr-FR")} au ${new Date(
             vacationRequest.end_date
-          ).toLocaleDateString(
-            "fr-FR"
-          )} a été ${statusText} par ${approverName}.${
-            status === "rejected" && comment ? ` Motif: ${comment}` : ""
-          }`;
+          ).toLocaleDateString("fr-FR")} a été ${statusText}.`;
+          const notificationType = "vacation_status_update";
 
-          const notificationType =
-            status === "approved"
-              ? "success"
-              : status === "rejected"
-              ? "warning"
-              : "info";
-
-          // Créer une notification pour chaque utilisateur
           for (const user of users) {
             console.log(
-              `Création d'une notification pour l'utilisateur ${user.id}`
+              `Tentative de création de notification pour l'utilisateur ${user.id}`
             );
 
             try {
+              if (!Notification || !Notification.createAndBroadcast) {
+                console.error(
+                  "ERREUR: Notification ou createAndBroadcast n'est pas disponible."
+                );
+                console.log("Type de Notification:", typeof Notification);
+                console.log(
+                  "Méthodes disponibles:",
+                  Notification ? Object.keys(Notification) : "null"
+                );
+                continue;
+              }
+
               // Utiliser createAndBroadcast au lieu de new Notification().save()
               const result = await Notification.createAndBroadcast({
                 user_id: user.id,
@@ -942,82 +926,52 @@ router.put("/:id/status", auth, async (req, res) => {
                 link: `/vacations/${id}`,
               });
 
-              console.log(
-                `Notification créée pour l'utilisateur ${user.id}:`,
-                result.success ? "succès" : "échec"
-              );
+              if (result && result.success) {
+                console.log(
+                  `✅ SUCCÈS: Notification créée pour l'utilisateur ${user.id} avec ID ${result.id}`
+                );
+                console.log("Détails:", JSON.stringify(result.notification));
+              } else {
+                console.error(
+                  `❌ ERREUR: Échec de création de notification pour l'utilisateur ${user.id}`
+                );
+              }
             } catch (error) {
               console.error(
-                `Erreur lors de la création de la notification pour l'utilisateur ${user.id}:`,
-                error
+                `❌ ERREUR lors de la création de notification: ${error.message}`
               );
             }
           }
-        } else {
-          console.log(
-            "Aucun utilisateur admin ou manager trouvé pour envoyer des notifications"
-          );
         }
-      } catch (notifError) {
+      } catch (notificationError) {
         console.error(
           "Erreur lors de la création des notifications:",
-          notifError
+          notificationError
         );
-        // Ne pas bloquer la mise à jour si la création de notification échoue
+        // Ne pas bloquer la mise à jour si la création des notifications échoue
       }
 
-      // Retourner une réponse standardisée
-      return res.json({
+      res.json({
         success: true,
-        message: `Statut de la demande de congé mis à jour avec succès en "${status}"`,
-        data: updatedVacationRequest,
+        message: "Statut de la demande de congé mis à jour avec succès",
+        vacationRequest: updatedVacationRequest,
       });
-    } catch (updateError) {
-      console.error(
-        "Erreur lors de la mise à jour du statut de la demande:",
-        updateError
-      );
-      return res.status(500).json({
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du statut:", error);
+      res.status(500).json({
         success: false,
         message:
           "Erreur lors de la mise à jour du statut de la demande de congé",
-        error: updateError.message,
-        data: null,
+        error: error.message,
       });
     }
   } catch (error) {
-    console.error(
-      "Erreur globale lors de la mise à jour du statut de la demande:",
-      error
-    );
-    return res.status(500).json({
+    console.error("Erreur lors de la mise à jour du statut:", error);
+    res.status(500).json({
       success: false,
       message: "Erreur lors de la mise à jour du statut de la demande de congé",
       error: error.message,
-      data: null,
     });
-  }
-});
-
-// Récupérer toutes les demandes de congés pour les employés d'un manager
-router.get("/manager", auth, async (req, res) => {
-  try {
-    // Récupérer l'ID de l'admin connecté
-    const adminId = req.user.id;
-    if (!adminId) {
-      return res.status(400).json({ message: "ID d'administrateur manquant" });
-    }
-
-    // Utiliser la méthode dédiée pour récupérer les demandes des employés de ce manager
-    const requests = await VacationRequest.findByManagerId(adminId);
-
-    res.json(requests);
-  } catch (error) {
-    console.error(
-      "Erreur lors de la récupération des demandes de congés:",
-      error
-    );
-    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 

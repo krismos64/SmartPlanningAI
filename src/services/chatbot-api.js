@@ -39,7 +39,7 @@ export const ChatbotService = {
 
       // Appel à l'API pour vérifier la disponibilité
       const response = await apiRequest(
-        `${API_ENDPOINTS.VACATIONS}/check-availability`,
+        `${API_ENDPOINTS.VACATIONS.BASE}/check-availability`,
         "POST",
         {
           employee_id: employeeId,

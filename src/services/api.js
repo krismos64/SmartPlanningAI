@@ -309,7 +309,7 @@ export const VacationService = {
       );
 
       // Appel direct à l'API pour accéder aux détails complets de la réponse
-      const response = await fetch(API_URL + API_ENDPOINTS.VACATIONS, {
+      const response = await fetch(API_URL + API_ENDPOINTS.VACATIONS.BASE, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -354,7 +354,7 @@ export const VacationService = {
   getById: async (id) => {
     try {
       const response = await apiRequest(
-        `${API_ENDPOINTS.VACATIONS}/${id}`,
+        API_ENDPOINTS.VACATIONS.BY_ID(id),
         "GET"
       );
       return normalizeResponse(response);
@@ -401,7 +401,7 @@ export const VacationService = {
       console.log("VacationService.create - Données formatées:", formattedData);
 
       const response = await apiRequest(
-        API_ENDPOINTS.VACATIONS,
+        API_ENDPOINTS.VACATIONS.BASE,
         "POST",
         formattedData
       );
@@ -429,7 +429,7 @@ export const VacationService = {
       };
 
       const response = await apiRequest(
-        `${API_ENDPOINTS.VACATIONS}/${id}`,
+        API_ENDPOINTS.VACATIONS.BY_ID(id),
         "PUT",
         formattedData
       );
@@ -447,7 +447,7 @@ export const VacationService = {
   delete: async (id) => {
     try {
       const response = await apiRequest(
-        `${API_ENDPOINTS.VACATIONS}/${id}`,
+        API_ENDPOINTS.VACATIONS.BY_ID(id),
         "DELETE"
       );
       return normalizeResponse(response);
@@ -464,7 +464,7 @@ export const VacationService = {
   updateStatus: async (id, status, comment = "") => {
     try {
       const response = await apiRequest(
-        `${API_ENDPOINTS.VACATIONS}/${id}/status`,
+        API_ENDPOINTS.VACATIONS.UPDATE_STATUS(id),
         "PUT",
         { status, comment }
       );

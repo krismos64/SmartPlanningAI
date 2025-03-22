@@ -327,36 +327,26 @@ const getActivityIcon = (type, entity_type) => {
 const getActivityTypeLabel = (type, entity_type, details) => {
   // Si c'est une activité liée aux congés, utiliser un libellé spécifique
   if (entity_type === "vacation") {
-    // Récupérer le type de congé si disponible
-    let vacationType = "";
-    if (details && typeof details === "object") {
-      if (details.type) {
-        vacationType = translateVacationType(details.type);
-      } else if (details.vacation_type) {
-        vacationType = translateVacationType(details.vacation_type);
-      }
-    }
-
     switch (type) {
       case "create":
-        return `Nouvelle demande${vacationType ? " " + vacationType : ""}`;
+        return `Nouvelle demande`;
       case "update":
-        return `Modification congé${vacationType ? " " + vacationType : ""}`;
+        return `Modification congé`;
       case "delete":
-        return `Suppression congé${vacationType ? " " + vacationType : ""}`;
+        return `Suppression congé`;
       case "approve":
-        return `Approbation congé${vacationType ? " " + vacationType : ""}`;
+        return `Approbation congé`;
       case "reject":
-        return `Rejet congé${vacationType ? " " + vacationType : ""}`;
+        return `Rejet congé`;
       case "vacation_status_update":
         // Récupérer le nouveau statut si disponible
         let statusText = "";
         if (details && typeof details === "object" && details.new_status) {
           statusText = translateVacationStatus(details.new_status);
         }
-        return `Congé ${statusText}${vacationType ? " " + vacationType : ""}`;
+        return `Congé ${statusText}`;
       default:
-        return `Congé${vacationType ? " " + vacationType : ""}`;
+        return `Congé`;
     }
   }
 

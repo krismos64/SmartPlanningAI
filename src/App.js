@@ -87,12 +87,16 @@ const ProtectedRoute = ({ children }) => {
 // Style pour le contenu principal qui doit s'adapter à la sidebar
 const MainContent = styled.div`
   min-height: 100vh;
-  padding-top: ${({ hasNavbar, isPublicPage }) =>
-    hasNavbar && !isPublicPage
-      ? "64px"
-      : "0"}; /* Hauteur de la navbar seulement pour les pages protégées */
   width: 100%;
   position: relative;
+
+  /* Utiliser un sélecteur CSS plutôt que des props qui sont transmises à l'élément DOM */
+  ${(props) =>
+    props.hasNavbar &&
+    !props.isPublicPage &&
+    `
+    padding-top: 64px; /* Hauteur de la navbar seulement pour les pages protégées */
+  `}
 `;
 
 const App = () => {

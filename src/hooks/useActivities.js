@@ -361,13 +361,18 @@ const useActivities = () => {
             parsedDetails.end_date
           ) {
             const employeeName = parsedDetails.employee_name;
-            const typeConge = translateVacationType(parsedDetails.type);
             const dateRange = formatVacationDates(
               parsedDetails.start_date,
               parsedDetails.end_date
             );
+            const creator = parsedDetails.created_by || userName;
 
-            return `${userName} a créé une demande de congé ${typeConge} pour ${employeeName} ${dateRange}`;
+            // Clarification pour éviter toute ambiguïté
+            if (creator === employeeName) {
+              return `${employeeName} a créé une demande de congés ${dateRange}`;
+            } else {
+              return `${creator} a créé une demande de congés pour ${employeeName} ${dateRange}`;
+            }
           }
 
           // Pour la mise à jour du statut des congés
@@ -385,13 +390,24 @@ const useActivities = () => {
                     "fr-FR"
                   )}`
                 : "";
-            const typeConge = parsedDetails.vacation_type
-              ? ` ${translateVacationType(parsedDetails.vacation_type)}`
-              : "";
 
-            let statusText = translateVacationStatus(newStatus);
+            // Vérifier s'il s'agit d'un passage d'un statut à un autre (et non d'une création)
+            const hasPreviousStatus =
+              parsedDetails.previous_status &&
+              parsedDetails.previous_status !== "";
 
-            return `Demande de congés${typeConge} ${statusText}e pour ${employeeName} ${statusText} par ${approverName}${dateRange}`;
+            if (newStatus === "pending" && hasPreviousStatus) {
+              // Uniquement pour les vraies remises en attente (pas pour les créations)
+              return `La demande de congés de ${employeeName}${dateRange} a été remise en attente par ${approverName}`;
+            } else if (newStatus === "approved") {
+              return `Demande de congés de ${employeeName}${dateRange} approuvée par ${approverName}`;
+            } else if (newStatus === "rejected") {
+              return `Demande de congés de ${employeeName}${dateRange} rejetée par ${approverName}`;
+            } else {
+              // Cas par défaut
+              let statusText = translateVacationStatus(newStatus);
+              return `Demande de congés de ${employeeName}${dateRange} - statut: ${statusText}`;
+            }
           }
 
           // Pour la mise à jour générale des congés
