@@ -38,6 +38,7 @@ const hourBalanceRoutes = require("./routes/hourBalance");
 const departmentsRoutes = require("./routes/departments");
 const notificationsRoutes = require("./routes/notifications");
 const chatbotRoutes = require("./routes/chatbotRoutes");
+const autoScheduleRoutes = require("./routes/autoSchedule");
 
 const app = express();
 
@@ -287,6 +288,7 @@ app.use("/api/departments", secureAuth, departmentsRoutes);
 app.use("/api/notifications", secureAuth, notificationsRoutes);
 app.use("/api/chatbot", chatbotRoutes); // Le chatbot ne nécessite pas d'authentification
 app.use("/api/user", secureAuth, authRoutes); // Exposer les routes d'authentification également sous /api/user
+app.use("/api/schedule", secureAuth, autoScheduleRoutes); // Routes pour la génération automatique de planning
 
 // Route de base
 app.get("/", (req, res) => {

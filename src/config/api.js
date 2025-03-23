@@ -98,6 +98,9 @@ export const API_ENDPOINTS = {
     MARK_READ: (id) => `/api/notifications/${id}/read`,
     MARK_ALL_READ: "/api/notifications/mark-all-read",
   },
+  SCHEDULE: {
+    AUTO_GENERATE: "/api/schedule/auto-generate",
+  },
 };
 
 /**

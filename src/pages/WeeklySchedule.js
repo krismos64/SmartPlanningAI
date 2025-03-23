@@ -9,11 +9,14 @@ import {
   FaArrowRight,
   FaCalendarDay,
   FaFilePdf,
+  FaRobot,
+  FaTimes,
   FaUsers,
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import thinkingAnimation from "../assets/animations/thinking.json";
+import AutoScheduleWizard from "../components/schedule/AutoScheduleWizard";
 import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
 import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
 import Button from "../components/ui/Button";
@@ -453,6 +456,112 @@ const InfoMessage = styled.div`
   gap: 0.5rem;
 `;
 
+// Nouveau style pour le bouton de génération automatique
+const AutoScheduleButton = styled(Button)`
+  background: linear-gradient(135deg, #7269ef, #4e46e5);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+  box-shadow: 0 4px 15px rgba(114, 105, 239, 0.4);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* Effet pulse */
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    box-shadow: 0 0 0 0 rgba(114, 105, 239, 0.7);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(114, 105, 239, 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(114, 105, 239, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(114, 105, 239, 0);
+    }
+  }
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(114, 105, 239, 0.6);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    font-size: 1.25rem;
+    animation: robotMove 1.5s ease-in-out infinite;
+  }
+
+  @keyframes robotMove {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+`;
+
+const WizardOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+`;
+
+const CloseWizardButton = styled(Button)`
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 101;
+  background: white;
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  &:hover {
+    background: #f1f1f1;
+  }
+
+  svg {
+    font-size: 1.25rem;
+    color: #333;
+  }
+`;
+
 /**
  * Page de gestion des plannings hebdomadaires
  */
@@ -463,6 +572,9 @@ const WeeklySchedulePage = () => {
   // Références pour éviter les boucles infinies
   const prevScheduleDataRef = useRef(null);
   const prevFormattedScheduleDataRef = useRef(null);
+
+  // État pour l'ouverture du wizard de génération automatique
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   // États pour la gestion des plannings
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
@@ -1416,7 +1528,12 @@ const WeeklySchedulePage = () => {
               </PageDescription>
             </TitleContainer>
           </HeaderLeft>
-          <div>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
+            <AutoScheduleButton onClick={() => setIsWizardOpen(true)}>
+              <FaRobot /> Génération automatique IA
+            </AutoScheduleButton>
             <WeekNavigation>
               <WeekDisplay>
                 <h3>
@@ -1597,6 +1714,16 @@ const WeeklySchedulePage = () => {
           </Card>
         )}
       </ScheduleContainer>
+
+      {/* Assistant de génération automatique (modal) */}
+      {isWizardOpen && (
+        <WizardOverlay>
+          <CloseWizardButton onClick={() => setIsWizardOpen(false)}>
+            <FaTimes />
+          </CloseWizardButton>
+          <AutoScheduleWizard />
+        </WizardOverlay>
+      )}
     </div>
   );
 };
