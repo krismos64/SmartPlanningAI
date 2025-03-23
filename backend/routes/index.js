@@ -11,6 +11,12 @@ const vacationsController = require("../controllers/vacationsController");
 // Import du middleware d'authentification
 const authMiddleware = require("../middleware/authMiddleware");
 
+// Import des routes auto-planning
+const autoScheduleRoutes = require("./autoSchedule");
+
+// Import des routes des plannings hebdomadaires
+const weeklySchedulesRoutes = require("./weeklySchedules");
+
 // Routes d'authentification
 router.post("/auth/login", authController.login);
 router.post("/auth/register", authController.register);
@@ -75,5 +81,11 @@ router.get(
   statsController.getVacationStats
 );
 router.get("/stats/planning", authMiddleware, statsController.getPlanningStats);
+
+// Utilisation des routes de génération automatique de planning
+router.use("/schedule", autoScheduleRoutes);
+
+// Utilisation des routes des plannings hebdomadaires
+router.use("/weekly-schedules", weeklySchedulesRoutes);
 
 module.exports = router;
