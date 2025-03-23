@@ -130,6 +130,24 @@ const useWeeklySchedules = () => {
           );
         }
 
+        // Vérifier si schedules existe et est un tableau
+        if (!result.schedules || !Array.isArray(result.schedules)) {
+          console.error(
+            "Format de données inattendu dans la réponse API:",
+            result
+          );
+
+          // Si result.schedules n'est pas un tableau, utiliser un tableau vide ou essayer de récupérer les données ailleurs
+          const scheduleArray = Array.isArray(result.schedules)
+            ? result.schedules
+            : Array.isArray(result.data)
+            ? result.data
+            : [];
+
+          setSchedules([]);
+          return [];
+        }
+
         // Standardiser les données
         const standardizedSchedules = result.schedules.map((schedule) =>
           parseScheduleFromApi(schedule)
@@ -172,7 +190,9 @@ const useWeeklySchedules = () => {
           standardizeScheduleData(scheduleData)
         );
 
+        console.log("Données envoyées à l'API:", apiData);
         const result = await WeeklyScheduleService.create(apiData);
+        console.log("Résultat reçu de l'API après création:", result);
 
         if (!result.success) {
           throw new Error(
@@ -181,18 +201,33 @@ const useWeeklySchedules = () => {
         }
 
         // Ajouter le nouveau planning à la liste
+        console.log("Données du planning à ajouter:", result.schedule);
         const newSchedule = parseScheduleFromApi(result.schedule);
-        setSchedules((prev) => [...prev, newSchedule]);
+        console.log("Planning formaté pour le frontend:", newSchedule);
+
+        setSchedules((prev) => {
+          const updatedSchedules = [...prev, newSchedule];
+          console.log("Nouvelle liste de plannings:", updatedSchedules);
+          return updatedSchedules;
+        });
 
         // Notifier les autres clients via WebSocket
-        notifyDataChange("schedule", "create", newSchedule.id);
+        if (typeof notifyDataChange === "function") {
+          notifyDataChange("schedule", "create", newSchedule.id);
+        } else {
+          console.log(
+            "Notification WebSocket non disponible, mise à jour locale uniquement"
+          );
+        }
 
-        toast.success("Planning créé avec succès");
+        // Ne pas afficher de toast ici car il sera affiché par le composant qui appelle cette fonction
         return { success: true, schedule: newSchedule };
       } catch (error) {
         console.error("Erreur lors de la création du planning:", error);
         toast.error(error.message || "Erreur lors de la création du planning");
         return { success: false, error: error.message };
+      } finally {
+        setLoading(false);
       }
     },
     [notifyDataChange]
@@ -213,12 +248,24 @@ const useWeeklySchedules = () => {
           standardizeScheduleData(scheduleData)
         );
 
+        console.log(`Tentative de mise à jour du planning ID ${id}`, apiData);
         const result = await WeeklyScheduleService.update(id, apiData);
+        console.log(
+          `Réponse API pour la mise à jour du planning ${id}:`,
+          result
+        );
 
         if (!result.success) {
-          throw new Error(
-            result.message || "Erreur lors de la mise à jour de l'horaire"
+          console.error(
+            `Échec de la mise à jour du planning ${id}:`,
+            result.message
           );
+          return {
+            success: false,
+            message:
+              result.message || "Erreur lors de la mise à jour du planning",
+            error: result.message,
+          };
         }
 
         // Mettre à jour le planning dans la liste
@@ -230,16 +277,30 @@ const useWeeklySchedules = () => {
         );
 
         // Notifier les autres clients via WebSocket
-        notifyDataChange("schedule", "update", id);
+        if (typeof notifyDataChange === "function") {
+          notifyDataChange("schedule", "update", id);
+        } else {
+          console.log(
+            "Notification WebSocket non disponible, mise à jour locale uniquement"
+          );
+        }
 
-        toast.success("Planning mis à jour avec succès");
-        return { success: true, schedule: updatedSchedule };
+        // Ne pas afficher de toast ici car il sera affiché par le composant qui appelle cette fonction
+        return {
+          success: true,
+          schedule: updatedSchedule,
+          message: "Planning mis à jour avec succès",
+        };
       } catch (error) {
         console.error("Erreur lors de la mise à jour du planning:", error);
-        toast.error(
-          error.message || "Erreur lors de la mise à jour du planning"
-        );
-        return { success: false, error: error.message };
+        // Ne pas afficher de toast ici car il sera affiché par le composant qui appelle cette fonction
+        return {
+          success: false,
+          error: error.message,
+          message: error.message || "Erreur lors de la mise à jour du planning",
+        };
+      } finally {
+        setLoading(false);
       }
     },
     [notifyDataChange]
@@ -254,9 +315,12 @@ const useWeeklySchedules = () => {
     async (id) => {
       setLoading(true);
       try {
+        console.log(`Tentative de suppression du planning ${id}`);
         const result = await WeeklyScheduleService.delete(id);
+        console.log(`Résultat de la suppression du planning ${id}:`, result);
 
         if (!result.success) {
+          console.error(`Échec de la suppression du planning ${id}:`, result);
           throw new Error(
             result.message || "Erreur lors de la suppression de l'horaire"
           );
@@ -266,15 +330,23 @@ const useWeeklySchedules = () => {
         setSchedules((prev) => prev.filter((schedule) => schedule.id !== id));
 
         // Notifier les autres clients via WebSocket
-        notifyDataChange("schedule", "delete", id);
+        if (typeof notifyDataChange === "function") {
+          notifyDataChange("schedule", "delete", id);
+        } else {
+          console.log(
+            "Notification WebSocket non disponible, mise à jour locale uniquement"
+          );
+        }
 
-        toast.success("Planning supprimé avec succès");
+        // Ne pas afficher de toast ici car il est déjà affiché dans le composant qui appelle cette fonction
+        setLoading(false);
         return { success: true };
       } catch (error) {
         console.error("Erreur lors de la suppression du planning:", error);
         toast.error(
           error.message || "Erreur lors de la suppression du planning"
         );
+        setLoading(false);
         return { success: false, error: error.message };
       }
     },

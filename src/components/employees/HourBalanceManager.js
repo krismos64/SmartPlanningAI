@@ -305,20 +305,37 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
     try {
       setLoading(true);
 
-      // Créer un nouvel enregistrement dans work_hours
-      const response = await api.post(API_ENDPOINTS.WORK_HOURS.BASE, {
-        employeeId: employeeId,
+      // Calculer le solde à appliquer selon l'opération
+      const balanceChange =
+        operation === "add" ? parseFloat(hours) : -parseFloat(hours);
+
+      // Construire l'objet de données selon la structure attendue par l'API
+      const hourBalanceData = {
         date: new Date().toISOString().split("T")[0],
-        expectedHours: operation === "add" ? 0 : parseFloat(hours),
-        actualHours: operation === "add" ? parseFloat(hours) : 0,
-        balance: operation === "add" ? parseFloat(hours) : -parseFloat(hours),
+        balance: balanceChange,
         description:
           operation === "add"
             ? "Ajout manuel d'heures"
             : "Soustraction manuelle d'heures",
-      });
+        expected_hours: operation === "add" ? 0 : parseFloat(hours),
+        actual_hours: operation === "add" ? parseFloat(hours) : 0,
+      };
 
-      if (response && response.success) {
+      console.log(
+        "Envoi de données pour mise à jour du solde:",
+        hourBalanceData
+      );
+
+      // Faire la requête PUT directement à l'endpoint hour-balance
+      const response = await api.put(
+        API_ENDPOINTS.HOUR_BALANCE.BY_EMPLOYEE(employeeId),
+        hourBalanceData
+      );
+
+      if (
+        response &&
+        (response.success || response.hour_balance !== undefined)
+      ) {
         // Récupérer le solde mis à jour
         await fetchCurrentBalance();
 

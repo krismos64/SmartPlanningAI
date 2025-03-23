@@ -158,6 +158,8 @@ export const prepareScheduleForApi = (schedule) => {
 export const parseScheduleFromApi = (apiData) => {
   if (!apiData) return null;
 
+  console.log("Analyse des données de planning API:", apiData);
+
   let days;
   try {
     days =
@@ -172,12 +174,23 @@ export const parseScheduleFromApi = (apiData) => {
   }
 
   return {
+    id: apiData.id,
     employeeId: apiData.employee_id,
+    weekStart: apiData.week_start,
+    status: apiData.status || "draft",
+    totalHours: apiData.total_hours || 0,
     days: Array.isArray(days)
       ? days.map(convertDayToStandardFormat)
       : Array(7)
           .fill()
           .map(() => createEmptyDay()),
+    // Ajouter les propriétés supplémentaires si elles existent
+    first_name: apiData.first_name,
+    last_name: apiData.last_name,
+    role: apiData.role,
+    department: apiData.department,
+    created_at: apiData.created_at,
+    updated_at: apiData.updated_at,
   };
 };
 

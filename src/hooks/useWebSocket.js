@@ -22,6 +22,56 @@ const useWebSocket = () => {
     return null;
   }, []);
 
+  // Fonction pour notifier le changement de données
+  const notifyDataChange = useCallback(
+    (entity, action, id) => {
+      // Utiliser un debounce pour éviter les doubles notifications
+      const notificationKey = `${entity}_${action}_${id}`;
+
+      // Vérifier si une notification identique a été envoyée récemment
+      if (
+        window._lastNotifications &&
+        window._lastNotifications[notificationKey]
+      ) {
+        const lastTime = window._lastNotifications[notificationKey];
+        const now = Date.now();
+
+        // Si moins de 1000ms se sont écoulées, ne pas envoyer de nouvelle notification
+        if (now - lastTime < 1000) {
+          console.log(
+            `Notification ignorée (debounce): ${entity} ${action} ${id}`
+          );
+          return;
+        }
+      }
+
+      // Stocker l'horodatage de cette notification
+      if (!window._lastNotifications) {
+        window._lastNotifications = {};
+      }
+      window._lastNotifications[notificationKey] = Date.now();
+
+      if (socket) {
+        socket.send(
+          JSON.stringify({
+            type: "DATA_CHANGE",
+            entity,
+            action,
+            id,
+          })
+        );
+        console.log(
+          `Notification de changement envoyée: ${entity} ${action} ${id}`
+        );
+      } else {
+        console.log(
+          `Mode fallback: notification de changement (${entity} ${action} ${id}) non envoyée car WebSocket non connecté`
+        );
+      }
+    },
+    [socket]
+  );
+
   // Demander une mise à jour des activités
   const requestActivitiesUpdate = useCallback(() => {
     if (socket) {
@@ -139,6 +189,7 @@ const useWebSocket = () => {
     notifications,
     requestActivitiesUpdate,
     fallbackMode,
+    notifyDataChange,
   };
 };
 

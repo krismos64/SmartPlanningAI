@@ -283,7 +283,7 @@ app.use("/api/activities", secureAuth, activitiesRoutes);
 
 app.use("/api/schedule-stats", secureAuth, scheduleStatsRoutes);
 app.use("/api/work-hours", secureAuth, workHoursRoutes);
-app.use("/api/hour-balance", secureAuth, hourBalanceRoutes);
+app.use("/api/hour-balance", hourBalanceRoutes);
 app.use("/api/departments", secureAuth, departmentsRoutes);
 app.use("/api/notifications", secureAuth, notificationsRoutes);
 app.use("/api/chatbot", chatbotRoutes); // Le chatbot ne nécessite pas d'authentification

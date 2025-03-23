@@ -119,18 +119,21 @@ export const apiDebug = (message, data = null) => {
 
 /**
  * Fonction pour effectuer des requêtes API
- * @param {string} url - URL de la requête
+ * @param {string} endpoint - Endpoint de la requête
  * @param {string} method - Méthode HTTP (GET, POST, PUT, DELETE)
  * @param {object} data - Données à envoyer (pour POST et PUT)
  * @param {object} headers - En-têtes HTTP supplémentaires
  * @returns {Promise} - Promesse avec les données de la réponse
  */
 export const apiRequest = async (
-  url,
+  endpoint,
   method = "GET",
   data = null,
   headers = {}
 ) => {
+  // Construire l'URL complète en préfixant avec API_URL si l'URL ne commence pas par http
+  const url = endpoint.startsWith("http") ? endpoint : `${API_URL}${endpoint}`;
+
   apiDebug(`${method} ${url}`, data ? { payload: data } : null);
 
   try {

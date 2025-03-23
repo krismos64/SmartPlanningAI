@@ -7,7 +7,7 @@ import { Controller, useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import Lottie from "react-lottie";
 import styled from "styled-components";
-import { API_ENDPOINTS, API_URL } from "../../config/api";
+import { API_URL } from "../../config/api";
 
 // Initialiser moment en français
 moment.locale("fr");
@@ -380,7 +380,20 @@ const AutoScheduleWizard = ({ onClose }) => {
     const fetchEmployees = async () => {
       try {
         setIsLoadingEmployees(true);
-        const response = await axios.get("/api/employees");
+        console.log(
+          `Récupération des employés depuis ${API_URL}/api/employees`
+        );
+
+        // Utiliser l'URL complète pour les appels API
+        const response = await axios.get(`${API_URL}/api/employees`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        console.log("Réponse API employés:", response);
+
         if (response.data) {
           // Vérifier la structure de la réponse et s'adapter
           if (response.data.employees) {
@@ -408,6 +421,11 @@ const AutoScheduleWizard = ({ onClose }) => {
         }
       } catch (error) {
         console.error("Error fetching employees:", error);
+        console.error("Détails de l'erreur:", {
+          message: error.message,
+          response: error.response,
+          request: error.request,
+        });
         toast.error("Erreur lors du chargement des employés");
         setEmployees([]);
       } finally {
@@ -451,16 +469,21 @@ const AutoScheduleWizard = ({ onClose }) => {
 
       console.log("Envoi de la requête de génération de planning:", payload);
 
-      // Utiliser API_URL et API_ENDPOINTS pour construire l'URL complète
-      const url = `${API_URL}${API_ENDPOINTS.SCHEDULE.AUTO_GENERATE}`;
-      console.log("URL de l'API pour la génération de planning:", url);
+      // Utiliser le proxy configuré dans setupProxy.js (pas besoin de spécifier l'URL complète)
+      console.log(
+        "Utilisation du proxy pour appeler /api/schedule/auto-generate"
+      );
 
-      const response = await axios.post(url, payload, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const response = await axios.post(
+        "/api/schedule/auto-generate",
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
 
       if (response.data) {
         console.log("Réponse de l'API:", response.data);

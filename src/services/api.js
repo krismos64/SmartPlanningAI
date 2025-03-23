@@ -265,20 +265,36 @@ export const EmployeeService = {
 
   delete: async (id) => {
     try {
+      console.log(`Suppression du planning ${id}...`);
       const response = await apiRequest(
-        API_ENDPOINTS.EMPLOYEES.BY_ID(id),
+        `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
         "DELETE"
       );
 
-      if (response.error) {
-        return { success: false, message: response.error };
+      console.log(`Réponse de la suppression du planning ${id}:`, response);
+
+      // Gérer les erreurs spécifiques retournées avec un code 4xx/5xx
+      if (response && response.success === false) {
+        console.error(
+          `Erreur de suppression du planning ${id}:`,
+          response.message
+        );
+        return {
+          success: false,
+          message:
+            response.message || "Erreur lors de la suppression du planning",
+        };
       }
 
       return { success: true };
     } catch (error) {
+      console.error(
+        `Erreur d'API lors de la suppression du planning ${id}:`,
+        error
+      );
       return {
         success: false,
-        message: error.message || "Erreur lors de la suppression de l'employé",
+        message: error.message || "Erreur lors de la suppression du planning",
       };
     }
   },
@@ -657,7 +673,32 @@ export const WeeklyScheduleService = {
           JSON.stringify(response).substring(0, 200) + "..."
         );
 
-        return { success: true, schedules: response };
+        // Normaliser la structure de la réponse pour garantir un format cohérent
+        if (
+          response &&
+          response._originalResponse &&
+          response._originalResponse.data
+        ) {
+          // Cas où la réponse contient la structure normalisée avec _originalResponse
+          return {
+            success: true,
+            schedules: Array.isArray(response._originalResponse.data)
+              ? response._originalResponse.data
+              : [],
+          };
+        } else if (response && response.data && Array.isArray(response.data)) {
+          // Cas où la réponse contient directement un champ data qui est un tableau
+          return { success: true, schedules: response.data };
+        } else if (Array.isArray(response)) {
+          // Cas où la réponse est directement un tableau
+          return { success: true, schedules: response };
+        } else {
+          // Cas par défaut - on retourne une structure attendue avec un tableau vide si nécessaire
+          return {
+            success: true,
+            schedules: response && Array.isArray(response) ? response : [],
+          };
+        }
       } catch (apiError) {
         console.error("Exception lors de l'appel API:", apiError);
         return {
@@ -754,6 +795,9 @@ export const WeeklyScheduleService = {
 
   create: async (scheduleData) => {
     try {
+      console.log("Création d'un nouveau planning:", scheduleData);
+
+      // Utiliser l'URL complète avec API_URL pour s'assurer que la requête est correctement routée
       const response = await apiRequest(
         API_ENDPOINTS.WEEKLY_SCHEDULES,
         "POST",
@@ -761,11 +805,22 @@ export const WeeklyScheduleService = {
       );
 
       if (response.error) {
+        console.error(
+          "Erreur lors de la création du planning:",
+          response.error
+        );
         return { success: false, message: response.error };
       }
 
-      return { success: true, schedule: response };
+      console.log("Planning créé avec succès:", response);
+
+      // Normaliser la réponse pour s'assurer que tous les champs nécessaires sont présents
+      return {
+        success: true,
+        schedule: response.data || response,
+      };
     } catch (error) {
+      console.error("Exception lors de la création du planning:", error);
       return {
         success: false,
         message: error.message || "Erreur lors de la création du planning",
@@ -775,18 +830,43 @@ export const WeeklyScheduleService = {
 
   update: async (id, scheduleData) => {
     try {
+      console.log(`Mise à jour du planning ${id}:`, scheduleData);
       const response = await apiRequest(
         `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
         "PUT",
         scheduleData
       );
 
-      if (response.error) {
-        return { success: false, message: response.error };
+      console.log(`Réponse de la mise à jour du planning ${id}:`, response);
+
+      // Gérer les erreurs spécifiques retournées avec un code 4xx/5xx
+      if (response && response.success === false) {
+        console.error(
+          `Erreur de mise à jour du planning ${id}:`,
+          response.message
+        );
+        return {
+          success: false,
+          message:
+            response.message || "Erreur lors de la mise à jour du planning",
+          scheduleId: response.scheduleId, // Pour gérer le cas de conflit (planning existant)
+        };
       }
 
-      return { success: true, schedule: response };
+      // En cas de succès, la réponse contient l'objet schedule
+      if (response && response.schedule) {
+        return { success: true, schedule: response.schedule };
+      } else if (response && response.success) {
+        // Si pas de schedule mais success=true
+        return { success: true, schedule: response };
+      }
+
+      return { success: true, schedule: response }; // Par défaut, considérer la réponse comme le schedule
     } catch (error) {
+      console.error(
+        `Erreur d'API lors de la mise à jour du planning ${id}:`,
+        error
+      );
       return {
         success: false,
         message: error.message || "Erreur lors de la mise à jour du planning",
@@ -796,17 +876,33 @@ export const WeeklyScheduleService = {
 
   delete: async (id) => {
     try {
+      console.log(`Suppression du planning ${id}...`);
       const response = await apiRequest(
         `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
         "DELETE"
       );
 
-      if (response.error) {
-        return { success: false, message: response.error };
+      console.log(`Réponse de la suppression du planning ${id}:`, response);
+
+      // Gérer les erreurs spécifiques retournées avec un code 4xx/5xx
+      if (response && response.success === false) {
+        console.error(
+          `Erreur de suppression du planning ${id}:`,
+          response.message
+        );
+        return {
+          success: false,
+          message:
+            response.message || "Erreur lors de la suppression du planning",
+        };
       }
 
       return { success: true };
     } catch (error) {
+      console.error(
+        `Erreur d'API lors de la suppression du planning ${id}:`,
+        error
+      );
       return {
         success: false,
         message: error.message || "Erreur lors de la suppression du planning",

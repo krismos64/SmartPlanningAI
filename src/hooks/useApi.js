@@ -305,12 +305,26 @@ const useApi = () => {
           delete cleanData.hourlyRate;
         }
 
-        // Convertir les données en snake_case pour le backend
-        const snakeCaseData = {};
-        for (const key in cleanData) {
-          snakeCaseData[camelToSnakeCase(key)] = cleanData[key];
+        // Vérifier si les données sont déjà en snake_case ou si elles doivent être converties
+        const needsConversion = Object.keys(cleanData).some(
+          (key) => key.includes("_") === false && /[A-Z]/.test(key)
+        );
+
+        let dataToSend;
+        if (needsConversion) {
+          // Convertir les données en snake_case pour le backend
+          dataToSend = {};
+          for (const key in cleanData) {
+            dataToSend[camelToSnakeCase(key)] = cleanData[key];
+          }
+          console.log("Données converties en snake_case:", dataToSend);
+        } else {
+          // Utiliser les données telles quelles si déjà au bon format
+          dataToSend = cleanData;
+          console.log(
+            "Données déjà au bon format, pas de conversion nécessaire"
+          );
         }
-        console.log("Données converties en snake_case:", snakeCaseData);
 
         const response = await fetch(`${apiUrl}${endpoint}`, {
           method: "PUT",
@@ -318,7 +332,7 @@ const useApi = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(snakeCaseData),
+          body: JSON.stringify(dataToSend),
         });
 
         // Vérifier si la réponse est une erreur d'authentification

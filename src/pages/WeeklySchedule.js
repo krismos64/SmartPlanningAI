@@ -626,6 +626,7 @@ const WeeklySchedulePage = () => {
     fetchSchedules,
     createSchedule,
     updateSchedule,
+    deleteSchedule,
   } = useWeeklySchedules();
 
   // Formater les données de planning pour le composant WeeklyScheduleGrid
@@ -812,10 +813,61 @@ const WeeklySchedulePage = () => {
           updatedScheduleData.weekStart = formattedWeekStart;
         }
 
-        // Si les données mises à jour concernent un seul employé
+        // Cas où on édite un planning existant (déjà avec un ID)
+        if (updatedScheduleData.id) {
+          console.log(
+            `Mise à jour du planning existant ID ${updatedScheduleData.id}`
+          );
+
+          // Utiliser directement l'ID existant
+          const result = await updateSchedule(
+            updatedScheduleData.id,
+            updatedScheduleData
+          );
+
+          console.log("Résultat de la mise à jour:", result);
+
+          if (result.success) {
+            // Mettre à jour l'état local
+            setScheduleData((prevData) => {
+              const newData = [...prevData];
+              const existingIndex = newData.findIndex(
+                (s) => s.id === updatedScheduleData.id
+              );
+
+              if (existingIndex >= 0) {
+                // Mettre à jour le planning existant
+                newData[existingIndex] = {
+                  ...updatedScheduleData,
+                  id: result.schedule.id,
+                };
+              }
+
+              return newData;
+            });
+
+            // Fermer le formulaire d'édition
+            setEditingEmployeeId(null);
+
+            // Afficher un message de succès
+            toast.success("Planning mis à jour avec succès");
+            return;
+          } else {
+            // Gestion unifiée des erreurs
+            const errorMessage =
+              result.message ||
+              result.error ||
+              "Erreur lors de la mise à jour du planning";
+
+            console.error("Échec de la mise à jour:", errorMessage);
+            toast.error(errorMessage);
+            return;
+          }
+        }
+
+        // Si les données mises à jour concernent un employé (création ou mise à jour sans ID)
         if (updatedScheduleData.employeeId) {
-          // Vérifier si un planning existe déjà pour cet employé et cette semaine spécifique
-          // en utilisant le service getByEmployeeAndWeek
+          // Vérifier si un planning existe déjà pour cet employé et cette semaine
           const existingScheduleResult =
             await WeeklyScheduleService.getByEmployeeAndWeek(
               updatedScheduleData.employeeId,
@@ -828,65 +880,122 @@ const WeeklySchedulePage = () => {
             existingScheduleResult.success &&
             existingScheduleResult.schedule
           ) {
-            // Mettre à jour le planning existant dans la base de données
+            // Mise à jour d'un planning existant
             result = await updateSchedule(
               existingScheduleResult.schedule.id,
               updatedScheduleData
             );
+
+            // Vérifier les erreurs
+            if (!result.success) {
+              const errorMessage =
+                result.message ||
+                result.error ||
+                "Erreur lors de la mise à jour du planning";
+
+              console.error("Échec de la mise à jour:", errorMessage);
+              toast.error(errorMessage);
+              return;
+            }
           } else {
-            // Créer un nouveau planning dans la base de données
+            // Création d'un nouveau planning
             result = await createSchedule(updatedScheduleData);
+
+            if (!result.success) {
+              const errorMessage =
+                result.message ||
+                result.error ||
+                "Erreur lors de la création du planning";
+
+              console.error("Échec de la création:", errorMessage);
+              toast.error(errorMessage);
+              return;
+            }
           }
 
-          if (result.success) {
-            // Mettre à jour l'état local
-            setScheduleData((prevData) => {
-              const existingIndex = prevData.findIndex(
-                (s) => s.employeeId === updatedScheduleData.employeeId
-              );
-
-              const newData = [...prevData];
-
-              if (existingIndex >= 0) {
-                // Mettre à jour le planning existant
-                newData[existingIndex] = {
-                  ...updatedScheduleData,
-                  id: result.schedule.id, // Ajouter l'ID retourné par l'API
-                };
-              } else {
-                // Ajouter un nouveau planning
-                newData.push({
-                  ...updatedScheduleData,
-                  id: result.schedule.id, // Ajouter l'ID retourné par l'API
-                });
-              }
-
-              return newData;
-            });
-
-            // Fermer le formulaire d'édition
-            setEditingEmployeeId(null);
-
-            // Afficher un message de succès
-            toast.success(
-              "Planning enregistré avec succès dans la base de données"
+          // Mise à jour de l'état local
+          setScheduleData((prevData) => {
+            const existingIndex = prevData.findIndex(
+              (s) => s.employeeId === updatedScheduleData.employeeId
             );
-          } else {
-            // Afficher un message d'erreur
-            toast.error(
-              result.error || "Erreur lors de l'enregistrement du planning"
-            );
-          }
+
+            const newData = [...prevData];
+
+            if (existingIndex >= 0) {
+              // Mettre à jour le planning existant
+              newData[existingIndex] = {
+                ...updatedScheduleData,
+                id: result.schedule.id,
+              };
+            } else {
+              // Ajouter un nouveau planning
+              newData.push({
+                ...updatedScheduleData,
+                id: result.schedule.id,
+              });
+            }
+
+            return newData;
+          });
+
+          // Fermer le formulaire d'édition
+          setEditingEmployeeId(null);
+
+          // Afficher un message de succès
+          toast.success("Planning enregistré avec succès");
         } else {
           // Si c'est un tableau complet de plannings, remplacer tout
           setScheduleData(updatedScheduleData);
         }
       } catch (error) {
         console.error("Erreur lors de l'enregistrement du planning:", error);
-        toast.error("Erreur lors de l'enregistrement du planning");
+
+        // Éviter la répétition des messages d'erreur déjà affichés
+        const errorAlreadyShown =
+          error.message &&
+          (error.message.includes("existe déjà pour cet employé") ||
+            error.message.includes("Un planning existe déjà"));
+
+        if (!errorAlreadyShown) {
+          toast.error(
+            error.message || "Erreur lors de l'enregistrement du planning"
+          );
+        }
       }
     },
     [updateSchedule, createSchedule, formattedWeekStart]
+  );
+
+  // Fonction pour supprimer un planning
+  const handleDeleteSchedule = useCallback(
+    async (scheduleId) => {
+      try {
+        const result = await deleteSchedule(scheduleId);
+
+        if (result.success) {
+          // Fermer le formulaire d'édition
+          setEditingEmployeeId(null);
+
+          // Mettre à jour les données locales
+          setScheduleData((prevData) =>
+            prevData.filter((schedule) => schedule.id !== scheduleId)
+          );
+
+          // Recharger les plannings pour s'assurer que les données sont à jour
+          await fetchSchedules(formattedWeekStart);
+
+          toast.success("Planning supprimé avec succès");
+        } else {
+          toast.error(
+            result.error || "Erreur lors de la suppression du planning"
+          );
+        }
+      } catch (error) {
+        console.error("Erreur lors de la suppression du planning:", error);
+        toast.error("Erreur lors de la suppression du planning");
+      }
+    },
+    [deleteSchedule, fetchSchedules, formattedWeekStart]
   );
 
   // Fonction pour générer un PDF global de tous les employés
@@ -1694,6 +1803,7 @@ const WeeklySchedulePage = () => {
                     scheduleData.find(
                       (s) => s.employeeId === editingEmployeeId
                     ) || {
+                      id: null, // Ajouter un id null par défaut pour les nouveaux plannings
                       employeeId: editingEmployeeId,
                       days: Array(7)
                         .fill()
@@ -1708,6 +1818,7 @@ const WeeklySchedulePage = () => {
                   }
                   onSave={handleScheduleChange}
                   onCancel={handleCancelEdit}
+                  onDelete={handleDeleteSchedule}
                 />
               )}
             </CardContent>

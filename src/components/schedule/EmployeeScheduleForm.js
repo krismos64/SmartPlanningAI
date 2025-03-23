@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import { useCallback, useMemo, useState } from "react";
-import { FaSave, FaTimes } from "react-icons/fa";
+import { FaSave, FaTimes, FaTrash } from "react-icons/fa";
 import styled, { keyframes } from "styled-components";
 import {
   calculateHours,
@@ -154,10 +154,11 @@ const InputLabel = styled.label`
 const ButtonGroup = styled.div`
   display: flex;
   gap: 0.5rem;
+  margin-top: 1rem;
 
   @media (max-width: 576px) {
     width: 100%;
-    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 `;
 
@@ -170,6 +171,19 @@ const ActionButton = styled(Button)`
 
   &:hover {
     transform: translateY(-2px);
+  }
+`;
+
+const DeleteButton = styled(Button)`
+  background-color: ${({ theme }) => theme.colors.danger};
+  color: white;
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.dangerHover};
+  }
+
+  @media (max-width: 576px) {
+    flex: 1;
   }
 `;
 
@@ -332,6 +346,7 @@ const EmployeeScheduleForm = ({
   scheduleData,
   onSave,
   onCancel,
+  onDelete,
 }) => {
   // Créer un tableau de jours vides
   const emptyDays = Array(7)
@@ -507,11 +522,9 @@ const EmployeeScheduleForm = ({
   return (
     <FormContainer>
       <FormTitle>
-        <div>
-          Planning du {formatDate(weekStart)} au {formatDate(weekDays[6])}
-        </div>
+        Édition du planning - {employee.firstName} {employee.lastName}
         <ButtonGroup>
-          <ActionButton variant="outline" onClick={onCancel}>
+          <ActionButton variant="danger" onClick={onCancel}>
             <FaTimes /> Annuler
           </ActionButton>
           <ActionButton
@@ -521,6 +534,22 @@ const EmployeeScheduleForm = ({
           >
             <FaSave /> {isSubmitting ? "Enregistrement..." : "Enregistrer"}
           </ActionButton>
+          {scheduleData && scheduleData.id && (
+            <DeleteButton
+              variant="danger"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Êtes-vous sûr de vouloir supprimer ce planning ? Cette action est irréversible."
+                  )
+                ) {
+                  onDelete(scheduleData.id);
+                }
+              }}
+            >
+              <FaTrash /> Supprimer
+            </DeleteButton>
+          )}
         </ButtonGroup>
       </FormTitle>
 
@@ -653,6 +682,7 @@ EmployeeScheduleForm.propTypes = {
   scheduleData: PropTypes.array,
   onSave: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
 };
 
 export default EmployeeScheduleForm;
