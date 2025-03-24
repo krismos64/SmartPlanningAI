@@ -385,6 +385,100 @@ router.get("/users", secureAuth, async (req, res) => {
   }
 });
 
+// Route pour récupérer un utilisateur spécifique par son ID (sans /users/ préfixe)
+router.get("/:id", secureAuth, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    console.log(
+      `Recherche de l'utilisateur avec ID: ${userId} (route directe)`
+    );
+
+    const user = await User.findById(userId);
+    console.log("Résultat de la recherche:", user ? "Trouvé" : "Non trouvé");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+      });
+    }
+
+    // Ne pas renvoyer le mot de passe
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      created_at: user.created_at,
+      company: user.company,
+      phone: user.phone,
+      jobTitle: user.jobTitle,
+    };
+
+    res.json({
+      success: true,
+      data: safeUser,
+    });
+  } catch (error) {
+    console.error(
+      `Erreur lors de la récupération de l'utilisateur ${req.params.id}:`,
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: `Erreur lors de la récupération de l'utilisateur ${req.params.id}`,
+      error: error.message,
+    });
+  }
+});
+
+// Route pour récupérer un utilisateur spécifique par son ID
+router.get("/users/:id", secureAuth, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    console.log(`Recherche de l'utilisateur avec ID: ${userId}`);
+
+    const user = await User.findById(userId);
+    console.log("Résultat de la recherche:", user ? "Trouvé" : "Non trouvé");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+      });
+    }
+
+    // Ne pas renvoyer le mot de passe
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      created_at: user.created_at,
+      company: user.company,
+      phone: user.phone,
+      jobTitle: user.jobTitle,
+    };
+
+    res.json({
+      success: true,
+      data: safeUser,
+    });
+  } catch (error) {
+    console.error(
+      `Erreur lors de la récupération de l'utilisateur ${req.params.id}:`,
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: `Erreur lors de la récupération de l'utilisateur ${req.params.id}`,
+      error: error.message,
+    });
+  }
+});
+
 // Route pour mettre à jour un utilisateur
 router.put("/users/:id", secureAuth, async (req, res) => {
   try {

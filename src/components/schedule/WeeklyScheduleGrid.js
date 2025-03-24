@@ -881,6 +881,21 @@ const WeeklyScheduleGrid = ({
     );
   }, []);
 
+  const handleEditSchedule = useCallback(
+    (employee, existingSchedule) => {
+      console.log("handleEditSchedule - Données passées:", {
+        employee,
+        existingSchedule,
+        weekStart,
+      });
+
+      if (onEditEmployee) {
+        onEditEmployee(employee.id);
+      }
+    },
+    [weekStart, onEditEmployee]
+  );
+
   return (
     <ScheduleGrid>
       {/* En-tête avec les jours de la semaine */}

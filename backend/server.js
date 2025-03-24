@@ -30,6 +30,7 @@ global.Activity = Activity;
 const employeesRoutes = require("./routes/employees");
 const vacationRequestsRoutes = require("./routes/vacations");
 const authRoutes = require("./routes/auth");
+const usersRoutes = require("./routes/users"); // Import des routes utilisateurs
 const weeklySchedulesRoutes = require("./routes/weeklySchedules");
 const activitiesRoutes = require("./routes/activities");
 const scheduleStatsRoutes = require("./routes/scheduleStats");
@@ -288,6 +289,7 @@ app.use("/api/departments", secureAuth, departmentsRoutes);
 app.use("/api/notifications", secureAuth, notificationsRoutes);
 app.use("/api/chatbot", chatbotRoutes); // Le chatbot ne nécessite pas d'authentification
 app.use("/api/user", secureAuth, authRoutes); // Exposer les routes d'authentification également sous /api/user
+app.use("/api/users", secureAuth, usersRoutes); // Utiliser les routes utilisateurs spécifiques
 app.use("/api/schedule", secureAuth, autoScheduleRoutes); // Routes pour la génération automatique de planning
 
 // Route de base

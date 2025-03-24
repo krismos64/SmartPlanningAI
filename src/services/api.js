@@ -828,6 +828,11 @@ export const WeeklyScheduleService = {
     }
   },
 
+  // Méthode createSchedule pour cohérence d'API
+  createSchedule: async (scheduleData) => {
+    return WeeklyScheduleService.create(scheduleData);
+  },
+
   update: async (id, scheduleData) => {
     try {
       console.log(`Mise à jour du planning ${id}:`, scheduleData);
@@ -874,6 +879,11 @@ export const WeeklyScheduleService = {
     }
   },
 
+  // Méthode updateSchedule pour cohérence d'API
+  updateSchedule: async (id, scheduleData) => {
+    return WeeklyScheduleService.update(id, scheduleData);
+  },
+
   delete: async (id) => {
     try {
       console.log(`Suppression du planning ${id}...`);
@@ -908,6 +918,11 @@ export const WeeklyScheduleService = {
         message: error.message || "Erreur lors de la suppression du planning",
       };
     }
+  },
+
+  // Méthode deleteSchedule pour cohérence d'API
+  deleteSchedule: async (id) => {
+    return WeeklyScheduleService.delete(id);
   },
 };
 
@@ -1102,16 +1117,49 @@ export const NotificationService = {
 };
 
 export const UserService = {
-  getAll: async () => {
+  /**
+   * Récupérer les détails d'un utilisateur par son ID
+   * @param {number} userId - ID de l'utilisateur
+   * @returns {Promise<Object>} - Détails de l'utilisateur
+   */
+  getById: async (userId) => {
     try {
-      const response = await apiRequest("GET", API_ENDPOINTS.USERS);
+      console.log(
+        `Récupération des informations de l'utilisateur ID: ${userId}`
+      );
+      const response = await apiRequest(`/api/users/${userId}`, "GET");
+
       return normalizeResponse(response);
     } catch (error) {
-      console.error("Erreur UserService.getAll:", error);
+      console.error(
+        `Erreur lors de la récupération de l'utilisateur ${userId}:`,
+        error
+      );
       return {
         success: false,
-        error: formatError(error),
-        message: formatError(error),
+        message:
+          error.message ||
+          `Erreur lors de la récupération de l'utilisateur ${userId}`,
+      };
+    }
+  },
+
+  /**
+   * Récupérer tous les utilisateurs
+   * @returns {Promise<Object>} - Liste des utilisateurs
+   */
+  getAll: async () => {
+    try {
+      console.log("Récupération de la liste des utilisateurs");
+      const response = await apiRequest("/api/users", "GET");
+
+      return normalizeResponse(response);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des utilisateurs:", error);
+      return {
+        success: false,
+        message:
+          error.message || "Erreur lors de la récupération des utilisateurs",
       };
     }
   },

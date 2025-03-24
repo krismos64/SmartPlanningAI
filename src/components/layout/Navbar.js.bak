@@ -2,8 +2,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import planningAnimation from "../../assets/animations/planning-animation.json";
 import { useTheme } from "../../components/ThemeProvider";
 import { useAuth } from "../../contexts/AuthContext";
+import LanguageSelector from "../LanguageSelector";
+import EnhancedLottie from "../ui/EnhancedLottie";
+import NotificationCenter from "../ui/NotificationCenter";
 
 // Composants stylisés
 const NavbarContainer = styled.nav`
@@ -700,18 +704,4 @@ const Navbar = () => {
   const getUserInitials = () => {
     return user && user.profileImage ? (
       <img
-        src={`data:image/jpeg;base64,${user.profileImage}`}
-        alt={getUserFullName()}
-        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-      />
-    ) : (
-      `${(userInfo.first_name || "")[0] || ""}${
-        (userInfo.last_name || "")[0] || ""
-      }`.trim() || "U"
-    );
-  };
-
-  return <div>{/* Rest of the component code */}</div>;
-};
-
-export default Navbar;
+        src={`

@@ -101,10 +101,13 @@ export const notifyWarning = (message) => {
   displayNotification(message, "warning");
 };
 
-export default {
+// Créer une variable nommée pour l'export
+const notificationUtils = {
   displayNotification,
   notifySuccess,
   notifyError,
   notifyInfo,
   notifyWarning,
 };
+
+export default notificationUtils;

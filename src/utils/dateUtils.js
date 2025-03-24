@@ -574,7 +574,8 @@ export const formatDateToLocale = (
   return dateObj.toLocaleDateString(locale, options);
 };
 
-export default {
+// Créer une variable nommée pour l'export
+const dateUtils = {
   addWeeks,
   getWeekStart,
   isToday,
@@ -594,3 +595,5 @@ export default {
   getWeekDayName,
   formatDateToLocale,
 };
+
+export default dateUtils;

@@ -26,7 +26,7 @@ import { FormInput, FormSelect } from "../components/ui/Form";
 import Spinner from "../components/ui/Spinner";
 import useEmployees from "../hooks/useEmployees";
 import useWeeklySchedules from "../hooks/useWeeklySchedules";
-import { WeeklyScheduleService } from "../services/api";
+import { UserService, WeeklyScheduleService } from "../services/api";
 import {
   addWeeks,
   formatDate,
@@ -394,10 +394,11 @@ const ExportOptions = styled.div`
   margin-top: 1rem;
 `;
 
-const ExportOptionsTitle = styled.h4`
-  font-size: 1rem;
+const ExportOptionsTitle = styled.h3`
+  font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  color: ${({ theme }) => theme.colors.text.primary};
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -562,6 +563,138 @@ const CloseWizardButton = styled(Button)`
   }
 `;
 
+// Nouveaux styles pour le tableau des métadonnées
+const MetadataSection = styled.div`
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const MetadataTitle = styled.h3`
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: ${({ theme }) => theme.colors.text.primary};
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const MetadataTable = styled.table`
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+`;
+
+const TableHead = styled.thead`
+  background: ${({ theme }) => theme.colors.background.secondary};
+`;
+
+const TableHeadCell = styled.th`
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  text-align: left;
+  letter-spacing: 0.05em;
+`;
+
+const TableBody = styled.tbody`
+  background: ${({ theme }) => theme.colors.background.primary};
+
+  tr:nth-child(even) {
+    background: ${({ theme }) => theme.colors.background.secondary}30;
+  }
+
+  tr:hover {
+    background: ${({ theme }) => theme.colors.background.hover};
+  }
+`;
+
+const TableCell = styled.td`
+  padding: 0.75rem 1rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  transition: all 0.2s ease;
+`;
+
+const EmployeeName = styled.div`
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const DateInfo = styled.div`
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const UpdatedByInfo = styled.div`
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-weight: ${(props) => (props.isModified ? "500" : "normal")};
+`;
+
+/**
+ * Composant pour afficher dynamiquement le nom de l'utilisateur
+ */
+const UpdatedByDisplay = ({
+  userId,
+  userCache,
+  userCacheUpdated,
+  fetchUserName,
+}) => {
+  const [, forceUpdate] = useState(0);
+
+  // Effet pour forcer le re-rendu lorsque userCache ou userCacheUpdated changent
+  useEffect(() => {
+    forceUpdate((prev) => prev + 1);
+  }, [userCache, userCacheUpdated]);
+
+  // Effet pour charger le nom de l'utilisateur si nécessaire
+  useEffect(() => {
+    if (userId && !userCache[String(userId)]) {
+      console.log(
+        `🔄 UpdatedByDisplay: tentative de récupération pour ${userId}`
+      );
+      fetchUserName(userId);
+
+      // Forcer une seconde tentative après un délai
+      const timer = setTimeout(() => {
+        console.log(`⏱️ UpdatedByDisplay: retry après délai pour ${userId}`);
+        fetchUserName(userId);
+
+        // Forcer une mise à jour du composant
+        forceUpdate((prev) => prev + 1);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [userId, userCache, fetchUserName]);
+
+  if (!userId) {
+    return <span>Non modifié</span>;
+  }
+
+  const userIdStr = String(userId);
+  const userName = userCache[userIdStr];
+
+  console.log(
+    `🔍 UpdatedByDisplay: Recherche de nom pour ${userIdStr}:`,
+    userName || "non trouvé"
+  );
+
+  return (
+    <div>
+      {userName || `Utilisateur (ID: ${userIdStr})`}
+      {/* Affichage temporaire pour debug */}
+      <div style={{ fontSize: "10px", color: "gray", marginTop: "4px" }}>
+        Cache[{userIdStr}]: {userName || "non trouvé"}
+      </div>
+    </div>
+  );
+};
+
 /**
  * Page de gestion des plannings hebdomadaires
  */
@@ -573,10 +706,7 @@ const WeeklySchedulePage = () => {
   const prevScheduleDataRef = useRef(null);
   const prevFormattedScheduleDataRef = useRef(null);
 
-  // État pour l'ouverture du wizard de génération automatique
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
-
-  // États pour la gestion des plannings
+  // États
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     try {
       // Essayer de créer une date à partir de weekStartParam
@@ -603,6 +733,102 @@ const WeeklySchedulePage = () => {
   const [selectedRole, setSelectedRole] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportOptions, setShowExportOptions] = useState(false);
+  const [userCache, setUserCache] = useState({});
+  const [userCacheUpdated, setUserCacheUpdated] = useState(0); // État pour forcer le re-rendu
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+
+  // Fonction pour récupérer les noms des utilisateurs (déplacée ici avant toute utilisation)
+  const fetchUserName = useCallback(
+    async (userId) => {
+      if (!userId) return;
+
+      // Convertir l'ID en chaîne pour garantir la cohérence
+      const userIdStr = String(userId);
+
+      console.log("📥 Fetch user", userIdStr);
+
+      // Vérifier si l'utilisateur est déjà dans le cache
+      if (userCache[userIdStr]) {
+        console.log(
+          `📋 Utilisateur ${userIdStr} déjà en cache:`,
+          userCache[userIdStr]
+        );
+        return;
+      }
+
+      try {
+        console.log(`Récupération des détails de l'utilisateur ${userIdStr}`);
+        const response = await UserService.getById(userIdStr);
+
+        console.log(`📡 Réponse API pour user ${userIdStr}:`, response);
+
+        if (response && response.success && response.data) {
+          console.log(`✅ Utilisateur ${userIdStr} récupéré:`, response.data);
+
+          // Mettre à jour le cache avec le nom complet
+          const fullName = `${response.data.first_name} ${response.data.last_name}`;
+          console.log(`👤 Nom complet à ajouter au cache: "${fullName}"`);
+
+          setUserCache((prev) => {
+            const newCache = {
+              ...prev,
+              [userIdStr]: fullName,
+            };
+            console.log(`🔄 Mise à jour du cache:`, newCache);
+            return newCache;
+          });
+
+          // Incrémenter le compteur pour forcer le re-rendu
+          setUserCacheUpdated((prev) => {
+            const newValue = prev + 1;
+            console.log(`🔁 Force re-render: ${prev} -> ${newValue}`);
+            return newValue;
+          });
+        } else {
+          console.error(
+            `❌ Échec de récupération de l'utilisateur ${userIdStr}:`,
+            response
+          );
+        }
+      } catch (error) {
+        console.error(
+          `💥 Erreur lors de la récupération de l'utilisateur ${userIdStr}:`,
+          error
+        );
+      }
+    },
+    [userCache, setUserCacheUpdated]
+  );
+
+  // Fonction helper pour récupérer les utilisateurs définie avant son utilisation
+  const fetchUserDetails = useCallback(
+    async (userId) => {
+      // Vérifier si l'utilisateur est déjà dans le cache
+      if (userCache[userId]) {
+        return userCache[userId];
+      }
+
+      try {
+        const response = await UserService.getById(userId);
+        if (response.success && response.data) {
+          // Mettre à jour le cache
+          setUserCache((prev) => ({
+            ...prev,
+            [userId]: response.data,
+          }));
+          return response.data;
+        }
+        return null;
+      } catch (error) {
+        console.error(
+          `Erreur lors de la récupération de l'utilisateur ${userId}:`,
+          error
+        );
+        return null;
+      }
+    },
+    [userCache]
+  );
 
   // Formater la date de début de semaine pour l'API
   const formattedWeekStart = useMemo(
@@ -646,12 +872,14 @@ const WeeklySchedulePage = () => {
         return standardized;
       } catch (error) {
         console.error(
-          `Erreur lors de la standardisation du planning pour l'employé ${schedule.employee_id}:`,
+          `Erreur lors de la standardisation du planning pour l'employé ${
+            schedule.employeeId || schedule.employee_id
+          }:`,
           error
         );
         // Retourner un planning vide en cas d'erreur
         return {
-          employeeId: schedule.employee_id,
+          employeeId: schedule.employeeId || schedule.employee_id,
           days: Array(7)
             .fill()
             .map(() => ({
@@ -712,6 +940,51 @@ const WeeklySchedulePage = () => {
     return employees.find((emp) => emp.id === editingEmployeeId) || null;
   }, [editingEmployeeId, employees]);
 
+  // Fonction pour gérer la sauvegarde d'un planning depuis EmployeeScheduleForm
+  const handleSaveSchedule = useCallback((updatedSchedule) => {
+    console.log("🧪 Schedule mis à jour:", updatedSchedule);
+
+    // Mettre à jour l'état local scheduleData
+    setScheduleData((prevScheduleData) => {
+      const newScheduleData = [...prevScheduleData];
+
+      // Vérifier si le planning existe déjà (par ID)
+      const existingIndex = newScheduleData.findIndex(
+        (schedule) => schedule.id === updatedSchedule.id
+      );
+
+      if (existingIndex !== -1) {
+        // Remplacer le planning existant
+        newScheduleData[existingIndex] =
+          standardizeScheduleData(updatedSchedule);
+      } else {
+        // Vérifier si le planning existe par employeeId (sans ID)
+        const existingEmployeeIndex = newScheduleData.findIndex(
+          (schedule) =>
+            schedule.employeeId === updatedSchedule.employeeId ||
+            schedule.employeeId === updatedSchedule.employee_id
+        );
+
+        if (existingEmployeeIndex !== -1) {
+          // Remplacer le planning de cet employé
+          newScheduleData[existingEmployeeIndex] =
+            standardizeScheduleData(updatedSchedule);
+        } else {
+          // Ajouter un nouveau planning
+          newScheduleData.push(standardizeScheduleData(updatedSchedule));
+        }
+      }
+
+      return newScheduleData;
+    });
+
+    // Fermer le formulaire d'édition
+    setEditingEmployeeId(null);
+
+    // Afficher un toast de succès
+    toast.success("Planning enregistré avec succès");
+  }, []);
+
   // Extraire les départements uniques
   const uniqueDepartments = useMemo(() => {
     if (!employees || !Array.isArray(employees)) return [];
@@ -731,6 +1004,35 @@ const WeeklySchedulePage = () => {
     const formattedDate = formatDateForInput(currentWeekStart);
     navigate(`/weekly-schedule/${formattedDate}`, { replace: true });
   }, [currentWeekStart, navigate]);
+
+  // Récupérer les informations des utilisateurs qui ont modifié les plannings
+  useEffect(() => {
+    if (Array.isArray(schedules) && schedules.length > 0) {
+      // Créer une liste des utilisateurs à récupérer
+      const userIdsToFetch = schedules
+        .filter(
+          (schedule) =>
+            schedule.updated_by && !userCache[String(schedule.updated_by)]
+        )
+        .map((schedule) => String(schedule.updated_by));
+
+      // Éliminer les doublons
+      const uniqueUserIds = [...new Set(userIdsToFetch)];
+
+      // Si nous avons des utilisateurs à récupérer
+      if (uniqueUserIds.length > 0) {
+        console.log(
+          "⚡ Récupération des informations pour les utilisateurs:",
+          uniqueUserIds
+        );
+
+        // Récupérer chaque utilisateur
+        uniqueUserIds.forEach((userId) => {
+          fetchUserName(userId);
+        });
+      }
+    }
+  }, [schedules, userCache, fetchUserName]);
 
   // Filtrer les employés en fonction des critères
   const filteredEmployees = useMemo(() => {
@@ -813,6 +1115,8 @@ const WeeklySchedulePage = () => {
           updatedScheduleData.weekStart = formattedWeekStart;
         }
 
+        console.log("Données du planning à enregistrer:", updatedScheduleData);
+
         // Cas où on édite un planning existant (déjà avec un ID)
         if (updatedScheduleData.id) {
           console.log(
@@ -841,6 +1145,16 @@ const WeeklySchedulePage = () => {
                   ...updatedScheduleData,
                   id: result.schedule.id,
                 };
+              } else {
+                // Étrangement, le planning existe en base mais pas dans l'état local
+                console.log(
+                  "Planning non trouvé dans l'état local, ajout:",
+                  result.schedule
+                );
+                newData.push({
+                  ...updatedScheduleData,
+                  id: result.schedule.id,
+                });
               }
 
               return newData;
@@ -868,11 +1182,20 @@ const WeeklySchedulePage = () => {
         // Si les données mises à jour concernent un employé (création ou mise à jour sans ID)
         if (updatedScheduleData.employeeId) {
           // Vérifier si un planning existe déjà pour cet employé et cette semaine
+          console.log(
+            "Vérification de l'existence d'un planning pour employé:",
+            updatedScheduleData.employeeId,
+            "semaine:",
+            updatedScheduleData.weekStart
+          );
+
           const existingScheduleResult =
             await WeeklyScheduleService.getByEmployeeAndWeek(
               updatedScheduleData.employeeId,
               updatedScheduleData.weekStart
             );
+
+          console.log("Résultat de la vérification:", existingScheduleResult);
 
           let result;
 
@@ -881,6 +1204,10 @@ const WeeklySchedulePage = () => {
             existingScheduleResult.schedule
           ) {
             // Mise à jour d'un planning existant
+            console.log(
+              "Planning existant trouvé, mise à jour:",
+              existingScheduleResult.schedule
+            );
             result = await updateSchedule(
               existingScheduleResult.schedule.id,
               updatedScheduleData
@@ -899,6 +1226,9 @@ const WeeklySchedulePage = () => {
             }
           } else {
             // Création d'un nouveau planning
+            console.log(
+              "Aucun planning existant, création d'un nouveau planning"
+            );
             result = await createSchedule(updatedScheduleData);
 
             if (!result.success) {
@@ -913,30 +1243,69 @@ const WeeklySchedulePage = () => {
             }
           }
 
+          console.log("Résultat de l'opération:", result);
+          console.log("Planning à ajouter/mettre à jour:", result.schedule);
+
+          if (!result.schedule || !result.schedule.id) {
+            console.error("Planning retourné invalide:", result);
+            toast.error("Erreur: le planning retourné est invalide");
+            return;
+          }
+
           // Mise à jour de l'état local
           setScheduleData((prevData) => {
-            const existingIndex = prevData.findIndex(
-              (s) => s.employeeId === updatedScheduleData.employeeId
+            // Vérifier si le planning existe déjà par ID
+            const existingIdIndex = prevData.findIndex(
+              (s) => s.id === result.schedule.id
+            );
+
+            // Si pas trouvé par ID, chercher par employeeId
+            const existingEmployeeIndex =
+              existingIdIndex === -1
+                ? prevData.findIndex(
+                    (s) =>
+                      s.employeeId === updatedScheduleData.employeeId ||
+                      s.employeeId === updatedScheduleData.employee_id
+                  )
+                : -1;
+
+            console.log(
+              "Index par ID:",
+              existingIdIndex,
+              "Index par employeeId:",
+              existingEmployeeIndex
             );
 
             const newData = [...prevData];
 
-            if (existingIndex >= 0) {
-              // Mettre à jour le planning existant
-              newData[existingIndex] = {
-                ...updatedScheduleData,
-                id: result.schedule.id,
+            if (existingIdIndex >= 0) {
+              // Mettre à jour le planning existant par ID
+              console.log("Mise à jour du planning existant par ID");
+              newData[existingIdIndex] = {
+                ...result.schedule,
+              };
+            } else if (existingEmployeeIndex >= 0) {
+              // Mettre à jour le planning existant par employeeId
+              console.log("Mise à jour du planning existant par employeeId");
+              newData[existingEmployeeIndex] = {
+                ...result.schedule,
               };
             } else {
               // Ajouter un nouveau planning
+              console.log("Ajout d'un nouveau planning");
               newData.push({
-                ...updatedScheduleData,
-                id: result.schedule.id,
+                ...result.schedule,
               });
             }
 
+            console.log("Nouvel état des plannings:", newData);
             return newData;
           });
+
+          // Rechargement des plannings pour s'assurer que tout est à jour
+          setTimeout(() => {
+            fetchSchedules(formattedWeekStart);
+          }, 500);
 
           // Fermer le formulaire d'édition
           setEditingEmployeeId(null);
@@ -963,7 +1332,7 @@ const WeeklySchedulePage = () => {
         }
       }
     },
-    [updateSchedule, createSchedule, formattedWeekStart]
+    [updateSchedule, createSchedule, formattedWeekStart, fetchSchedules]
   );
 
   // Fonction pour supprimer un planning
@@ -1605,6 +1974,55 @@ const WeeklySchedulePage = () => {
     }
   }, [navigate]);
 
+  // Ajouter un useEffect pour charger les noms des utilisateurs au chargement des plannings
+  useEffect(() => {
+    console.log("⚡ useEffect de chargement des noms déclenché");
+
+    if (Array.isArray(schedules) && schedules.length > 0) {
+      // Récupérer tous les IDs d'utilisateurs qui ont modifié des plannings
+      const allUserIds = schedules
+        .filter((schedule) => schedule.updated_by)
+        .map((schedule) => String(schedule.updated_by));
+
+      // Éliminer les doublons
+      const uniqueUserIds = [...new Set(allUserIds)];
+
+      console.log("🔎 Tous les IDs utilisateurs trouvés:", uniqueUserIds);
+      console.log("📂 Contenu actuel du cache:", userCache);
+
+      // Filtrer les utilisateurs non encore dans le cache
+      const userIdsToFetch = uniqueUserIds.filter(
+        (userId) => !userCache[userId]
+      );
+
+      console.log("🔄 IDs à récupérer:", userIdsToFetch);
+
+      // Forcer au moins une requête pour l'ID 13 si présent
+      if (uniqueUserIds.includes("13") && !userIdsToFetch.includes("13")) {
+        console.log("🚨 Force refresh pour l'ID 13");
+        userIdsToFetch.push("13");
+      }
+
+      // Si nous avons des utilisateurs à récupérer
+      if (userIdsToFetch.length > 0) {
+        console.log(
+          "⚡ Récupération des informations pour les utilisateurs:",
+          userIdsToFetch
+        );
+
+        // Récupérer chaque utilisateur avec un léger délai entre chaque
+        userIdsToFetch.forEach((userId, index) => {
+          setTimeout(() => {
+            console.log(`⏱️ Fetch planifié pour ${userId}`);
+            fetchUserName(userId);
+          }, index * 200); // 200ms de délai entre chaque requête
+        });
+      } else {
+        console.log("✅ Tous les utilisateurs sont déjà en cache");
+      }
+    }
+  }, [schedules, userCache, fetchUserName, userCacheUpdated]);
+
   // Afficher un spinner pendant le chargement
   if (employeesLoading || schedulesLoading) {
     return (
@@ -1777,6 +2195,250 @@ const WeeklySchedulePage = () => {
                       onEditEmployee={handleEditEmployee}
                       onGeneratePDF={generateEmployeePDF}
                     />
+
+                    {/* Logs de débogage */}
+                    {console.log("🧪 Contenu de schedules:", schedules)}
+                    {console.log(
+                      "🧪 Type de schedules:",
+                      typeof schedules,
+                      Array.isArray(schedules),
+                      schedules?.length
+                    )}
+                    {console.log(
+                      "🧪 Contenu de filteredEmployees:",
+                      filteredEmployees
+                    )}
+                    {console.log(
+                      "🧪 Types d'IDs des employés filtrés:",
+                      filteredEmployees.map((e) => ({
+                        id: e.id,
+                        type: typeof e.id,
+                      }))
+                    )}
+                    {Array.isArray(schedules) &&
+                      schedules.length > 0 &&
+                      console.log(
+                        "🧪 Propriétés des plannings:",
+                        schedules.map((s) => ({
+                          id: s.id,
+                          employeeId: s.employeeId,
+                          employee_id: s.employee_id,
+                          weekStart: s.weekStart,
+                          week_start: s.week_start,
+                          hasDays: Array.isArray(s.days)
+                            ? s.days.length
+                            : s.days,
+                        }))
+                      )}
+                    {console.log(
+                      "🧪 Plannings après filtrage:",
+                      Array.isArray(schedules)
+                        ? schedules.filter((schedule) =>
+                            filteredEmployees.some(
+                              (emp) =>
+                                Number(emp.id) ===
+                                Number(
+                                  schedule.employeeId || schedule.employee_id
+                                )
+                            )
+                          )
+                        : "Schedules n'est pas un tableau"
+                    )}
+
+                    {/* Tableau des métadonnées des plannings */}
+                    <MetadataSection>
+                      <MetadataTitle>
+                        <FaCalendarDay /> Métadonnées des plannings
+                      </MetadataTitle>
+                      <div className="overflow-x-auto">
+                        <MetadataTable>
+                          <TableHead>
+                            <tr>
+                              <TableHeadCell>Employé</TableHeadCell>
+                              <TableHeadCell>Date de création</TableHeadCell>
+                              <TableHeadCell>
+                                Dernière modification
+                              </TableHeadCell>
+                              <TableHeadCell>Modifié par</TableHeadCell>
+                            </tr>
+                          </TableHead>
+                          <TableBody>
+                            {Array.isArray(schedules) &&
+                            schedules.length > 0 ? (
+                              schedules
+                                .filter((schedule) =>
+                                  filteredEmployees.some(
+                                    (emp) =>
+                                      Number(emp.id) ===
+                                      Number(
+                                        schedule.employeeId ||
+                                          schedule.employee_id
+                                      )
+                                  )
+                                )
+                                .map((schedule) => {
+                                  // Logs pour déboguer chaque schedule
+                                  console.log(
+                                    "🔍 Traitement du schedule:",
+                                    schedule
+                                  );
+
+                                  // Trouver l'employé correspondant
+                                  const employee = employees.find(
+                                    (emp) =>
+                                      Number(emp.id) ===
+                                      Number(
+                                        schedule.employeeId ||
+                                          schedule.employee_id
+                                      )
+                                  );
+
+                                  // Rechercher le nom de l'utilisateur qui a modifié le planning
+                                  let updatedByName = "Non modifié";
+                                  const isModified = !!schedule.updated_by;
+
+                                  if (schedule.updated_by) {
+                                    // Convertir l'ID en chaîne pour l'accès au cache
+                                    const updatedById = String(
+                                      schedule.updated_by
+                                    );
+
+                                    // Logs de diagnostic
+                                    console.log(
+                                      "🧠 userCache complet:",
+                                      userCache
+                                    );
+                                    console.log(
+                                      "🔍 Nom pour ID:",
+                                      updatedById,
+                                      "=",
+                                      userCache[updatedById]
+                                    );
+                                    console.log(
+                                      "🔢 Type de ID:",
+                                      typeof updatedById,
+                                      "Contenu:",
+                                      updatedById
+                                    );
+
+                                    // Vérifier si le nom existe dans le cache
+                                    if (userCache[updatedById]) {
+                                      updatedByName = userCache[updatedById];
+                                      console.log(
+                                        `✅ Nom trouvé dans le cache pour ${updatedById}: ${updatedByName}`
+                                      );
+                                    } else {
+                                      updatedByName = `Utilisateur (ID: ${updatedById})`;
+                                      console.log(
+                                        `⚠️ Nom non trouvé dans le cache pour ${updatedById}, contenu du cache:`,
+                                        userCache
+                                      );
+
+                                      // Tenter de récupérer le nom si pas encore dans le cache
+                                      console.log(
+                                        `🔄 Tentative de récupération pour ${updatedById}`
+                                      );
+                                      fetchUserName(updatedById);
+
+                                      // Pour test: forcer une seconde tentative après un délai
+                                      setTimeout(() => {
+                                        console.log(
+                                          `⏱️ Retry forcé après délai pour ${updatedById}`
+                                        );
+                                        fetchUserName(updatedById);
+                                      }, 1000);
+                                    }
+                                  }
+
+                                  // Formater les dates en français
+                                  const createdAtDate = new Date(
+                                    schedule.created_at
+                                  );
+                                  const updatedAtDate = new Date(
+                                    schedule.updated_at
+                                  );
+
+                                  const formattedCreatedAt =
+                                    createdAtDate.toLocaleDateString("fr-FR", {
+                                      day: "numeric",
+                                      month: "long",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    });
+
+                                  const formattedUpdatedAt =
+                                    updatedAtDate.toLocaleDateString("fr-FR", {
+                                      day: "numeric",
+                                      month: "long",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    });
+
+                                  return (
+                                    <tr key={schedule.id}>
+                                      <TableCell>
+                                        <EmployeeName>
+                                          {employee
+                                            ? `${
+                                                employee.first_name ||
+                                                employee.firstName
+                                              } ${
+                                                employee.last_name ||
+                                                employee.lastName
+                                              }`
+                                            : `Employé #${
+                                                schedule.employeeId ||
+                                                schedule.employee_id
+                                              }`}
+                                        </EmployeeName>
+                                      </TableCell>
+                                      <TableCell>
+                                        <DateInfo>
+                                          {formattedCreatedAt}
+                                        </DateInfo>
+                                      </TableCell>
+                                      <TableCell>
+                                        <DateInfo>
+                                          {formattedUpdatedAt}
+                                        </DateInfo>
+                                      </TableCell>
+                                      <TableCell key={schedule.id}>
+                                        <UpdatedByInfo
+                                          isModified={isModified}
+                                          data-user-id={schedule.updated_by}
+                                          data-cache-updated={userCacheUpdated} // Forcer le re-rendu quand le cache change
+                                        >
+                                          <UpdatedByDisplay
+                                            userId={schedule.updated_by}
+                                            userCache={userCache}
+                                            userCacheUpdated={userCacheUpdated}
+                                            fetchUserName={fetchUserName}
+                                          />
+                                        </UpdatedByInfo>
+                                      </TableCell>
+                                    </tr>
+                                  );
+                                })
+                            ) : (
+                              <tr>
+                                <TableCell
+                                  colSpan={4}
+                                  style={{
+                                    textAlign: "center",
+                                    padding: "2rem",
+                                  }}
+                                >
+                                  Aucune métadonnée disponible pour les
+                                  plannings sélectionnés
+                                </TableCell>
+                              </tr>
+                            )}
+                          </TableBody>
+                        </MetadataTable>
+                      </div>
+                    </MetadataSection>
                   </>
                 )}
               </CardContent>
@@ -1816,7 +2478,7 @@ const WeeklySchedulePage = () => {
                         })),
                     }
                   }
-                  onSave={handleScheduleChange}
+                  onSave={handleSaveSchedule}
                   onCancel={handleCancelEdit}
                   onDelete={handleDeleteSchedule}
                 />

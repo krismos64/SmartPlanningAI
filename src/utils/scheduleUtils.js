@@ -37,35 +37,88 @@ import { formatDateForInput } from "./dateUtils";
 export const standardizeScheduleData = (schedule) => {
   if (!schedule) return null;
 
-  // Si le planning est déjà au format standard, le retourner tel quel
-  if (
-    schedule.days &&
-    Array.isArray(schedule.days) &&
-    schedule.days.length > 0 &&
-    schedule.days[0].type !== undefined
-  ) {
+  // Log pour déboguer
+  console.log("Standardisation planning:", {
+    original: schedule,
+    hasEmployeeId: !!schedule.employeeId,
+    hasEmployee_id: !!schedule.employee_id,
+    hasScheduleData: !!schedule.schedule_data,
+    hasDays: !!schedule.days,
+  });
+
+  // Gestion de schedule_data (JSON string → object)
+  let days = [];
+
+  if (schedule.schedule_data) {
+    try {
+      // Si schedule_data est une chaîne JSON, la parser
+      if (typeof schedule.schedule_data === "string") {
+        days = JSON.parse(schedule.schedule_data);
+      } else if (Array.isArray(schedule.schedule_data)) {
+        days = schedule.schedule_data;
+      }
+    } catch (error) {
+      console.error("Erreur lors du parsing de schedule_data:", error);
+      days = Array(7)
+        .fill()
+        .map(() => createEmptyDay());
+    }
+  } else if (Array.isArray(schedule.days)) {
+    days = schedule.days;
+  } else {
+    days = Array(7)
+      .fill()
+      .map(() => createEmptyDay());
+  }
+
+  // Si le planning est déjà au format standard, le retourner avec toutes les propriétés
+  if (Array.isArray(days) && days.length > 0 && days[0].type !== undefined) {
     return {
-      ...schedule,
-      // S'assurer que weekStart est présent
+      id: schedule.id,
+      employeeId: schedule.employeeId || schedule.employee_id,
       weekStart:
         schedule.weekStart ||
         schedule.week_start ||
         formatDateForInput(new Date()),
+      weekEnd: schedule.weekEnd || schedule.week_end,
+      totalHours: schedule.totalHours || schedule.total_hours || "0",
+      status: schedule.status || "draft",
+      days: days.map(convertDayToStandardFormat),
+      // Propriétés supplémentaires de l'API
+      created_at: schedule.created_at,
+      updated_at: schedule.updated_at,
+      updated_by: schedule.updated_by,
+      first_name: schedule.first_name,
+      last_name: schedule.last_name,
+      role: schedule.role,
+      department: schedule.department,
     };
   }
 
   // Convertir au format standard
   return {
+    id: schedule.id,
     employeeId: schedule.employeeId || schedule.employee_id,
     weekStart:
       schedule.weekStart ||
       schedule.week_start ||
       formatDateForInput(new Date()),
-    days: Array.isArray(schedule.days)
-      ? schedule.days.map(convertDayToStandardFormat)
+    weekEnd: schedule.weekEnd || schedule.week_end,
+    totalHours: schedule.totalHours || schedule.total_hours || "0",
+    status: schedule.status || "draft",
+    days: Array.isArray(days)
+      ? days.map(convertDayToStandardFormat)
       : Array(7)
           .fill()
           .map(() => createEmptyDay()),
+    // Propriétés supplémentaires de l'API
+    created_at: schedule.created_at,
+    updated_at: schedule.updated_at,
+    updated_by: schedule.updated_by,
+    first_name: schedule.first_name,
+    last_name: schedule.last_name,
+    role: schedule.role,
+    department: schedule.department,
   };
 };
 
@@ -160,12 +213,18 @@ export const parseScheduleFromApi = (apiData) => {
 
   console.log("Analyse des données de planning API:", apiData);
 
-  let days;
+  let days = [];
   try {
-    days =
-      typeof apiData.schedule_data === "string"
-        ? JSON.parse(apiData.schedule_data)
-        : apiData.schedule_data;
+    if (apiData.schedule_data) {
+      // Si schedule_data est une chaîne JSON, la parser
+      if (typeof apiData.schedule_data === "string") {
+        days = JSON.parse(apiData.schedule_data);
+      } else if (Array.isArray(apiData.schedule_data)) {
+        days = apiData.schedule_data;
+      }
+    } else if (Array.isArray(apiData.days)) {
+      days = apiData.days;
+    }
   } catch (error) {
     console.error("Erreur lors de l'analyse des données de planning:", error);
     days = Array(7)
@@ -173,25 +232,24 @@ export const parseScheduleFromApi = (apiData) => {
       .map(() => createEmptyDay());
   }
 
-  return {
+  // Toujours standardiser le planning complet pour assurer la cohérence
+  return standardizeScheduleData({
     id: apiData.id,
-    employeeId: apiData.employee_id,
-    weekStart: apiData.week_start,
-    status: apiData.status || "draft",
-    totalHours: apiData.total_hours || 0,
-    days: Array.isArray(days)
-      ? days.map(convertDayToStandardFormat)
-      : Array(7)
-          .fill()
-          .map(() => createEmptyDay()),
-    // Ajouter les propriétés supplémentaires si elles existent
+    employee_id: apiData.employee_id,
+    week_start: apiData.week_start,
+    week_end: apiData.week_end,
+    total_hours: apiData.total_hours,
+    status: apiData.status,
+    days: days,
+    // Propriétés supplémentaires
+    created_at: apiData.created_at,
+    updated_at: apiData.updated_at,
+    updated_by: apiData.updated_by,
     first_name: apiData.first_name,
     last_name: apiData.last_name,
     role: apiData.role,
     department: apiData.department,
-    created_at: apiData.created_at,
-    updated_at: apiData.updated_at,
-  };
+  });
 };
 
 const scheduleUtils = {

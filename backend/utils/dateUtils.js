@@ -2,29 +2,56 @@
  * Utilitaires pour la gestion des dates côté backend
  */
 
+// Définition des fonctions
 /**
- * Formate une date pour MySQL (YYYY-MM-DD)
- * @param {string|Date} date - La date à formater
- * @returns {string} La date au format YYYY-MM-DD
+ * Formater une date pour MySQL (YYYY-MM-DD)
+ * Gère tous les formats de date possibles, y compris les chaînes ISO
+ * @param {string|Date} date - Date à formater
+ * @returns {string|null} - Date formatée ou null si invalide
  */
 const formatDateForMySQL = (date) => {
   if (!date) return null;
 
+  let dateObj;
+
   try {
-    // Si la date est déjà au format YYYY-MM-DD, la retourner telle quelle
-    if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return date;
+    // Si c'est déjà une date
+    if (date instanceof Date) {
+      dateObj = date;
+    }
+    // Si c'est une chaîne ISO
+    else if (typeof date === "string" && date.includes("T")) {
+      // Créer une date en ignorant le fuseau horaire (utiliser la date locale)
+      const parts = date.split("T")[0].split("-");
+      if (parts.length === 3) {
+        // Créer une date avec année, mois (0-indexé), jour
+        dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+      } else {
+        dateObj = new Date(date);
+      }
+    }
+    // Autres formats de chaîne
+    else {
+      dateObj = new Date(date);
     }
 
-    const dateObj = new Date(date);
-
+    // Vérifier si la date est valide
     if (isNaN(dateObj.getTime())) {
+      console.error("Date invalide:", date);
       return null;
     }
 
-    return dateObj.toISOString().split("T")[0];
+    // Formater la date (YYYY-MM-DD) en utilisant la date locale
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+
+    const formatted = `${year}-${month}-${day}`;
+    console.log(`Date formatée pour MySQL: ${date} -> ${formatted}`);
+
+    return formatted;
   } catch (error) {
-    console.error("Erreur lors du formatage de la date pour MySQL:", error);
+    console.error("Erreur lors du formatage de la date:", error, date);
     return null;
   }
 };

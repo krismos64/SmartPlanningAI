@@ -1,13 +1,58 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+import { useAuth } from "../contexts/AuthContext";
 import { WeeklyScheduleService } from "../services/api";
-import { formatDateForAPI } from "../utils/dateUtils";
+import ActivityLogger from "../utils/activityLogger";
 import {
   parseScheduleFromApi,
   prepareScheduleForApi,
   standardizeScheduleData,
 } from "../utils/scheduleUtils";
 import useWebSocket from "./useWebSocket";
+
+// Remplacer la fonction getByWeek si elle n'existe pas dans WeeklyScheduleService
+const getSchedulesByWeek = async (formattedDate) => {
+  try {
+    console.log(
+      "Tentative de récupération des plannings pour la semaine:",
+      formattedDate
+    );
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("Token d'authentification manquant");
+      throw new Error("Vous devez être connecté pour accéder à ces données");
+    }
+
+    // Utiliser la bonne URL d'API pour récupérer les plannings par semaine
+    const response = await fetch(
+      `http://localhost:5001/api/weekly-schedules/week/${formattedDate}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Erreur API:", errorData);
+      throw new Error(errorData.message || "Erreur serveur");
+    }
+
+    const data = await response.json();
+    console.log("Plannings récupérés avec succès:", data);
+
+    return {
+      success: true,
+      schedules: data.schedules || data.data || [],
+    };
+  } catch (error) {
+    console.error("Erreur dans getSchedulesByWeek:", error);
+    throw error;
+  }
+};
 
 /**
  * Hook personnalisé pour gérer les plannings hebdomadaires
@@ -16,6 +61,7 @@ const useWeeklySchedules = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { user } = useAuth();
 
   // Intégration WebSocket pour les mises à jour en temps réel
   const { socket, isConnected, notifyDataChange } = useWebSocket();
@@ -81,95 +127,95 @@ const useWeeklySchedules = () => {
   }, [socket, isConnected]);
 
   /**
-   * Récupère tous les plannings pour une semaine donnée
-   * @param {string} weekStart - Date de début de semaine (format YYYY-MM-DD)
+   * Récupère les plannings pour une semaine donnée
+   * @param {string} weekStart - Date de début de semaine (YYYY-MM-DD)
    * @returns {Promise<Array>} - Liste des plannings
    */
   const fetchSchedules = useCallback(async (weekStart) => {
     setLoading(true);
-    setError(null);
-
     try {
-      // Vérifier que la date est au bon format
-      if (!weekStart) {
-        throw new Error("Date de début de semaine non spécifiée");
+      console.log(`Récupération des plannings pour la semaine du ${weekStart}`);
+      const result = await WeeklyScheduleService.getByWeek(weekStart);
+      console.log("🔄 Résultat API des plannings:", result);
+
+      if (!result || !result.success) {
+        const errorMessage =
+          result?.message ||
+          "Erreur lors de la récupération des plannings, vérifiez votre connexion";
+        console.error(errorMessage);
+        setError(errorMessage);
+        setSchedules([]);
+        return [];
       }
 
-      // Vérifier que le token d'authentification est présent
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("Token d'authentification manquant");
-        throw new Error("Vous devez être connecté pour accéder à ces données");
-      }
-
-      // S'assurer que la date est au format YYYY-MM-DD
-      let formattedDate = weekStart;
-      if (weekStart instanceof Date) {
-        formattedDate = formatDateForAPI(weekStart);
-      } else if (typeof weekStart === "string" && weekStart.includes("T")) {
-        // Si la date contient un T (format ISO), extraire seulement la partie date
-        formattedDate = weekStart.split("T")[0];
-      }
-
-      console.error(
-        "Tentative de récupération des plannings pour la semaine du:",
-        formattedDate
-      );
-
-      try {
-        const result = await WeeklyScheduleService.getByWeek(formattedDate);
-
-        if (!result.success) {
-          console.error(
-            "Échec de la récupération des plannings:",
-            result.message,
-            result.details || ""
-          );
-          throw new Error(
-            result.message || "Erreur lors du chargement des horaires"
-          );
-        }
-
-        // Vérifier si schedules existe et est un tableau
-        if (!result.schedules || !Array.isArray(result.schedules)) {
-          console.error(
-            "Format de données inattendu dans la réponse API:",
-            result
-          );
-
-          // Si result.schedules n'est pas un tableau, utiliser un tableau vide ou essayer de récupérer les données ailleurs
-          const scheduleArray = Array.isArray(result.schedules)
-            ? result.schedules
-            : Array.isArray(result.data)
-            ? result.data
-            : [];
-
-          setSchedules([]);
-          return [];
-        }
-
-        // Standardiser les données
-        const standardizedSchedules = result.schedules.map((schedule) =>
-          parseScheduleFromApi(schedule)
-        );
-
-        setSchedules(standardizedSchedules);
-        return standardizedSchedules;
-      } catch (apiError) {
+      // Vérifier que result.schedules est un tableau
+      if (!Array.isArray(result.schedules) && !Array.isArray(result.data)) {
         console.error(
-          "Erreur API lors de la récupération des plannings:",
-          apiError
+          "⚠️ La réponse de l'API ne contient pas de tableau de plannings:",
+          result
         );
-        throw apiError;
+        console.log("Type de result.schedules:", typeof result.schedules);
+        console.log("Type de result.data:", typeof result.data);
+
+        // Si schedules n'est pas un tableau mais un objet, essayer de l'extraire
+        if (result.schedules && typeof result.schedules === "object") {
+          console.log(
+            "Tentative d'extraction des données d'un objet schedules:",
+            Object.keys(result.schedules)
+          );
+        }
+
+        // Si data n'est pas un tableau mais un objet, essayer de l'extraire
+        if (result.data && typeof result.data === "object") {
+          console.log(
+            "Tentative d'extraction des données d'un objet data:",
+            Object.keys(result.data)
+          );
+        }
+
+        // Forcer schedules à être un tableau vide
+        setSchedules([]);
+        return [];
       }
-    } catch (err) {
-      console.error("Erreur lors du chargement des horaires:", err);
-      console.error("Détails de l'erreur:", JSON.stringify(err, null, 2));
-      setError(
-        "Erreur lors du chargement des horaires: " +
-          (err.message || "Erreur inconnue")
+
+      // Mise à jour de l'état avec les plannings récupérés
+      const schedulesData = Array.isArray(result.schedules)
+        ? result.schedules
+        : Array.isArray(result.data)
+        ? result.data
+        : [];
+
+      console.log("🔄 Plannings récupérés bruts:", schedulesData);
+      console.log(
+        "🔄 Structure des plannings:",
+        schedulesData.map((s) => ({
+          id: s.id,
+          employee_id: s.employee_id,
+          type_employee_id: typeof s.employee_id,
+          week_start: s.week_start,
+          created_at: s.created_at,
+          updated_at: s.updated_at,
+          updated_by: s.updated_by,
+          has_schedule_data: !!s.schedule_data,
+          schedule_data_type: typeof s.schedule_data,
+        }))
       );
-      toast.error("Erreur lors du chargement des horaires");
+
+      // Standardiser tous les plannings pour garantir la cohérence
+      const standardizedSchedules = schedulesData
+        .map((schedule) => standardizeScheduleData(schedule))
+        .filter(Boolean); // Filtrer les plannings null
+
+      console.log("Plannings standardisés:", standardizedSchedules);
+      setSchedules(standardizedSchedules);
+      setError(null);
+      return standardizedSchedules;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des plannings:", error);
+      const errorMessage =
+        error.message || "Erreur lors de la récupération des plannings";
+      setError(errorMessage);
+      setSchedules([]);
       return [];
     } finally {
       setLoading(false);
@@ -185,52 +231,93 @@ const useWeeklySchedules = () => {
     async (scheduleData) => {
       setLoading(true);
       try {
-        // Standardiser et préparer les données pour l'API
-        const apiData = prepareScheduleForApi(
-          standardizeScheduleData(scheduleData)
+        console.log("Données à envoyer à l'API:", scheduleData);
+
+        // Préparer les données pour l'API
+        const preparedData = prepareScheduleForApi(scheduleData);
+        console.log("Données préparées pour l'API:", preparedData);
+
+        // Appeler l'API pour créer le planning
+        const response = await WeeklyScheduleService.createSchedule(
+          preparedData
         );
+        console.log("Réponse API création planning:", response);
 
-        console.log("Données envoyées à l'API:", apiData);
-        const result = await WeeklyScheduleService.create(apiData);
-        console.log("Résultat reçu de l'API après création:", result);
-
-        if (!result.success) {
-          throw new Error(
-            result.message || "Erreur lors de la création de l'horaire"
-          );
+        // Extraire le planning de la réponse (différents formats possibles)
+        let newSchedule = response;
+        if (response?.data) {
+          newSchedule = response.data;
+        } else if (response?.schedule) {
+          newSchedule = response.schedule;
         }
 
-        // Ajouter le nouveau planning à la liste
-        console.log("Données du planning à ajouter:", result.schedule);
-        const newSchedule = parseScheduleFromApi(result.schedule);
-        console.log("Planning formaté pour le frontend:", newSchedule);
+        // Standardiser le nouveau planning
+        const standardizedSchedule = standardizeScheduleData(newSchedule);
+        console.log("Nouveau planning standardisé:", standardizedSchedule);
 
-        setSchedules((prev) => {
-          const updatedSchedules = [...prev, newSchedule];
-          console.log("Nouvelle liste de plannings:", updatedSchedules);
-          return updatedSchedules;
-        });
+        if (standardizedSchedule?.id) {
+          // Ajouter le nouveau planning à la liste
+          setSchedules((prevSchedules) => {
+            // Vérifier si le planning existe déjà (par ID ou par employeeId+weekStart)
+            const existingIndex = prevSchedules.findIndex(
+              (s) =>
+                s.id === standardizedSchedule.id ||
+                (s.employeeId === standardizedSchedule.employeeId &&
+                  s.weekStart === standardizedSchedule.weekStart)
+            );
 
-        // Notifier les autres clients via WebSocket
-        if (typeof notifyDataChange === "function") {
-          notifyDataChange("schedule", "create", newSchedule.id);
+            if (existingIndex >= 0) {
+              // Remplacer le planning existant
+              const updatedSchedules = [...prevSchedules];
+              updatedSchedules[existingIndex] = standardizedSchedule;
+              return updatedSchedules;
+            } else {
+              // Ajouter le nouveau planning
+              return [...prevSchedules, standardizedSchedule];
+            }
+          });
+
+          // Notifier les autres clients
+          if (typeof notifyDataChange === "function") {
+            notifyDataChange("schedule", "create", standardizedSchedule.id);
+          } else {
+            console.log(
+              "Notification WebSocket non disponible, mise à jour locale uniquement"
+            );
+          }
+
+          // Enregistrer l'activité côté client pour les statistiques
+          if (user && user.id) {
+            try {
+              await ActivityLogger.logCreation({
+                entity_type: "schedule",
+                entity_id: standardizedSchedule.id,
+                userId: user.id,
+                description: `Planning créé pour l'employé ${standardizedSchedule.employeeId} (semaine du ${standardizedSchedule.weekStart})`,
+              });
+            } catch (logError) {
+              console.error(
+                "Erreur lors de l'enregistrement de l'activité:",
+                logError
+              );
+            }
+          }
+
+          return standardizedSchedule;
         } else {
-          console.log(
-            "Notification WebSocket non disponible, mise à jour locale uniquement"
-          );
+          console.error("Le planning créé n'a pas d'ID:", standardizedSchedule);
+          throw new Error("Le planning créé n'a pas d'ID");
         }
-
-        // Ne pas afficher de toast ici car il sera affiché par le composant qui appelle cette fonction
-        return { success: true, schedule: newSchedule };
       } catch (error) {
         console.error("Erreur lors de la création du planning:", error);
         toast.error(error.message || "Erreur lors de la création du planning");
-        return { success: false, error: error.message };
+        setError(error.message);
+        throw error;
       } finally {
         setLoading(false);
       }
     },
-    [notifyDataChange]
+    [notifyDataChange, user]
   );
 
   /**
@@ -249,11 +336,19 @@ const useWeeklySchedules = () => {
         );
 
         console.log(`Tentative de mise à jour du planning ID ${id}`, apiData);
-        const result = await WeeklyScheduleService.update(id, apiData);
+
+        // Utiliser updateSchedule au lieu de update
+        const response = await WeeklyScheduleService.updateSchedule(
+          id,
+          apiData
+        );
         console.log(
           `Réponse API pour la mise à jour du planning ${id}:`,
-          result
+          response
         );
+
+        // Extraire les données de la réponse
+        const result = response.data || response;
 
         if (!result.success) {
           console.error(
@@ -269,7 +364,9 @@ const useWeeklySchedules = () => {
         }
 
         // Mettre à jour le planning dans la liste
-        const updatedSchedule = parseScheduleFromApi(result.schedule);
+        const updatedSchedule = parseScheduleFromApi(
+          result.data || result.schedule
+        );
         setSchedules((prev) =>
           prev.map((schedule) =>
             schedule.id === id ? updatedSchedule : schedule
@@ -283,6 +380,25 @@ const useWeeklySchedules = () => {
           console.log(
             "Notification WebSocket non disponible, mise à jour locale uniquement"
           );
+        }
+
+        // Enregistrer l'activité côté client pour les statistiques
+        if (user && user.id) {
+          try {
+            await ActivityLogger.logUpdate({
+              entity_type: "schedule",
+              entity_id: id,
+              userId: user.id,
+              description: `Planning mis à jour pour l'employé ${
+                apiData.employee_id || scheduleData.employeeId
+              } (semaine du ${apiData.week_start || scheduleData.weekStart})`,
+            });
+          } catch (logError) {
+            console.error(
+              "Erreur lors de l'enregistrement de l'activité:",
+              logError
+            );
+          }
         }
 
         // Ne pas afficher de toast ici car il sera affiché par le composant qui appelle cette fonction
@@ -303,7 +419,7 @@ const useWeeklySchedules = () => {
         setLoading(false);
       }
     },
-    [notifyDataChange]
+    [notifyDataChange, user]
   );
 
   /**
@@ -316,8 +432,22 @@ const useWeeklySchedules = () => {
       setLoading(true);
       try {
         console.log(`Tentative de suppression du planning ${id}`);
-        const result = await WeeklyScheduleService.delete(id);
-        console.log(`Résultat de la suppression du planning ${id}:`, result);
+
+        // Récupérer les informations du planning avant suppression pour logger
+        const scheduleToDelete = schedules.find((s) => s.id === id);
+        const employeeId = scheduleToDelete
+          ? scheduleToDelete.employee_id || scheduleToDelete.employeeId
+          : "inconnu";
+        const weekStart = scheduleToDelete
+          ? scheduleToDelete.week_start || scheduleToDelete.weekStart
+          : "inconnue";
+
+        // Utiliser deleteSchedule au lieu de delete
+        const response = await WeeklyScheduleService.deleteSchedule(id);
+        console.log(`Résultat de la suppression du planning ${id}:`, response);
+
+        // Extraire les données de la réponse
+        const result = response.data || response;
 
         if (!result.success) {
           console.error(`Échec de la suppression du planning ${id}:`, result);
@@ -338,6 +468,23 @@ const useWeeklySchedules = () => {
           );
         }
 
+        // Enregistrer l'activité côté client pour les statistiques
+        if (user && user.id) {
+          try {
+            await ActivityLogger.logDeletion({
+              entity_type: "schedule",
+              entity_id: id,
+              userId: user.id,
+              description: `Planning supprimé pour l'employé ${employeeId} (semaine du ${weekStart})`,
+            });
+          } catch (logError) {
+            console.error(
+              "Erreur lors de l'enregistrement de l'activité:",
+              logError
+            );
+          }
+        }
+
         // Ne pas afficher de toast ici car il est déjà affiché dans le composant qui appelle cette fonction
         setLoading(false);
         return { success: true };
@@ -350,7 +497,7 @@ const useWeeklySchedules = () => {
         return { success: false, error: error.message };
       }
     },
-    [notifyDataChange]
+    [notifyDataChange, user, schedules]
   );
 
   return {

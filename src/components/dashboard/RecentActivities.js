@@ -19,17 +19,6 @@ import styled, { keyframes } from "styled-components";
 import useActivities from "../../hooks/useActivities";
 
 // Animations
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
 const pulse = keyframes`
   0% {
     box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4);
@@ -383,22 +372,6 @@ const formatDateTime = (timestamp) => {
   };
 };
 
-// Fonction pour traduire le type de congé en français
-const translateVacationType = (type) => {
-  switch (type) {
-    case "paid":
-      return "payé";
-    case "unpaid":
-      return "non payé";
-    case "sick":
-      return "maladie";
-    case "other":
-      return "autre";
-    default:
-      return type || "non spécifié";
-  }
-};
-
 // Fonction pour traduire le statut de congé en français
 const translateVacationStatus = (status) => {
   switch (status) {
@@ -421,7 +394,6 @@ const RecentActivities = () => {
     error,
     fetchActivities,
     formatActivityDescription,
-    formatActivityDate,
   } = useActivities();
 
   const handleRefresh = () => {
@@ -531,15 +503,8 @@ const RecentActivities = () => {
                 const details = extractActivityDetails(activity);
 
                 // Traduire le type et le statut de congé si c'est une activité liée aux congés
-                let typeLabel = "";
-                let statusLabel = "";
                 if (activity.entity_type === "vacation") {
-                  typeLabel = details.vacationType
-                    ? translateVacationType(details.vacationType)
-                    : "";
-                  statusLabel = details.status
-                    ? translateVacationStatus(details.status)
-                    : "";
+                  // Les traductions sont utilisées directement dans getActivityTypeLabel, pas besoin de stocker ici
                 }
 
                 return (

@@ -48,14 +48,19 @@ class WeeklySchedule {
 
   /**
    * Enregistrer un nouveau planning hebdomadaire
-   * @returns {Promise<WeeklySchedule>} Le planning enregistré
+   * @returns {Promise<Object>} Résultat de l'opération
    */
   async save() {
     try {
       console.log("Sauvegarde du planning hebdomadaire:", {
         employee_id: this.employee_id,
         week_start: this.week_start,
+        schedule_data_type: typeof this.schedule_data,
+        has_time_slots:
+          this.schedule_data && this.schedule_data.includes("timeSlots"),
       });
+
+      console.log("🧪 Contenu de schedule_data:", this.schedule_data);
 
       // Vérifier que l'ID employé est un nombre valide
       const employeeId = parseInt(this.employee_id);
@@ -67,6 +72,48 @@ class WeeklySchedule {
       const formattedWeekStart = formatDateForMySQL(this.week_start);
       if (!formattedWeekStart) {
         throw new Error("Date de début de semaine invalide");
+      }
+
+      // Vérifier si un planning existe déjà pour cet employé à cette date
+      try {
+        const existingSchedule = await WeeklySchedule.findByEmployeeAndWeek(
+          employeeId,
+          formattedWeekStart
+        );
+
+        // Si un planning existe déjà, mettre à jour plutôt que créer
+        if (existingSchedule) {
+          console.log(
+            "Un planning existe déjà pour cet employé à cette date. Mise à jour du planning existant."
+          );
+
+          // Préparer les données pour la mise à jour
+          const updateData = {
+            schedule_data: this.schedule_data,
+            total_hours: this.total_hours || 0,
+            status: this.status || "draft",
+          };
+
+          // Mettre à jour le planning existant
+          const updatedSchedule = await WeeklySchedule.update(
+            existingSchedule.id,
+            updateData
+          );
+
+          return {
+            success: true,
+            id: existingSchedule.id,
+            message: "Planning existant mis à jour avec succès",
+            isUpdate: true,
+            schedule: updatedSchedule,
+          };
+        }
+      } catch (findError) {
+        console.error(
+          "Erreur lors de la vérification du planning existant:",
+          findError
+        );
+        // Continuer avec la création si l'erreur est liée à la recherche
       }
 
       // Calculer la date de fin (week_start + 6 jours)
@@ -103,13 +150,37 @@ class WeeklySchedule {
 
       console.log("Planning hebdomadaire créé avec succès, ID:", this.id);
 
-      return this;
+      return {
+        success: true,
+        id: this.id,
+        message: "Planning créé avec succès",
+        schedule: this,
+      };
     } catch (error) {
       console.error(
         "Erreur lors de la sauvegarde du planning hebdomadaire:",
         error
       );
-      throw error;
+
+      // Si l'erreur est liée à la contrainte d'unicité, renvoyer un message plus clair
+      if (
+        error.message &&
+        error.message.includes("Duplicate entry") &&
+        error.message.includes("employee_week")
+      ) {
+        return {
+          success: false,
+          error:
+            "Un planning existe déjà pour cet employé à cette date. Veuillez utiliser la fonction de mise à jour.",
+          message: "Un planning existe déjà pour cet employé à cette date",
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message,
+        message: "Erreur lors de la création du planning",
+      };
     }
   }
 
@@ -367,9 +438,10 @@ class WeeklySchedule {
    * Mettre à jour un planning hebdomadaire
    * @param {number} id - ID du planning à mettre à jour
    * @param {Object} data - Données à mettre à jour
+   * @param {number} updatedBy - ID de l'utilisateur qui effectue la mise à jour
    * @returns {Promise<WeeklySchedule>} Le planning mis à jour
    */
-  static async update(id, data) {
+  static async update(id, data, updatedBy = null) {
     try {
       console.log(`Mise à jour du planning #${id}:`, data);
 
@@ -402,6 +474,12 @@ class WeeklySchedule {
       if (data.status) {
         updates.push("status = ?");
         params.push(data.status);
+      }
+
+      // Enregistrer l'utilisateur qui fait la mise à jour
+      if (updatedBy) {
+        updates.push("updated_by = ?");
+        params.push(updatedBy);
       }
 
       // Toujours mettre à jour le timestamp

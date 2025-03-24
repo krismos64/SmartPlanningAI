@@ -24,23 +24,121 @@ exports.createSchedule = async (req, res) => {
       });
     }
 
+    // Log des données reçues
+    console.log("🧪 Planning reçu (backend):", {
+      employee_id,
+      week_start,
+      total_hours,
+      schedule_data,
+    });
+
+    // Convertir schedule_data en JSON stringifié si ce n'est pas déjà le cas
+    const scheduleDataString =
+      typeof schedule_data === "string"
+        ? schedule_data
+        : JSON.stringify(schedule_data);
+
     // Créer l'objet de planning
     const scheduleObj = new WeeklySchedule({
       employee_id,
       week_start,
-      schedule_data: schedule_data || {},
+      schedule_data: scheduleDataString,
       total_hours: total_hours || 0,
       status: status || "draft",
       created_by: req.user ? req.user.id : null,
     });
 
     // Sauvegarder le planning
-    const savedSchedule = await scheduleObj.save();
+    const result = await scheduleObj.save();
 
-    return res.status(201).json({
+    // Si l'opération a échoué, renvoyer l'erreur
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    // Récupérer l'ID du planning (qu'il soit nouvellement créé ou mis à jour)
+    const scheduleId = result.id;
+
+    // Récupérer les informations de l'employé
+    const [employeeResult] = await db.query(
+      "SELECT first_name, last_name FROM employees WHERE id = ?",
+      [employee_id]
+    );
+
+    // Enregistrer l'activité
+    if (req.user && req.user.id) {
+      try {
+        const Activity = require("../models/Activity");
+        const Notification = require("../models/Notification");
+
+        // Détails de l'employé pour le message
+        const employeeName =
+          employeeResult.length > 0
+            ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
+            : `Employé #${employee_id}`;
+
+        // Type d'activité (création ou mise à jour)
+        const activityType = result.isUpdate ? "update" : "create";
+
+        // Description de l'activité
+        const description = result.isUpdate
+          ? `Mise à jour d'un planning pour ${employeeName} (semaine du ${week_start})`
+          : `Création d'un planning pour ${employeeName} (semaine du ${week_start})`;
+
+        // Log de l'activité
+        await Activity.logActivity({
+          type: activityType,
+          entity_type: "schedule",
+          entity_id: scheduleId,
+          description,
+          user_id: req.user.id,
+        });
+
+        // Créer une notification pour les administrateurs et managers
+        const [managers] = await db.query(
+          "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+        );
+
+        // Titre de la notification
+        const notificationTitle = result.isUpdate
+          ? "Planning modifié"
+          : "Nouveau planning créé";
+
+        // Message de la notification
+        const notificationMessage = result.isUpdate
+          ? `Le planning de ${employeeName} (semaine du ${week_start}) a été modifié`
+          : `Un planning a été créé pour ${employeeName} (semaine du ${week_start})`;
+
+        // Notifier chaque manager/admin
+        for (const manager of managers) {
+          // Ne pas notifier l'utilisateur qui a fait la modification
+          if (manager.id !== req.user.id) {
+            await Notification.createAndBroadcast({
+              user_id: manager.id,
+              title: notificationTitle,
+              message: notificationMessage,
+              type: "info",
+              entity_type: "schedule",
+              entity_id: scheduleId,
+              link: `/weekly-schedule/${week_start}`,
+            });
+          }
+        }
+      } catch (activityError) {
+        console.error(
+          "Erreur lors de l'enregistrement de l'activité ou de la notification:",
+          activityError
+        );
+      }
+    }
+
+    // Déterminer le code de statut (201 pour création, 200 pour mise à jour)
+    const statusCode = result.isUpdate ? 200 : 201;
+
+    return res.status(statusCode).json({
       success: true,
-      message: "Planning créé avec succès",
-      data: savedSchedule,
+      message: result.message || "Opération sur le planning réussie",
+      schedule: result.schedule,
     });
   } catch (error) {
     console.error("Erreur lors de la création du planning:", error);
@@ -153,7 +251,7 @@ exports.updateSchedule = async (req, res) => {
 
     // Vérifier si le planning existe
     const [scheduleExists] = await db.query(
-      "SELECT id FROM weekly_schedules WHERE id = ?",
+      "SELECT id, employee_id, week_start FROM weekly_schedules WHERE id = ?",
       [id]
     );
 
@@ -249,6 +347,65 @@ exports.updateSchedule = async (req, res) => {
         );
       } catch (error) {
         console.error("Erreur lors du parsing des données de planning:", error);
+      }
+    }
+
+    // Récupérer les informations de l'employé
+    const employeeId = employee_id || scheduleExists[0].employee_id;
+    const [employeeResult] = await db.query(
+      "SELECT first_name, last_name FROM employees WHERE id = ?",
+      [employeeId]
+    );
+
+    // Enregistrer l'activité et créer une notification
+    if (req.user && req.user.id) {
+      try {
+        const Activity = require("../models/Activity");
+        const Notification = require("../models/Notification");
+
+        // Détails de l'employé pour le message
+        const employeeName =
+          employeeResult.length > 0
+            ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
+            : `Employé #${employeeId}`;
+
+        const weekStartFormatted = week_start || scheduleExists[0].week_start;
+
+        // Log de l'activité
+        await Activity.logActivity({
+          type: "update",
+          entity_type: "schedule",
+          entity_id: id,
+          description: `Modification du planning de ${employeeName} (semaine du ${weekStartFormatted})`,
+          user_id: req.user.id,
+        });
+
+        // Créer une notification pour le propriétaire du planning et les administrateurs
+        const [managers] = await db.query(
+          "SELECT id FROM users WHERE role IN ('admin', 'manager') OR id = ?",
+          [employeeId]
+        );
+
+        // Notifier chaque personne concernée
+        for (const manager of managers) {
+          // Ne pas notifier l'utilisateur qui a fait la modification
+          if (manager.id !== req.user.id) {
+            await Notification.createAndBroadcast({
+              user_id: manager.id,
+              title: "Planning modifié",
+              message: `Le planning de ${employeeName} (semaine du ${weekStartFormatted}) a été modifié`,
+              type: "info",
+              entity_type: "schedule",
+              entity_id: id,
+              link: `/weekly-schedule/${weekStartFormatted}`,
+            });
+          }
+        }
+      } catch (activityError) {
+        console.error(
+          "Erreur lors de l'enregistrement de l'activité ou de la notification:",
+          activityError
+        );
       }
     }
 

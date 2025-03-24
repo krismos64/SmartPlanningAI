@@ -31,15 +31,66 @@ class User {
 
   static async findById(id) {
     try {
-      const [rows] = await connectDB.execute(
-        "SELECT id, email, password, role, first_name, last_name, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?",
-        [id]
+      console.log(`[User.findById] Recherche de l'utilisateur avec ID: ${id}`);
+
+      // Vérifier le format de l'ID et le convertir en entier
+      console.log(
+        `[User.findById] Type de l'ID avant conversion: ${typeof id}`
       );
+
+      // Convertir l'ID en entier
+      const parsedId = parseInt(id, 10);
+      console.log(`[User.findById] ID après conversion: ${parsedId}`);
+      console.log(
+        `[User.findById] Type de l'ID après conversion: ${typeof parsedId}`
+      );
+
+      // Vérifier si la conversion a réussi
+      if (isNaN(parsedId)) {
+        console.error(
+          `[User.findById] Erreur: ID invalide, impossible de convertir "${id}" en entier`
+        );
+        return null;
+      }
+
+      // Vérifier que la base de données est bien sélectionnée
+      const [dbCheck] = await connectDB.query("SELECT DATABASE() as db");
+      console.log(
+        `[User.findById] Base de données sélectionnée: ${dbCheck[0].db}`
+      );
+
+      // Exécuter la requête SQL avec l'ID converti en entier
+      const sqlQuery =
+        "SELECT id, email, password, role, first_name, last_name, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?";
+      console.log(
+        `[User.findById] Exécution de la requête SQL préparée: ${sqlQuery}`
+      );
+      console.log(
+        `[User.findById] Paramètre ID (converti en entier): ${parsedId}`
+      );
+
+      const [rows] = await connectDB.execute(sqlQuery, [parsedId]);
+
+      console.log(`[User.findById] Nombre de résultats: ${rows.length}`);
+      if (rows.length > 0) {
+        console.log(`[User.findById] Utilisateur trouvé:`, {
+          id: rows[0].id,
+          email: rows[0].email,
+          role: rows[0].role,
+          first_name: rows[0].first_name,
+          last_name: rows[0].last_name,
+        });
+      } else {
+        console.log(
+          `[User.findById] Aucun utilisateur trouvé avec l'ID: ${parsedId}`
+        );
+      }
+
       if (rows.length === 0) return null;
       return new User(rows[0]);
     } catch (error) {
       console.error(
-        `Erreur lors de la récupération de l'utilisateur ${id}:`,
+        `[User.findById] Erreur lors de la récupération de l'utilisateur ${id}:`,
         error
       );
       throw error;

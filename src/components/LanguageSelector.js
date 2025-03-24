@@ -36,12 +36,6 @@ const LanguageButton = styled.button`
   }
 `;
 
-const LanguageCode = styled.span`
-  text-transform: uppercase;
-  font-weight: 600;
-  margin-right: 0.25rem;
-`;
-
 const LanguageName = styled.span`
   margin: 0 0.5rem;
 `;
