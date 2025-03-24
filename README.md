@@ -47,10 +47,16 @@ SmartPlanning AI est une application de gestion de planning intelligente qui per
 
 ### Technologies utilisées
 
-- **React** : Bibliothèque JavaScript pour construire l'interface utilisateur.
-- **Styled Components** : CSS-in-JS pour le styling des composants.
-- **React Router** : Gestion des routes et de la navigation.
-- **Context API** : Gestion de l'état global (thème, notifications, etc.).
+- **React 18** - Bibliothèque JavaScript pour construire l'interface utilisateur
+- **Material-UI 5** - Bibliothèque de composants React pour un design moderne
+- **Redux Toolkit** - Gestion d'état global
+- **React Router 6** - Navigation entre les pages
+- **i18next** - Internationalisation
+- **Recharts** - Visualisation de données
+- **FullCalendar** - Composant calendrier avancé
+- **Framer Motion** - Animations fluides
+- **Axios** - Client HTTP pour les requêtes API
+- **React Hook Form** - Gestion des formulaires
 
 ## 📱 Pages principales
 
@@ -181,42 +187,127 @@ npm run dev
 
 1. **users**
 
-   - Gestion des utilisateurs et authentification
-   - Rôles : admin, manager, employee
+   - Stocke les informations des utilisateurs de l'application
+   - Champs principaux: `id`, `email`, `password`, `role`, `first_name`, `last_name`, `company`
+   - Relations: référencé par de nombreuses tables comme clé étrangère
 
-2. **employees**
+2. **user_settings**
 
-   - Informations détaillées sur les employés
-   - Lié à la table users
+   - Stocke les préférences des utilisateurs
+   - Champs principaux: `id`, `user_id`, `theme_mode`, `language`, `notifications_enabled`
+   - Relations: appartient à un utilisateur (`user_id` → `users.id`)
 
-3. **plannings**
+3. **departments**
 
-   - Plannings généraux
-   - Peut contenir plusieurs événements
+   - Gère les départements de l'entreprise
+   - Champs principaux: `id`, `name`, `description`, `manager_id`, `user_id`
+   - Relations: appartient à un utilisateur (`user_id` → `users.id`)
 
-4. **planning_events**
+4. **employees**
 
-   - Événements spécifiques dans les plannings
-   - Types : shift, meeting, training, other
+   - Stocke les informations des employés
+   - Champs principaux: `id`, `user_id`, `first_name`, `last_name`, `email`, `department_id`, `manager_id`, `contractHours`
+   - Relations:
+     - Lié à un utilisateur (`user_id` → `users.id`)
+     - Appartient à un département (`department_id` → `departments.id`)
+     - A un manager (`manager_id` → `users.id`)
 
-5. **vacation_requests**
-   - Demandes de congés
-   - Statuts : pending, approved, rejected
+5. **weekly_schedules**
+
+   - Gère les plannings hebdomadaires des employés
+   - Champs principaux: `id`, `employee_id`, `week_start`, `week_end`, `schedule_data` (JSON), `total_hours`
+   - Relations:
+     - Appartient à un employé (`employee_id` → `employees.id`)
+     - Créé par un utilisateur (`created_by` → `users.id`)
+     - Modifié par un utilisateur (`updated_by` → `users.id`)
+
+6. **vacation_requests**
+
+   - Gère les demandes de congés des employés
+   - Champs principaux: `id`, `employee_id`, `creator_id`, `start_date`, `end_date`, `type`, `status`
+   - Relations:
+     - Appartient à un employé (`employee_id` → `employees.id`)
+     - Créé par un utilisateur (`creator_id` → `users.id`)
+     - Approuvé par un utilisateur (`approved_by` → `users.id`)
+     - Rejeté par un utilisateur (`rejected_by` → `users.id`)
+
+7. **work_hours**
+
+   - Enregistre les heures de travail réelles des employés
+   - Champs principaux: `id`, `employee_id`, `date`, `expected_hours`, `actual_hours`, `balance`
+   - Relations: appartient à un employé (`employee_id` → `employees.id`)
+
+8. **activities**
+
+   - Journalisation des activités des utilisateurs et des événements du système
+   - Champs principaux: `id`, `type`, `entity_type`, `entity_id`, `description`, `user_id`, `details` (JSON)
+   - Relations: effectuée par un utilisateur (`user_id` → `users.id`)
+
+9. **notifications**
+
+   - Gère les notifications envoyées aux utilisateurs
+   - Champs principaux: `id`, `user_id`, `title`, `message`, `type`, `read`, `entity_type`, `entity_id`
+   - Relations: destiné à un utilisateur (`user_id` → `users.id`)
+
+10. **shifts**
+    - Gère les horaires de travail des employés (shifts individuels)
+    - Champs principaux: `id`, `employee_id`, `start_time`, `end_time`, `status`, `notes`
+    - Relations:
+      - Appartient à un employé (`employee_id` → `employees.id`)
+      - Créé par un utilisateur (`created_by` → `users.id`)
+
+### Triggers et procédures stockées
+
+1. **work_hours_after_insert**
+
+   - Déclenché après insertion dans la table `work_hours`
+   - Calcule et met à jour le solde des heures de travail
+
+2. **work_hours_after_update**
+
+   - Déclenché après mise à jour dans la table `work_hours`
+   - Recalcule et met à jour le solde des heures de travail
+
+3. **work_hours_after_delete**
+
+   - Déclenché après suppression dans la table `work_hours`
+   - Ajuste le solde des heures de travail de l'employé
+
+4. **calculate_weekly_schedule_hours**
+   - Procédure qui calcule le total des heures d'un planning hebdomadaire
+   - Analyse les données JSON du planning et met à jour le champ `total_hours`
 
 ## 🛠 Technologies utilisées
 
-- **Frontend**
+### Frontend
 
-  - React
-  - Styled Components
-  - TailwindCSS
-  - React Router
+- **React 18** - Bibliothèque JavaScript pour construire l'interface utilisateur
+- **Material-UI 5** - Bibliothèque de composants React pour un design moderne
+- **Redux Toolkit** - Gestion d'état global
+- **React Router 6** - Navigation entre les pages
+- **i18next** - Internationalisation
+- **Recharts** - Visualisation de données
+- **FullCalendar** - Composant calendrier avancé
+- **Framer Motion** - Animations fluides
+- **Axios** - Client HTTP pour les requêtes API
+- **React Hook Form** - Gestion des formulaires
 
-- **Backend**
-  - Node.js
-  - Express
-  - MySQL
-  - JWT pour l'authentification
+### Backend
+
+- **Node.js** - Environnement d'exécution JavaScript côté serveur
+- **Express** - Framework web pour Node.js
+- **MySQL** - Base de données relationnelle
+- **JSON Web Token** - Authentification sécurisée
+- **Bcrypt** - Hachage des mots de passe
+- **Joi** - Validation des données
+- **Helmet** - Sécurité des en-têtes HTTP
+- **node-nlp** - Traitement du langage naturel pour l'IA
+
+### Outils de développement
+
+- **Jest** - Tests unitaires et d'intégration
+- **Supertest** - Tests d'API
+- **Nodemon** - Rechargement automatique pendant le développement
 
 ## 📝 Scripts disponibles
 
@@ -436,3 +527,45 @@ Pour un déploiement automatique depuis GitHub :
 - Arrêter les conteneurs : `docker-compose down`
 - Voir les logs : `docker-compose logs -f`
 - Redémarrer un service spécifique : `docker-compose restart [service]`
+
+## 📂 Structure du projet
+
+### Frontend (React)
+
+```
+src/
+├── animations/    # Animations et transitions
+├── assets/        # Images, icônes et autres fichiers statiques
+├── components/    # Composants réutilisables
+├── config/        # Configuration du frontend
+├── contexts/      # Context API pour la gestion d'état global
+├── hooks/         # Custom hooks React
+├── layouts/       # Layouts de page
+├── pages/         # Composants de page
+├── services/      # Services d'API
+├── styles/        # Fichiers CSS et styles
+├── utils/         # Fonctions utilitaires
+├── App.js         # Composant racine
+├── i18n.js        # Configuration internationalisation
+├── index.js       # Point d'entrée
+├── setupProxy.js  # Configuration du proxy pour le développement
+└── theme.js       # Thème et styles globaux
+```
+
+### Backend (Node.js)
+
+```
+backend/
+├── config/        # Configuration du serveur
+├── controllers/   # Contrôleurs pour les routes
+├── database/      # Scripts et migrations de base de données
+├── middleware/    # Middlewares Express
+├── migrations/    # Fichiers de migration de la base de données
+├── models/        # Modèles de données
+├── routes/        # Définitions des routes API
+├── scripts/       # Scripts utilitaires
+├── services/      # Services métier
+├── utils/         # Fonctions utilitaires
+├── app.js         # Configuration de l'application Express
+└── server.js      # Point d'entrée du serveur
+```
