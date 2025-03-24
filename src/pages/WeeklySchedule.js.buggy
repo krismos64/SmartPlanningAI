@@ -756,8 +756,15 @@ const UpdatedByDisplay = ({ userId, userCache }) => {
   const userIdStr = String(userId);
   const userName = userCache[userIdStr];
 
-  // Retourner uniquement le nom sans aucune métadonnée
-  return <span>{userName || `Utilisateur (ID: ${userIdStr})`}</span>;
+  return (
+    <div>
+      {userName || `Utilisateur (ID: ${userIdStr})`}
+      {/* Affichage temporaire pour debug */}
+      <div style={{ fontSize: "10px", color: "gray", marginTop: "4px" }}>
+        Cache[{userIdStr}]: {userName || "non trouvé"}
+      </div>
+    </div>
+  );
 };
 
 /**
@@ -838,16 +845,6 @@ const WeeklySchedulePage = () => {
     if (!userId) return;
     const userIdStr = String(userId);
 
-    // Traitement spécial pour l'utilisateur avec ID 13
-    if (userIdStr === "13") {
-      // Associer le vrai nom et prénom de l'utilisateur
-      setUserCache((prev) => ({
-        ...prev,
-        13: "Kevin Planning",
-      }));
-      return;
-    }
-
     // Vérifier si le nombre de tentatives est dépassé
     if (!userFetchAttemptsRef.current[userIdStr]) {
       userFetchAttemptsRef.current[userIdStr] = 0;
@@ -857,14 +854,6 @@ const WeeklySchedulePage = () => {
       console.log(
         `⛔ Maximum de tentatives atteint pour l'utilisateur ${userIdStr}`
       );
-
-      // Si le maximum de tentatives est atteint, stocker un nom générique dans le cache
-      if (!userCache[userIdStr]) {
-        setUserCache((prev) => ({
-          ...prev,
-          [userIdStr]: `Utilisateur ${userIdStr}`,
-        }));
-      }
       return;
     }
 
@@ -914,8 +903,6 @@ const WeeklySchedulePage = () => {
         `Erreur lors de la récupération de l'utilisateur ${userIdStr}:`,
         error
       );
-
-      // En cas d'erreur, stocker un nom générique dans le cache
       setUserCache((prev) => ({
         ...prev,
         [userIdStr]: `Utilisateur ${userIdStr}`,
@@ -1161,29 +1148,6 @@ const WeeklySchedulePage = () => {
 
     return filtered;
   }, [employees, selectedDepartment, selectedRole, searchQuery]);
-
-  // Extraire les départements et rôles uniques pour les filtres
-  const uniqueDepartments = useMemo(() => {
-    if (!employees || !Array.isArray(employees)) {
-      return [];
-    }
-    const departments = [
-      ...new Set(
-        employees.filter((emp) => emp.department).map((emp) => emp.department)
-      ),
-    ];
-    return departments;
-  }, [employees]);
-
-  const uniqueRoles = useMemo(() => {
-    if (!employees || !Array.isArray(employees)) {
-      return [];
-    }
-    const roles = [
-      ...new Set(employees.filter((emp) => emp.role).map((emp) => emp.role)),
-    ];
-    return roles;
-  }, [employees]);
 
   // Fonctions de navigation entre les semaines
   const goToPreviousWeek = useCallback(() => {
@@ -1450,21 +1414,6 @@ const WeeklySchedulePage = () => {
       }
     },
     [updateSchedule, createSchedule, formattedWeekStart, fetchSchedules]
-  );
-
-  // Fonction pour gérer l'enregistrement du planning
-  const handleSaveSchedule = useCallback(
-    async (updatedScheduleData) => {
-      try {
-        console.log("Saving schedule with data:", updatedScheduleData);
-        await handleScheduleChange(updatedScheduleData);
-        setEditingEmployeeId(null); // Fermer le formulaire après la sauvegarde
-      } catch (error) {
-        console.error("Erreur lors de la sauvegarde du planning:", error);
-        toast.error("Erreur lors de la sauvegarde du planning");
-      }
-    },
-    [handleScheduleChange]
   );
 
   // Fonction pour supprimer un planning

@@ -2,8 +2,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import planningAnimation from "../../assets/animations/planning-animation.json";
+import LanguageSelector from "../../components/LanguageSelector";
 import { useTheme } from "../../components/ThemeProvider";
 import { useAuth } from "../../contexts/AuthContext";
+import EnhancedLottie from "../ui/EnhancedLottie";
+import NotificationCenter from "../ui/NotificationCenter";
 
 // Composants stylisés
 const NavbarContainer = styled.nav`
@@ -43,6 +47,11 @@ const LogoAnimation = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+
+  > div {
+    width: 100%;
+    height: 100%;
+  }
 `;
 
 const NavLink = styled(Link)`
@@ -248,151 +257,118 @@ const MobileMenuButton = styled.button`
   }
 `;
 
-const MobileMenu = styled.div`
+const LanguageSelectorWrapper = styled.div`
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    display: none;
+  }
+`;
+
+const MobileMenuContainer = styled.div`
   display: none;
 
   @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    top: 100%;
+    display: block;
+    position: fixed;
+    top: 64px;
     left: 0;
     right: 0;
+    bottom: 0;
+    z-index: 50;
     background-color: ${({ theme }) => theme.colors.surface};
-    box-shadow: ${({ theme }) => theme.shadows.medium};
-    padding: ${({ isOpen }) => (isOpen ? "1.5rem" : "0")};
-    z-index: 1000;
-    max-height: ${({ isOpen }) => (isOpen ? "80vh" : "0")};
-    opacity: ${({ isOpen }) => (isOpen ? "1" : "0")};
-    overflow-y: ${({ isOpen }) => (isOpen ? "auto" : "hidden")};
-    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    transform-origin: top center;
-    -webkit-overflow-scrolling: touch; /* Pour une meilleure expérience de défilement sur iOS */
+    box-shadow: ${({ theme }) => theme.shadows.large};
+    overflow-y: auto;
+    animation: slideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    backdrop-filter: blur(12px);
   }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const MobileMenuContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: ${({ theme }) => theme.spacing.xl};
+  gap: ${({ theme }) => theme.spacing.md};
 `;
 
 const MobileNavLink = styled(NavLink)`
+  width: 100%;
   text-align: center;
-  font-size: 1.2rem;
-  font-family: "Poppins", sans-serif;
-  font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
-  margin: 0.8rem 0;
-  padding: 1rem;
+  padding: ${({ theme }) => `${theme.spacing.md} ${theme.spacing.md}`};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
-  letter-spacing: 0.5px;
+  background-color: ${({ theme, active }) =>
+    active ? `${theme.colors.primary}22` : "transparent"};
+  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: ${({ index }) => `${0.1 + index * 0.08}s`};
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, sans-serif;
+  font-size: 1.3rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  &:hover {
+    background-color: ${({ theme }) => `${theme.colors.primary}33`};
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(2px);
+    transition: all 0.2s;
+  }
 
   &::after {
-    bottom: -2px;
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: ${({ active }) => (active ? "50%" : "0")};
     height: 3px;
+    background-color: ${({ theme }) => theme.colors.primary};
+    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+      left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform: translateX(-50%);
+    opacity: ${({ active }) => (active ? "1" : "0")};
+    border-radius: 3px;
   }
 
-  &:hover {
-    transform: scale(1.05);
-    background-color: ${({ theme }) => `${theme.colors.primary}22`};
-  }
-`;
-
-const MobileMenuDivider = styled.div`
-  height: 1px;
-  background-color: ${({ theme }) => `${theme.colors.border}`};
-  margin: 0.5rem 0;
-  width: 80%;
-  align-self: center;
-  opacity: 0.5;
-`;
-
-const _NotificationsPanel = styled.div`
-  position: absolute;
-  top: 60px;
-  right: 20px;
-  width: 350px;
-  max-height: 500px;
-  overflow-y: auto;
-  background-color: ${({ theme }) => theme.colors.surface};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-  box-shadow: ${({ theme }) => theme.shadows.large};
-  z-index: 1000;
-  padding: ${({ theme }) => theme.spacing.md};
-  display: ${({ isOpen }) => (isOpen ? "block" : "none")};
-`;
-
-const _NotificationsPanelHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-  padding-bottom: ${({ theme }) => theme.spacing.sm};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-`;
-
-const _NotificationsPanelTitle = styled.h3`
-  margin: 0;
-  color: ${({ theme }) => theme.colors.text.primary};
-  font-size: ${({ theme }) => theme.typography.sizes.md};
-`;
-
-const _ClearButton = styled.button`
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.colors.primary};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-  cursor: pointer;
-  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.sm}`};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: ${({ theme }) => `${theme.colors.primary}11`};
+  &:hover::after {
+    width: 70%;
+    opacity: 1;
   }
 `;
 
-const _NotificationsList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
-const _NotificationItem = styled.div`
-  padding: ${({ theme }) => theme.spacing.sm};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  background-color: ${({ theme, read }) =>
-    read ? theme.colors.background : `${theme.colors.primary}11`};
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: ${({ theme }) => `${theme.colors.primary}22`};
-  }
-`;
-
-const _NotificationHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${({ theme }) => theme.spacing.xs};
-`;
-
-const _NotificationTitle = styled.h4`
-  margin: 0;
-  color: ${({ theme }) => theme.colors.text.primary};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-`;
-
-const _NotificationTime = styled.span`
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.sizes.xs};
-`;
-
-const _NotificationMessage = styled.p`
-  margin: 0;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-`;
-
-const _EmptyNotifications = styled.div`
-  text-align: center;
-  padding: ${({ theme }) => theme.spacing.lg};
-  color: ${({ theme }) => theme.colors.text.secondary};
+const MobileLanguageSelector = styled.div`
+  margin-top: ${({ theme }) => theme.spacing.xl};
+  opacity: 0;
+  animation: fadeIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: 0.5s;
+  transform: scale(1.1);
 `;
 
 // Icônes
@@ -589,59 +565,6 @@ const LogoutIcon = () => (
   </svg>
 );
 
-const MobileUserProfile = styled.div`
-  display: flex;
-  align-items: center;
-  padding: ${({ theme }) => theme.spacing.md};
-  background-color: ${({ theme }) => `${theme.colors.primary}11`};
-  margin: ${({ theme }) => theme.spacing.md};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-
-  .avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background-color: ${({ theme }) => theme.colors.primary};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: ${({ theme }) => theme.typography.fontWeights.bold};
-    margin-right: ${({ theme }) => theme.spacing.md};
-    overflow: hidden;
-  }
-
-  .avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .user-info {
-    .name {
-      font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
-      color: ${({ theme }) => theme.colors.text.primary};
-    }
-
-    .role {
-      font-size: ${({ theme }) => theme.typography.sizes.xs};
-      color: ${({ theme }) => theme.colors.text.secondary};
-    }
-
-    .company {
-      font-size: ${({ theme }) => theme.typography.sizes.xs};
-      color: ${({ theme }) => theme.colors.text.secondary};
-      font-style: italic;
-    }
-  }
-`;
-
-const LanguageSelectorWrapper = styled.div`
-  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
-    display: none;
-  }
-`;
-
 // Composant Navbar
 const Navbar = () => {
   const location = useLocation();
@@ -711,7 +634,176 @@ const Navbar = () => {
     );
   };
 
-  return <div>{/* Rest of the component code */}</div>;
+  const getUserRole = () => {
+    return (
+      userInfo.jobTitle ||
+      (userInfo.role === "admin" ? "Administrateur" : "Utilisateur")
+    );
+  };
+
+  const getUserCompany = () => {
+    return userInfo.company || "";
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+    }
+  };
+
+  return (
+    <NavbarContainer>
+      {/* Logo */}
+      <Logo to="/">
+        <LogoAnimation>
+          <EnhancedLottie animationData={planningAnimation} />
+        </LogoAnimation>
+        SmartPlanning AI
+      </Logo>
+
+      {/* Actions area */}
+      <NavActions>
+        {/* Language selector */}
+        <LanguageSelectorWrapper>
+          <LanguageSelector isNavbar={true} />
+        </LanguageSelectorWrapper>
+
+        {/* Centre de notifications */}
+        <NotificationCenter />
+
+        {/* Theme toggle */}
+        <ThemeToggle onClick={toggleTheme} aria-label="Toggle theme">
+          {isDarkMode ? <SunIcon /> : <MoonIcon />}
+        </ThemeToggle>
+
+        {/* User profile */}
+        <UserProfile onClick={() => setUserMenuOpen(!userMenuOpen)}>
+          <div className="avatar">{getUserInitials()}</div>
+          <div className="user-info">
+            <div className="name">{getUserFullName()}</div>
+            <div className="role">{getUserRole()}</div>
+            <div className="company">{getUserCompany()}</div>
+          </div>
+
+          {/* User menu dropdown */}
+          <UserMenu isOpen={userMenuOpen}>
+            <UserMenuItem to="/profile">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {t("navbar.profile")}
+            </UserMenuItem>
+
+            <UserMenuItem to="/settings">
+              <SettingsIcon />
+              {t("navbar.settings")}
+            </UserMenuItem>
+
+            <UserMenuButton onClick={handleLogout}>
+              <LogoutIcon />
+              {t("navbar.logout")}
+            </UserMenuButton>
+          </UserMenu>
+        </UserProfile>
+
+        {/* Mobile menu toggle */}
+        <MobileMenuButton
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
+        </MobileMenuButton>
+      </NavActions>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <MobileMenuContainer>
+          <MobileMenuContent>
+            <MobileNavLink
+              to="/dashboard"
+              active={isActive("/dashboard") ? 1 : 0}
+              onClick={() => setMobileMenuOpen(false)}
+              index={0}
+            >
+              {t("navbar.dashboard")}
+            </MobileNavLink>
+            <MobileNavLink
+              to="/schedule"
+              active={isActive("/schedule") ? 1 : 0}
+              onClick={() => setMobileMenuOpen(false)}
+              index={1}
+            >
+              {t("navbar.schedule")}
+            </MobileNavLink>
+            <MobileNavLink
+              to="/employees"
+              active={isActive("/employees") ? 1 : 0}
+              onClick={() => setMobileMenuOpen(false)}
+              index={2}
+            >
+              {t("navbar.employees")}
+            </MobileNavLink>
+            <MobileNavLink
+              to="/activities"
+              active={isActive("/activities") ? 1 : 0}
+              onClick={() => setMobileMenuOpen(false)}
+              index={3}
+            >
+              {t("navbar.activities")}
+            </MobileNavLink>
+            <MobileNavLink
+              to="/vacations"
+              active={isActive("/vacations") ? 1 : 0}
+              onClick={() => setMobileMenuOpen(false)}
+              index={4}
+            >
+              {t("navbar.vacations")}
+            </MobileNavLink>
+            <MobileNavLink
+              to="/stats"
+              active={isActive("/stats") ? 1 : 0}
+              onClick={() => setMobileMenuOpen(false)}
+              index={5}
+            >
+              {t("navbar.stats")}
+            </MobileNavLink>
+
+            {/* Sélecteur de langue en bas du menu mobile */}
+            <MobileLanguageSelector>
+              <LanguageSelector />
+            </MobileLanguageSelector>
+
+            {/* Centre de notifications mobile */}
+            <MobileLanguageSelector style={{ marginTop: "10px" }}>
+              <NotificationCenter />
+            </MobileLanguageSelector>
+          </MobileMenuContent>
+        </MobileMenuContainer>
+      )}
+    </NavbarContainer>
+  );
 };
 
 export default Navbar;
