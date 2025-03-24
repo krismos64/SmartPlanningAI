@@ -1,7 +1,7 @@
 -- Désactiver temporairement les vérifications de clé étrangère
 SET FOREIGN_KEY_CHECKS=0;
 
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- Renommer les colonnes dans la table employees
 ALTER TABLE employees

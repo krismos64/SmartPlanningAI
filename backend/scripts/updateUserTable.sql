@@ -1,8 +1,8 @@
 -- Utiliser la base de données
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- Vérifier si les colonnes existent déjà avant de les ajouter
-SET @dbname = 'SmartPlanningAI';
+SET @dbname = 'smartplanningai';
 
 -- Ajouter la colonne profileImage si elle n'existe pas
 SET @columnExists = 0;

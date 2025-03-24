@@ -1,5 +1,5 @@
 -- Script pour créer ou mettre à jour la table shifts
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- Créer la table shifts si elle n'existe pas
 CREATE TABLE IF NOT EXISTS shifts (

@@ -4,7 +4,7 @@
 -- Vérifier si les contraintes existent déjà
 SET @constraint_exists = (SELECT COUNT(*) 
   FROM information_schema.REFERENTIAL_CONSTRAINTS 
-  WHERE CONSTRAINT_SCHEMA = 'SmartPlanningAI' 
+  WHERE CONSTRAINT_SCHEMA = 'smartplanningai' 
   AND CONSTRAINT_NAME = 'fk_vacation_requests_creator');
 
 -- Si la contrainte n'existe pas, l'ajouter

@@ -41,7 +41,7 @@ services:
       - DB_HOST=db
       - DB_USER=smartplanning
       - DB_PASSWORD=smartplanning_password
-      - DB_NAME=SmartPlanningAI
+      - DB_NAME=smartplanningai
       - PORT=5001
       - JWT_SECRET=smartplanningai_secret_key
       - FRONTEND_URL=http://frontend
@@ -60,7 +60,7 @@ services:
       - ./create_procedure.sql:/docker-entrypoint-initdb.d/01-create_procedure.sql
       - ./drop_triggers.sql:/docker-entrypoint-initdb.d/02-drop_triggers.sql
     environment:
-      - MYSQL_DATABASE=SmartPlanningAI
+      - MYSQL_DATABASE=smartplanningai
       - MYSQL_USER=smartplanning
       - MYSQL_PASSWORD=smartplanning_password
       - MYSQL_ROOT_PASSWORD=root_password

@@ -3,7 +3,7 @@
 # Variables de configuration
 DB_USER="root"
 DB_PASS=""
-DB_NAME="SmartPlanningAI" # Nom correct de la base de données
+DB_NAME="smartplanningai" # Nom correct de la base de données
 
 # Chemin vers le script SQL de migration
 SQL_SCRIPT="modify_foreign_keys.sql"

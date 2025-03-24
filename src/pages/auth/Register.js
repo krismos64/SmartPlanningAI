@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import EnhancedLottie from "../../components/ui/EnhancedLottie";
 import { useNotification } from "../../components/ui/Notification";
+import { API_URL } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { AuthService } from "../../services/api";
 
@@ -173,6 +174,49 @@ const Register = () => {
   const { showNotification } = useNotification();
   const navigate = useNavigate();
 
+  // Effet pour obtenir un token CSRF au chargement
+  useEffect(() => {
+    const fetchCsrfToken = async () => {
+      try {
+        console.log("Demande de token CSRF...");
+        // Vider les cookies existants pour éviter les problèmes
+        document.cookie.split(";").forEach(function (c) {
+          if (c.trim().startsWith("XSRF-TOKEN=")) {
+            document.cookie = c
+              .replace(/^ +/, "")
+              .replace(
+                /=.*/,
+                "=;expires=" + new Date().toUTCString() + ";path=/"
+              );
+            console.log("Cookie CSRF précédent supprimé");
+          }
+        });
+
+        const response = await fetch(`${API_URL}/api/csrf-token`, {
+          method: "GET",
+          credentials: "include", // Important pour recevoir et envoyer des cookies
+        });
+
+        if (response.ok) {
+          console.log("Token CSRF obtenu avec succès");
+          console.log("Cookies après obtention du token:", document.cookie);
+          // Le token est automatiquement stocké dans les cookies par le serveur
+        } else {
+          console.error("Échec de l'obtention du token CSRF:", response.status);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération du token CSRF:", error);
+      }
+    };
+
+    fetchCsrfToken();
+
+    // Rafraîchir le token toutes les 10 secondes pendant que l'utilisateur est sur la page
+    const refreshInterval = setInterval(fetchCsrfToken, 10000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
   // Mise à jour du formulaire
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -272,6 +316,27 @@ const Register = () => {
     if (!validateForm()) {
       return;
     }
+
+    // Essayer d'obtenir un nouveau token CSRF juste avant l'inscription
+    try {
+      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (csrfResponse.ok) {
+        console.log("Token CSRF rafraîchi avant inscription");
+      } else {
+        console.warn(
+          "Échec du rafraîchissement du token CSRF avant inscription"
+        );
+      }
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement du token CSRF:", error);
+    }
+
+    // Attendre un peu pour s'assurer que le cookie est bien défini
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     setIsLoading(true);
 

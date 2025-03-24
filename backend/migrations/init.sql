@@ -2,8 +2,8 @@
 SET FOREIGN_KEY_CHECKS=0;
 
 -- Création de la base de données
-CREATE DATABASE IF NOT EXISTS SmartPlanningAI;
-USE SmartPlanningAI;
+CREATE DATABASE IF NOT EXISTS smartplanningai;
+USE smartplanningai;
 
 -- Supprimer les tables si elles existent déjà
 DROP TABLE IF EXISTS weekly_schedules;

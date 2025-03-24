@@ -1,10 +1,10 @@
 -- Script pour ajouter la colonne 'duration' à la table vacation_requests
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- Vérifier si la colonne existe déjà
 SET @exists = 0;
 SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS 
-WHERE TABLE_SCHEMA = 'SmartPlanningAI' AND TABLE_NAME = 'vacation_requests' AND COLUMN_NAME = 'duration';
+WHERE TABLE_SCHEMA = 'smartplanningai' AND TABLE_NAME = 'vacation_requests' AND COLUMN_NAME = 'duration';
 
 -- Ajouter la colonne si elle n'existe pas
 SET @query = IF(@exists = 0, 

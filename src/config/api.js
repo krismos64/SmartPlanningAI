@@ -151,7 +151,10 @@ export const apiRequest = async (
 
     // Ajouter le token CSRF pour les routes d'authentification
     let csrfHeader = {};
-    if (url && url.startsWith("/api/auth/")) {
+    if (
+      url &&
+      (url.includes("/api/auth/") || endpoint.startsWith("/api/auth/"))
+    ) {
       const csrfToken = getCsrfToken();
       if (csrfToken) {
         csrfHeader = { "X-CSRF-Token": csrfToken };

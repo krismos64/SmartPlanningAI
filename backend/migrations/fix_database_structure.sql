@@ -1,5 +1,5 @@
 -- Script pour corriger les problèmes de structure de la base de données
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- 1. Standardiser les noms de colonnes dans la table users (passer de camelCase à snake_case)
 ALTER TABLE users 

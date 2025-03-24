@@ -1,5 +1,5 @@
 -- Script pour recréer la table activities avec des attributs améliorés
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- Supprimer la table activities si elle existe
 DROP TABLE IF EXISTS activities;

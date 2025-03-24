@@ -1,6 +1,6 @@
 SET FOREIGN_KEY_CHECKS=0;
 
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- Ajouter les champs manquants à la table users
 ALTER TABLE users

@@ -69,7 +69,7 @@ NODE_ENV=development
 DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=SmartPlanningAI
+DB_NAME=smartplanningai
 PORT=$BACKEND_PORT
 FRONTEND_URL=http://localhost:$FRONTEND_PORT
 EOF

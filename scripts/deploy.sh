@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script de déploiement pour SmartPlanningAI
+# Script de déploiement pour smartplanningai
 
 set -e  # Arrêter le script en cas d'erreur
 
@@ -23,7 +23,7 @@ backup_database() {
   mkdir -p $BACKUP_DIR
   
   # Utiliser le conteneur MySQL pour faire une sauvegarde
-  docker exec smartplanning-db mysqldump -u root -p"root_password" SmartPlanningAI > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
+  docker exec smartplanning-db mysqldump -u root -p"root_password" smartplanningai > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
   
   echo "Sauvegarde créée : $BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
 }
@@ -51,7 +51,7 @@ deploy() {
 }
 
 # Exécution
-print_step "Début du déploiement de SmartPlanningAI"
+print_step "Début du déploiement de smartplanningai"
 
 if docker-compose ps | grep -q "smartplanning-db"; then
   backup_database

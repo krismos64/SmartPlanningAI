@@ -1,5 +1,5 @@
 -- Script pour mettre à jour les durées des demandes de congés en jours ouvrés
-USE SmartPlanningAI;
+USE smartplanningai;
 
 -- Mettre à jour directement les durées avec une méthode simple pour chaque demande de congé
 UPDATE vacation_requests SET duration = (

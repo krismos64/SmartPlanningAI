@@ -105,7 +105,7 @@ const dbConfig = {
   host: "localhost",
   user: "root",
   password: "",
-  database: "SmartPlanningAI",
+  database: "smartplanningai",
   port: 3306,
 };
 

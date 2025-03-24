@@ -126,7 +126,7 @@ NODE_ENV=development
 DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=votre_mot_de_passe
-DB_NAME=SmartPlanningAI
+DB_NAME=smartplanningai
 PORT=5001
 FRONTEND_URL=http://localhost:5002
 ```
@@ -466,7 +466,7 @@ Ce projet est sous licence propriétaire. Tous droits réservés.
 
 ## Déploiement avec Docker
 
-SmartPlanningAI peut être facilement déployé en utilisant Docker et Docker Compose.
+smartplanningai peut être facilement déployé en utilisant Docker et Docker Compose.
 
 ### Prérequis
 

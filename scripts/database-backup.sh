@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script de sauvegarde automatique pour la base de données SmartPlanningAI
+# Script de sauvegarde automatique pour la base de données smartplanningai
 
 # Variables
 BACKUP_DIR="/path/to/backups"
@@ -12,7 +12,7 @@ mkdir -p $BACKUP_DIR
 
 # Sauvegarder la base de données
 echo "Création de la sauvegarde de la base de données..."
-docker exec smartplanning-db mysqldump -u root -p"root_password" SmartPlanningAI > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
+docker exec smartplanning-db mysqldump -u root -p"root_password" smartplanningai > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
 
 # Compresser la sauvegarde
 echo "Compression de la sauvegarde..."
