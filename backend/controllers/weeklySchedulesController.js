@@ -168,15 +168,24 @@ exports.getSchedulesByWeek = async (req, res) => {
       });
     }
 
-    // Construire la requête SQL de base
+    // Vérifier que l'utilisateur est authentifié
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Non autorisé. Utilisateur non authentifié.",
+      });
+    }
+
+    // Construire la requête SQL de base avec filtrage par user_id de l'entreprise
     let query = `
       SELECT ws.*, e.first_name, e.last_name, e.role
       FROM weekly_schedules ws
       JOIN employees e ON ws.employee_id = e.id
       WHERE ws.week_start = ?
+      AND e.user_id = ?
     `;
 
-    const queryParams = [weekStart];
+    const queryParams = [weekStart, req.user.id];
 
     // Ajouter le filtre de statut si présent
     if (status) {

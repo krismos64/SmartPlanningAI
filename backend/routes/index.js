@@ -11,6 +11,9 @@ const vacationsController = require("../controllers/vacationsController");
 // Import du middleware d'authentification
 const authMiddleware = require("../middleware/authMiddleware");
 
+// Import du middleware de limitation de taux
+const { authLimiter } = require("../middleware/rateLimit");
+
 // Import des routes auto-planning
 const autoScheduleRoutes = require("./autoSchedule");
 
@@ -18,8 +21,8 @@ const autoScheduleRoutes = require("./autoSchedule");
 const weeklySchedulesRoutes = require("./weeklySchedules");
 
 // Routes d'authentification
-router.post("/auth/login", authController.login);
-router.post("/auth/register", authController.register);
+router.post("/auth/login", authLimiter, authController.login);
+router.post("/auth/register", authLimiter, authController.register);
 router.post("/auth/logout", authController.logout);
 router.get("/auth/me", authMiddleware, authController.getCurrentUser);
 
