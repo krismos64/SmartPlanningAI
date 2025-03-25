@@ -25,7 +25,7 @@ fi
 # Vérifier les ports utilisés
 echo -e "${YELLOW}Vérification des ports utilisés...${NC}"
 BACKEND_PORT=5001
-FRONTEND_PORT=5002
+FRONTEND_PORT=3000
 
 # Vérifier si le port backend est déjà utilisé
 if lsof -i :$BACKEND_PORT > /dev/null; then
@@ -44,7 +44,7 @@ fi
 if lsof -i :$FRONTEND_PORT > /dev/null; then
   echo -e "${RED}Port $FRONTEND_PORT déjà utilisé. Recherche d'un port alternatif...${NC}"
   # Trouver un port disponible pour le frontend
-  for port in {3000..3050}; do
+  for port in {3001..3050}; do
     if ! lsof -i :$port > /dev/null; then
       FRONTEND_PORT=$port
       echo -e "${GREEN}Port $FRONTEND_PORT disponible pour le frontend${NC}"

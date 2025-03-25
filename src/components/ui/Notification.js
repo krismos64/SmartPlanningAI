@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { css, keyframes } from "styled-components";
 
-// Animations
+// Animations améliorées
 const slideIn = keyframes`
   from {
-    transform: translateX(100%);
+    transform: translateX(120%);
     opacity: 0;
   }
   to {
@@ -20,8 +20,28 @@ const slideOut = keyframes`
     opacity: 1;
   }
   to {
-    transform: translateX(100%);
+    transform: translateX(120%);
     opacity: 0;
+  }
+`;
+
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+`;
+
+const scaleIn = keyframes`
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
 `;
 
@@ -184,35 +204,51 @@ const CloseIcon = () => (
 // Styles pour les différents types de notifications
 const notificationTypes = {
   success: css`
-    background-color: ${({ theme }) => theme.colors.success};
+    background: linear-gradient(
+      135deg,
+      ${({ theme }) => theme.colors.success} 0%,
+      ${({ theme }) => theme.colors.success}e0 100%
+    );
     color: white;
 
     .notification-progress {
-      background-color: rgba(255, 255, 255, 0.3);
+      background-color: rgba(255, 255, 255, 0.4);
     }
   `,
   error: css`
-    background-color: ${({ theme }) => theme.colors.error};
+    background: linear-gradient(
+      135deg,
+      ${({ theme }) => theme.colors.error} 0%,
+      ${({ theme }) => theme.colors.error}e0 100%
+    );
     color: white;
 
     .notification-progress {
-      background-color: rgba(255, 255, 255, 0.3);
+      background-color: rgba(255, 255, 255, 0.4);
     }
   `,
   warning: css`
-    background-color: ${({ theme }) => theme.colors.warning};
+    background: linear-gradient(
+      135deg,
+      ${({ theme }) => theme.colors.warning} 0%,
+      ${({ theme }) => theme.colors.warning}e0 100%
+    );
     color: ${({ theme }) => theme.colors.text.primary};
 
     .notification-progress {
-      background-color: rgba(0, 0, 0, 0.1);
+      background-color: rgba(0, 0, 0, 0.2);
     }
   `,
   info: css`
-    background-color: ${({ theme }) => theme.colors.primary};
+    background: linear-gradient(
+      135deg,
+      ${({ theme }) => theme.colors.primary} 0%,
+      ${({ theme }) => theme.colors.primary}e0 100%
+    );
     color: white;
 
     .notification-progress {
-      background-color: rgba(255, 255, 255, 0.3);
+      background-color: rgba(255, 255, 255, 0.4);
     }
   `,
 };
@@ -225,7 +261,7 @@ const NotificationContainer = styled.div`
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   max-width: 100%;
   pointer-events: none;
 `;
@@ -234,43 +270,64 @@ const NotificationItem = styled.div`
   display: flex;
   align-items: flex-start;
   padding: 16px;
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-  box-shadow: ${({ theme }) => theme.shadows.medium};
+  border-radius: 14px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15),
+    0 5px 10px -5px rgba(0, 0, 0, 0.1);
   max-width: 400px;
   pointer-events: auto;
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(10px);
+  transform-origin: right;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 
   ${({ type }) => notificationTypes[type] || notificationTypes.info}
 
   animation: ${({ $isClosing }) =>
-    $isClosing ? slideOut : slideIn} 0.3s ease-in-out;
+    $isClosing
+      ? css`
+          ${slideOut} 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)
+        `
+      : css`
+          ${slideIn} 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), ${scaleIn} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)
+        `};
+
+  &:hover {
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.2),
+      0 10px 15px -5px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    transition: all 0.2s ease;
+  }
 `;
 
 const IconContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  margin-right: 16px;
   flex-shrink: 0;
+  animation: ${fadeIn} 0.4s ease-out 0.2s both;
 `;
 
 const ContentContainer = styled.div`
   flex: 1;
   min-width: 0;
+  animation: ${fadeIn} 0.3s ease-out 0.1s both;
 `;
 
 const Title = styled.h4`
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-size: ${({ theme }) => theme.typography.sizes.md};
-  font-weight: ${({ theme }) => theme.typography.fontWeights.semibold};
+  font-weight: ${({ theme }) => theme.typography.fontWeights.bold};
+  letter-spacing: 0.2px;
 `;
 
 const Message = styled.p`
   margin: 0;
   font-size: ${({ theme }) => theme.typography.sizes.sm};
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-word;
+  opacity: 0.9;
 `;
 
 const CloseButton = styled.button`
@@ -278,17 +335,21 @@ const CloseButton = styled.button`
   border: none;
   color: currentColor;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   margin-left: 8px;
   opacity: 0.7;
-  transition: opacity 0.2s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border-radius: 50%;
+  animation: ${fadeIn} 0.3s ease-out 0.3s both;
 
   &:hover {
     opacity: 1;
+    background-color: rgba(0, 0, 0, 0.1);
+    transform: scale(1.1);
   }
 `;
 
@@ -297,7 +358,7 @@ const ProgressBar = styled.div`
   bottom: 0;
   left: 0;
   height: 4px;
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.4);
   transition: width 0.1s linear;
 `;
 

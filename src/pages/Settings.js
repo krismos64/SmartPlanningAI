@@ -1,7 +1,8 @@
 import { Settings as SettingsIcon } from "@mui/icons-material";
 import { alpha, Box } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
 import styled from "styled-components";
 import LanguageSelector from "../components/LanguageSelector";
 import DeleteAccountModal from "../components/modals/DeleteAccountModal";
@@ -202,10 +203,38 @@ const Settings = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { t } = useTranslation();
+  const location = useLocation();
 
-  // Ouvrir le modal de suppression de compte
-  const openDeleteModal = () => {
-    setIsDeleteModalOpen(true);
+  // S'assurer que le modal de suppression de compte n'est pas ouvert automatiquement
+  // quand l'utilisateur navigue vers la page des paramètres
+  useEffect(() => {
+    // Si la navigation vient du sidebar, on force la fermeture du modal
+    if (location.state?.fromSidebar) {
+      console.log(
+        "Navigation depuis sidebar vers Settings détectée, modal fermé"
+      );
+      setIsDeleteModalOpen(false);
+    }
+
+    // Nettoyage lors du démontage
+    return () => {
+      setIsDeleteModalOpen(false);
+    };
+  }, [location]);
+
+  // Ouvrir le modal de suppression de compte uniquement lors d'un clic explicite
+  const openDeleteModal = (event) => {
+    // Vérifier qu'on est sur la page des paramètres et que c'est bien un clic utilisateur
+    if (location.pathname === "/settings" && event?.isTrusted) {
+      console.log(
+        "Ouverture du modal de suppression de compte via clic utilisateur"
+      );
+      setIsDeleteModalOpen(true);
+    } else {
+      console.log(
+        "Tentative d'ouverture du modal ignorée - navigation automatique détectée"
+      );
+    }
   };
 
   // Fermer le modal de suppression de compte
@@ -358,7 +387,7 @@ const Settings = () => {
 
       {/* Modal de suppression de compte */}
       <DeleteAccountModal
-        isOpen={isDeleteModalOpen}
+        $isOpen={isDeleteModalOpen}
         onClose={closeDeleteModal}
       />
     </SettingsContainer>

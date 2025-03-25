@@ -128,8 +128,8 @@ const TableHeadCell = styled.th`
   white-space: nowrap;
   transition: all 0.2s ease;
 
-  ${({ sortable }) =>
-    sortable &&
+  ${({ $sortable }) =>
+    $sortable &&
     css`
       cursor: pointer;
       user-select: none;
@@ -140,8 +140,8 @@ const TableHeadCell = styled.th`
       }
     `}
 
-  ${({ sorted, direction, theme }) =>
-    sorted &&
+  ${({ $sorted, $direction, theme }) =>
+    $sorted &&
     css`
       color: ${theme.colors.primary};
       background-color: ${`${theme.colors.primary}11`};
@@ -151,11 +151,12 @@ const TableHeadCell = styled.th`
 const SortIconContainer = styled.span`
   display: inline-flex;
   margin-left: ${({ theme }) => theme.spacing.xs};
-  color: ${({ active, theme }) => (active ? theme.colors.primary : "inherit")};
+  color: ${({ $active, theme }) =>
+    $active ? theme.colors.primary : "inherit"};
   transition: transform 0.2s ease;
 
-  ${({ direction }) =>
-    direction === "desc" &&
+  ${({ $direction }) =>
+    $direction === "desc" &&
     css`
       transform: rotate(180deg);
     `}
@@ -170,20 +171,20 @@ const TableBody = styled.tbody`
 const TableRow = styled.tr`
   transition: all 0.2s ease;
   animation: ${slideInUp} 0.3s ease-in-out;
-  animation-delay: ${({ index }) => `${index * 0.05}s`};
+  animation-delay: ${({ $index }) => `${$index * 0.05}s`};
 
   &:hover {
     background-color: ${({ theme }) => `${theme.colors.primary}11`};
   }
 
-  ${({ clickable }) =>
-    clickable &&
+  ${({ $clickable }) =>
+    $clickable &&
     css`
       cursor: pointer;
     `}
 
-  ${({ selected, theme }) =>
-    selected &&
+  ${({ $selected, theme }) =>
+    $selected &&
     css`
       background-color: ${`${theme.colors.primary}22`} !important;
       border-left: 3px solid ${theme.colors.primary};
@@ -196,10 +197,10 @@ const TableCell = styled.td`
   color: ${({ theme }) => theme.colors.text.primary};
   transition: all 0.2s ease;
 
-  ${({ align }) =>
-    align &&
+  ${({ $align }) =>
+    $align &&
     css`
-      text-align: ${align};
+      text-align: ${$align};
     `}
 `;
 
@@ -226,22 +227,22 @@ const PageButton = styled.button`
   height: 36px;
   border-radius: ${({ theme }) => theme.borderRadius.small};
   border: 1px solid
-    ${({ theme, active }) =>
-      active ? theme.colors.primary : theme.colors.border};
-  background-color: ${({ theme, active }) =>
-    active ? `${theme.colors.primary}22` : "transparent"};
-  color: ${({ theme, active }) =>
-    active ? theme.colors.primary : theme.colors.text.secondary};
-  font-weight: ${({ theme, active }) =>
-    active
+    ${({ theme, $active }) =>
+      $active ? theme.colors.primary : theme.colors.border};
+  background-color: ${({ theme, $active }) =>
+    $active ? `${theme.colors.primary}22` : "transparent"};
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.primary : theme.colors.text.secondary};
+  font-weight: ${({ theme, $active }) =>
+    $active
       ? theme.typography.fontWeights.semiBold
       : theme.typography.fontWeights.regular};
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: ${({ theme, active }) =>
-      active ? `${theme.colors.primary}33` : `${theme.colors.primary}11`};
+    background-color: ${({ theme, $active }) =>
+      $active ? `${theme.colors.primary}33` : `${theme.colors.primary}11`};
     border-color: ${({ theme }) => theme.colors.primary};
     color: ${({ theme }) => theme.colors.primary};
   }
@@ -393,17 +394,17 @@ const Table = ({
   const renderSortIcon = (column) => {
     if (!column.sortable) return null;
 
-    if (sortBy === column.key) {
+    if (sortBy !== column.key) {
       return (
-        <SortIconContainer active direction={sortDirection}>
-          {sortDirection === "asc" ? <SortAscIcon /> : <SortDescIcon />}
+        <SortIconContainer $active={false}>
+          <SortIcon />
         </SortIconContainer>
       );
     }
 
     return (
-      <SortIconContainer>
-        <SortIcon />
+      <SortIconContainer $active={true} $direction={sortDirection}>
+        {sortDirection === "asc" ? <SortAscIcon /> : <SortDescIcon />}
       </SortIconContainer>
     );
   };
@@ -439,14 +440,14 @@ const Table = ({
             {columns.map((column) => (
               <TableHeadCell
                 key={column.key}
-                sortable={column.sortable}
-                sorted={sortBy === column.key}
-                direction={sortDirection}
-                onClick={() => handleSort(column)}
-                style={{ width: column.width }}
+                $sortable={column.sortable}
+                $sorted={sortBy === column.key}
+                $direction={sortDirection}
+                onClick={() => column.sortable && handleSort(column)}
+                style={{ width: column.width || "auto" }}
               >
-                {column.title}
-                {renderSortIcon(column)}
+                {column.label}
+                {column.sortable && renderSortIcon(column)}
               </TableHeadCell>
             ))}
           </tr>
@@ -457,17 +458,21 @@ const Table = ({
             {paginatedData.map((row, index) => (
               <TableRow
                 key={row.id || index}
-                index={index}
-                clickable={!!onRowClick}
-                selected={selectedRow && selectedRow.id === row.id}
+                $index={index}
+                $clickable={!!onRowClick}
+                $selected={selectedRow && selectedRow.id === row.id}
                 onClick={() => onRowClick && onRowClick(row)}
               >
                 {columns.map((column) => (
                   <TableCell
                     key={`${row.id || index}-${column.key}`}
-                    align={column.align}
+                    $align={column.align}
                   >
-                    {column.render ? column.render(row) : row[column.key]}
+                    {column.render
+                      ? column.render(row)
+                      : row[column.key] !== undefined
+                      ? row[column.key]
+                      : "—"}
                   </TableCell>
                 ))}
               </TableRow>

@@ -56,7 +56,7 @@ const ModalContainer = styled.div`
   border-radius: ${({ theme }) => theme.borderRadius.large};
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: ${({ size }) => getModalWidth(size)};
+  max-width: ${({ $size }) => getModalWidth($size)};
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
@@ -126,7 +126,7 @@ const CloseIcon = () => (
 );
 
 const Modal = ({
-  isOpen = true,
+  isOpen: $isOpen = false,
   title,
   children,
   onClose,
@@ -134,7 +134,7 @@ const Modal = ({
 }) => {
   // Gérer la touche Echap
   React.useEffect(() => {
-    if (isOpen === false) return;
+    if ($isOpen === false) return;
 
     const handleEscape = (e) => {
       if (e.key === "Escape") {
@@ -144,9 +144,9 @@ const Modal = ({
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose, isOpen]);
+  }, [onClose, $isOpen]);
 
-  if (isOpen === false) return null;
+  if ($isOpen === false) return null;
 
   // Empêcher la propagation du clic depuis le contenu du modal vers l'overlay
   const handleContentClick = (e) => {
@@ -155,7 +155,7 @@ const Modal = ({
 
   return (
     <ModalOverlay onClick={onClose}>
-      <ModalContainer onClick={handleContentClick} size={size}>
+      <ModalContainer onClick={handleContentClick} $size={size}>
         <ModalHeader>
           <ModalTitle>{title}</ModalTitle>
           <CloseButton onClick={onClose} aria-label="Fermer">

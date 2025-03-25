@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/User");
 const { generateToken, auth, checkRole } = require("../middleware/auth");
 const { secureAuth } = require("../middleware/secureAuth");
+const { authLimiter } = require("../middleware/rateLimit");
 const {
   generateTokens,
   setTokenCookies,
@@ -23,7 +24,7 @@ router.get("/csrf-token", csrfProtection, generateCsrfToken, (req, res) => {
 });
 
 // Route d'inscription
-router.post("/register", async (req, res) => {
+router.post("/register", authLimiter, async (req, res) => {
   try {
     const {
       email,
@@ -83,7 +84,7 @@ router.post("/register", async (req, res) => {
 });
 
 // Route de connexion
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, async (req, res) => {
   try {
     console.log("Tentative de connexion avec:", req.body);
     console.log("En-têtes de la requête:", req.headers);

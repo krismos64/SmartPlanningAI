@@ -1,4 +1,7 @@
 const connectDB = require("../config/db");
+const {
+  createAndEmitNotification,
+} = require("../services/notificationService");
 
 class Employee {
   constructor(data) {
@@ -147,6 +150,26 @@ class Employee {
           console.log("Requête SQL pour la mise à jour:", updateQuery);
 
           await connectDB.execute(updateQuery, params);
+
+          // Créer une notification pour l'employé
+          await createAndEmitNotification(this.io, {
+            user_id: this.id,
+            title: "Profil employé mis à jour",
+            message: "Vos informations personnelles ont été mises à jour",
+            type: "info",
+            link: `/employees/${this.id}`,
+          });
+
+          // Créer une notification pour le manager
+          if (this.manager_id) {
+            await createAndEmitNotification(this.io, {
+              user_id: this.manager_id,
+              title: "Employé mis à jour",
+              message: `Les informations de ${this.first_name} ${this.last_name} ont été mises à jour`,
+              type: "info",
+              link: `/employees/${this.id}`,
+            });
+          }
         } catch (updateError) {
           console.error(
             `Erreur SQL lors de la mise à jour de l'employé ID ${this.id}:`,
@@ -234,6 +257,27 @@ class Employee {
 
           const [result] = await connectDB.execute(insertQuery, params);
           this.id = result.insertId;
+
+          // Créer une notification pour l'employé
+          await createAndEmitNotification(this.io, {
+            user_id: this.id,
+            title: "Nouveau profil employé",
+            message: "Votre profil employé a été créé",
+            type: "success",
+            link: `/employees/${this.id}`,
+          });
+
+          // Créer une notification pour le manager
+          if (this.manager_id) {
+            await createAndEmitNotification(this.io, {
+              user_id: this.manager_id,
+              title: "Nouvel employé",
+              message: `${this.first_name} ${this.last_name} a été ajouté à votre équipe`,
+              type: "success",
+              link: `/employees/${this.id}`,
+            });
+          }
+
           return this;
         } catch (insertError) {
           console.error(
@@ -393,7 +437,32 @@ class Employee {
 
   static async delete(id) {
     try {
+      // Récupérer les informations de l'employé avant la suppression
+      const [rows] = await connectDB.execute(
+        "SELECT first_name, last_name, manager_id FROM employees WHERE id = ?",
+        [id]
+      );
+
+      if (rows.length === 0) {
+        throw new Error("Employé non trouvé");
+      }
+
+      const { first_name, last_name, manager_id } = rows[0];
+
+      // Supprimer l'employé
       await connectDB.execute("DELETE FROM employees WHERE id = ?", [id]);
+
+      // Créer une notification pour le manager
+      if (manager_id) {
+        await createAndEmitNotification(rows[0].io, {
+          user_id: manager_id,
+          title: "Employé supprimé",
+          message: `${first_name} ${last_name} a été supprimé de votre équipe`,
+          type: "warning",
+          link: "/employees",
+        });
+      }
+
       return true;
     } catch (error) {
       console.error(`Erreur lors de la suppression de l'employé ${id}:`, error);

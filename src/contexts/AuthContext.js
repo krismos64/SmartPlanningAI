@@ -3,33 +3,21 @@ import { API_URL } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import { AuthService } from "../services/api";
 
-// Fonction utilitaire pour récupérer le token CSRF depuis les cookies
+// Modifier la fonction pour récupérer le token CSRF avec une meilleure gestion des erreurs
 const getCsrfToken = () => {
-  try {
-    const cookies = document.cookie.split(";");
-    console.log("Tous les cookies disponibles:", document.cookie);
-
-    for (let cookie of cookies) {
-      cookie = cookie.trim();
-      console.log("Vérifiant cookie:", cookie);
-
-      if (cookie.startsWith("XSRF-TOKEN=")) {
-        const token = cookie.substring("XSRF-TOKEN=".length);
-        console.log(
-          "Token CSRF trouvé dans les cookies:",
-          token.substring(0, 10) + "..."
-        );
-        return token;
-      }
+  const cookies = document.cookie.split(";");
+  for (let i = 0; i < cookies.length; i++) {
+    const cookie = cookies[i].trim();
+    // Chercher le cookie CSRF, qui pourrait avoir différents noms selon la configuration du serveur
+    if (
+      cookie.startsWith("csrf-token=") ||
+      cookie.startsWith("XSRF-TOKEN=") ||
+      cookie.startsWith("_csrf=")
+    ) {
+      return decodeURIComponent(cookie.split("=")[1]);
     }
-
-    // Si aucun cookie XSRF-TOKEN n'est trouvé, récupérer un nouveau token
-    console.log("Aucun token CSRF trouvé dans les cookies");
-    return null;
-  } catch (error) {
-    console.error("Erreur lors de la récupération du token CSRF:", error);
-    return null;
   }
+  return null;
 };
 
 const AuthContext = createContext({
@@ -62,20 +50,43 @@ export const AuthProvider = ({ children }) => {
   const [loginError, setLoginError] = useState(null);
   const { notifyDataChange, disconnect } = useWebSocket();
 
-  // Fonction pour récupérer le token d'authentification
-  const getToken = async () => {
-    // Si le token est déjà dans l'état, le retourner directement
-    if (token) return token;
+  // Fonction pour vérifier et renouveler le token si nécessaire
+  const ensureValidToken = async () => {
+    // Récupérer le token du localStorage
+    let currentToken = localStorage.getItem("token");
 
-    // Sinon essayer de le récupérer du localStorage
-    const storedToken = localStorage.getItem("token");
-    if (storedToken) {
-      setToken(storedToken);
-      return storedToken;
+    // Récupérer le token des cookies (qui pourrait être plus récent)
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (
+        cookie.startsWith("accessToken=") ||
+        cookie.startsWith("auth_token=")
+      ) {
+        const cookieToken = decodeURIComponent(cookie.split("=")[1]);
+        // Si le token du cookie est différent de celui du localStorage, utiliser celui du cookie
+        if (cookieToken && cookieToken !== currentToken) {
+          console.log("Token mis à jour depuis les cookies");
+          localStorage.setItem("token", cookieToken);
+          setToken(cookieToken);
+          currentToken = cookieToken;
+        }
+      }
     }
 
-    // Si pas de token, retourner null
-    return null;
+    // S'il n'y a toujours pas de token valide, essayer de se reconnecter
+    if (!currentToken) {
+      console.log("Aucun token valide trouvé");
+      return null;
+    }
+
+    return currentToken;
+  };
+
+  // Modifier getToken pour utiliser ensureValidToken
+  const getToken = async () => {
+    // Si le token est déjà dans l'état, vérifier quand même qu'il est à jour
+    return await ensureValidToken();
   };
 
   // Fonction pour définir l'utilisateur avec le rôle admin
@@ -113,20 +124,19 @@ export const AuthProvider = ({ children }) => {
   // Vérifier l'authentification au chargement
   useEffect(() => {
     const checkInitialAuth = async () => {
-      const savedToken = localStorage.getItem("token");
-      const savedUser = localStorage.getItem("user");
+      // Utiliser ensureValidToken pour s'assurer d'avoir le token le plus récent
+      const validToken = await ensureValidToken();
 
-      if (savedToken) {
-        setToken(savedToken);
-
+      if (validToken) {
         console.log("=== DEBUT RESTORATION DE SESSION ===");
         console.log(
-          "Token trouvé dans localStorage:",
-          savedToken.substring(0, 15) + "..."
+          "Token valide trouvé:",
+          validToken.substring(0, 15) + "..."
         );
 
         try {
           // Vérifier si le user a été sauvegardé en localStorage
+          const savedUser = localStorage.getItem("user");
           if (savedUser) {
             try {
               console.log("Utilisateur trouvé dans localStorage");
@@ -146,7 +156,7 @@ export const AuthProvider = ({ children }) => {
                   {
                     method: "GET",
                     headers: {
-                      Authorization: `Bearer ${savedToken}`,
+                      Authorization: `Bearer ${validToken}`,
                     },
                   }
                 );
@@ -201,7 +211,7 @@ export const AuthProvider = ({ children }) => {
               const response = await fetch(`${API_URL}${endpoint}`, {
                 method: "GET",
                 headers: {
-                  Authorization: `Bearer ${savedToken}`,
+                  Authorization: `Bearer ${validToken}`,
                 },
                 credentials: "include",
               });
@@ -266,8 +276,11 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       setLoginError(null);
 
+      // Récupérer le token le plus récent
+      const currentToken = await getToken();
+
       console.log("===== Appel à updateUserProfile =====");
-      console.log("Token disponible:", !!token);
+      console.log("Token disponible:", !!currentToken);
       console.log("Données envoyées:", {
         ...userData,
         profileImage: userData.profileImage ? "[IMAGE]" : null,
@@ -277,7 +290,7 @@ export const AuthProvider = ({ children }) => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${currentToken}`,
         },
         body: JSON.stringify(userData),
         credentials: "include",
@@ -336,41 +349,115 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Fonction pour se connecter
+  // Modifier la fonction pour récupérer un nouveau token CSRF avec retry
+  const refreshCsrfToken = async (retryCount = 3, delay = 1000) => {
+    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
+
+    for (let attempt = 0; attempt < retryCount; attempt++) {
+      try {
+        console.log(
+          `Tentative de récupération du token CSRF (${
+            attempt + 1
+          }/${retryCount})...`
+        );
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout de 5 secondes
+
+        const response = await fetch(`${API_URL}/api/csrf-token`, {
+          method: "GET",
+          credentials: "include",
+          signal: controller.signal,
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Nouveau token CSRF obtenu avec succès");
+
+          // Vérifier si le token est bien défini dans les cookies après la réponse
+          const csrfToken = getCsrfToken();
+          if (!csrfToken) {
+            console.warn(
+              "Le token CSRF n'a pas été correctement défini dans les cookies"
+            );
+          }
+
+          return true;
+        } else {
+          console.error(
+            `Échec de l'obtention du token CSRF: ${response.status} - ${response.statusText}`
+          );
+          if (attempt < retryCount - 1) {
+            console.log(`Nouvelle tentative dans ${delay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+      } catch (error) {
+        if (error.name === "AbortError") {
+          console.error("La requête de token CSRF a expiré");
+        } else {
+          console.error("Erreur lors de la récupération du token CSRF:", error);
+        }
+
+        if (attempt < retryCount - 1) {
+          console.log(`Nouvelle tentative dans ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    console.error(
+      `Échec après ${retryCount} tentatives de récupération du token CSRF`
+    );
+    return false;
+  };
+
+  // Modifier la fonction de login pour initialiser le WebSocket après connexion
   const login = async (email, password) => {
     setIsLoading(true);
     setLoginError(null);
+    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
 
     try {
       console.log("Démarrage de la procédure de connexion");
 
-      // Récupérer le token CSRF
-      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!csrfResponse.ok) {
-        throw new Error("Impossible de récupérer le token CSRF");
+      // Récupérer le token CSRF avec retry
+      const csrfSuccess = await refreshCsrfToken();
+      if (!csrfSuccess) {
+        throw new Error(
+          "Impossible de récupérer le token CSRF après plusieurs tentatives"
+        );
       }
 
-      const { csrfToken } = await csrfResponse.json();
-      console.log("Token CSRF reçu du serveur:", csrfToken);
-
       // Récupérer le token du cookie
-      const csrfCookie = getCsrfToken();
-      console.log("Token CSRF du cookie:", csrfCookie);
+      const csrfToken = getCsrfToken();
+      if (!csrfToken) {
+        throw new Error("Token CSRF non trouvé dans les cookies");
+      }
+
+      console.log("Token CSRF récupéré avec succès");
 
       // Effectuer la requête de connexion
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 secondes
+
       const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRF-Token": csrfCookie || csrfToken,
+          "X-CSRF-Token": csrfToken,
         },
         credentials: "include",
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       console.log("Réponse login:", {
         status: loginResponse.status,
@@ -378,7 +465,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!loginResponse.ok) {
-        const errorData = await loginResponse.json();
+        const errorData = await loginResponse.json().catch(() => ({}));
         throw new Error(
           errorData.message || `Erreur de connexion (${loginResponse.status})`
         );
@@ -387,43 +474,46 @@ export const AuthProvider = ({ children }) => {
       const data = await loginResponse.json();
       console.log("Connexion réussie");
 
+      // Stocker le token
       localStorage.setItem("token", data.token);
       setToken(data.token);
       setUser(data.user);
       setIsAuthenticated(true);
+
+      // Initialiser la connexion WebSocket avec le token
+      try {
+        const { initializeSocket } = require("../services/socket");
+        const socket = initializeSocket(data.token);
+        if (socket) {
+          console.log("Initialisation WebSocket après connexion réussie");
+          // Connecter explicitement la socket - important pour éviter les connexions automatiques
+          socket.connect();
+        }
+      } catch (socketError) {
+        console.error(
+          "Erreur lors de l'initialisation du WebSocket après connexion:",
+          socketError
+        );
+        // Ne pas faire échouer le login si le WebSocket échoue
+      }
+
       return true;
     } catch (error) {
-      console.error("Erreur lors de la connexion:", error);
-      setLoginError(error.message);
+      if (error.name === "AbortError") {
+        setLoginError(
+          "Délai d'attente dépassé lors de la connexion. Veuillez réessayer."
+        );
+      } else {
+        console.error("Erreur lors de la connexion:", error);
+        setLoginError(error.message);
+      }
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fonction pour récupérer un nouveau token CSRF
-  const refreshCsrfToken = async () => {
-    try {
-      console.log("Récupération d'un nouveau token CSRF...");
-      const response = await fetch(`${API_URL}/api/csrf-token`, {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        console.log("Nouveau token CSRF obtenu avec succès.");
-        // Le token est automatiquement stocké dans les cookies par le serveur
-        return true;
-      } else {
-        console.error("Échec de l'obtention du token CSRF:", response.status);
-        return false;
-      }
-    } catch (error) {
-      console.error("Erreur lors de la récupération du token CSRF:", error);
-      return false;
-    }
-  };
-
+  // Modifier la fonction de register pour initialiser le WebSocket après inscription
   const register = async (userData) => {
     setIsLoading(true);
     try {
@@ -492,6 +582,23 @@ export const AuthProvider = ({ children }) => {
 
       setUser(adminUser);
       localStorage.setItem("user", JSON.stringify(adminUser));
+
+      // Initialiser la connexion WebSocket avec le token
+      try {
+        const { initializeSocket } = require("../services/socket");
+        const socket = initializeSocket(data.token);
+        if (socket) {
+          console.log("Initialisation WebSocket après inscription réussie");
+          // Connecter explicitement la socket - important pour éviter les connexions automatiques
+          socket.connect();
+        }
+      } catch (socketError) {
+        console.error(
+          "Erreur lors de l'initialisation du WebSocket après inscription:",
+          socketError
+        );
+        // Ne pas faire échouer l'inscription si le WebSocket échoue
+      }
 
       // Notifier le WebSocket de la connexion
       notifyDataChange("auth", "login", adminUser.id);

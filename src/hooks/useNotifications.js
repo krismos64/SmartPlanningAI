@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { NotificationService } from "../services/api";
+import { getSocket } from "../services/socket";
 import useWebSocket from "./useWebSocket";
 
 /**
@@ -15,12 +16,32 @@ const useNotifications = () => {
   const { user } = useAuth();
   const { socket, isConnected, sendMessage } = useWebSocket();
 
+  // Référence pour éviter les appels en cascade
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const debounceTimerRef = useRef(null);
+
   // Récupérer les notifications depuis l'API
   const fetchNotifications = useCallback(
     async (options = {}) => {
       if (!user) return;
 
+      // Protection contre les appels multiples rapprochés
+      const now = Date.now();
+      if (isFetchingRef.current) {
+        console.log("Récupération des notifications déjà en cours, ignoré");
+        return;
+      }
+
+      // Ne pas récupérer si moins de 2 secondes se sont écoulées depuis le dernier appel
+      if (now - lastFetchTimeRef.current < 2000) {
+        console.log("Dernière récupération trop récente, ignoré");
+        return;
+      }
+
       try {
+        isFetchingRef.current = true;
+        lastFetchTimeRef.current = now;
         setLoading(true);
         const { limit = 20, offset = 0, unreadOnly = false } = options;
 
@@ -31,7 +52,32 @@ const useNotifications = () => {
         });
 
         if (response.success) {
-          setNotifications(response.notifications);
+          // Ne mettre à jour que si les données ont changé
+          const currentNotificationIds = new Set(
+            notifications.map((n) => n.id)
+          );
+          const newNotificationIds = new Set(
+            response.notifications.map((n) => n.id)
+          );
+
+          // Vérifier si les ensembles sont différents
+          const hasChanges =
+            currentNotificationIds.size !== newNotificationIds.size ||
+            [...currentNotificationIds].some(
+              (id) => !newNotificationIds.has(id)
+            ) ||
+            [...newNotificationIds].some(
+              (id) => !currentNotificationIds.has(id)
+            );
+
+          if (hasChanges) {
+            setNotifications(response.notifications);
+            // Stocker dans localStorage pour rendre la restauration plus rapide
+            localStorage.setItem(
+              "lastNotifications",
+              JSON.stringify(response.notifications)
+            );
+          }
 
           // Mettre à jour le compteur de notifications non lues
           const unreadNotifications = response.notifications.filter(
@@ -54,14 +100,38 @@ const useNotifications = () => {
         );
       } finally {
         setLoading(false);
+        // Réinitialiser le flag après une durée de protection
+        setTimeout(() => {
+          isFetchingRef.current = false;
+        }, 3000);
       }
     },
-    [user]
+    [user, notifications]
+  );
+
+  // Fonction debounced pour récupérer les notifications
+  const debouncedFetchNotifications = useCallback(
+    (options = {}) => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      debounceTimerRef.current = setTimeout(() => {
+        fetchNotifications(options);
+      }, 1000); // Attendre 1s avant de déclencher l'appel API
+    },
+    [fetchNotifications]
   );
 
   // Récupérer le nombre de notifications non lues
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
+
+    // Ne pas récupérer si moins de 5 secondes se sont écoulées depuis le dernier appel
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < 5000) {
+      return;
+    }
 
     try {
       const response = await NotificationService.getUnreadCount();
@@ -109,7 +179,7 @@ const useNotifications = () => {
         );
 
         // Annuler les changements locaux en cas d'erreur
-        fetchNotifications();
+        debouncedFetchNotifications();
         fetchUnreadCount();
       }
     },
@@ -118,7 +188,7 @@ const useNotifications = () => {
       isConnected,
       socket,
       sendMessage,
-      fetchNotifications,
+      debouncedFetchNotifications,
       fetchUnreadCount,
     ]
   );
@@ -149,7 +219,7 @@ const useNotifications = () => {
       );
 
       // Annuler les changements locaux en cas d'erreur
-      fetchNotifications();
+      debouncedFetchNotifications();
       fetchUnreadCount();
     }
   }, [
@@ -157,7 +227,7 @@ const useNotifications = () => {
     isConnected,
     socket,
     sendMessage,
-    fetchNotifications,
+    debouncedFetchNotifications,
     fetchUnreadCount,
   ]);
 
@@ -188,11 +258,11 @@ const useNotifications = () => {
         );
 
         // Annuler les changements locaux en cas d'erreur
-        fetchNotifications();
+        debouncedFetchNotifications();
         fetchUnreadCount();
       }
     },
-    [user, notifications, fetchNotifications, fetchUnreadCount]
+    [user, notifications, debouncedFetchNotifications, fetchUnreadCount]
   );
 
   // Supprimer toutes les notifications
@@ -213,10 +283,10 @@ const useNotifications = () => {
       );
 
       // Annuler les changements locaux en cas d'erreur
-      fetchNotifications();
+      debouncedFetchNotifications();
       fetchUnreadCount();
     }
-  }, [user, fetchNotifications, fetchUnreadCount]);
+  }, [user, debouncedFetchNotifications, fetchUnreadCount]);
 
   // Créer une nouvelle notification
   const createNotification = useCallback(
@@ -260,94 +330,94 @@ const useNotifications = () => {
 
   // Gérer les messages WebSocket
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (
+      !isConnected ||
+      !sendMessage ||
+      !debouncedFetchNotifications ||
+      !fetchUnreadCount
+    )
+      return;
 
-    const handleWebSocketMessage = (event) => {
+    // Écouter les notifications depuis le socket
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewNotification = (notification) => {
       try {
-        const data = JSON.parse(event.data);
+        // Ajouter la nouvelle notification à la liste sans déclencher une requête complète
+        setNotifications((prev) => {
+          // Éviter les doublons
+          const exists = prev.some((n) => n.id === notification.id);
+          if (exists) return prev;
+          return [notification, ...prev];
+        });
 
-        if (data.type === "NEW_NOTIFICATION" && data.notification) {
-          // Ajouter la nouvelle notification à la liste
-          setNotifications((prev) => [data.notification, ...prev]);
+        // Mettre à jour le compteur de notifications non lues
+        if (!notification.read) {
+          setUnreadCount((prev) => prev + 1);
+        }
 
-          // Mettre à jour le compteur de notifications non lues
-          if (!data.notification.read) {
-            setUnreadCount((prev) => prev + 1);
-          }
+        // Afficher une notification système si le navigateur le permet
+        if (Notification.permission === "granted") {
+          const sysNotification = new Notification(notification.title, {
+            body: notification.message,
+            icon: "/logo192.png",
+          });
 
-          // Afficher une notification système si le navigateur le permet
-          if (Notification.permission === "granted") {
-            const notification = new Notification(data.notification.title, {
-              body: data.notification.message,
-              icon: "/logo192.png",
-            });
-
-            // Rediriger vers le lien de la notification si l'utilisateur clique dessus
-            notification.onclick = () => {
-              window.focus();
-              if (data.notification.link) {
-                window.location.href = data.notification.link;
-              }
-            };
-          }
-        } else if (data.type === "ACTIVITY_LOGGED") {
-          // Rafraîchir les notifications lorsqu'une activité est enregistrée
-          fetchNotifications();
-          fetchUnreadCount();
+          // Rediriger vers le lien de la notification si l'utilisateur clique dessus
+          sysNotification.onclick = () => {
+            window.focus();
+            if (notification.link) {
+              window.location.href = notification.link;
+            }
+          };
         }
       } catch (error) {
-        console.error("Erreur lors du traitement du message WebSocket:", error);
+        console.error("Erreur lors du traitement de la notification:", error);
       }
     };
 
-    socket.addEventListener("message", handleWebSocketMessage);
-
-    // Demander les notifications non lues au serveur
-    sendMessage({
-      type: "REQUEST_NOTIFICATIONS",
-      unreadOnly: true,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Nettoyer l'écouteur d'événements
-    return () => {
-      socket.removeEventListener("message", handleWebSocketMessage);
+    const handleActivityLogged = () => {
+      // Rafraîchir les notifications lorsqu'une activité est enregistrée
+      // mais avec un debounce pour éviter les requêtes multiples
+      debouncedFetchNotifications();
     };
-  }, [socket, isConnected, sendMessage, fetchNotifications, fetchUnreadCount]);
 
-  // Rafraîchir les notifications périodiquement
-  useEffect(() => {
-    if (!user) return;
+    // Attacher les écouteurs d'événements
+    socket.on("notification:new", handleNewNotification);
+    socket.on("activity:logged", handleActivityLogged);
 
-    // Rafraîchir les notifications toutes les 30 secondes
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30000);
-
-    // Rafraîchir les notifications complètes toutes les 2 minutes
-    const fullRefreshInterval = setInterval(() => {
-      fetchNotifications();
-    }, 120000);
-
+    // Nettoyer les écouteurs d'événements
     return () => {
-      clearInterval(interval);
-      clearInterval(fullRefreshInterval);
+      socket.off("notification:new", handleNewNotification);
+      socket.off("activity:logged", handleActivityLogged);
     };
-  }, [user, fetchNotifications, fetchUnreadCount]);
+  }, [isConnected, sendMessage, debouncedFetchNotifications, fetchUnreadCount]);
 
-  // Demander la permission pour les notifications système
+  // Récupérer les notifications du localStorage au premier chargement
   useEffect(() => {
-    if (
-      Notification.permission !== "granted" &&
-      Notification.permission !== "denied"
-    ) {
-      Notification.requestPermission();
+    const savedNotifications = localStorage.getItem("lastNotifications");
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setNotifications(parsed);
+          const unreadCount = parsed.filter((n) => !n.read).length;
+          setUnreadCount(unreadCount);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error(
+          "Erreur lors du chargement des notifications sauvegardées:",
+          e
+        );
+      }
     }
   }, []);
 
-  // Récupérer les notifications au chargement
+  // Récupérer les notifications au chargement (une seule fois)
   useEffect(() => {
-    if (user) {
+    if (user && !isFetchingRef.current) {
       fetchNotifications();
       fetchUnreadCount();
     }
@@ -358,7 +428,7 @@ const useNotifications = () => {
     unreadCount,
     loading,
     error,
-    fetchNotifications,
+    fetchNotifications: debouncedFetchNotifications,
     fetchUnreadCount,
     markAsRead,
     markAllAsRead,
@@ -366,6 +436,7 @@ const useNotifications = () => {
     deleteAllNotifications,
     createNotification,
     createBroadcastNotification,
+    setNotifications,
   };
 };
 

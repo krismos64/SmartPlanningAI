@@ -188,7 +188,7 @@ const UserMenu = styled.div`
   box-shadow: ${({ theme }) => theme.shadows.large};
   z-index: 1000;
   padding: ${({ theme }) => theme.spacing.md};
-  display: ${({ isOpen }) => (isOpen ? "block" : "none")};
+  display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
   margin-top: ${({ theme }) => theme.spacing.sm};
 `;
 
@@ -307,13 +307,13 @@ const MobileNavLink = styled(NavLink)`
   padding: ${({ theme }) => `${theme.spacing.md} ${theme.spacing.md}`};
   margin-bottom: ${({ theme }) => theme.spacing.md};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
-  background-color: ${({ theme, active }) =>
-    active ? `${theme.colors.primary}22` : "transparent"};
+  background-color: ${({ theme, $active }) =>
+    $active ? `${theme.colors.primary}22` : "transparent"};
   transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
   opacity: 0;
   transform: translateY(20px);
   animation: fadeIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  animation-delay: ${({ index }) => `${0.1 + index * 0.08}s`};
+  animation-delay: ${({ $index }) => `${0.1 + $index * 0.08}s`};
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     Roboto, sans-serif;
   font-size: 1.3rem;
@@ -347,13 +347,13 @@ const MobileNavLink = styled(NavLink)`
     position: absolute;
     bottom: 0;
     left: 50%;
-    width: ${({ active }) => (active ? "50%" : "0")};
+    width: ${({ $active }) => ($active ? "50%" : "0")};
     height: 3px;
     background-color: ${({ theme }) => theme.colors.primary};
     transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
       left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     transform: translateX(-50%);
-    opacity: ${({ active }) => (active ? "1" : "0")};
+    opacity: ${({ $active }) => ($active ? "1" : "0")};
     border-radius: 3px;
   }
 
@@ -689,7 +689,7 @@ const Navbar = () => {
           </div>
 
           {/* User menu dropdown */}
-          <UserMenu isOpen={userMenuOpen}>
+          <UserMenu $isOpen={userMenuOpen}>
             <UserMenuItem to="/profile">
               <svg
                 width="24"
@@ -743,49 +743,49 @@ const Navbar = () => {
           <MobileMenuContent>
             <MobileNavLink
               to="/dashboard"
-              active={isActive("/dashboard") ? 1 : 0}
+              $active={isActive("/dashboard") ? 1 : 0}
               onClick={() => setMobileMenuOpen(false)}
-              index={0}
+              $index={0}
             >
               {t("navbar.dashboard")}
             </MobileNavLink>
             <MobileNavLink
               to="/schedule"
-              active={isActive("/schedule") ? 1 : 0}
+              $active={isActive("/schedule") ? 1 : 0}
               onClick={() => setMobileMenuOpen(false)}
-              index={1}
+              $index={1}
             >
               {t("navbar.schedule")}
             </MobileNavLink>
             <MobileNavLink
               to="/employees"
-              active={isActive("/employees") ? 1 : 0}
+              $active={isActive("/employees") ? 1 : 0}
               onClick={() => setMobileMenuOpen(false)}
-              index={2}
+              $index={2}
             >
               {t("navbar.employees")}
             </MobileNavLink>
             <MobileNavLink
               to="/activities"
-              active={isActive("/activities") ? 1 : 0}
+              $active={isActive("/activities") ? 1 : 0}
               onClick={() => setMobileMenuOpen(false)}
-              index={3}
+              $index={3}
             >
               {t("navbar.activities")}
             </MobileNavLink>
             <MobileNavLink
               to="/vacations"
-              active={isActive("/vacations") ? 1 : 0}
+              $active={isActive("/vacations") ? 1 : 0}
               onClick={() => setMobileMenuOpen(false)}
-              index={4}
+              $index={4}
             >
               {t("navbar.vacations")}
             </MobileNavLink>
             <MobileNavLink
               to="/stats"
-              active={isActive("/stats") ? 1 : 0}
+              $active={isActive("/stats") ? 1 : 0}
               onClick={() => setMobileMenuOpen(false)}
-              index={5}
+              $index={5}
             >
               {t("navbar.stats")}
             </MobileNavLink>

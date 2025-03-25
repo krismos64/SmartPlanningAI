@@ -146,7 +146,7 @@ const Tr = styled.tr`
   }
 `;
 
-const Td = styled.td`
+const Cell = styled.td`
   padding: 1rem 1.5rem;
   font-size: 0.875rem;
   color: ${({ theme }) => theme.colors.text.primary};
@@ -157,7 +157,7 @@ const Td = styled.td`
   max-width: 200px;
   vertical-align: middle;
 
-  &.clickable {
+  &.clickable-cell {
     position: relative;
 
     &:hover {
@@ -183,8 +183,8 @@ const StatusBadge = styled.span`
   border-radius: 2rem;
   font-size: 0.75rem;
   font-weight: ${({ theme }) => theme.typography.fontWeights.medium};
-  background-color: ${({ theme, status }) => {
-    switch (status) {
+  background-color: ${({ theme, $status }) => {
+    switch ($status) {
       case "active":
         return `${theme.colors.success}22`;
       case "pending":
@@ -195,8 +195,8 @@ const StatusBadge = styled.span`
         return `${theme.colors.text.disabled}22`;
     }
   }};
-  color: ${({ theme, status }) => {
-    switch (status) {
+  color: ${({ theme, $status }) => {
+    switch ($status) {
       case "active":
         return theme.colors.success;
       case "pending":
@@ -227,10 +227,10 @@ const HourBalanceBadge = styled.span`
   border-radius: 4px;
   font-weight: 600;
   font-size: 0.875rem;
-  background-color: ${({ theme, isPositive }) =>
-    isPositive ? `${theme.colors.success}20` : `${theme.colors.error}20`};
-  color: ${({ theme, isPositive }) =>
-    isPositive ? theme.colors.success : theme.colors.error};
+  background-color: ${({ theme, $isPositive }) =>
+    $isPositive ? `${theme.colors.success}20` : `${theme.colors.error}20`};
+  color: ${({ theme, $isPositive }) =>
+    $isPositive ? theme.colors.success : theme.colors.error};
 `;
 
 const TableFooter = styled.div`
@@ -260,19 +260,19 @@ const PageButton = styled.button`
   height: 32px;
   border-radius: ${({ theme }) => theme.borderRadius.small};
   border: 1px solid
-    ${({ theme, active }) =>
-      active ? theme.colors.primary : theme.colors.border};
-  background-color: ${({ theme, active }) =>
-    active ? `${theme.colors.primary}11` : "transparent"};
-  color: ${({ theme, active }) =>
-    active ? theme.colors.primary : theme.colors.text.primary};
+    ${({ theme, $active }) =>
+      $active ? theme.colors.primary : theme.colors.border};
+  background-color: ${({ theme, $active }) =>
+    $active ? `${theme.colors.primary}11` : "transparent"};
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.primary : theme.colors.text.primary};
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover:not(:disabled) {
-    background-color: ${({ theme, active }) =>
-      active ? `${theme.colors.primary}22` : `${theme.colors.background}`};
+    background-color: ${({ theme, $active }) =>
+      $active ? `${theme.colors.primary}22` : `${theme.colors.background}`};
   }
 
   &:disabled {
@@ -578,7 +578,7 @@ const DataTable = ({
     if (column.type === "status") {
       const status = EMPLOYEE_STATUSES.find((s) => s.value === value);
       return (
-        <StatusBadge status={value}>
+        <StatusBadge $status={value}>
           {status ? status.label : value}
         </StatusBadge>
       );
@@ -586,7 +586,7 @@ const DataTable = ({
 
     if (column.type === "hour_balance") {
       return (
-        <HourBalanceBadge isPositive={value.isPositive}>
+        <HourBalanceBadge $isPositive={value.isPositive}>
           {value.display}
           {column.id === "hour_balance" && <EditIcon />}
         </HourBalanceBadge>
@@ -638,7 +638,7 @@ const DataTable = ({
       buttons.push(
         <PageButton
           key={i}
-          active={i === currentPage}
+          $active={i === currentPage}
           onClick={() => handlePageChange(i)}
         >
           {i}
@@ -736,7 +736,7 @@ const DataTable = ({
                   style={{ cursor: onRowClick ? "pointer" : "default" }}
                 >
                   {columns.map((column) => (
-                    <Td
+                    <Cell
                       key={`${rowIndex}-${column.id}`}
                       onClick={(e) => {
                         if (onCellClick && column.id === "hour_balance") {
@@ -746,7 +746,7 @@ const DataTable = ({
                       }}
                       className={
                         onCellClick && column.id === "hour_balance"
-                          ? "clickable"
+                          ? "clickable-cell"
                           : ""
                       }
                       style={{
@@ -757,7 +757,7 @@ const DataTable = ({
                       }}
                     >
                       {formatCellValue(column, column.accessor(row))}
-                    </Td>
+                    </Cell>
                   ))}
                 </Tr>
               ))}

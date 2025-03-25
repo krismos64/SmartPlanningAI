@@ -43,7 +43,7 @@ const LanguageName = styled.span`
 const ChevronIcon = styled.span`
   margin-left: 0.5rem;
   transition: transform 0.3s ease;
-  transform: ${({ isOpen }) => (isOpen ? "rotate(180deg)" : "rotate(0)")};
+  transform: ${({ $isOpen }) => ($isOpen ? "rotate(180deg)" : "rotate(0)")};
 `;
 
 const LanguageOptions = styled.div`
@@ -58,7 +58,7 @@ const LanguageOptions = styled.div`
   z-index: 10;
   min-width: 180px;
   overflow: hidden;
-  display: ${({ isOpen }) => (isOpen ? "block" : "none")};
+  display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
   animation: ${fadeIn} 0.3s ease;
   transform-origin: top center;
 `;
@@ -70,10 +70,10 @@ const LanguageOption = styled.button`
   text-align: left;
   padding: 0.75rem 1rem;
   border: none;
-  background-color: ${({ isActive, theme }) =>
-    isActive ? `${theme.colors.primary}15` : "transparent"};
-  color: ${({ isActive, theme }) =>
-    isActive ? theme.colors.primary : theme.colors.text.primary};
+  background-color: ${({ $isActive, theme }) =>
+    $isActive ? `${theme.colors.primary}15` : "transparent"};
+  color: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary : theme.colors.text.primary};
   cursor: pointer;
   transition: all 0.2s;
 
@@ -173,11 +173,11 @@ const LanguageSelector = ({ isNavbar = false }) => {
         <FlagButton onClick={toggleDropdown} title={currentLang.name}>
           {currentLang.flag}
         </FlagButton>
-        <NavbarLanguageOptions isOpen={isOpen}>
+        <NavbarLanguageOptions $isOpen={isOpen}>
           {languages.map((lang) => (
             <LanguageOption
               key={lang.code}
-              isActive={i18n.language === lang.code}
+              $isActive={i18n.language === lang.code}
               onClick={() => changeLanguage(lang.code)}
             >
               <Flag>{lang.flag}</Flag>
@@ -194,13 +194,13 @@ const LanguageSelector = ({ isNavbar = false }) => {
       <LanguageButton onClick={toggleDropdown}>
         <Flag>{currentLang.flag}</Flag>
         <LanguageName>{currentLang.name}</LanguageName>
-        <ChevronIcon isOpen={isOpen}>▼</ChevronIcon>
+        <ChevronIcon $isOpen={isOpen}>▼</ChevronIcon>
       </LanguageButton>
-      <LanguageOptions isOpen={isOpen}>
+      <LanguageOptions $isOpen={isOpen}>
         {languages.map((lang) => (
           <LanguageOption
             key={lang.code}
-            isActive={i18n.language === lang.code}
+            $isActive={i18n.language === lang.code}
             onClick={() => changeLanguage(lang.code)}
           >
             <Flag>{lang.flag}</Flag>

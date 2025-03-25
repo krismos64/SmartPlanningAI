@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeCard from "../components/employees/EmployeeCard";
@@ -175,6 +175,17 @@ const Employees = () => {
 
   const navigate = useNavigate();
   const { employeeId } = useParams();
+  const location = useLocation();
+
+  // S'assurer que le modal ne s'ouvre pas automatiquement lors de la navigation simple
+  useEffect(() => {
+    // Si nous venons juste d'arriver sur la page via une navigation normale, fermer le modal
+    if (location.pathname === "/employees" && !employeeId) {
+      setShowModal(false);
+      setEditingEmployee(null);
+      setViewingEmployee(null);
+    }
+  }, [location.pathname, employeeId]);
 
   // Vérifier si un ID d'employé est présent dans l'URL et afficher les détails
   useEffect(() => {
@@ -356,20 +367,26 @@ const Employees = () => {
     }
   }, [editingEmployee, deleteEmployee, fetchEmployees, showNotification]);
 
-  const handleAddEmployee = useCallback(() => {
+  const handleAddEmployee = useCallback((event) => {
+    console.log("Clic sur Ajouter un employé", event);
+
+    // Forcer l'ouverture du modal quoi qu'il arrive
     setEditingEmployee(null);
+    setViewingEmployee(null);
+    setShowEditForm(false);
+    setActiveModalTab("infos");
     setShowModal(true);
   }, []);
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
-    setViewingEmployee(null);
     setEditingEmployee(null);
+    setViewingEmployee(null);
     setShowEditForm(false);
 
-    // Si on est sur une page de détail d'employé, revenir à la liste
+    // Nettoyer l'URL si nécessaire
     if (employeeId) {
-      navigate("/employees");
+      navigate("/employees", { replace: true });
     }
   }, [employeeId, navigate]);
 
@@ -578,6 +595,7 @@ const Employees = () => {
         </>
       )}
 
+      {/* Modal d'ajout ou d'édition d'employé */}
       <Modal
         isOpen={showModal}
         onClose={handleCloseModal}

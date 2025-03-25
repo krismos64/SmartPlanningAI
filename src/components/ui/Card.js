@@ -31,14 +31,14 @@ const StyledCard = styled.div`
   animation: ${fadeIn} 0.3s ease-in-out;
 
   // Appliquer la variante
-  ${({ variant, theme }) => variants[variant] || variants.default}
+  ${({ $variant, theme }) => variants[$variant] || variants.default}
 
   // Appliquer l'animation au survol si interactive
-  ${({ interactive }) => interactive && cardHover}
+  ${({ $interactive }) => $interactive && cardHover}
   
   // Style pour la carte cliquable
-  ${({ clickable }) =>
-    clickable &&
+  ${({ $clickable }) =>
+    $clickable &&
     css`
       cursor: pointer;
     `}
@@ -79,7 +79,7 @@ export const CardContent = styled.div`
 export const CardFooter = styled.div`
   display: flex;
   align-items: center;
-  justify-content: ${({ align }) => align || "flex-end"};
+  justify-content: ${({ $align }) => $align || "flex-end"};
   margin-top: ${({ theme }) => theme.spacing.md};
   padding-top: ${({ theme }) => theme.spacing.md};
   border-top: 1px solid ${({ theme }) => theme.colors.divider};
@@ -97,16 +97,17 @@ export const Card = ({
   clickable = false,
   onClick,
   className,
+  align,
   ...props
 }) => {
   return (
     <StyledCard
-      variant={variant}
+      $variant={variant}
       padding={padding}
       width={width}
       height={height}
-      interactive={interactive}
-      clickable={clickable}
+      $interactive={interactive}
+      $clickable={clickable}
       onClick={clickable ? onClick : undefined}
       className={className}
       {...props}
@@ -119,6 +120,6 @@ export const Card = ({
 // Exporter les sous-composants avec le composant principal
 Card.Header = CardHeader;
 Card.Content = CardContent;
-Card.Footer = CardFooter;
+Card.Footer = (props) => <CardFooter $align={props.align} {...props} />;
 
 export default Card;

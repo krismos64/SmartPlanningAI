@@ -1,5 +1,8 @@
 const connectDB = require("../config/db");
 const Employee = require("./Employee");
+const {
+  createAndEmitNotification,
+} = require("../services/notificationService");
 
 class WorkHours {
   constructor(data) {
@@ -87,6 +90,15 @@ class WorkHours {
             this.id,
           ]
         );
+
+        // Créer une notification pour l'employé
+        await createAndEmitNotification(this.io, {
+          user_id: this.employee_id,
+          title: "Heures de travail mises à jour",
+          message: `Vos heures de travail du ${formattedDate} ont été mises à jour (${this.actual_hours}h travaillées)`,
+          type: "info",
+          link: `/work-hours/${this.id}`,
+        });
       } else {
         // Insertion
         const [result] = await connectDB.execute(
@@ -103,6 +115,15 @@ class WorkHours {
           ]
         );
         this.id = result.insertId;
+
+        // Créer une notification pour l'employé
+        await createAndEmitNotification(this.io, {
+          user_id: this.employee_id,
+          title: "Nouvelles heures de travail",
+          message: `Des heures de travail ont été ajoutées pour le ${formattedDate} (${this.actual_hours}h travaillées)`,
+          type: "info",
+          link: `/work-hours/${this.id}`,
+        });
       }
 
       // Mettre à jour le solde d'heures de l'employé
@@ -129,7 +150,7 @@ class WorkHours {
     try {
       // Récupérer l'ID de l'employé avant la suppression
       const [rows] = await connectDB.execute(
-        "SELECT employee_id FROM work_hours WHERE id = ?",
+        "SELECT employee_id, date, actual_hours FROM work_hours WHERE id = ?",
         [id]
       );
 
@@ -137,13 +158,23 @@ class WorkHours {
         throw new Error("Enregistrement d'heures non trouvé");
       }
 
-      const employeeId = rows[0].employee_id;
+      const { employee_id, date, actual_hours } = rows[0];
+      const formattedDate = new Date(date).toISOString().split("T")[0];
 
       // Supprimer l'enregistrement
       await connectDB.execute("DELETE FROM work_hours WHERE id = ?", [id]);
 
       // Mettre à jour le solde d'heures de l'employé
-      await Employee.updateHourBalance(employeeId);
+      await Employee.updateHourBalance(employee_id);
+
+      // Créer une notification pour l'employé
+      await createAndEmitNotification(rows[0].io, {
+        user_id: employee_id,
+        title: "Heures de travail supprimées",
+        message: `Vos heures de travail du ${formattedDate} (${actual_hours}h) ont été supprimées`,
+        type: "warning",
+        link: "/work-hours",
+      });
 
       return true;
     } catch (error) {

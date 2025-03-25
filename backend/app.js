@@ -1,8 +1,3 @@
-/**
- * Point d'entrée principal de l'application backend
- * Configure et lance le serveur Express
- */
-
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -14,43 +9,76 @@ const dotenv = require("dotenv");
 const routes = require("./routes");
 const { NlpManager } = require("node-nlp");
 
-// Charger les variables d'environnement
 dotenv.config();
 
-// Créer l'application Express
 const app = express();
 
-// Configurer le répertoire de logs
+// Middleware CORS manuel ultra permissif pour corriger les erreurs liées à "cache-control" ou "x-csrf-token"
+app.use((req, res, next) => {
+  // Logger les en-têtes de requête pour le debug
+  if (req.method === "OPTIONS") {
+    console.log("🔍 Headers de requête preflight:", req.headers);
+  }
+
+  // Autoriser l'origine spécifique
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  // Récupérer les en-têtes demandés dans la requête preflight
+  const requestedHeaders = req.headers["access-control-request-headers"];
+
+  // Si des en-têtes spécifiques sont demandés dans le preflight, les autoriser directement
+  if (requestedHeaders) {
+    res.setHeader("Access-Control-Allow-Headers", requestedHeaders);
+  } else {
+    // Sinon, autoriser une liste exhaustive d'en-têtes courants
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token, x-csrf-token, Cache-Control, cache-control"
+    );
+  }
+
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+
+  res.setHeader("Access-Control-Expose-Headers", "Set-Cookie, Cookie");
+
+  // Répondre immédiatement aux requêtes OPTIONS (preflight)
+  if (req.method === "OPTIONS") {
+    console.log("✅ Réponse preflight CORS envoyée avec succès");
+    return res.status(204).end();
+  }
+
+  next();
+});
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+
+// 📂 Logs
 const logDirectory = path.join(__dirname, "logs");
 fs.existsSync(logDirectory) || fs.mkdirSync(logDirectory);
-
-// Créer un stream de rotation de logs
 const accessLogStream = rfs.createStream("access.log", {
   interval: "1d",
   path: logDirectory,
 });
-
-// Configuration des middlewares
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
 app.use(morgan("combined", { stream: accessLogStream }));
-
-// Log des requêtes en développement
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-// Configurer les routes API
+// 📦 Routes API
 app.use("/api", routes);
 
-// Route de test pour vérifier que le serveur est en ligne
+// ✅ Route ping
 app.get("/ping", (req, res) => {
   res.status(200).json({ message: "API en ligne" });
 });
 
-// Route 404 pour les chemins non trouvés
+// ❌ Route non trouvée
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
@@ -58,7 +86,7 @@ app.use((req, res, next) => {
   });
 });
 
-// Middleware de gestion des erreurs
+// ❗ Middleware d'erreurs
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({
@@ -67,26 +95,51 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Initialiser un gestionnaire NLP global pour le partager entre les requêtes
-// Cette initialisation est maintenant optionnelle puisque nous utilisons un système basé sur des règles
+// 🌐 NLP global
 global.nlpManager = null;
 
-// Fonction d'initialisation du serveur
+// 🧭 Log toutes les routes
+function logRoutes(router, basePath = "") {
+  const routes = [];
+  router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      const path = basePath + middleware.route.path;
+      const methods = Object.keys(middleware.route.methods)
+        .filter((method) => middleware.route.methods[method])
+        .map((method) => method.toUpperCase());
+      methods.forEach((method) => routes.push(`${method} ${path}`));
+    } else if (middleware.name === "router") {
+      const routerBasePath =
+        basePath +
+        (middleware.regexp.source === "^\\/?(?=\\/|$)"
+          ? ""
+          : middleware.regexp.source
+              .replace(/\\\//g, "/")
+              .replace(/\(\?:\\\/\?\)/, "")
+              .replace(/\^/g, "")
+              .replace(/\$/, ""));
+      logRoutes(middleware.handle, routerBasePath).forEach((route) =>
+        routes.push(route)
+      );
+    } else if (middleware.name === "bound dispatch") {
+      const newRoute = logRoutes(middleware.handle, basePath + middleware.path);
+      newRoute.forEach((route) => routes.push(route));
+    }
+  });
+  return routes;
+}
+
+// 🚀 Initialisation du serveur
 async function initializeServer() {
   try {
-    // Vérifier la connexion à la base de données
     const connectDB = require("./config/db");
     const [result] = await connectDB.execute("SELECT 1");
-
     if (result) {
       console.log("🔌 Connexion à la base de données établie avec succès");
     }
 
-    // Initialiser le moteur NLP si nécessaire (nous gardons cette partie pour la rétrocompatibilité)
     try {
       const nlpManager = new NlpManager({ languages: ["fr"] });
-
-      // Charge un modèle entraîné s'il existe
       if (fs.existsSync("./model.nlp")) {
         await nlpManager.load("./model.nlp");
         console.log("✓ Modèle NLP chargé avec succès");
@@ -103,14 +156,32 @@ async function initializeServer() {
       );
     }
 
-    // Configurer le port
-    const PORT = process.env.PORT || 3001;
-
-    // Démarrer le serveur
-    app.listen(PORT, () => {
+    const PORT = process.env.PORT || 5001;
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Serveur démarré sur le port ${PORT}`);
       console.log(`📝 Mode : ${process.env.NODE_ENV || "production"}`);
       console.log(`🌐 API accessible à http://localhost:${PORT}/api`);
+
+      console.log("\n📋 Routes disponibles dans l'API:");
+      const apiRoutesLogger = logRoutes(app._router);
+      const groupedRoutes = {};
+      apiRoutesLogger.forEach((route) => {
+        const pathSegments = route.split(" ")[1].split("/");
+        const baseEndpoint = pathSegments[1] || "root";
+        if (!groupedRoutes[baseEndpoint]) {
+          groupedRoutes[baseEndpoint] = [];
+        }
+        groupedRoutes[baseEndpoint].push(route);
+      });
+      Object.keys(groupedRoutes)
+        .sort()
+        .forEach((endpoint) => {
+          console.log(`\n🔹 ${endpoint.toUpperCase()}:`);
+          groupedRoutes[endpoint].forEach((route) => {
+            console.log(`  ${route}`);
+          });
+        });
+      console.log("\n");
     });
   } catch (error) {
     console.error("❌ Erreur lors de l'initialisation du serveur:", error);
@@ -118,7 +189,5 @@ async function initializeServer() {
   }
 }
 
-// Lancer l'initialisation du serveur
 initializeServer();
-
 module.exports = app;

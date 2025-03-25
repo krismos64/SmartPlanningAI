@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 
 const SidebarContainer = styled.aside`
@@ -30,17 +30,17 @@ const NavLink = styled(Link)`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
   text-decoration: none;
-  color: ${({ theme, active }) =>
-    active ? theme.colors.primary : theme.colors.text.secondary};
-  font-weight: ${({ theme, active }) =>
-    active
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.primary : theme.colors.text.secondary};
+  font-weight: ${({ theme, $active }) =>
+    $active
       ? theme.typography.fontWeights.semiBold
       : theme.typography.fontWeights.medium};
   padding: ${({ theme }) => `${theme.spacing.md} ${theme.spacing.lg}`};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   transition: all 0.3s ease;
-  background-color: ${({ theme, active }) =>
-    active ? `${theme.colors.primary}15` : "transparent"};
+  background-color: ${({ theme, $active }) =>
+    $active ? `${theme.colors.primary}15` : "transparent"};
 
   &:hover {
     color: ${({ theme }) => theme.colors.primary};
@@ -74,6 +74,7 @@ const SectionTitle = styled.h3`
 // Composant Sidebar
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
 
@@ -369,6 +370,15 @@ const Sidebar = () => {
     { to: "/settings", icon: <SettingsIcon />, label: t("navbar.settings") },
   ];
 
+  // Fonction pour gérer la navigation directe (sans modal)
+  const handleNavigation = (to) => {
+    // Naviguer vers la page en indiquant qu'il s'agit d'une navigation depuis la sidebar
+    navigate(to, {
+      state: { fromSidebar: true },
+      replace: true,
+    });
+  };
+
   console.log("Sidebar rendering", { location: location.pathname });
 
   return (
@@ -378,7 +388,13 @@ const Sidebar = () => {
       </SectionTitle>
       <NavLinks>
         {navLinks.map((link) => (
-          <NavLink key={link.to} to={link.to} active={isActive(link.to)}>
+          <NavLink
+            key={link.to}
+            as="div"
+            onClick={() => handleNavigation(link.to)}
+            $active={isActive(link.to)}
+            style={{ cursor: "pointer" }}
+          >
             <NavLinkIcon>{link.icon}</NavLinkIcon>
             {link.label}
           </NavLink>

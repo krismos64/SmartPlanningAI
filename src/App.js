@@ -92,8 +92,8 @@ const MainContent = styled.div`
 
   /* Utiliser un sélecteur CSS plutôt que des props qui sont transmises à l'élément DOM */
   ${(props) =>
-    props.hasNavbar &&
-    !props.isPublicPage &&
+    props.$hasNavbar &&
+    !props.$isPublicPage &&
     `
     padding-top: 64px; /* Hauteur de la navbar seulement pour les pages protégées */
   `}
@@ -143,12 +143,17 @@ const AppContent = () => {
     "/register",
     "/forgot-password",
     "/reset-password",
-    "/account/delete-confirmation",
     "/unauthorized",
   ].some((path) => location.pathname.startsWith(path));
 
+  // Gérer correctement le chemin de confirmation de suppression de compte
+  const isDeleteConfirmationPage = location.pathname.startsWith(
+    "/account/delete-confirmation"
+  );
+
   // Vérifier si c'est une page protégée (ni publique ni auth)
-  const isProtectedPage = !isPublicPage && !isAuthPage;
+  const isProtectedPage =
+    !isPublicPage && !isAuthPage && !isDeleteConfirmationPage;
 
   // Force l'affichage de la navbar et sidebar sur les pages protégées
   const shouldShowNavbar = isProtectedPage;
@@ -188,8 +193,8 @@ const AppContent = () => {
           <HelmetProvider>
             <Navbar />
             <MainContent
-              hasNavbar={shouldShowNavbar}
-              isPublicPage={isPublicPage}
+              $hasNavbar={shouldShowNavbar}
+              $isPublicPage={isPublicPage}
             >
               <ErrorBoundary>
                 <Routes>

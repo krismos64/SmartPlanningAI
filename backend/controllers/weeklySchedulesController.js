@@ -5,6 +5,9 @@
 const db = require("../db");
 const moment = require("moment");
 const WeeklySchedule = require("../models/WeeklySchedule");
+const {
+  createAndEmitNotification,
+} = require("../services/notificationService");
 
 /**
  * Crée un nouveau planning hebdomadaire
@@ -65,70 +68,34 @@ exports.createSchedule = async (req, res) => {
       [employee_id]
     );
 
-    // Enregistrer l'activité
-    if (req.user && req.user.id) {
-      try {
-        const Activity = require("../models/Activity");
-        const Notification = require("../models/Notification");
+    const employeeName =
+      employeeResult.length > 0
+        ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
+        : `Employé #${employee_id}`;
 
-        // Détails de l'employé pour le message
-        const employeeName =
-          employeeResult.length > 0
-            ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
-            : `Employé #${employee_id}`;
+    // Créer une notification pour l'employé
+    await createAndEmitNotification(req.io, {
+      user_id: employee_id,
+      title: "Nouveau planning créé",
+      message: `Un planning a été créé pour vous (semaine du ${week_start})`,
+      type: "info",
+      link: `/weekly-schedule/${week_start}`,
+    });
 
-        // Type d'activité (création ou mise à jour)
-        const activityType = result.isUpdate ? "update" : "create";
+    // Créer une notification pour les administrateurs et managers
+    const [managers] = await db.query(
+      "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+    );
 
-        // Description de l'activité
-        const description = result.isUpdate
-          ? `Mise à jour d'un planning pour ${employeeName} (semaine du ${week_start})`
-          : `Création d'un planning pour ${employeeName} (semaine du ${week_start})`;
-
-        // Log de l'activité
-        await Activity.logActivity({
-          type: activityType,
-          entity_type: "schedule",
-          entity_id: scheduleId,
-          description,
-          user_id: req.user.id,
+    for (const manager of managers) {
+      if (manager.id !== req.user.id) {
+        await createAndEmitNotification(req.io, {
+          user_id: manager.id,
+          title: "Nouveau planning créé",
+          message: `Un planning a été créé pour ${employeeName} (semaine du ${week_start})`,
+          type: "info",
+          link: `/weekly-schedule/${week_start}`,
         });
-
-        // Créer une notification pour les administrateurs et managers
-        const [managers] = await db.query(
-          "SELECT id FROM users WHERE role IN ('admin', 'manager')"
-        );
-
-        // Titre de la notification
-        const notificationTitle = result.isUpdate
-          ? "Planning modifié"
-          : "Nouveau planning créé";
-
-        // Message de la notification
-        const notificationMessage = result.isUpdate
-          ? `Le planning de ${employeeName} (semaine du ${week_start}) a été modifié`
-          : `Un planning a été créé pour ${employeeName} (semaine du ${week_start})`;
-
-        // Notifier chaque manager/admin
-        for (const manager of managers) {
-          // Ne pas notifier l'utilisateur qui a fait la modification
-          if (manager.id !== req.user.id) {
-            await Notification.createAndBroadcast({
-              user_id: manager.id,
-              title: notificationTitle,
-              message: notificationMessage,
-              type: "info",
-              entity_type: "schedule",
-              entity_id: scheduleId,
-              link: `/weekly-schedule/${week_start}`,
-            });
-          }
-        }
-      } catch (activityError) {
-        console.error(
-          "Erreur lors de l'enregistrement de l'activité ou de la notification:",
-          activityError
-        );
       }
     }
 
@@ -366,55 +333,34 @@ exports.updateSchedule = async (req, res) => {
       [employeeId]
     );
 
-    // Enregistrer l'activité et créer une notification
-    if (req.user && req.user.id) {
-      try {
-        const Activity = require("../models/Activity");
-        const Notification = require("../models/Notification");
+    const employeeName =
+      employeeResult.length > 0
+        ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
+        : `Employé #${employeeId}`;
 
-        // Détails de l'employé pour le message
-        const employeeName =
-          employeeResult.length > 0
-            ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
-            : `Employé #${employeeId}`;
+    // Créer une notification pour l'employé
+    await createAndEmitNotification(req.io, {
+      user_id: employee_id,
+      title: "Planning modifié",
+      message: `Votre planning a été modifié (semaine du ${week_start})`,
+      type: "info",
+      link: `/weekly-schedule/${week_start}`,
+    });
 
-        const weekStartFormatted = week_start || scheduleExists[0].week_start;
+    // Créer une notification pour les administrateurs et managers
+    const [managers] = await db.query(
+      "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+    );
 
-        // Log de l'activité
-        await Activity.logActivity({
-          type: "update",
-          entity_type: "schedule",
-          entity_id: id,
-          description: `Modification du planning de ${employeeName} (semaine du ${weekStartFormatted})`,
-          user_id: req.user.id,
+    for (const manager of managers) {
+      if (manager.id !== req.user.id) {
+        await createAndEmitNotification(req.io, {
+          user_id: manager.id,
+          title: "Planning modifié",
+          message: `Le planning de ${employeeName} a été modifié (semaine du ${week_start})`,
+          type: "info",
+          link: `/weekly-schedule/${week_start}`,
         });
-
-        // Créer une notification pour le propriétaire du planning et les administrateurs
-        const [managers] = await db.query(
-          "SELECT id FROM users WHERE role IN ('admin', 'manager') OR id = ?",
-          [employeeId]
-        );
-
-        // Notifier chaque personne concernée
-        for (const manager of managers) {
-          // Ne pas notifier l'utilisateur qui a fait la modification
-          if (manager.id !== req.user.id) {
-            await Notification.createAndBroadcast({
-              user_id: manager.id,
-              title: "Planning modifié",
-              message: `Le planning de ${employeeName} (semaine du ${weekStartFormatted}) a été modifié`,
-              type: "info",
-              entity_type: "schedule",
-              entity_id: id,
-              link: `/weekly-schedule/${weekStartFormatted}`,
-            });
-          }
-        }
-      } catch (activityError) {
-        console.error(
-          "Erreur lors de l'enregistrement de l'activité ou de la notification:",
-          activityError
-        );
       }
     }
 
@@ -427,7 +373,7 @@ exports.updateSchedule = async (req, res) => {
     console.error("Erreur lors de la mise à jour du planning:", error);
     return res.status(500).json({
       success: false,
-      message: "Erreur serveur lors de la mise à jour du planning",
+      message: "Erreur lors de la mise à jour du planning",
       error: error.message,
     });
   }
