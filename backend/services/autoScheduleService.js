@@ -1,11 +1,17 @@
 /**
  * Service d'auto-planification pour générer des plannings hebdomadaires optimisés
  * pour tous les employés actifs d'un département
+ * @module services/autoScheduleService
  */
 
 const db = require("../db");
 const moment = require("moment");
+const { optimizeSchedule } = require("../utils/scheduleOptimization");
 
+/**
+ * Classe de service pour la génération automatique de plannings.
+ * Implémente une approche heuristique multi-phases pour créer des plannings optimisés.
+ */
 class AutoScheduleService {
   /**
    * Génère un planning hebdomadaire optimisé pour les employés actifs
@@ -14,7 +20,7 @@ class AutoScheduleService {
    * @param {Date|string} options.weekStart Date de début de la semaine (lundi)
    * @param {number} options.departmentId ID du département concerné
    * @param {Object} options.businessHours Heures d'ouverture par jour {Monday: [9, 17], ...}
-   * @param {Object} options.employeePreferences Préférences par employé (facultatif)
+   * @param {Object} [options.employeePreferences] Préférences par employé (facultatif)
    * @param {string|Date} [options.sourceWeek] Date de début d'une semaine à cloner (facultatif)
    * @param {number} [options.minimumEmployees=1] Nombre minimum d'employés requis par créneau
    * @param {boolean} [options.balanceRoles=true] Équilibrer les rôles
@@ -22,13 +28,9 @@ class AutoScheduleService {
    */
   async generateWeeklySchedule(options) {
     try {
-      // Valider les options
-      if (!options.weekStart)
-        throw new Error("Date de début de semaine requise");
-      if (!options.departmentId) throw new Error("ID de département requis");
-      if (!options.businessHours)
-        throw new Error("Heures d'ouverture requises");
+      console.log("Démarrage de la génération du planning hebdomadaire...");
 
+      // Convertir la date de début en objet moment et calculer la fin de semaine
       const weekStart = moment(options.weekStart).startOf("isoWeek");
       const weekEnd = moment(weekStart).add(6, "days").endOf("day");
 
@@ -38,8 +40,12 @@ class AutoScheduleService {
 
       // 1. Récupérer les employés actifs du département
       const employees = await this._getActiveEmployees(options.departmentId);
-      if (!employees.length)
+      if (!employees.length) {
         throw new Error("Aucun employé actif trouvé dans ce département");
+      }
+      console.log(
+        `${employees.length} employés actifs trouvés dans ce département`
+      );
 
       // 2. Récupérer les congés approuvés pendant cette semaine
       const vacations = await this._getApprovedVacations(
@@ -47,29 +53,67 @@ class AutoScheduleService {
         weekStart.format("YYYY-MM-DD"),
         weekEnd.format("YYYY-MM-DD")
       );
+      console.log(
+        `${vacations.length} congés approuvés trouvés pour cette période`
+      );
 
-      // 3. Récupérer une semaine source si demandé
+      // 3. Construire la map des jours de congés
+      const vacationDays = this._buildVacationDaysMap(vacations);
+
+      // 4. Récupérer une semaine source si demandé
       let sourceSchedules = null;
       if (options.sourceWeek) {
         sourceSchedules = await this._getSourceWeekSchedules(
           options.departmentId,
           options.sourceWeek
         );
+        console.log(
+          `${
+            sourceSchedules ? sourceSchedules.length : 0
+          } plannings sources trouvés`
+        );
       }
 
-      // 4. Générer le planning optimisé
-      const result = await this._generateOptimizedSchedule({
+      // 5. Générer le planning optimisé avec le nouvel algorithme
+      let scheduleResult;
+
+      if (sourceSchedules && sourceSchedules.length) {
+        // Si une semaine source est fournie, l'utiliser comme point de départ
+        console.log("Génération basée sur une semaine source...");
+        scheduleResult = this._generateFromSourceSchedule(
+          employees,
+          weekStart,
+          options.businessHours,
+          vacationDays,
+          options.employeePreferences || {},
+          sourceSchedules,
+          minimumEmployees,
+          balanceRoles
+        );
+      } else {
+        // Utiliser le nouvel algorithme d'optimisation amélioré
+        console.log("Génération d'un nouveau planning optimisé...");
+        scheduleResult = optimizeSchedule({
+          employees,
+          businessHours: options.businessHours,
+          vacationDays,
+          employeePreferences: options.employeePreferences || {},
+          minimumEmployees,
+          balanceRoles,
+          weekStart: weekStart.format("YYYY-MM-DD"),
+        });
+      }
+
+      // 6. Formatter le résultat final
+      const result = this._formatScheduleResult(
+        scheduleResult.scheduleData,
         employees,
         weekStart,
-        weekEnd,
-        businessHours: options.businessHours,
-        vacations,
-        employeePreferences: options.employeePreferences || {},
-        sourceSchedules,
-        minimumEmployees,
-        balanceRoles,
-      });
+        scheduleResult.employeeHours,
+        scheduleResult.metrics
+      );
 
+      console.log("Génération du planning terminée avec succès");
       return result;
     } catch (error) {
       console.error("Erreur lors de la génération du planning:", error);
@@ -172,100 +216,6 @@ class AutoScheduleService {
   }
 
   /**
-   * Génère un planning optimisé en utilisant un algorithme heuristique
-   *
-   * @param {Object} params Paramètres de génération
-   * @returns {Promise<Object>} Planning optimisé et statistiques
-   * @private
-   */
-  async _generateOptimizedSchedule(params) {
-    const {
-      employees,
-      weekStart,
-      weekEnd,
-      businessHours,
-      vacations,
-      employeePreferences,
-      sourceSchedules,
-      minimumEmployees,
-      balanceRoles,
-    } = params;
-
-    // Créer une structure pour tracker les heures attribuées par employé
-    const employeeHours = {};
-    employees.forEach((emp) => {
-      employeeHours[emp.id] = 0;
-    });
-
-    // Créer une map des jours de congés par employé
-    const vacationDays = this._buildVacationDaysMap(vacations);
-
-    // Jours de la semaine
-    const days = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ];
-
-    // Initialiser le planning avec des tableaux vides pour chaque jour
-    const scheduleData = {};
-    days.forEach((day) => {
-      scheduleData[day] = {};
-      employees.forEach((emp) => {
-        scheduleData[day][emp.id] = [];
-      });
-    });
-
-    // Cloner le planning source si disponible
-    if (sourceSchedules && sourceSchedules.length) {
-      // Utiliser les données du planning source comme point de départ
-      this._applySourceSchedule(
-        scheduleData,
-        sourceSchedules,
-        employees,
-        vacationDays
-      );
-    } else {
-      // Générer un nouveau planning optimisé
-      this._generateScheduleFromScratch(
-        scheduleData,
-        employees,
-        businessHours,
-        vacationDays,
-        employeePreferences,
-        employeeHours,
-        minimumEmployees,
-        balanceRoles
-      );
-    }
-
-    // Optimiser le planning généré pour équilibrer les charges
-    this._optimizeSchedule(
-      scheduleData,
-      employees,
-      businessHours,
-      vacationDays,
-      employeePreferences,
-      employeeHours,
-      minimumEmployees
-    );
-
-    // Formatter le résultat final
-    const result = this._formatScheduleResult(
-      scheduleData,
-      employees,
-      weekStart,
-      employeeHours
-    );
-
-    return result;
-  }
-
-  /**
    * Construit une map des jours de congés par employé
    *
    * @param {Array} vacations Liste des congés approuvés
@@ -296,15 +246,33 @@ class AutoScheduleService {
   }
 
   /**
-   * Applique le planning source comme base
+   * Génère un planning basé sur une semaine source
    *
-   * @param {Object} scheduleData Planning en cours de génération
-   * @param {Array} sourceSchedules Plannings sources
    * @param {Array} employees Liste des employés
+   * @param {moment.Moment} weekStart Date de début de la semaine
+   * @param {Object} businessHours Heures d'ouverture par jour
    * @param {Object} vacationDays Map des jours de congés
+   * @param {Object} employeePreferences Préférences des employés
+   * @param {Array} sourceSchedules Plannings sources
+   * @param {number} minimumEmployees Nombre minimum d'employés par créneau
+   * @param {boolean} balanceRoles Équilibrer les rôles
+   * @returns {Object} Planning généré
    * @private
    */
-  _applySourceSchedule(scheduleData, sourceSchedules, employees, vacationDays) {
+  _generateFromSourceSchedule(
+    employees,
+    weekStart,
+    businessHours,
+    vacationDays,
+    employeePreferences,
+    sourceSchedules,
+    minimumEmployees,
+    balanceRoles
+  ) {
+    console.log("Génération à partir d'une semaine source...");
+
+    // Initialiser les structures de données
+    const scheduleData = {};
     const days = [
       "Monday",
       "Tuesday",
@@ -314,542 +282,208 @@ class AutoScheduleService {
       "Saturday",
       "Sunday",
     ];
-    const activeEmployeeIds = employees.map((e) => e.id);
+    days.forEach((day) => {
+      scheduleData[day] = {};
+      employees.forEach((emp) => {
+        scheduleData[day][emp.id] = [];
+      });
+    });
+
+    // Compteur d'heures par employé
+    const employeeHours = {};
+    employees.forEach((emp) => {
+      employeeHours[emp.id] = 0;
+    });
+
+    // Appliquer les plannings sources
+    this._applySourceSchedule(
+      scheduleData,
+      sourceSchedules,
+      employees,
+      vacationDays,
+      employeeHours,
+      weekStart
+    );
+
+    // Utiliser l'algorithme d'optimisation pour améliorer le planning basé sur la source
+    const optimizationResult = optimizeSchedule({
+      employees,
+      businessHours,
+      vacationDays,
+      employeePreferences,
+      minimumEmployees,
+      balanceRoles,
+      weekStart: weekStart.format("YYYY-MM-DD"),
+      initialSchedule: scheduleData, // Fournir le planning basé sur la source
+      initialHours: employeeHours, // Fournir les heures déjà attribuées
+    });
+
+    return optimizationResult;
+  }
+
+  /**
+   * Applique les plannings sources aux données de planning
+   *
+   * @param {Object} scheduleData Données de planning à remplir
+   * @param {Array} sourceSchedules Plannings sources
+   * @param {Array} employees Liste des employés
+   * @param {Object} vacationDays Map des jours de congés
+   * @param {Object} employeeHours Compteur d'heures
+   * @param {moment.Moment} weekStart Date de début de la semaine
+   * @private
+   */
+  _applySourceSchedule(
+    scheduleData,
+    sourceSchedules,
+    employees,
+    vacationDays,
+    employeeHours,
+    weekStart
+  ) {
+    // Map des employés pour accès rapide
+    const employeeMap = {};
+    employees.forEach((emp) => {
+      employeeMap[emp.id] = emp;
+    });
+
+    // Jours de la semaine
+    const days = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
+
+    // Dates de la semaine pour vérifier les congés
+    const weekDates = {};
+    days.forEach((day, index) => {
+      weekDates[day] = weekStart
+        .clone()
+        .add(index, "days")
+        .format("YYYY-MM-DD");
+    });
 
     // Pour chaque planning source
     sourceSchedules.forEach((source) => {
       const employeeId = source.employee_id;
 
-      // Vérifier si l'employé est toujours actif
-      if (!activeEmployeeIds.includes(employeeId)) return;
+      // Vérifier si l'employé existe encore dans le département
+      if (!employeeMap[employeeId]) return;
 
-      // Vérifier si la structure schedule_data est valide
-      const sourceData =
-        typeof source.schedule_data === "string"
-          ? JSON.parse(source.schedule_data)
-          : source.schedule_data;
-
-      if (!sourceData) return;
-
-      // Copier les créneaux de chaque jour, sauf pour les jours de congés
-      days.forEach((day) => {
-        if (sourceData[day] && Array.isArray(sourceData[day])) {
-          // Calculer la date correspondant à ce jour
-          const weekStartMoment = moment().startOf("isoWeek");
-          const dayIndex = days.indexOf(day);
-          const dayDate = weekStartMoment
-            .clone()
-            .add(dayIndex, "days")
-            .format("YYYY-MM-DD");
-
-          // Vérifier si l'employé est en congé ce jour-là
-          const isOnVacation =
-            vacationDays[employeeId] &&
-            vacationDays[employeeId].includes(dayDate);
-
-          if (!isOnVacation) {
-            scheduleData[day][employeeId] = [...sourceData[day]];
-          }
-        }
-      });
-    });
-  }
-
-  /**
-   * Génère un planning à partir de zéro
-   *
-   * @param {Object} scheduleData Planning en cours de génération
-   * @param {Array} employees Liste des employés
-   * @param {Object} businessHours Heures d'ouverture par jour
-   * @param {Object} vacationDays Map des jours de congés
-   * @param {Object} employeePreferences Préférences des employés
-   * @param {Object} employeeHours Compteur d'heures par employé
-   * @param {number} minimumEmployees Nombre minimum d'employés par créneau
-   * @param {boolean} balanceRoles Équilibrer les rôles
-   * @private
-   */
-  _generateScheduleFromScratch(
-    scheduleData,
-    employees,
-    businessHours,
-    vacationDays,
-    employeePreferences,
-    employeeHours,
-    minimumEmployees,
-    balanceRoles
-  ) {
-    const days = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ];
-
-    // Map des rôles pour l'équilibrage
-    const roleMap = {};
-    if (balanceRoles) {
-      employees.forEach((emp) => {
-        if (emp.role) {
-          if (!roleMap[emp.role]) {
-            roleMap[emp.role] = [];
-          }
-          roleMap[emp.role].push(emp.id);
-        }
-      });
-    }
-
-    // Pour chaque jour de la semaine
-    days.forEach((day) => {
-      // Vérifier si le jour est ouvré
-      if (
-        !businessHours[day] ||
-        !Array.isArray(businessHours[day]) ||
-        businessHours[day].length < 2
-      ) {
-        return; // Jour non ouvré ou format incorrect
-      }
-
-      const [openHour, closeHour] = businessHours[day];
-      if (openHour >= closeHour) return; // Heures invalides
-
-      // Calculer la date pour ce jour
-      const weekStartMoment = moment().startOf("isoWeek");
-      const dayIndex = days.indexOf(day);
-      const dayDate = weekStartMoment
-        .clone()
-        .add(dayIndex, "days")
-        .format("YYYY-MM-DD");
-
-      // Diviser la journée en créneaux (par défaut de 4 heures)
-      const slots = [];
-      for (let hour = openHour; hour < closeHour; hour += 4) {
-        const slotEnd = Math.min(hour + 4, closeHour);
-        slots.push({
-          start: hour,
-          end: slotEnd,
-          hours: slotEnd - hour,
-          employees: [],
-        });
-      }
-
-      // Trier les employés par nombre d'heures travaillées (croissant)
-      // Cela permet d'équilibrer les heures entre employés
-      const sortedEmployees = [...employees].sort((a, b) => {
-        return employeeHours[a.id] - employeeHours[b.id];
-      });
-
-      // Attribuer des employés à chaque créneau
-      slots.forEach((slot) => {
-        const availableEmployees = sortedEmployees.filter((emp) => {
-          // Vérifier si l'employé n'est pas en congé ce jour-là
-          const isOnVacation =
-            vacationDays[emp.id] && vacationDays[emp.id].includes(dayDate);
-
-          if (isOnVacation) return false;
-
-          // Vérifier si l'attribution de ce créneau ne dépasserait pas le contrat
-          const potentialHours = employeeHours[emp.id] + slot.hours;
-          const maxHours = emp.contractHours || 35; // Par défaut 35h si non spécifié
-
-          return potentialHours <= maxHours * 1.1; // Tolérance de 10% de dépassement
-        });
-
-        // Si équilibrage des rôles, s'assurer que chaque rôle est représenté
-        if (balanceRoles && Object.keys(roleMap).length > 1) {
-          const selectedEmployees = new Set();
-
-          // D'abord, sélectionner un employé de chaque rôle si possible
-          Object.entries(roleMap).forEach(([role, empIds]) => {
-            const availableForRole = availableEmployees.filter(
-              (emp) => emp.role === role && !selectedEmployees.has(emp.id)
-            );
-
-            if (availableForRole.length > 0) {
-              // Prendre l'employé avec le moins d'heures
-              const selected = availableForRole[0];
-              selectedEmployees.add(selected.id);
-
-              // Ajouter le créneau au planning
-              scheduleData[day][selected.id].push({
-                start: slot.start,
-                end: slot.end,
-              });
-
-              // Mettre à jour le compteur d'heures
-              employeeHours[selected.id] += slot.hours;
-            }
-          });
-
-          // Ensuite, compléter avec d'autres employés si nécessaire
-          if (selectedEmployees.size < minimumEmployees) {
-            const remaining = availableEmployees.filter(
-              (emp) => !selectedEmployees.has(emp.id)
-            );
-
-            for (
-              let i = 0;
-              i < minimumEmployees - selectedEmployees.size &&
-              i < remaining.length;
-              i++
-            ) {
-              const selected = remaining[i];
-              selectedEmployees.add(selected.id);
-
-              // Ajouter le créneau au planning
-              scheduleData[day][selected.id].push({
-                start: slot.start,
-                end: slot.end,
-              });
-
-              // Mettre à jour le compteur d'heures
-              employeeHours[selected.id] += slot.hours;
-            }
-          }
-        } else {
-          // Sans équilibrage des rôles, simplement prendre les premiers employés disponibles
-          const toSelect = Math.min(
-            minimumEmployees,
-            availableEmployees.length
-          );
-
-          for (let i = 0; i < toSelect; i++) {
-            const selected = availableEmployees[i];
-
-            // Ajouter le créneau au planning
-            scheduleData[day][selected.id].push({
-              start: slot.start,
-              end: slot.end,
-            });
-
-            // Mettre à jour le compteur d'heures
-            employeeHours[selected.id] += slot.hours;
-          }
-        }
-      });
-    });
-  }
-
-  /**
-   * Optimise le planning généré pour respecter au mieux les préférences
-   *
-   * @param {Object} scheduleData Planning en cours de génération
-   * @param {Array} employees Liste des employés
-   * @param {Object} businessHours Heures d'ouverture par jour
-   * @param {Object} vacationDays Map des jours de congés
-   * @param {Object} employeePreferences Préférences des employés
-   * @param {Object} employeeHours Compteur d'heures par employé
-   * @param {number} minimumEmployees Nombre minimum d'employés par créneau
-   * @private
-   */
-  _optimizeSchedule(
-    scheduleData,
-    employees,
-    businessHours,
-    vacationDays,
-    employeePreferences,
-    employeeHours,
-    minimumEmployees
-  ) {
-    const days = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ];
-    const maxIterations = 100;
-    let iteration = 0;
-    let improved = true;
-
-    // Calculer le score initial du planning
-    let currentScore = this._evaluateSchedule(
-      scheduleData,
-      employees,
-      businessHours,
-      employeePreferences,
-      employeeHours,
-      minimumEmployees
-    );
-
-    // Algorithme de recherche locale pour améliorer le planning
-    while (improved && iteration < maxIterations) {
-      improved = false;
-      iteration++;
-
-      // Pour chaque jour
-      for (const day of days) {
-        // Vérifier si le jour est ouvré
-        if (
-          !businessHours[day] ||
-          !Array.isArray(businessHours[day]) ||
-          businessHours[day].length < 2
-        ) {
-          continue;
-        }
-
-        // Calculer la date pour ce jour
-        const weekStartMoment = moment().startOf("isoWeek");
-        const dayIndex = days.indexOf(day);
-        const dayDate = weekStartMoment
-          .clone()
-          .add(dayIndex, "days")
-          .format("YYYY-MM-DD");
-
-        // Pour chaque paire d'employés, essayer d'échanger leurs créneaux
-        for (let i = 0; i < employees.length; i++) {
-          const empA = employees[i];
-
-          // Vérifier si l'employé A est en congé ce jour-là
-          const isAOnVacation =
-            vacationDays[empA.id] && vacationDays[empA.id].includes(dayDate);
-          if (isAOnVacation) continue;
-
-          for (let j = i + 1; j < employees.length; j++) {
-            const empB = employees[j];
-
-            // Vérifier si l'employé B est en congé ce jour-là
-            const isBOnVacation =
-              vacationDays[empB.id] && vacationDays[empB.id].includes(dayDate);
-            if (isBOnVacation) continue;
-
-            // Échanger temporairement les créneaux
-            const slotsA = scheduleData[day][empA.id];
-            const slotsB = scheduleData[day][empB.id];
-
-            scheduleData[day][empA.id] = slotsB;
-            scheduleData[day][empB.id] = slotsA;
-
-            // Recalculer les heures
-            const originalHoursA = employeeHours[empA.id];
-            const originalHoursB = employeeHours[empB.id];
-
-            const hoursA = slotsA.reduce(
-              (sum, slot) => sum + (slot.end - slot.start),
-              0
-            );
-            const hoursB = slotsB.reduce(
-              (sum, slot) => sum + (slot.end - slot.start),
-              0
-            );
-
-            employeeHours[empA.id] = originalHoursA - hoursA + hoursB;
-            employeeHours[empB.id] = originalHoursB - hoursB + hoursA;
-
-            // Évaluer le nouveau planning
-            const newScore = this._evaluateSchedule(
-              scheduleData,
-              employees,
-              businessHours,
-              employeePreferences,
-              employeeHours,
-              minimumEmployees
-            );
-
-            // Si le nouveau score est meilleur, conserver l'échange
-            if (newScore > currentScore) {
-              currentScore = newScore;
-              improved = true;
-            } else {
-              // Sinon, annuler l'échange
-              scheduleData[day][empA.id] = slotsA;
-              scheduleData[day][empB.id] = slotsB;
-              employeeHours[empA.id] = originalHoursA;
-              employeeHours[empB.id] = originalHoursB;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Évalue la qualité d'un planning selon plusieurs critères
-   *
-   * @param {Object} scheduleData Planning à évaluer
-   * @param {Array} employees Liste des employés
-   * @param {Object} businessHours Heures d'ouverture par jour
-   * @param {Object} employeePreferences Préférences des employés
-   * @param {Object} employeeHours Compteur d'heures par employé
-   * @param {number} minimumEmployees Nombre minimum d'employés par créneau
-   * @returns {number} Score d'évaluation (plus élevé = meilleur)
-   * @private
-   */
-  _evaluateSchedule(
-    scheduleData,
-    employees,
-    businessHours,
-    employeePreferences,
-    employeeHours,
-    minimumEmployees
-  ) {
-    const days = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ];
-    let score = 100; // Score de base
-
-    // Évaluer l'équilibre des heures entre employés
-    const targetHoursPerEmployee = {};
-    employees.forEach((emp) => {
-      targetHoursPerEmployee[emp.id] = emp.contractHours || 35;
-    });
-
-    // Pénaliser les écarts par rapport aux heures contractuelles
-    Object.entries(employeeHours).forEach(([empId, hours]) => {
-      const target = targetHoursPerEmployee[empId];
-      const diff = Math.abs(hours - target);
-
-      if (hours > target) {
-        // Pénaliser davantage les heures supplémentaires
-        score -= diff * 2;
-      } else {
-        // Pénaliser légèrement les heures manquantes
-        score -= diff;
-      }
-    });
-
-    // Évaluer le respect des préférences
-    let preferencesMatched = 0;
-    let totalPreferences = 0;
-
-    if (employeePreferences) {
-      Object.entries(employeePreferences).forEach(([empId, prefs]) => {
-        empId = parseInt(empId);
-
-        if (!prefs || typeof prefs !== "object") return;
-
-        days.forEach((day) => {
-          if (!prefs[day] || !Array.isArray(prefs[day])) return;
-
-          const preferredSlots = prefs[day];
-          const assignedSlots = scheduleData[day][empId] || [];
-
-          preferredSlots.forEach((preferred) => {
-            totalPreferences++;
-
-            // Vérifier si un des créneaux attribués correspond à la préférence
-            const isMatched = assignedSlots.some((assigned) => {
-              return (
-                assigned.start <= preferred.start &&
-                assigned.end >= preferred.end
-              );
-            });
-
-            if (isMatched) {
-              preferencesMatched++;
-            }
-          });
-        });
-      });
-    }
-
-    // Bonus pour le respect des préférences
-    if (totalPreferences > 0) {
-      const preferenceMatchRate = preferencesMatched / totalPreferences;
-      score += preferenceMatchRate * 50; // Max 50 points de bonus
-    }
-
-    // Évaluer la couverture des créneaux
-    days.forEach((day) => {
-      if (
-        !businessHours[day] ||
-        !Array.isArray(businessHours[day]) ||
-        businessHours[day].length < 2
-      ) {
+      // Récupérer les données de planning
+      let sourceData;
+      try {
+        sourceData =
+          typeof source.schedule_data === "string"
+            ? JSON.parse(source.schedule_data)
+            : source.schedule_data;
+      } catch (e) {
+        console.warn(
+          `Erreur lors du parsing des données source pour l'employé ${employeeId}:`,
+          e
+        );
         return;
       }
 
-      const [openHour, closeHour] = businessHours[day];
-      if (openHour >= closeHour) return;
+      // Pour chaque jour de la semaine
+      days.forEach((day) => {
+        if (!sourceData[day]) return;
 
-      // Diviser la journée en créneaux horaires
-      for (let hour = openHour; hour < closeHour; hour++) {
-        // Compter combien d'employés sont présents à cette heure
-        let employeesPresent = 0;
+        // Vérifier si l'employé est en congé ce jour-là
+        const isOnVacation =
+          vacationDays[employeeId] &&
+          vacationDays[employeeId].includes(weekDates[day]);
 
-        employees.forEach((emp) => {
-          const slots = scheduleData[day][emp.id] || [];
-          const isPresent = slots.some((slot) => {
-            return slot.start <= hour && slot.end > hour;
+        if (isOnVacation) return;
+
+        // Ajouter les shifts du jour
+        sourceData[day].forEach((shift) => {
+          if (!shift.start || !shift.end) return;
+
+          // Calculer la durée
+          const duration = shift.end - shift.start;
+
+          // Ajouter le shift
+          scheduleData[day][employeeId].push({
+            start: shift.start,
+            end: shift.end,
+            duration,
+            source: true, // Marquer comme provenant d'une source
           });
 
-          if (isPresent) {
-            employeesPresent++;
-          }
+          // Mettre à jour le compteur d'heures
+          employeeHours[employeeId] += duration;
         });
-
-        // Pénaliser si le nombre minimum d'employés n'est pas atteint
-        if (employeesPresent < minimumEmployees) {
-          score -= 5 * (minimumEmployees - employeesPresent);
-        }
-      }
+      });
     });
-
-    return score;
   }
 
   /**
-   * Formate le résultat final du planning généré
+   * Formate le résultat final pour correspondre à la structure attendue par l'API
    *
-   * @param {Object} scheduleData Planning généré
+   * @param {Object} scheduleData Données de planning générées
    * @param {Array} employees Liste des employés
    * @param {moment.Moment} weekStart Date de début de la semaine
-   * @param {Object} employeeHours Heures attribuées par employé
-   * @returns {Object} Résultat formaté avec planning et statistiques
+   * @param {Object} employeeHours Compteur d'heures par employé
+   * @param {Object} metrics Métriques du planning
+   * @returns {Object} Résultat formaté
    * @private
    */
-  _formatScheduleResult(scheduleData, employees, weekStart, employeeHours) {
-    const result = {
-      schedule: [],
-      stats: {
-        total_hours: { ...employeeHours },
-        preference_match_rate: 0, // Sera calculé par l'interface utilisateur
-        overworked_employees: [],
-      },
-    };
+  _formatScheduleResult(
+    scheduleData,
+    employees,
+    weekStart,
+    employeeHours,
+    metrics
+  ) {
+    // Convertir le format de scheduleData en format attendu par l'API
+    const formattedSchedule = [];
+    const weekStartStr = weekStart.format("YYYY-MM-DD");
 
-    // Identifier les employés en surcharge
+    // Map des employés pour accès rapide
+    const employeeMap = {};
     employees.forEach((emp) => {
-      const contractHours = emp.contractHours || 35;
-      if (employeeHours[emp.id] > contractHours) {
-        result.stats.overworked_employees.push({
-          employee_id: emp.id,
-          name: `${emp.first_name} ${emp.last_name}`,
-          contract_hours: contractHours,
-          assigned_hours: employeeHours[emp.id],
-          difference: employeeHours[emp.id] - contractHours,
-        });
-      }
+      employeeMap[emp.id] = emp;
     });
 
-    // Formater le planning pour chaque employé
+    // Pour chaque employé
     employees.forEach((emp) => {
-      const employeeSchedule = {
-        employee_id: emp.id,
-        week_start: weekStart.format("YYYY-MM-DD"),
-        schedule_data: {},
-        status: "draft",
-      };
+      // Formater les données de schedule pour cet employé
+      const schedule_data = {};
 
-      // Ajouter les créneaux de chaque jour
-      Object.entries(scheduleData).forEach(([day, dayData]) => {
-        employeeSchedule.schedule_data[day] = dayData[emp.id] || [];
+      // Pour chaque jour
+      Object.keys(scheduleData).forEach((day) => {
+        if (!scheduleData[day][emp.id]) return;
+
+        // Ajouter les shifts de ce jour
+        schedule_data[day] = scheduleData[day][emp.id].map((shift) => ({
+          start: shift.start,
+          end: shift.end,
+        }));
       });
 
-      result.schedule.push(employeeSchedule);
+      // Ajouter l'entrée de planning pour cet employé
+      formattedSchedule.push({
+        employee_id: emp.id,
+        week_start: weekStartStr,
+        schedule_data,
+      });
     });
 
-    return result;
+    // Construire le résultat final
+    return {
+      schedule: formattedSchedule,
+      stats: {
+        total_hours: employeeHours,
+        preference_match_rate: metrics.preference_match_rate,
+        overworked_employees: metrics.overworked_employees || [],
+        average_weekly_hours: metrics.average_weekly_hours || 0,
+        uncovered_hours: metrics.uncovered_hours || null,
+      },
+    };
   }
 }
 

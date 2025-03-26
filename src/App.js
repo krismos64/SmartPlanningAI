@@ -16,7 +16,6 @@ import Chatbot from "./components/ui/Chatbot";
 import { NotificationProvider } from "./components/ui/Notification";
 import ApiProvider from "./contexts/ApiContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import theme from "./theme";
 import { initializeErrorHandling } from "./utils/errorHandling";
 import { setupErrorInterceptors } from "./utils/errorInterceptor";
 
@@ -101,7 +100,7 @@ const MainContent = styled.div`
 const App = () => {
   return (
     <ErrorBoundary>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider>
         <AuthProvider>
           <ApiProvider>
             <AppContent />

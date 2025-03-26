@@ -265,6 +265,7 @@ CREATE TABLE `work_hours` (
 -- Déclencheurs (Triggers)
 -- --------------------------------------------------------
 
+/* Les triggers suivants ne sont pas actuellement présents dans la base de données
 -- Trigger pour mettre à jour le solde des heures de travail lors de l'insertion
 DELIMITER //
 CREATE TRIGGER `work_hours_after_insert` AFTER INSERT ON `work_hours`
@@ -327,6 +328,7 @@ BEGIN
   WHERE id = OLD.employee_id;
 END //
 DELIMITER ;
+*/
 
 -- --------------------------------------------------------
 -- Procédures stockées
@@ -336,41 +338,33 @@ DELIMITER ;
 DELIMITER //
 CREATE PROCEDURE `calculate_weekly_schedule_hours`(IN schedule_id INT)
 BEGIN
-  DECLARE total DECIMAL(5,2);
+  DECLARE total DECIMAL(5,2) DEFAULT 0;
   DECLARE schedule_data JSON;
+  DECLARE i INT DEFAULT 0;
+  DECLARE array_length INT;
+  DECLARE current_hours DECIMAL(5,2);
   
   -- Récupérer les données du planning
   SELECT ws.schedule_data INTO schedule_data 
   FROM weekly_schedules ws 
   WHERE ws.id = schedule_id;
   
-  -- Calculer le total des heures à partir des données JSON
-  -- Cette partie dépend de la structure exacte de votre JSON
-  SET total = (
-    SELECT SUM(
-      CASE 
-        WHEN JSON_EXTRACT(day, '$.type') = 'work' THEN 
-          (
-            TIME_TO_SEC(JSON_UNQUOTE(JSON_EXTRACT(day, '$.end'))) -
-            TIME_TO_SEC(JSON_UNQUOTE(JSON_EXTRACT(day, '$.start')))
-          ) / 3600
-        ELSE 0
-      END
-    )
-    FROM JSON_TABLE(
-      schedule_data,
-      '$[*]' COLUMNS(
-        day JSON PATH '$'
-      )
-    ) AS days
-  );
+  -- Obtenir la longueur du tableau JSON
+  SET array_length = JSON_LENGTH(schedule_data);
+  
+  -- Parcourir chaque élément du tableau et additionner les heures
+  WHILE i < array_length DO
+    -- Extraire les heures pour la journée courante
+    SET current_hours = CAST(JSON_UNQUOTE(JSON_EXTRACT(schedule_data, CONCAT('$[', i, '].hours'))) AS DECIMAL(5,2));
+    SET total = total + current_hours;
+    SET i = i + 1;
+  END WHILE;
   
   -- Mettre à jour le total des heures dans le planning
-  IF total IS NOT NULL THEN
-    UPDATE weekly_schedules 
-    SET total_hours = total
-    WHERE id = schedule_id;
-  END IF;
+  UPDATE weekly_schedules 
+  SET total_hours = total
+  WHERE id = schedule_id;
+  
 END //
 DELIMITER ;
 

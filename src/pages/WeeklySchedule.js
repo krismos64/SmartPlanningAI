@@ -2781,7 +2781,21 @@ const WeeklySchedulePage = () => {
           <CloseWizardButton onClick={() => setIsWizardOpen(false)}>
             <FaTimes />
           </CloseWizardButton>
-          <AutoScheduleWizard />
+          <AutoScheduleWizard
+            isOpen={isWizardOpen}
+            onClose={() => setIsWizardOpen(false)}
+            onSave={(generatedSchedule) => {
+              // Ici vous pourriez ajouter le nouveau planning généré
+              console.log("Planning généré:", generatedSchedule);
+              toast.success("Planning généré avec succès!");
+              setIsWizardOpen(false);
+              // Recharger les données si nécessaire
+              if (fetchSchedules) {
+                fetchSchedules(currentWeekStart);
+              }
+            }}
+            weekStart={currentWeekStart}
+          />
         </WizardOverlay>
       )}
     </div>

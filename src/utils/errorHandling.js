@@ -139,6 +139,26 @@ export const setupGlobalErrorHandler = () => {
     try {
       isLoggingError = true;
 
+      // Vérifier si c'est un message de débogage qu'on veut filtrer
+      if (args.length > 0 && typeof args[0] === "string") {
+        const message = args[0];
+        const isDebugMessage =
+          message &&
+          (message.includes("Standardisation planning") ||
+            message.includes("Traitement du schedule") ||
+            message.includes("userCache") ||
+            message.startsWith("🧪") ||
+            message.startsWith("🔢") ||
+            message.startsWith("🔍") ||
+            message.startsWith("✅"));
+
+        // Filtrer les messages de débogage trop verbeux
+        if (isDebugMessage) {
+          isLoggingError = false;
+          return;
+        }
+      }
+
       const formattedArgs = args.map((arg) => {
         if (typeof arg === "object" && arg !== null) {
           try {
@@ -327,4 +347,51 @@ export const initializeErrorHandling = () => {
   const cleanup = setupGlobalErrorHandler();
   injectErrorFormatting();
   return cleanup;
+};
+
+// Fonction améliorée pour le logging
+export const enhancedConsoleLog = (message, data, level = "log") => {
+  // En mode production, on n'affiche pas les logs de débogage
+  if (process.env.NODE_ENV === "production" && level === "debug") {
+    return;
+  }
+
+  // Limiter la verbosité des logs de débogage
+  const isDebugMessage =
+    message &&
+    (message.includes("Standardisation planning") ||
+      message.includes("Traitement du schedule") ||
+      message.includes("userCache") ||
+      message.startsWith("🧪") ||
+      message.startsWith("🔢") ||
+      message.startsWith("🔍") ||
+      message.startsWith("✅"));
+
+  // Désactiver temporairement les logs de débogage trop fréquents
+  if (isDebugMessage) {
+    return;
+  }
+
+  // Formatage du message avec emoji selon le niveau
+  const emoji = {
+    log: "📝",
+    info: "ℹ️",
+    warn: "⚠️",
+    error: "❌",
+    debug: "🔍",
+  };
+
+  const prefix = emoji[level] || "📝";
+
+  if (level === "error") {
+    console.error(`${prefix} ${message}`, data);
+  } else if (level === "warn") {
+    console.warn(`${prefix} ${message}`, data);
+  } else if (level === "info") {
+    console.info(`${prefix} ${message}`, data);
+  } else if (level === "debug") {
+    console.debug(`${prefix} ${message}`, data);
+  } else {
+    console.log(`${prefix} ${message}`, data);
+  }
 };

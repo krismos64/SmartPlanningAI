@@ -1,0 +1,131 @@
+table_name	column_name	column_type	is_nullable	column_key	column_default	extra
+activities	id	int(11)	NO	PRI	NULL	auto_increment
+activities	type	varchar(50)	NO	MUL	NULL	
+activities	entity_type	varchar(50)	NO	MUL	NULL	
+activities	entity_id	varchar(50)	YES	MUL	NULL	
+activities	description	varchar(255)	NO		NULL	
+activities	user_id	int(11)	YES	MUL	NULL	
+activities	ip_address	varchar(45)	YES		NULL	
+activities	user_agent	text	YES		NULL	
+activities	details	longtext	YES		NULL	
+activities	timestamp	datetime	YES	MUL	current_timestamp()	
+departments	id	int(11)	NO	PRI	NULL	auto_increment
+departments	name	varchar(100)	NO		NULL	
+departments	description	text	YES		NULL	
+departments	manager_id	int(11)	YES		NULL	
+departments	user_id	int(11)	YES	MUL	NULL	
+departments	created_at	timestamp	NO		current_timestamp()	
+departments	updated_at	timestamp	NO		current_timestamp()	on update current_timestamp()
+employees	id	int(11)	NO	PRI	NULL	auto_increment
+employees	user_id	int(11)	YES	MUL	NULL	
+employees	first_name	varchar(100)	NO		NULL	
+employees	last_name	varchar(100)	NO		NULL	
+employees	email	varchar(255)	YES	UNI	NULL	
+employees	phone	varchar(20)	YES		NULL	
+employees	address	text	YES		NULL	
+employees	city	varchar(100)	YES		NULL	
+employees	zip_code	varchar(20)	YES		NULL	
+employees	birthdate	date	YES		NULL	
+employees	hire_date	date	YES		NULL	
+employees	department	varchar(100)	YES		NULL	
+employees	role	varchar(100)	YES		NULL	
+employees	contractHours	decimal(5,2)	YES		35.00	
+employees	status	enum('active','inactive','vacation','sick')	NO		'active'	
+employees	created_at	timestamp	NO		current_timestamp()	
+employees	updated_at	timestamp	NO		current_timestamp()	on update current_timestamp()
+employees	hour_balance	decimal(5,2)	YES		0.00	
+employees	department_id	int(11)	YES	MUL	NULL	
+employees	manager_id	int(11)	NO	MUL	NULL	
+notifications	id	varchar(36)	NO	PRI	NULL	
+notifications	user_id	int(11)	NO	MUL	NULL	
+notifications	title	varchar(255)	NO		NULL	
+notifications	message	text	NO		NULL	
+notifications	type	enum('info','success','warning','error')	NO		'info'	
+notifications	read	tinyint(1)	NO	MUL	0	
+notifications	link	varchar(255)	YES		NULL	
+notifications	entity_type	varchar(50)	YES		NULL	
+notifications	entity_id	int(11)	YES		NULL	
+notifications	created_at	datetime	NO	MUL	NULL	
+shifts	id	int(11)	NO	PRI	NULL	auto_increment
+shifts	employee_id	int(11)	NO	MUL	NULL	
+shifts	start_time	datetime	YES	MUL	NULL	
+shifts	end_time	datetime	YES	MUL	NULL	
+shifts	status	enum('scheduled','completed','cancelled')	NO	MUL	'scheduled'	
+shifts	notes	text	YES		NULL	
+shifts	created_by	int(11)	YES	MUL	NULL	
+shifts	created_at	timestamp	NO		current_timestamp()	
+shifts	updated_at	timestamp	NO		current_timestamp()	on update current_timestamp()
+users	id	int(11)	NO	PRI	NULL	auto_increment
+users	email	varchar(255)	NO	UNI	NULL	
+users	password	varchar(255)	NO		NULL	
+users	role	enum('admin')	NO		'admin'	
+users	first_name	varchar(100)	YES		NULL	
+users	last_name	varchar(100)	YES		NULL	
+users	created_at	timestamp	NO		current_timestamp()	
+users	updated_at	timestamp	NO		current_timestamp()	on update current_timestamp()
+users	profileImage	longtext	YES		NULL	
+users	company	varchar(255)	YES		NULL	
+users	phone	varchar(20)	YES		NULL	
+users	jobTitle	varchar(100)	YES		NULL	
+user_settings	id	int(11)	NO	PRI	NULL	auto_increment
+user_settings	user_id	int(11)	NO	MUL	NULL	
+user_settings	theme_mode	enum('light','dark')	YES		'light'	
+user_settings	language	varchar(10)	YES		'fr'	
+user_settings	notifications_enabled	tinyint(1)	YES		1	
+vacation_requests	id	int(11)	NO	PRI	NULL	auto_increment
+vacation_requests	employee_id	int(11)	NO	MUL	NULL	
+vacation_requests	creator_id	int(11)	YES	MUL	NULL	
+vacation_requests	start_date	date	NO		NULL	
+vacation_requests	end_date	date	NO		NULL	
+vacation_requests	duration	int(11)	YES		NULL	
+vacation_requests	type	enum('paid','unpaid','sick','other')	NO		NULL	
+vacation_requests	status	enum('pending','approved','rejected')	NO		'pending'	
+vacation_requests	reason	text	YES		NULL	
+vacation_requests	created_at	timestamp	NO		current_timestamp()	
+vacation_requests	updated_at	timestamp	NO		current_timestamp()	on update current_timestamp()
+vacation_requests	approved_by	int(11)	YES	MUL	NULL	
+vacation_requests	approved_at	datetime	YES		NULL	
+vacation_requests	rejected_by	int(11)	YES	MUL	NULL	
+vacation_requests	rejected_at	datetime	YES		NULL	
+weekly_schedules	id	int(11)	NO	PRI	NULL	auto_increment
+weekly_schedules	employee_id	int(11)	NO	MUL	NULL	
+weekly_schedules	week_start	date	NO		NULL	
+weekly_schedules	week_end	date	YES		NULL	
+weekly_schedules	schedule_data	longtext	NO		NULL	
+weekly_schedules	total_hours	decimal(5,2)	YES		0.00	
+weekly_schedules	status	enum('draft','published','approved')	YES		'draft'	
+weekly_schedules	created_by	int(11)	YES	MUL	NULL	
+weekly_schedules	created_at	timestamp	NO		current_timestamp()	
+weekly_schedules	updated_at	timestamp	NO		current_timestamp()	on update current_timestamp()
+weekly_schedules	updated_by	int(11)	YES	MUL	NULL	
+work_hours	id	int(11)	NO	PRI	NULL	auto_increment
+work_hours	employee_id	int(11)	NO	MUL	NULL	
+work_hours	date	date	NO		NULL	
+work_hours	expected_hours	decimal(5,2)	NO		7.00	
+work_hours	actual_hours	decimal(5,2)	NO		0.00	
+work_hours	balance	decimal(5,2)	YES		NULL	
+work_hours	description	text	YES		NULL	
+work_hours	user_id	int(11)	YES	MUL	NULL	
+work_hours	created_at	timestamp	NO		current_timestamp()	
+table_name	column_name	constraint_name	referenced_table_name	referenced_column_name
+activities	user_id	activities_ibfk_1	users	id
+departments	user_id	fk_departments_user	users	id
+employees	department_id	fk_employees_department	departments	id
+employees	manager_id	fk_employees_manager	users	id
+employees	user_id	employees_ibfk_1	users	id
+notifications	user_id	fk_notifications_user	users	id
+shifts	created_by	fk_shifts_created_by	users	id
+shifts	employee_id	fk_shifts_employee	employees	id
+user_settings	user_id	user_settings_ibfk_1	users	id
+vacation_requests	approved_by	fk_vacation_requests_approved_by	users	id
+vacation_requests	creator_id	vacation_requests_ibfk_1	users	id
+vacation_requests	creator_id	fk_vacation_requests_creator	users	id
+vacation_requests	employee_id	fk_vacation_requests_employee	employees	id
+vacation_requests	rejected_by	fk_vacation_requests_rejected_by	users	id
+weekly_schedules	created_by	fk_weekly_creator	users	id
+weekly_schedules	employee_id	fk_weekly_employee	employees	id
+weekly_schedules	updated_by	fk_updated_by	users	id
+work_hours	employee_id	work_hours_ibfk_1	employees	id
+work_hours	user_id	fk_work_hours_user	users	id
+Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
+smartplanningai	calculate_weekly_schedule_hours	PROCEDURE	root@localhost	2025-03-26 09:17:30	2025-03-26 09:17:30	DEFINER		utf8mb4	utf8mb4_general_ci	utf8mb4_unicode_ci

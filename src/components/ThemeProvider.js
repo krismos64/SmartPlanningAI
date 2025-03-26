@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { ThemeProvider as StyledThemeProvider } from "styled-components";
-import { createGlobalStyle } from "styled-components";
+import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createGlobalStyle,
+  ThemeProvider as StyledThemeProvider,
+} from "styled-components";
 
 // Thèmes
 const lightTheme = {
@@ -261,7 +263,7 @@ const lighten = (color, amount) => {
 };
 
 // Contexte du thème
-const ThemeContext = createContext({
+export const ThemeContext = createContext({
   theme: "light",
   toggleTheme: () => {},
 });
@@ -270,9 +272,9 @@ const ThemeContext = createContext({
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error(
-      "useTheme doit être utilisé à l'intérieur d'un ThemeProvider"
-    );
+    console.warn("useTheme doit être utilisé à l'intérieur d'un ThemeProvider");
+    // Retourner une valeur par défaut au lieu de lever une erreur
+    return { theme: "light", toggleTheme: () => {} };
   }
   return context;
 };
