@@ -88,6 +88,7 @@ export const standardizeScheduleData = (schedule) => {
       created_at: schedule.created_at,
       updated_at: schedule.updated_at,
       updated_by: schedule.updated_by,
+      updater_name: schedule.updater_name,
       first_name: schedule.first_name,
       last_name: schedule.last_name,
       role: schedule.role,
@@ -115,8 +116,9 @@ export const standardizeScheduleData = (schedule) => {
     created_at: schedule.created_at,
     updated_at: schedule.updated_at,
     updated_by: schedule.updated_by,
-    first_name: schedule.first_name,
-    last_name: schedule.last_name,
+    updater_name: schedule.updater_name,
+    first_name: schedule.employee_first_name || schedule.first_name,
+    last_name: schedule.employee_last_name || schedule.last_name,
     role: schedule.role,
     department: schedule.department,
   };
@@ -245,10 +247,12 @@ export const parseScheduleFromApi = (apiData) => {
     created_at: apiData.created_at,
     updated_at: apiData.updated_at,
     updated_by: apiData.updated_by,
+    updater_name: apiData.updater_name,
+    employee_first_name: apiData.employee_first_name,
+    employee_last_name: apiData.employee_last_name,
     first_name: apiData.first_name,
     last_name: apiData.last_name,
     role: apiData.role,
-    department: apiData.department,
   });
 };
 

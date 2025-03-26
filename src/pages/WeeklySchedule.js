@@ -748,13 +748,34 @@ const MobileCardValue = styled.div`
 /**
  * Composant pour afficher dynamiquement le nom de l'utilisateur
  */
-const UpdatedByDisplay = ({ userId, userCache }) => {
-  if (!userId) {
+const UpdatedByDisplay = ({ userId, userCache, schedule }) => {
+  // Logs pour déboguer
+  console.log("📊 UpdatedByDisplay - props:", {
+    userId,
+    userCacheKeys: Object.keys(userCache),
+    schedule,
+  });
+
+  if (!userId && !schedule) {
     return <span>Non modifié</span>;
   }
 
+  // Utiliser directement updater_name s'il est disponible
+  if (schedule && schedule.updater_name) {
+    console.log(
+      "📊 UpdatedByDisplay - Utilisation de updater_name:",
+      schedule.updater_name
+    );
+    return <span>{schedule.updater_name}</span>;
+  }
+
+  // Fallback sur l'ancien comportement
   const userIdStr = String(userId);
   const userName = userCache[userIdStr];
+  console.log("📊 UpdatedByDisplay - Fallback sur userCache:", {
+    userIdStr,
+    userName,
+  });
 
   // Retourner uniquement le nom sans aucune métadonnée
   return <span>{userName || `Utilisateur (ID: ${userIdStr})`}</span>;
@@ -2564,6 +2585,7 @@ const WeeklySchedulePage = () => {
                                           <UpdatedByDisplay
                                             userId={schedule.updated_by}
                                             userCache={userCache}
+                                            schedule={schedule}
                                           />
                                         </UpdatedByInfo>
                                       </TableCell>
@@ -2677,12 +2699,13 @@ const WeeklySchedulePage = () => {
                                       Modifié par
                                     </MobileCardLabel>
                                     <MobileCardValue>
-                                      {schedule.updated_by
-                                        ? userCache[
-                                            String(schedule.updated_by)
-                                          ] ||
-                                          `Utilisateur (ID: ${schedule.updated_by})`
-                                        : "Non modifié"}
+                                      {schedule.updater_name ||
+                                        (schedule.updated_by
+                                          ? userCache[
+                                              String(schedule.updated_by)
+                                            ] ||
+                                            `Utilisateur (ID: ${schedule.updated_by})`
+                                          : "Non modifié")}
                                     </MobileCardValue>
                                   </MobileCardRow>
                                 </MobileCard>

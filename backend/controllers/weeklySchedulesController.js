@@ -64,7 +64,7 @@ exports.createSchedule = async (req, res) => {
 
     // Récupérer les informations de l'employé
     const [employeeResult] = await db.query(
-      "SELECT first_name, last_name FROM employees WHERE id = ?",
+      "SELECT first_name, last_name, user_id FROM employees WHERE id = ?",
       [employee_id]
     );
 
@@ -73,14 +73,29 @@ exports.createSchedule = async (req, res) => {
         ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
         : `Employé #${employee_id}`;
 
-    // Créer une notification pour l'employé
-    await createAndEmitNotification(null, {
-      user_id: employee_id,
-      title: "Nouveau planning créé",
-      message: `Un planning a été créé pour vous (semaine du ${week_start})`,
-      type: "info",
-      link: `/weekly-schedule/${week_start}`,
-    });
+    // Récupérer le user_id de l'employé
+    const employeeUserId =
+      employeeResult.length > 0 ? employeeResult[0].user_id : null;
+
+    // Créer une notification pour l'employé seulement si un user_id valide existe
+    try {
+      if (employeeUserId) {
+        await createAndEmitNotification(null, {
+          user_id: employeeUserId,
+          title: "Nouveau planning créé",
+          message: `Un planning a été créé pour vous (semaine du ${week_start})`,
+          type: "info",
+          link: `/weekly-schedule/${week_start}`,
+        });
+      } else {
+        console.log(
+          "Pas de notification envoyée à l'employé : user_id manquant"
+        );
+      }
+    } catch (notifError) {
+      console.error("Erreur lors de la création de notification:", notifError);
+      // Ne pas bloquer la création du planning si la notification échoue
+    }
 
     // Créer une notification pour les administrateurs et managers
     const [managers] = await db.query(
@@ -145,9 +160,11 @@ exports.getSchedulesByWeek = async (req, res) => {
 
     // Construire la requête SQL de base avec filtrage par user_id de l'entreprise
     let query = `
-      SELECT ws.*, e.first_name, e.last_name, e.role
+      SELECT ws.*, e.first_name AS employee_first_name, e.last_name AS employee_last_name, e.role,
+             u.first_name AS updater_first_name, u.last_name AS updater_last_name
       FROM weekly_schedules ws
       JOIN employees e ON ws.employee_id = e.id
+      LEFT JOIN users u ON ws.updated_by = u.id
       WHERE ws.week_start = ?
       AND e.user_id = ?
     `;
@@ -166,6 +183,22 @@ exports.getSchedulesByWeek = async (req, res) => {
     // Exécuter la requête
     const [schedules] = await db.query(query, queryParams);
 
+    // Log pour debug
+    console.log("🔍 Requête SQL exécutée:", query);
+    console.log("🔍 Paramètres:", queryParams);
+    console.log("🔍 Nombre de plannings récupérés:", schedules.length);
+    if (schedules.length > 0) {
+      console.log("🔍 Premier planning - updated_by:", schedules[0].updated_by);
+      console.log(
+        "🔍 Premier planning - updater_first_name:",
+        schedules[0].updater_first_name
+      );
+      console.log(
+        "🔍 Premier planning - updater_last_name:",
+        schedules[0].updater_last_name
+      );
+    }
+
     // Traiter les données pour avoir des objets JSON au lieu de chaînes
     const formattedSchedules = schedules.map((schedule) => {
       if (
@@ -178,6 +211,29 @@ exports.getSchedulesByWeek = async (req, res) => {
           console.error("Erreur de parsing JSON pour schedule_data:", error);
         }
       }
+
+      // Ajouter les informations de l'utilisateur qui a mis à jour le planning
+      if (schedule.updated_by) {
+        console.log(
+          `🔍 Traitement planning ${schedule.id} - updated_by: ${schedule.updated_by}`
+        );
+        console.log(
+          `🔍 Traitement planning ${schedule.id} - updater_first_name: ${schedule.updater_first_name}`
+        );
+        console.log(
+          `🔍 Traitement planning ${schedule.id} - updater_last_name: ${schedule.updater_last_name}`
+        );
+
+        schedule.updater_name =
+          schedule.updater_first_name && schedule.updater_last_name
+            ? `${schedule.updater_first_name} ${schedule.updater_last_name}`
+            : `Utilisateur ${schedule.updated_by}`;
+
+        console.log(
+          `🔍 Traitement planning ${schedule.id} - updater_name final: ${schedule.updater_name}`
+        );
+      }
+
       return schedule;
     });
 
@@ -329,7 +385,7 @@ exports.updateSchedule = async (req, res) => {
     // Récupérer les informations de l'employé
     const employeeId = employee_id || scheduleExists[0].employee_id;
     const [employeeResult] = await db.query(
-      "SELECT first_name, last_name FROM employees WHERE id = ?",
+      "SELECT first_name, last_name, user_id FROM employees WHERE id = ?",
       [employeeId]
     );
 
@@ -338,14 +394,29 @@ exports.updateSchedule = async (req, res) => {
         ? `${employeeResult[0].first_name} ${employeeResult[0].last_name}`
         : `Employé #${employeeId}`;
 
-    // Créer une notification pour l'employé
-    await createAndEmitNotification(null, {
-      user_id: employee_id,
-      title: "Planning modifié",
-      message: `Votre planning a été modifié (semaine du ${week_start})`,
-      type: "info",
-      link: `/weekly-schedule/${week_start}`,
-    });
+    // Récupérer le user_id de l'employé
+    const employeeUserId =
+      employeeResult.length > 0 ? employeeResult[0].user_id : null;
+
+    // Créer une notification pour l'employé seulement si un user_id valide existe
+    try {
+      if (employeeUserId) {
+        await createAndEmitNotification(null, {
+          user_id: employeeUserId,
+          title: "Planning modifié",
+          message: `Votre planning a été modifié (semaine du ${week_start})`,
+          type: "info",
+          link: `/weekly-schedule/${week_start}`,
+        });
+      } else {
+        console.log(
+          "Pas de notification envoyée à l'employé : user_id manquant"
+        );
+      }
+    } catch (notifError) {
+      console.error("Erreur lors de la création de notification:", notifError);
+      // Ne pas bloquer la mise à jour du planning si la notification échoue
+    }
 
     // Créer une notification pour les administrateurs et managers
     const [managers] = await db.query(

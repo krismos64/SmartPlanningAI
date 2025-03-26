@@ -203,7 +203,25 @@ const useWeeklySchedules = () => {
 
       // Standardiser tous les plannings pour garantir la cohérence
       const standardizedSchedules = schedulesData
-        .map((schedule) => standardizeScheduleData(schedule))
+        .map((schedule) => {
+          console.log("🔍 Schedule avant standardisation:", {
+            id: schedule.id,
+            updated_by: schedule.updated_by,
+            updater_name: schedule.updater_name,
+            updater_first_name: schedule.updater_first_name,
+            updater_last_name: schedule.updater_last_name,
+          });
+
+          const standardized = standardizeScheduleData(schedule);
+
+          console.log("🔍 Schedule après standardisation:", {
+            id: standardized?.id,
+            updatedBy: standardized?.updatedBy,
+            updater_name: standardized?.updater_name,
+          });
+
+          return standardized;
+        })
         .filter(Boolean); // Filtrer les plannings null
 
       console.log("Plannings standardisés:", standardizedSchedules);
