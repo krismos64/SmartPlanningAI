@@ -128,6 +128,7 @@ router.post("/", auth, async (req, res) => {
     // Si l'utilisateur est un employé, s'assurer qu'il ne crée une demande que pour lui-même
     if (
       req.user.role === "employee" &&
+      req.body.employee_id &&
       req.body.employee_id.toString() !== req.user.id.toString()
     ) {
       return res.status(403).json({
@@ -152,148 +153,165 @@ router.post("/", auth, async (req, res) => {
     }
 
     // Vérifier que le type est valide
-    const validTypes = ["paid", "unpaid", "sick", "other"];
+    const validTypes = [
+      "paid",
+      "unpaid",
+      "sick",
+      "rtt",
+      "exceptional",
+      "recovery",
+      "other",
+    ];
     if (!validTypes.includes(req.body.type)) {
       return res.status(400).json({
         success: false,
         message:
-          "Le type de congé doit être l'un des suivants : paid, unpaid, sick, other",
+          "Le type de congé doit être l'un des suivants : paid, unpaid, sick, rtt, exceptional, recovery, other",
       });
     }
 
-    // Récupérer les informations de l'employé pour avoir son nom complet
-    const employee = await Employee.findById(req.body.employee_id);
-
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: "Employé non trouvé",
-      });
-    }
-
-    // Filtrer les champs pour ne garder que ceux qui existent dans la table
-    const vacationData = {
-      employee_id: req.body.employee_id,
-      creator_id: req.user.id, // Ajouter l'ID de l'utilisateur connecté comme créateur
-      start_date: req.body.start_date,
-      end_date: req.body.end_date,
-      type: req.body.type,
-      reason: req.body.reason || "",
-      status: "pending", // Toujours commencer avec le statut 'en attente'
-    };
-
-    // Ajouter le nom de l'employé si disponible
-    if (employee) {
-      vacationData.employee_name =
-        `${employee.first_name} ${employee.last_name}`.trim();
-    }
-
-    console.log("Données filtrées pour la création de congé:", vacationData);
-
-    const result = await VacationRequest.create(vacationData);
-
-    if (result.success) {
-      // Enregistrer l'activité
-      await Activity.logActivity({
-        user_id: req.user.id,
-        action: "create",
-        entity_type: "vacation_request",
-        entity_id: result.id,
-        description: `Demande de congés créée pour ${employee.first_name} ${
-          employee.last_name
-        } du ${new Date(
-          req.body.start_date
-        ).toLocaleDateString()} au ${new Date(
-          req.body.end_date
-        ).toLocaleDateString()}`,
-        type: "create",
-        details: {
-          employee_id: req.body.employee_id,
-          employee_name: `${employee.first_name} ${employee.last_name}`.trim(),
-          start_date: req.body.start_date,
-          end_date: req.body.end_date,
-          type: req.body.type,
-          reason: req.body.reason || "",
-        },
-      });
-
-      // Créer des notifications pour tous les utilisateurs admin et managers
-      try {
-        const [users] = await db.execute(
-          "SELECT id FROM users WHERE role IN ('admin', 'manager')"
-        );
-
-        if (users && users.length > 0) {
-          for (const user of users) {
-            console.log(
-              `Tentative de création de notification pour l'utilisateur ${user.id}`
-            );
-
-            const notificationTitle = `Nouvelle demande de congés`;
-            const notificationMessage = `Une nouvelle demande de congés a été créée pour ${
-              vacationData.employee_name
-            } du ${new Date(req.body.start_date).toLocaleDateString(
-              "fr-FR"
-            )} au ${new Date(req.body.end_date).toLocaleDateString(
-              "fr-FR"
-            )} par ${req.user.first_name} ${req.user.last_name}.`;
-
-            const notificationResult = await Notification.createAndBroadcast({
-              user_id: user.id,
-              title: notificationTitle,
-              message: notificationMessage,
-              type: "info",
-              entity_type: "vacation_request",
-              entity_id: result.id,
-              link: `/vacations/${result.id}`,
-            });
-
-            console.log(
-              `Notification pour utilisateur ${user.id} créée:`,
-              notificationResult.success ? "succès" : "échec"
-            );
-          }
-        } else {
-          console.log(
-            "Aucun utilisateur admin ou manager trouvé pour envoyer des notifications"
-          );
-        }
-      } catch (notifError) {
-        console.error(
-          "Erreur lors de la création des notifications:",
-          notifError
-        );
-        // Ne pas bloquer la mise à jour si la création de notification échoue
+    // S'assurer que employee_id est un nombre
+    let employeeId;
+    try {
+      employeeId = parseInt(req.body.employee_id, 10);
+      if (isNaN(employeeId)) {
+        return res.status(400).json({
+          success: false,
+          message: "L'ID de l'employé doit être un nombre valide",
+        });
       }
-
-      res.status(201).json({
-        success: true,
-        id: result.id,
-        message: "Demande de congés créée avec succès",
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message:
-          result.message ||
-          "Erreur lors de la création de la demande de congés",
-      });
-    }
-  } catch (error) {
-    console.error("Erreur lors de la création de la demande de congé:", error);
-
-    // Vérifier si l'erreur est due à une contrainte de clé étrangère
-    if (
-      error.code === "ER_NO_REFERENCED_ROW_2" &&
-      error.message.includes("employee_id")
-    ) {
+    } catch (error) {
       return res.status(400).json({
-        message: "L'employé spécifié n'existe pas dans la base de données",
+        success: false,
+        message: "L'ID de l'employé doit être un nombre valide",
         error: error.message,
       });
     }
 
+    // Récupérer les informations de l'employé pour avoir son nom complet
+    try {
+      const employee = await Employee.findById(employeeId);
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: "Employé non trouvé",
+        });
+      }
+
+      // Filtrer les champs pour ne garder que ceux qui existent dans la table
+      const vacationData = {
+        employee_id: employeeId,
+        creator_id: req.user.id, // Ajouter l'ID de l'utilisateur connecté comme créateur
+        start_date: req.body.start_date,
+        end_date: req.body.end_date,
+        type: req.body.type,
+        reason: req.body.reason || "",
+        status: "pending", // Toujours commencer avec le statut 'en attente'
+      };
+
+      // Ajouter le nom de l'employé si disponible
+      if (employee) {
+        vacationData.employee_name =
+          `${employee.first_name} ${employee.last_name}`.trim();
+      }
+
+      console.log("Données filtrées pour la création de congé:", vacationData);
+
+      // Appel au modèle pour créer la demande
+      const result = await VacationRequest.create(vacationData);
+
+      if (result && result.insertId) {
+        // Enregistrer l'activité
+        await Activity.logActivity({
+          user_id: req.user.id,
+          action: "create",
+          entity_type: "vacation_request",
+          entity_id: result.insertId,
+          description: `Demande de congés créée pour ${employee.first_name} ${
+            employee.last_name
+          } du ${new Date(
+            req.body.start_date
+          ).toLocaleDateString()} au ${new Date(
+            req.body.end_date
+          ).toLocaleDateString()}`,
+          type: "create",
+          details: {
+            employee_id: employeeId,
+            employee_name:
+              `${employee.first_name} ${employee.last_name}`.trim(),
+            start_date: req.body.start_date,
+            end_date: req.body.end_date,
+            type: req.body.type,
+            reason: req.body.reason || "",
+          },
+        });
+
+        // Créer des notifications pour tous les utilisateurs admin et managers
+        try {
+          const [users] = await db.execute(
+            "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+          );
+
+          if (users && users.length > 0) {
+            for (const user of users) {
+              console.log(
+                `Tentative de création de notification pour l'utilisateur ${user.id}`
+              );
+
+              const notificationTitle = `Nouvelle demande de congés`;
+              const notificationMessage = `Une nouvelle demande de congés a été créée pour ${
+                vacationData.employee_name
+              } du ${new Date(req.body.start_date).toLocaleDateString(
+                "fr-FR"
+              )} au ${new Date(req.body.end_date).toLocaleDateString(
+                "fr-FR"
+              )} par ${req.user.first_name} ${req.user.last_name}.`;
+
+              await Notification.createAndBroadcast({
+                user_id: user.id,
+                title: notificationTitle,
+                message: notificationMessage,
+                type: "info",
+                entity_type: "vacation_request",
+                entity_id: result.insertId,
+                link: `/vacations/${result.insertId}`,
+              });
+            }
+          }
+        } catch (notifError) {
+          console.error(
+            "Erreur lors de la création des notifications:",
+            notifError
+          );
+          // Ne pas échouer la requête en cas d'erreur de notification
+        }
+
+        // Répondre avec succès
+        return res.status(201).json({
+          success: true,
+          message: "Demande de congé créée avec succès",
+          data: result,
+          id: result.insertId,
+        });
+      } else {
+        throw new Error("Échec lors de la création de la demande de congé");
+      }
+    } catch (employeeError) {
+      console.error(
+        "Erreur lors de la récupération de l'employé:",
+        employeeError
+      );
+      return res.status(500).json({
+        success: false,
+        message: "Erreur lors de la récupération de l'employé",
+        error: employeeError.message,
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la création de la demande de congé:", error);
     res.status(500).json({
+      success: false,
       message: "Erreur lors de la création de la demande de congé",
       error: error.message,
     });
@@ -490,10 +508,9 @@ router.delete("/:id", auth, async (req, res) => {
       return res.status(404).json({ message: "Demande de congé non trouvée" });
     }
 
-    // Vérifier les permissions
+    // Vérification des permissions (employés ne peuvent supprimer que leurs propres demandes en attente)
     if (req.user.role === "employee") {
-      // Un employé ne peut supprimer que ses propres demandes et seulement si elles sont en attente
-      if (vacationRequest.employee_id !== req.user.id) {
+      if (vacationRequest.employee_id.toString() !== req.user.id.toString()) {
         return res.status(403).json({
           message:
             "Vous ne pouvez pas supprimer les demandes de congé d'autres employés",
@@ -508,31 +525,28 @@ router.delete("/:id", auth, async (req, res) => {
       }
     }
 
+    // Suppression propre de la demande de congé
     await VacationRequest.delete(req.params.id);
 
-    // Journaliser l'activité de suppression
+    // Journalisation claire de l'activité
     if (global.Activity) {
       try {
-        // Récupérer les informations de l'employé
-        const Employee = require("../models/Employee");
         const employee = await Employee.findById(vacationRequest.employee_id);
         const employeeName = employee
           ? `${employee.first_name} ${employee.last_name}`.trim()
           : `Employé #${vacationRequest.employee_id}`;
 
-        // Générer la description
         const description = `Suppression de la demande de congé pour ${employeeName} du ${new Date(
           vacationRequest.start_date
         ).toLocaleDateString("fr-FR")} au ${new Date(
           vacationRequest.end_date
         ).toLocaleDateString("fr-FR")}`;
 
-        // Utiliser la méthode logActivity qui existe dans le modèle
         await global.Activity.logActivity({
           type: "delete",
           entity_type: "vacation",
           entity_id: req.params.id,
-          description: description,
+          description,
           user_id: req.user.id,
           details: {
             employee_id: vacationRequest.employee_id,
@@ -544,24 +558,52 @@ router.delete("/:id", auth, async (req, res) => {
             status: vacationRequest.status,
           },
         });
+
         console.log(`Activité de suppression journalisée avec succès`);
       } catch (logError) {
         console.error(
-          "Erreur lors de la journalisation de l'activité de suppression:",
+          "Erreur lors de la journalisation de l'activité:",
           logError
         );
-        // Ne pas bloquer la suppression si la journalisation échoue
       }
     }
 
-    res.json({ message: "Demande de congé supprimée avec succès" });
+    // Envoi explicite et sécurisé des notifications via WebSocket si disponible
+    if (req.io) {
+      try {
+        await Notification.createAndBroadcast({
+          user_id: vacationRequest.employee_id,
+          title: "Demande de congé supprimée",
+          message: `Votre demande de congé du ${new Date(
+            vacationRequest.start_date
+          ).toLocaleDateString("fr-FR")} au ${new Date(
+            vacationRequest.end_date
+          ).toLocaleDateString("fr-FR")} a été supprimée`,
+          type: "warning",
+          entity_type: "vacation_request",
+          entity_id: req.params.id,
+          link: "/vacations",
+        });
+        console.log("Notification envoyée avec succès à l'employé.");
+      } catch (notifError) {
+        console.error("Erreur lors de l'envoi de la notification:", notifError);
+        // Continuer même en cas d'erreur de notification
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Demande de congé supprimée avec succès",
+    });
   } catch (error) {
     console.error(
-      `Erreur lors de la suppression de la demande de congé ${req.params.id}:`,
+      `Erreur lors de la suppression de la demande ${req.params.id}:`,
       error
     );
     res.status(500).json({
+      success: false,
       message: "Erreur lors de la suppression de la demande de congé",
+      error: error.message,
     });
   }
 });

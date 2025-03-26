@@ -168,11 +168,38 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
     }
   }, [user]);
 
+  // S'assurer que l'employé sélectionné est disponible dans la liste
+  useEffect(() => {
+    if (employees && employees.length > 0) {
+      const availableIds = employees
+        .filter((e) => e && e.id)
+        .map((e) => e.id.toString());
+
+      console.log("IDs d'employés disponibles:", availableIds);
+      console.log("Valeur actuelle d'employeeId:", formData.employeeId);
+
+      // Si aucun employé n'est sélectionné ou si l'employé sélectionné n'existe pas dans la liste
+      if (!formData.employeeId || !availableIds.includes(formData.employeeId)) {
+        if (availableIds.length > 0) {
+          console.log(
+            `Employé ID ${formData.employeeId} non disponible, sélection du premier employé disponible: ${availableIds[0]}`
+          );
+          setFormData((prev) => ({
+            ...prev,
+            employeeId: availableIds[0],
+          }));
+        } else {
+          console.error("Aucun employé disponible avec un ID valide");
+        }
+      }
+    }
+  }, [employees, formData.employeeId]);
+
   // Initialiser le formulaire avec les données du congé à éditer
   useEffect(() => {
     if (vacation) {
       setFormData({
-        employeeId: vacation.employee_id?.toString() || "",
+        employeeId: vacation.employee_id ? vacation.employee_id.toString() : "",
         startDate: vacation.start_date ? new Date(vacation.start_date) : null,
         endDate: vacation.end_date ? new Date(vacation.end_date) : null,
         type: vacation.type || "paid",
@@ -181,7 +208,8 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
     } else {
       // Valeurs par défaut pour un nouveau congé
       setFormData({
-        employeeId: currentUser ? currentUser.id.toString() : "",
+        employeeId:
+          currentUser && currentUser.id ? currentUser.id.toString() : "",
         startDate: null,
         endDate: null,
         type: "paid",
@@ -189,27 +217,6 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
       });
     }
   }, [vacation, currentUser]);
-
-  // S'assurer que l'employé sélectionné est disponible dans la liste
-  useEffect(() => {
-    if (employees && employees.length > 0 && formData.employeeId) {
-      // Vérifier si l'employé sélectionné existe dans la liste
-      const employeeExists = employees.some(
-        (emp) => emp.id.toString() === formData.employeeId.toString()
-      );
-
-      // Si l'employé n'existe pas, sélectionner le premier de la liste
-      if (!employeeExists) {
-        console.log(
-          `Employé ID ${formData.employeeId} non disponible, sélection du premier employé disponible`
-        );
-        setFormData((prev) => ({
-          ...prev,
-          employeeId: employees[0].id.toString(),
-        }));
-      }
-    }
-  }, [employees, formData.employeeId]);
 
   // Gérer les changements dans les champs du formulaire
   const handleChange = (e) => {
@@ -274,17 +281,37 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
   // Soumettre le formulaire
   const handleSubmit = () => {
     if (validateForm()) {
-      // Formater les dates au format ISO (YYYY-MM-DD)
+      // Assurez-vous que employeeId est un nombre valide
+      const employeeIdNum = parseInt(formData.employeeId, 10);
+
+      if (isNaN(employeeIdNum)) {
+        setErrors((prev) => ({
+          ...prev,
+          employeeId: "L'identifiant de l'employé doit être un nombre valide",
+        }));
+        return; // Arrêter la soumission si l'ID n'est pas valide
+      }
+
+      // Formater les données au format attendu par l'API (snake_case)
       const formattedData = {
-        ...formData,
-        startDate: formData.startDate
+        // Utiliser directement les noms de champs attendus par l'API
+        employee_id: employeeIdNum,
+        start_date: formData.startDate
           ? formData.startDate.toISOString().split("T")[0]
           : null,
-        endDate: formData.endDate
+        end_date: formData.endDate
           ? formData.endDate.toISOString().split("T")[0]
           : null,
+        type: formData.type,
+        reason: formData.reason || "",
         duration: daysCount > 0 ? daysCount : null,
+        // Inclure également les versions camelCase pour compatibilité
+        employeeId: employeeIdNum,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
       };
+
+      console.log("Données envoyées à l'API:", formattedData); // Pour debugging immédiat
       onSubmit(formattedData);
     }
   };
@@ -338,6 +365,75 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
     }
   }, [formData.startDate, formData.endDate, formData.type]);
 
+  // Sélection d'employé (le composant rendu)
+  const renderEmployeeSelect = () => {
+    // Liste d'options valides pour le select
+    const validOptions = employees
+      .filter((emp) => emp && emp.id)
+      .map((emp) => ({
+        id: emp.id.toString(),
+        name: `${emp.first_name} ${emp.last_name}`,
+      }));
+
+    // Valeur sûre pour le select
+    const safeValue = validOptions.find((opt) => opt.id === formData.employeeId)
+      ? formData.employeeId
+      : validOptions.length > 0
+      ? validOptions[0].id
+      : "";
+
+    return (
+      <Select
+        labelId="employee-label"
+        id="employeeId"
+        name="employeeId"
+        value={safeValue}
+        onChange={handleChange}
+        label="Employé"
+        disabled={loadingEmployees || validOptions.length === 0}
+        displayEmpty
+        MenuProps={{
+          PaperProps: {
+            sx: {
+              backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
+              color: isDarkMode ? "#D1D5DB" : "inherit",
+              "& .MuiMenuItem-root": {
+                color: isDarkMode ? "#D1D5DB" : "inherit",
+                "&:hover": {
+                  backgroundColor: isDarkMode
+                    ? alpha("#374151", 0.5)
+                    : undefined,
+                },
+                "&.Mui-selected": {
+                  backgroundColor: isDarkMode
+                    ? alpha("#6366F1", 0.2)
+                    : undefined,
+                  "&:hover": {
+                    backgroundColor: isDarkMode
+                      ? alpha("#6366F1", 0.3)
+                      : undefined,
+                  },
+                },
+              },
+            },
+          },
+        }}
+      >
+        {validOptions.length === 0 ? (
+          <MenuItem value="" disabled>
+            Aucun employé disponible
+          </MenuItem>
+        ) : (
+          validOptions.map((option) => (
+            <MenuItem key={option.id} value={option.id}>
+              {option.name}
+            </MenuItem>
+          ))
+        )}
+      </Select>
+    );
+  };
+
   return (
     <Dialog
       open={open}
@@ -381,48 +477,7 @@ const VacationForm = ({ open, onClose, onSubmit, vacation, currentUser }) => {
                       />
                       Employé
                     </InputLabel>
-                    <Select
-                      labelId="employee-label"
-                      id="employeeId"
-                      name="employeeId"
-                      value={formData.employeeId}
-                      onChange={handleChange}
-                      label="Employé"
-                      disabled={loadingEmployees}
-                      MenuProps={{
-                        PaperProps: {
-                          sx: {
-                            backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
-                            color: isDarkMode ? "#D1D5DB" : "inherit",
-                            "& .MuiMenuItem-root": {
-                              color: isDarkMode ? "#D1D5DB" : "inherit",
-                              "&:hover": {
-                                backgroundColor: isDarkMode
-                                  ? alpha("#374151", 0.5)
-                                  : undefined,
-                              },
-                              "&.Mui-selected": {
-                                backgroundColor: isDarkMode
-                                  ? alpha("#6366F1", 0.2)
-                                  : undefined,
-                                "&:hover": {
-                                  backgroundColor: isDarkMode
-                                    ? alpha("#6366F1", 0.3)
-                                    : undefined,
-                                },
-                              },
-                            },
-                          },
-                        },
-                      }}
-                    >
-                      {employees &&
-                        employees.map((employee) => (
-                          <MenuItem key={employee.id} value={employee.id}>
-                            {employee.first_name} {employee.last_name}
-                          </MenuItem>
-                        ))}
-                    </Select>
+                    {renderEmployeeSelect()}
                     {errors.employeeId && (
                       <FormHelperText
                         sx={{ color: isDarkMode ? "#F87171" : undefined }}

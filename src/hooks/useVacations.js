@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { API_ENDPOINTS } from "../config/api";
 import { useApi } from "../contexts/ApiContext";
 import { useAuth } from "../contexts/AuthContext";
 import { VacationService } from "../services/api";
@@ -12,12 +11,35 @@ import { notifyError } from "../utils/notificationUtils";
  * Ce hook effectue un simple appel REST à l'API pour récupérer les données
  * sans nécessiter de mises à jour en temps réel ou de mécanismes complexes de mise en cache
  */
+
+// Fonction utilitaire pour formater les dates pour l'API
+const formatDateForAPI = (date) => {
+  if (!date) return null;
+
+  if (date instanceof Date) {
+    return date.toISOString().split("T")[0];
+  } else if (typeof date === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    } else {
+      try {
+        return new Date(date).toISOString().split("T")[0];
+      } catch (e) {
+        console.error("Erreur lors du formatage de la date:", e);
+        return null;
+      }
+    }
+  }
+  return null;
+};
+
 const useVacations = () => {
   const { api } = useApi();
   const { user } = useAuth();
   const [vacations, setVacations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const isComponentMountedRef = useRef(true);
   const isFetchingRef = useRef(false);
 
@@ -294,74 +316,108 @@ const useVacations = () => {
     };
   }, [fetchVacations]);
 
-  // Créer une nouvelle demande de congé
-  const createVacation = useCallback(
-    async (vacationData) => {
-      if (!isComponentMountedRef.current) return { success: false };
+  /**
+   * Crée une nouvelle demande de congé
+   * @param {Object} data - Les données de la demande
+   * @returns {Promise<Object>} - Résultat de la création
+   */
+  const createVacation = async (data) => {
+    try {
+      console.log(
+        "Données brutes reçues dans useVacations.createVacation:",
+        data
+      );
 
+      // Validation des champs obligatoires
+      if (!data.employee_id && !data.employeeId) {
+        setError("L'identifiant de l'employé est obligatoire");
+        return {
+          success: false,
+          message: "L'identifiant de l'employé est obligatoire",
+        };
+      }
+
+      if (!data.start_date && !data.startDate) {
+        setError("La date de début est obligatoire");
+        return { success: false, message: "La date de début est obligatoire" };
+      }
+
+      if (!data.end_date && !data.endDate) {
+        setError("La date de fin est obligatoire");
+        return { success: false, message: "La date de fin est obligatoire" };
+      }
+
+      if (!data.type) {
+        setError("Le type de congé est obligatoire");
+        return { success: false, message: "Le type de congé est obligatoire" };
+      }
+
+      // Normaliser les données pour l'API
+      const formattedData = {
+        // S'assurer que employee_id est un nombre (convertir si c'est une chaîne)
+        employee_id: parseInt(data.employee_id || data.employeeId, 10),
+
+        // Ajouter l'identifiant du créateur (utilisateur connecté)
+        creator_id: user?.id || null,
+
+        // Formater les dates au format ISO
+        start_date: formatDateForAPI(data.start_date || data.startDate),
+        end_date: formatDateForAPI(data.end_date || data.endDate),
+
+        // Autres champs
+        type: data.type,
+        reason: data.reason || data.notes || "",
+        duration: data.duration || null,
+      };
+
+      // Vérification finale avant envoi
+      if (isNaN(formattedData.employee_id)) {
+        const errMsg = "L'identifiant de l'employé doit être un nombre valide";
+        console.error(errMsg, data.employee_id || data.employeeId);
+        setError(errMsg);
+        return { success: false, message: errMsg };
+      }
+
+      console.log("Données formatées envoyées à l'API:", formattedData);
+
+      // Appel à l'API pour créer la demande
       try {
         setLoading(true);
+        const response = await VacationService.create(formattedData);
+        console.log("Réponse de l'API lors de la création:", response);
 
-        // Formater les données pour l'API en transformant les noms de propriétés camelCase en snake_case
-        let formattedData = {
-          employee_id: vacationData.employeeId,
-          start_date: vacationData.startDate,
-          end_date: vacationData.endDate,
-          type: vacationData.type,
-          reason: vacationData.reason || "",
-          status: vacationData.status || "pending",
-          duration: vacationData.duration || null,
-        };
-
-        console.log("Données formatées pour l'API:", formattedData);
-
-        // Utiliser VacationService.create au lieu de api.post
-        const result = await VacationService.create(formattedData);
-
-        console.log("Réponse création congé:", result);
-
-        // Si la création a réussi, mettre à jour l'état local
-        if (result && result.success) {
-          // Si on a bien une nouvelle vacation, on l'ajoute à la liste
-          if (result.data) {
-            setVacations((prev) => [...prev, result.data]);
-          } else if (result.id) {
-            // Pour la compatibilité avec l'ancien format où l'ID est directement dans result
-            const newVacation = {
-              ...formattedData,
-              id: result.id,
-            };
-            setVacations((prev) => [...prev, newVacation]);
-          }
-
-          // Suppression de la notification ici - elle sera gérée par le composant appelant
-
-          // Uniquement si le composant est toujours monté
-          if (isComponentMountedRef.current) {
-            await fetchVacations(); // Rafraîchir les données pour s'assurer de la cohérence
-          }
+        if (response.success) {
+          fetchVacations(); // Actualiser la liste des demandes
+          setSuccess("Demande de congé créée avec succès");
+          return response;
         } else {
-          // Suppression de la notification d'erreur ici - elle sera gérée par le composant appelant
+          setError(
+            response.message || "Erreur lors de la création de la demande"
+          );
+          return response;
         }
-
-        return result;
-      } catch (error) {
-        const errorMessage = formatError(error);
-
-        if (isComponentMountedRef.current) {
-          // Ne pas afficher de notification d'erreur ici, laisser le composant le faire
-          setError(errorMessage);
-        }
-
-        return { success: false, error: errorMessage };
+      } catch (apiError) {
+        console.error(
+          "Erreur API lors de la création de la demande:",
+          apiError
+        );
+        const errorMessage =
+          apiError.message || "Erreur lors de la création de la demande";
+        setError(errorMessage);
+        return { success: false, message: errorMessage };
       } finally {
-        if (isComponentMountedRef.current) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
-    },
-    [fetchVacations]
-  );
+    } catch (error) {
+      console.error("Erreur lors de la création de la demande:", error);
+      setError(error.message || "Une erreur inattendue s'est produite");
+      setLoading(false);
+      return {
+        success: false,
+        message: error.message || "Une erreur inattendue s'est produite",
+      };
+    }
+  };
 
   // Mettre à jour une demande de congé
   const updateVacation = useCallback(
@@ -505,35 +561,56 @@ const useVacations = () => {
           status = action === "rejected" ? "rejected" : "approved";
         }
 
-        // Construire l'URL de l'endpoint et préparer les données
-        const url = `${API_ENDPOINTS.VACATIONS.UPDATE_STATUS(id)}`;
-        const data = { status, comment };
+        console.log(
+          `Tentative de mise à jour du statut de la demande ${id} à ${status} (statut actuel: ${
+            vacations.find((v) => v.id === parseInt(id, 10))?.status ||
+            "inconnu"
+          })`
+        );
 
-        // Déplacer la fonction getUserId à l'intérieur du callback
-        const getUserId = () => (user ? user.id : null);
-
-        console.log(`Mise à jour du statut de la demande ${id} à ${status}`);
+        // Vérifier que le statut est différent du statut actuel
+        const currentVacation = vacations.find(
+          (v) => v.id === parseInt(id, 10)
+        );
+        if (currentVacation && currentVacation.status === status) {
+          console.log(`La demande ${id} a déjà le statut "${status}"`);
+          return {
+            success: true,
+            message: `La demande a déjà le statut "${status}"`,
+            data: currentVacation,
+          };
+        }
 
         // Utiliser la nouvelle structure où le comment est inclus dans la raison
         // L'API attend maintenant un objet avec status et comment, mais fusionnera le comment dans reason
+        console.log(
+          `Appel de VacationService.updateStatus avec id=${id}, status=${status}`,
+          comment ? `et commentaire: ${comment}` : "sans commentaire"
+        );
+
         const result = await VacationService.updateStatus(id, status, comment);
+        console.log(`Résultat de la mise à jour du statut:`, result);
 
         if (result && result.success) {
           // Si la mise à jour a réussi, mettre à jour l'état local
           setVacations((prev) =>
             prev.map((vacation) => {
-              if (vacation.id === id) {
+              if (vacation.id === parseInt(id, 10)) {
                 // Construire un objet mis à jour avec le nouveau statut
                 const updatedVacation = { ...vacation, status };
 
                 // En fonction du statut, mettre à jour les informations appropriées
                 if (status === "approved") {
-                  updatedVacation.approved_by = getUserId();
+                  updatedVacation.approved_by = user?.id
+                    ? parseInt(user.id, 10)
+                    : null;
                   updatedVacation.approved_at = new Date().toISOString();
                   updatedVacation.rejected_by = null;
                   updatedVacation.rejected_at = null;
                 } else if (status === "rejected") {
-                  updatedVacation.rejected_by = getUserId();
+                  updatedVacation.rejected_by = user?.id
+                    ? parseInt(user.id, 10)
+                    : null;
                   updatedVacation.rejected_at = new Date().toISOString();
                   updatedVacation.approved_by = null;
                   updatedVacation.approved_at = null;
@@ -544,25 +621,43 @@ const useVacations = () => {
                       ? `${vacation.reason} | Motif de rejet: ${comment}`
                       : `Motif de rejet: ${comment}`;
                   }
+                } else if (status === "pending") {
+                  updatedVacation.approved_by = null;
+                  updatedVacation.approved_at = null;
+                  updatedVacation.rejected_by = null;
+                  updatedVacation.rejected_at = null;
                 }
 
+                console.log(
+                  `Mise à jour locale de la demande ${id} effectuée`,
+                  updatedVacation
+                );
                 return updatedVacation;
               }
               return vacation;
             })
           );
-
-          // Suppression de la notification ici - elle sera gérée par le composant appelant
         } else {
-          // Suppression de la notification d'erreur ici - elle sera gérée par le composant appelant
+          console.error(
+            `Erreur lors de la mise à jour du statut:`,
+            result?.error || result?.message || "Erreur inconnue"
+          );
+          setError(
+            result?.error ||
+              result?.message ||
+              "Erreur lors de la mise à jour du statut"
+          );
         }
 
         return result;
       } catch (error) {
         const errorMessage = formatError(error);
+        console.error(
+          `Erreur lors de la mise à jour du statut (${id} -> ${action}):`,
+          errorMessage
+        );
 
         if (isComponentMountedRef.current) {
-          // Ne pas afficher de notification d'erreur ici, laisser le composant le faire
           setError(errorMessage);
         }
 
@@ -573,7 +668,7 @@ const useVacations = () => {
         }
       }
     },
-    [user]
+    [user, vacations, isComponentMountedRef]
   );
 
   // Filtrer les congés par statut
@@ -586,6 +681,7 @@ const useVacations = () => {
     vacations,
     loading,
     error,
+    success,
     createVacation,
     updateVacation,
     deleteVacation,

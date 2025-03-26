@@ -374,6 +374,29 @@ class VacationRequest {
         throw new Error("Demande de congé non trouvée");
       }
 
+      // Enregistrer les valeurs pour le débogage
+      console.log(`updateStatus - Paramètres reçus:`, {
+        id,
+        status,
+        adminId,
+        rejectionReason,
+      });
+
+      // Vérifier et convertir les types de paramètres
+      const vacationId = parseInt(id, 10);
+      if (isNaN(vacationId)) {
+        throw new Error(`ID de congé invalide: ${id}`);
+      }
+
+      let adminIdNum = null;
+      if (adminId) {
+        adminIdNum = parseInt(adminId, 10);
+        if (isNaN(adminIdNum)) {
+          console.warn(`adminId invalide (${adminId}), utilisation de NULL`);
+          adminIdNum = null;
+        }
+      }
+
       const updates = [];
       const params = [];
 
@@ -381,50 +404,107 @@ class VacationRequest {
         updates.push("status = 'approved'");
         updates.push("approved_by = ?");
         updates.push("approved_at = NOW()");
-        params.push(adminId);
+        updates.push("rejected_by = NULL");
+        updates.push("rejected_at = NULL");
+        params.push(adminIdNum);
       } else if (status === "rejected") {
         updates.push("status = 'rejected'");
         updates.push("rejected_by = ?");
         updates.push("rejected_at = NOW()");
-        updates.push("reason = ?");
-        params.push(adminId, rejectionReason);
+        updates.push("approved_by = NULL");
+        updates.push("approved_at = NULL");
+
+        params.push(adminIdNum);
+
+        // Si un motif de rejet est fourni, l'ajouter directement dans la colonne reason
+        if (rejectionReason) {
+          updates.push("reason = ?");
+          // Construire le texte de raison avec le motif de rejet
+          const reasonText = request.reason
+            ? `${request.reason} | Motif de rejet: ${rejectionReason}`
+            : `Motif de rejet: ${rejectionReason}`;
+          params.push(reasonText);
+        }
       } else if (status === "pending") {
         updates.push("status = 'pending'");
         updates.push("approved_by = NULL");
         updates.push("approved_at = NULL");
         updates.push("rejected_by = NULL");
         updates.push("rejected_at = NULL");
-        params.push(status, id);
+        // Aucun paramètre supplémentaire pour pending
       } else {
-        throw new Error("Statut invalide");
+        throw new Error(
+          `Statut invalide: ${status}. Doit être 'pending', 'approved' ou 'rejected'`
+        );
       }
 
       updates.push("updated_at = NOW()");
-      params.push(id);
+      params.push(vacationId); // ID ajouté à la fin des paramètres
 
-      const [result] = await connectDB.execute(
-        `UPDATE vacation_requests SET ${updates.join(", ")} WHERE id = ?`,
-        params
+      // Journalisation pour le débogage
+      console.log(
+        `updateStatus - Requête SQL: UPDATE vacation_requests SET ${updates.join(
+          ", "
+        )} WHERE id = ?`
       );
+      console.log(`updateStatus - Paramètres: ${JSON.stringify(params)}`);
 
-      // Créer une notification pour l'employé
-      await createAndEmitNotification(request.io, {
-        user_id: request.employee_id,
-        title:
-          status === "approved"
-            ? "Demande de congé approuvée"
-            : "Demande de congé rejetée",
-        message:
-          status === "approved"
-            ? `Votre demande de congé du ${request.start_date} au ${request.end_date} a été approuvée`
-            : `Votre demande de congé du ${request.start_date} au ${
-                request.end_date
-              } a été rejetée${rejectionReason ? ` : ${rejectionReason}` : ""}`,
-        type: status === "approved" ? "success" : "error",
-        link: `/vacations/${id}`,
-      });
+      // Exécuter la requête
+      try {
+        const [result] = await connectDB.execute(
+          `UPDATE vacation_requests SET ${updates.join(", ")} WHERE id = ?`,
+          params
+        );
 
-      return result.affectedRows > 0;
+        console.log(`updateStatus - Résultat de la mise à jour:`, {
+          affectedRows: result.affectedRows,
+          changedRows: result.changedRows,
+          info: result.info,
+        });
+
+        // Notification (pas modifiée)
+        try {
+          await createAndEmitNotification(request.io, {
+            user_id: request.employee_id,
+            title:
+              status === "approved"
+                ? "Demande de congé approuvée"
+                : status === "rejected"
+                ? "Demande de congé rejetée"
+                : "Demande remise en attente",
+            message: `Votre demande de congé du ${request.start_date} au ${
+              request.end_date
+            } a été ${
+              status === "approved"
+                ? "approuvée"
+                : status === "rejected"
+                ? "rejetée"
+                : "mise en attente"
+            }.`,
+            type:
+              status === "approved"
+                ? "success"
+                : status === "rejected"
+                ? "error"
+                : "info",
+            link: `/vacations/${id}`,
+          });
+          console.log(
+            `updateStatus - Notification envoyée à l'employé ${request.employee_id}`
+          );
+        } catch (notifError) {
+          console.error(
+            `updateStatus - Erreur lors de l'envoi de la notification:`,
+            notifError
+          );
+          // Continuer même en cas d'erreur de notification
+        }
+
+        return result.affectedRows > 0;
+      } catch (sqlError) {
+        console.error(`updateStatus - Erreur SQL:`, sqlError);
+        throw sqlError;
+      }
     } catch (error) {
       console.error("Erreur lors de la mise à jour du statut:", error);
       throw error;
@@ -638,28 +718,29 @@ class VacationRequest {
     }
   }
 
-  static async delete(id) {
+  static async delete(id, io = null) {
     try {
       const request = await this.findById(id);
       if (!request) {
         throw new Error("Demande de congé non trouvée");
       }
 
-      const [result] = await connectDB.execute(
-        "DELETE FROM vacation_requests WHERE id = ?",
-        [id]
-      );
+      await connectDB.execute("DELETE FROM vacation_requests WHERE id = ?", [
+        id,
+      ]);
 
-      // Créer une notification pour l'employé
-      await createAndEmitNotification(request.io, {
-        user_id: request.employee_id,
-        title: "Demande de congé supprimée",
-        message: `Votre demande de congé du ${request.start_date} au ${request.end_date} a été supprimée`,
-        type: "warning",
-        link: "/vacations",
-      });
+      if (io) {
+        // Vérification explicite ici
+        await createAndEmitNotification(io, {
+          user_id: request.employee_id,
+          title: "Demande de congé supprimée",
+          message: `Votre demande de congé du ${request.start_date} au ${request.end_date} a été supprimée`,
+          type: "warning",
+          link: "/vacations",
+        });
+      }
 
-      return result.affectedRows > 0;
+      return { success: true };
     } catch (error) {
       console.error(
         "Erreur lors de la suppression de la demande de congé:",
@@ -743,54 +824,214 @@ class VacationRequest {
    */
   static async create(data) {
     try {
-      const { employee_id, start_date, end_date, type, reason } = data;
+      // Vérification et extraction des données avec valeurs par défaut pour les champs optionnels
+      const {
+        employee_id,
+        creator_id = null,
+        type = "paid",
+        start_date,
+        end_date,
+        reason = "",
+        io = null,
+      } = data;
 
-      // Calculer la durée en jours ouvrés
-      const duration = getWorkingDaysCount(start_date, end_date);
+      console.log("VacationRequest.create - Données brutes reçues:", data);
 
-      const [result] = await connectDB.execute(
-        `INSERT INTO vacation_requests (
-          id, employee_id, creator_id, type, start_date, end_date, 
-          duration, reason, status, created_at, updated_at
-        ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
-        [
-          employee_id,
-          data.creator_id,
-          type,
-          start_date,
-          end_date,
-          duration,
-          reason,
-        ]
+      // Validation des données
+      if (!employee_id) {
+        throw new Error("L'ID de l'employé est requis");
+      }
+
+      // Conversion de l'ID de l'employé en nombre
+      let employeeIdNum;
+      try {
+        employeeIdNum = parseInt(employee_id, 10);
+        if (isNaN(employeeIdNum)) {
+          throw new Error(
+            `L'ID de l'employé n'est pas un nombre valide: ${employee_id}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Erreur lors de la conversion de l'ID de l'employé:",
+          error
+        );
+        throw new Error(
+          `L'ID de l'employé n'est pas un nombre valide: ${employee_id}`
+        );
+      }
+
+      // Validation des dates
+      if (!start_date || !end_date) {
+        throw new Error("Les dates de début et de fin sont requises");
+      }
+
+      // Conversion et vérification des dates
+      let startDateFormatted;
+      let endDateFormatted;
+
+      try {
+        // Formatage de la date de début
+        if (start_date instanceof Date) {
+          startDateFormatted = start_date.toISOString().split("T")[0];
+        } else if (typeof start_date === "string") {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+            startDateFormatted = start_date;
+          } else {
+            startDateFormatted = new Date(start_date)
+              .toISOString()
+              .split("T")[0];
+          }
+        } else {
+          throw new Error("Format de date de début invalide");
+        }
+
+        // Formatage de la date de fin
+        if (end_date instanceof Date) {
+          endDateFormatted = end_date.toISOString().split("T")[0];
+        } else if (typeof end_date === "string") {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+            endDateFormatted = end_date;
+          } else {
+            endDateFormatted = new Date(end_date).toISOString().split("T")[0];
+          }
+        } else {
+          throw new Error("Format de date de fin invalide");
+        }
+      } catch (error) {
+        console.error("Erreur lors du formatage des dates:", error);
+        throw new Error("Format de date invalide");
+      }
+
+      // Vérifier que la date de début est antérieure ou égale à la date de fin
+      const startDateObj = new Date(startDateFormatted);
+      const endDateObj = new Date(endDateFormatted);
+      if (startDateObj > endDateObj) {
+        throw new Error(
+          "La date de début doit être antérieure ou égale à la date de fin"
+        );
+      }
+
+      // Calcul des jours ouvrés
+      const duration = getWorkingDaysCount(
+        startDateFormatted,
+        endDateFormatted
       );
 
-      // Créer une notification pour l'employé
-      await createAndEmitNotification(data.io, {
-        user_id: employee_id,
-        title: "Nouvelle demande de congé",
-        message: `Votre demande de congé du ${start_date} au ${end_date} a été créée`,
-        type: "info",
-        link: `/vacations/${result.insertId}`,
-      });
-
-      // Créer une notification pour les managers
-      const [managers] = await connectDB.execute(
-        "SELECT id FROM users WHERE role IN ('admin', 'manager')"
-      );
-
-      for (const manager of managers) {
-        if (manager.id !== data.creator_id) {
-          await createAndEmitNotification(data.io, {
-            user_id: manager.id,
-            title: "Nouvelle demande de congé",
-            message: `Une nouvelle demande de congé a été créée pour ${data.employee_name}`,
-            type: "info",
-            link: `/vacations/${result.insertId}`,
-          });
+      // Conversion de l'ID du créateur en nombre si présent
+      let creatorIdNum = null;
+      if (creator_id) {
+        try {
+          creatorIdNum = parseInt(creator_id, 10);
+          if (isNaN(creatorIdNum)) {
+            console.warn(
+              `L'ID du créateur n'est pas un nombre valide: ${creator_id}, utilisation de NULL`
+            );
+            creatorIdNum = null;
+          }
+        } catch (error) {
+          console.warn(
+            `Erreur lors de la conversion de l'ID du créateur: ${error.message}, utilisation de NULL`
+          );
+          creatorIdNum = null;
         }
       }
 
-      return result.insertId;
+      // Préparation des données validées et formatées pour l'insertion
+      const validatedData = {
+        employeeId: employeeIdNum,
+        creatorId: creatorIdNum,
+        type: type || "paid",
+        startDate: startDateFormatted,
+        endDate: endDateFormatted,
+        duration: duration,
+        reason: reason || "",
+      };
+
+      console.log("VacationRequest.create - Données validées:", validatedData);
+
+      // Définition de la requête SQL
+      // Ne pas inclure la colonne ID - elle est auto-incrémentée
+      const query = `
+        INSERT INTO vacation_requests (
+          employee_id, creator_id, type, start_date, end_date, 
+          duration, reason, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
+      `;
+
+      // Création du tableau de paramètres avec le nombre exact de paramètres correspondant à la requête
+      const params = [
+        validatedData.employeeId,
+        validatedData.creatorId,
+        validatedData.type,
+        validatedData.startDate,
+        validatedData.endDate,
+        validatedData.duration,
+        validatedData.reason,
+      ];
+
+      console.log("VacationRequest.create - Requête SQL:", query);
+      console.log("VacationRequest.create - Paramètres:", params);
+      console.log(
+        "VacationRequest.create - Nombre de paramètres:",
+        params.length
+      );
+
+      // Exécution de la requête
+      try {
+        const [result] = await connectDB.execute(query, params);
+
+        console.log("VacationRequest.create - Résultat de l'insertion:", {
+          insertId: result.insertId,
+          affectedRows: result.affectedRows,
+        });
+
+        // Création de notifications si io est disponible
+        if (io) {
+          try {
+            // Notification pour l'employé
+            await createAndEmitNotification(io, {
+              user_id: employeeIdNum,
+              title: "Nouvelle demande de congé",
+              message: `Votre demande de congé du ${startDateFormatted} au ${endDateFormatted} a été créée`,
+              type: "info",
+              link: `/vacations/${result.insertId}`,
+            });
+
+            // Notifications pour les managers
+            const [managers] = await connectDB.execute(
+              "SELECT id FROM users WHERE role IN ('admin', 'manager')"
+            );
+
+            for (const manager of managers) {
+              if (manager.id !== creatorIdNum) {
+                await createAndEmitNotification(io, {
+                  user_id: manager.id,
+                  title: "Nouvelle demande de congé",
+                  message: `Une nouvelle demande de congé a été créée pour ${
+                    data.employee_name || `Employé #${employeeIdNum}`
+                  }`,
+                  type: "info",
+                  link: `/vacations/${result.insertId}`,
+                });
+              }
+            }
+          } catch (notifError) {
+            console.error(
+              "Erreur lors de l'envoi des notifications:",
+              notifError
+            );
+            // Continuer malgré les erreurs de notification
+          }
+        }
+
+        return result;
+      } catch (sqlError) {
+        console.error("Erreur SQL lors de l'insertion:", sqlError);
+        throw new Error(
+          `Erreur lors de l'insertion dans la base de données: ${sqlError.message}`
+        );
+      }
     } catch (error) {
       console.error(
         "Erreur lors de la création de la demande de congé:",

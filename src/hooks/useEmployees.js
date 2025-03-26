@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_ENDPOINTS, API_URL } from "../config/api";
+import { EmployeeService } from "../services/api";
+import { formatError } from "../utils/errorHandling";
 import useApi from "./useApi";
 
 /**
@@ -14,6 +16,12 @@ const useEmployees = () => {
   const isMountedRef = useRef(true);
   // Référence pour éviter les appels multiples simultanés
   const isFetchingRef = useRef(false);
+  // Référence pour le cache des employés
+  const employeesCache = useRef(null);
+  // Référence pour le timestamp du cache
+  const employeesCacheTimestamp = useRef(null);
+  // Référence pour le délai de cache
+  const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
 
   // Marquer le composant comme monté/démonté
   useEffect(() => {
@@ -29,147 +37,93 @@ const useEmployees = () => {
     };
   }, []);
 
+  // Transformer les données pour s'assurer que les IDs sont toujours au bon format
+  const normalizeEmployeeData = (data) => {
+    if (!data) return [];
+
+    return data.map((employee) => ({
+      ...employee,
+      id: employee.id ? parseInt(employee.id, 10) : null, // Assurer que l'ID est un nombre
+      user_id: employee.user_id ? parseInt(employee.user_id, 10) : null,
+    }));
+  };
+
   /**
    * Récupère tous les employés depuis l'API
    */
   const fetchEmployees = useCallback(async () => {
-    // Éviter les appels API multiples simultanés
-    if (isFetchingRef.current || !isMountedRef.current) {
-      return;
-    }
+    if (loading || isFetchingRef.current) return;
 
     isFetchingRef.current = true;
     setLoading(true);
 
     try {
-      // Forcer l'URL correcte
-      const apiUrl = API_URL || "http://localhost:5004";
-      console.log(`[fetchEmployees] Utilisation de l'URL: ${apiUrl}`);
-
-      // Vérifier si le token est présent
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Veuillez vous connecter pour accéder à cette page.");
+      // Vérifier si on a des données en cache et si elles sont encore valides
+      if (
+        employeesCache.current &&
+        employeesCacheTimestamp.current &&
+        new Date().getTime() - employeesCacheTimestamp.current < CACHE_DURATION
+      ) {
+        console.log("Utilisation des données en cache pour les employés");
+        setEmployees(employeesCache.current);
+        setError(null);
+        return;
       }
 
-      // Récupérer l'utilisateur connecté
-      const userString = localStorage.getItem("user");
-      let user = null;
-      if (userString) {
-        try {
-          user = JSON.parse(userString);
-          console.log("[fetchEmployees] Utilisateur connecté:", user);
-        } catch (e) {
+      const response = await EmployeeService.getAll();
+
+      // Logs détaillés pour déboguer
+      console.log(
+        "[useEmployees] Données brutes des employés:",
+        JSON.stringify(response)
+      );
+
+      if (response && response.success !== false) {
+        let employeesData = response.data || response;
+
+        // Si ce n'est pas un tableau, traiter comme un cas d'erreur
+        if (!Array.isArray(employeesData)) {
           console.error(
-            "[fetchEmployees] Erreur lors du parsing de l'utilisateur:",
-            e
+            "[useEmployees] Format de données inattendu:",
+            employeesData
           );
+          employeesData = [];
         }
-      }
 
-      // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${apiUrl}/api/employees`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        // Normaliser les données des employés
+        const normalizedData = normalizeEmployeeData(employeesData);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Erreur lors du chargement des employés"
-        );
-      }
-
-      const jsonResponse = await response.json();
-      console.log(
-        "[fetchEmployees] Réponse brute:",
-        typeof jsonResponse === "object"
-          ? Array.isArray(jsonResponse)
-            ? `Array[${jsonResponse.length}]`
-            : Object.keys(jsonResponse).join(", ")
-          : typeof jsonResponse
-      );
-
-      // Adapter à la nouvelle structure de réponse API { success, message, data }
-      let employeesData = [];
-      if (jsonResponse && typeof jsonResponse === "object") {
-        if ("success" in jsonResponse && "data" in jsonResponse) {
-          // Nouvelle structure
-          employeesData = jsonResponse.data || [];
-        } else {
-          // Ancienne structure (directement un tableau)
-          employeesData = Array.isArray(jsonResponse) ? jsonResponse : [];
-        }
-      }
-
-      console.log(
-        `[fetchEmployees] ${employeesData.length} employés récupérés`
-      );
-
-      // Détails des employés pour le débogage
-      if (employeesData.length > 0) {
-        console.log("[fetchEmployees] Premier employé:", {
-          id: employeesData[0].id,
-          nom: `${employeesData[0].first_name} ${employeesData[0].last_name}`,
-          user_id: employeesData[0].user_id,
+        // Log pour chaque employé
+        normalizedData.forEach((emp, index) => {
+          console.log(`[useEmployees] Employé #${index + 1} normalisé:`, {
+            id: emp.id,
+            id_type: typeof emp.id,
+            first_name: emp.first_name,
+            last_name: emp.last_name,
+            stringifiedId: emp.id ? emp.id.toString() : "null",
+          });
         });
 
-        // Vérifier que les employés appartiennent bien à l'utilisateur actuel
-        if (user && user.id) {
-          const userEmployees = employeesData.filter(
-            (emp) => Number(emp.user_id) === Number(user.id)
-          );
-          console.log(
-            `[fetchEmployees] ${userEmployees.length} employés appartiennent à l'utilisateur ${user.id}`
-          );
-
-          // Si aucun employé n'appartient à l'utilisateur, c'est peut-être une erreur
-          if (userEmployees.length === 0 && employeesData.length > 0) {
-            console.warn(
-              "[fetchEmployees] Aucun employé n'est associé à l'utilisateur courant!"
-            );
-            console.log(
-              "IDs utilisateur des employés:",
-              employeesData.map((emp) => emp.user_id)
-            );
-          }
-
-          // Stocker les IDs des employés de l'utilisateur pour une utilisation ultérieure
-          localStorage.setItem(
-            "userEmployees",
-            JSON.stringify(userEmployees.map((emp) => emp.id))
-          );
-        }
-      }
-
-      // Vérifier si le composant est toujours monté avant de mettre à jour l'état
-      if (isMountedRef.current) {
-        setEmployees(employeesData);
+        setEmployees(normalizedData);
         setError(null);
+
+        // Mettre à jour le cache
+        employeesCache.current = normalizedData;
+        employeesCacheTimestamp.current = new Date().getTime();
+      } else {
+        throw new Error(
+          response?.message || "Erreur lors du chargement des employés"
+        );
       }
-
-      return employeesData;
-    } catch (error) {
-      console.error("Erreur lors du chargement des employés:", error);
-
-      // Vérifier si le composant est toujours monté avant de mettre à jour l'état
-      if (isMountedRef.current) {
-        setError(error.message);
-      }
-
-      throw error;
+    } catch (err) {
+      const errorMessage = formatError(err);
+      console.error("[useEmployees] Erreur:", errorMessage);
+      setError(errorMessage);
     } finally {
-      // Vérifier si le composant est toujours monté avant de mettre à jour l'état
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-
+      setLoading(false);
       isFetchingRef.current = false;
     }
-  }, []);
+  }, [loading]);
 
   /**
    * Récupère un employé par son ID

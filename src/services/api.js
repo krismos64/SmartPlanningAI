@@ -388,46 +388,151 @@ export const VacationService = {
     try {
       console.log("VacationService.create - Données reçues:", vacationData);
 
-      // S'assurer que les champs obligatoires sont présents
-      if (
-        !vacationData.employee_id ||
-        !vacationData.start_date ||
-        !vacationData.end_date ||
-        !vacationData.type
-      ) {
+      // Validation complète des données
+      if (!vacationData) {
+        throw new Error("Aucune donnée fournie");
+      }
+
+      // S'assurer que les identifiants sont des nombres
+      let employee_id;
+      try {
+        employee_id = parseInt(vacationData.employee_id, 10);
+      } catch (e) {
+        console.error("Erreur de conversion de employee_id:", e);
+        employee_id = null;
+      }
+
+      if (isNaN(employee_id) || employee_id === null) {
         console.error(
-          "Erreur VacationService.create: Champs obligatoires manquants"
+          "Erreur: employee_id n'est pas un nombre valide",
+          vacationData.employee_id
         );
         return {
           success: false,
-          error:
-            "Les champs employee_id, start_date, end_date et type sont obligatoires",
-          message:
-            "Les champs employee_id, start_date, end_date et type sont obligatoires",
+          message: "L'identifiant de l'employé doit être un nombre valide",
         };
       }
 
-      // Formater les dates au format ISO (YYYY-MM-DD)
-      const formattedData = {
-        ...vacationData,
-        start_date: formatDateForAPI(vacationData.start_date),
-        end_date: formatDateForAPI(vacationData.end_date),
+      // Préparer un objet de données propre pour l'API
+      // Inclure uniquement les champs nécessaires et avec les types appropriés
+      const cleanData = {
+        employee_id: employee_id,
+        creator_id: vacationData.creator_id
+          ? parseInt(vacationData.creator_id, 10)
+          : null,
+        type: vacationData.type || "paid",
+        reason: vacationData.reason || "",
       };
 
-      console.log("VacationService.create - Données formatées:", formattedData);
+      // Formater les dates au format ISO si ce n'est pas déjà fait
+      if (vacationData.start_date) {
+        cleanData.start_date = formatDateForAPI(vacationData.start_date);
+      }
+      if (vacationData.end_date) {
+        cleanData.end_date = formatDateForAPI(vacationData.end_date);
+      }
 
-      const response = await apiRequest(
-        API_ENDPOINTS.VACATIONS.BASE,
-        "POST",
-        formattedData
+      // Vérification des champs obligatoires
+      const requiredFields = ["employee_id", "start_date", "end_date", "type"];
+      const missingFields = requiredFields.filter((field) => {
+        const value = cleanData[field];
+        return (
+          value === undefined ||
+          value === null ||
+          value === "" ||
+          (field === "employee_id" && isNaN(value))
+        );
+      });
+
+      if (missingFields.length > 0) {
+        console.error("Champs obligatoires manquants:", missingFields);
+        return {
+          success: false,
+          message: `Les champs suivants sont obligatoires: ${missingFields.join(
+            ", "
+          )}`,
+        };
+      }
+
+      console.log(
+        "VacationService.create - Données validées et formatées:",
+        cleanData
       );
-      return normalizeResponse(response);
+
+      // Envoyer la requête à l'API avec les données propres
+      try {
+        const response = await apiRequest(
+          API_ENDPOINTS.VACATIONS.BASE,
+          "POST",
+          cleanData
+        );
+
+        // Vérifier si la réponse contient insertId et l'ajouter à id si nécessaire
+        if (response && (response.insertId || response.data?.insertId)) {
+          if (!response.id) {
+            response.id = response.insertId || response.data?.insertId;
+          }
+        }
+
+        return normalizeResponse(response);
+      } catch (apiError) {
+        console.error("Erreur API lors de la création:", apiError);
+
+        // Si l'API a retourné une erreur 500 mais la demande a quand même été créée
+        // Tenter de vérifier si elle existe en récupérant toutes les demandes
+        if (
+          apiError.status === 500 &&
+          apiError.message &&
+          apiError.message.includes("Column count")
+        ) {
+          console.log(
+            "Tentative de vérification si la demande a été créée malgré l'erreur SQL..."
+          );
+          try {
+            const allVacations = await VacationService.getAll();
+            if (
+              allVacations &&
+              allVacations.success &&
+              Array.isArray(allVacations.data)
+            ) {
+              // Vérifier si une demande récente correspondant aux critères existe
+              const recentVacation = allVacations.data.find(
+                (v) =>
+                  v.employee_id === employee_id &&
+                  v.start_date === cleanData.start_date &&
+                  v.end_date === cleanData.end_date
+              );
+
+              if (recentVacation) {
+                console.log(
+                  "La demande a été créée malgré l'erreur SQL:",
+                  recentVacation
+                );
+                return {
+                  success: true,
+                  message:
+                    "Demande créée avec succès (malgré une erreur technique)",
+                  data: recentVacation,
+                  id: recentVacation.id,
+                };
+              }
+            }
+          } catch (checkError) {
+            console.error("Erreur lors de la vérification:", checkError);
+          }
+        }
+
+        throw apiError; // Relancer l'erreur si nous n'avons pas pu récupérer la demande
+      }
     } catch (error) {
-      console.error("Erreur VacationService.create:", error);
+      console.error(
+        "Erreur lors de la création de la demande de congé:",
+        error
+      );
       return {
         success: false,
-        error: formatError(error),
-        message: formatError(error),
+        message:
+          error.message || "Erreur lors de la création de la demande de congé",
       };
     }
   },
@@ -479,11 +584,53 @@ export const VacationService = {
 
   updateStatus: async (id, status, comment = "") => {
     try {
+      console.log(
+        `VacationService.updateStatus - Début mise à jour du statut:`,
+        {
+          id,
+          status,
+          comment,
+        }
+      );
+
+      // Vérifier que l'ID est valide
+      if (!id || isNaN(parseInt(id, 10))) {
+        console.error(`ID invalide: ${id}`);
+        return {
+          success: false,
+          message: "ID invalide pour la mise à jour du statut",
+        };
+      }
+
+      // Vérifier que le statut est valide
+      if (!["pending", "approved", "rejected"].includes(status)) {
+        console.error(`Statut invalide: ${status}`);
+        return {
+          success: false,
+          message:
+            "Statut invalide. Doit être 'pending', 'approved' ou 'rejected'",
+        };
+      }
+
+      // Création d'un objet de données propre
+      const data = {
+        status,
+        comment: comment || "",
+      };
+
+      console.log(`VacationService.updateStatus - Envoi de la requête:`, {
+        url: API_ENDPOINTS.VACATIONS.UPDATE_STATUS(id),
+        data,
+      });
+
       const response = await apiRequest(
         API_ENDPOINTS.VACATIONS.UPDATE_STATUS(id),
         "PUT",
-        { status, comment }
+        data
       );
+
+      console.log(`VacationService.updateStatus - Réponse reçue:`, response);
+
       return normalizeResponse(response);
     } catch (error) {
       console.error(
