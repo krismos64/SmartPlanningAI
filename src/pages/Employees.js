@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeCard from "../components/employees/EmployeeCard";
+import EmployeeExport from "../components/employees/EmployeeExport";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import HourBalanceManager from "../components/employees/HourBalanceManager";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
@@ -467,8 +468,20 @@ const Employees = () => {
           </div>
         </HeaderLeft>
         <HeaderRight>
-          <Button variant="primary" onClick={handleAddEmployee}>
-            <PlusIcon /> Ajouter un employé
+          <EmployeeExport
+            employees={employees}
+            filteredEmployees={filteredEmployees}
+          />
+          <Button
+            onClick={() => {
+              setEditingEmployee(null);
+              setShowEditForm(true);
+              setActiveModalTab("infos");
+              setShowModal(true);
+            }}
+            startIcon={<PlusIcon />}
+          >
+            Ajouter un employé
           </Button>
         </HeaderRight>
       </PageHeader>
