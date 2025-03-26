@@ -464,7 +464,7 @@ class VacationRequest {
 
         // Notification (pas modifiée)
         try {
-          await createAndEmitNotification(request.io, {
+          await createAndEmitNotification(null, {
             user_id: request.employee_id,
             title:
               status === "approved"

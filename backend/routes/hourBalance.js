@@ -71,8 +71,21 @@ router.put("/:employeeId", authMiddleware, async (req, res) => {
       );
     }
 
-    // Récupérer le solde mis à jour
-    const updatedBalance = await Employee.updateHourBalance(employeeId);
+    // Récupérer le solde mis à jour sans utiliser le trigger problématique
+    // Nous utilisons une requête SQL directe qui ne déclenchera pas le trigger
+    const [balanceResult] = await require("../config/db").execute(
+      `SELECT SUM(balance) AS total_balance 
+       FROM work_hours WHERE employee_id = ?`,
+      [employeeId]
+    );
+
+    const updatedBalance = balanceResult[0]?.total_balance || 0;
+
+    // Mettre à jour manuellement le solde dans la table employees
+    await require("../config/db").execute(
+      "UPDATE employees SET hour_balance = ? WHERE id = ?",
+      [updatedBalance, employeeId]
+    );
 
     // Renvoyer la réponse avec le solde mis à jour
     res.json({

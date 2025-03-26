@@ -1,9 +1,10 @@
 const { pool } = require("../config/database");
 const { wss } = require("../config/websocket");
+const { v4: uuidv4 } = require("uuid");
 
 /**
  * Crée une notification et l'émet via WebSocket
- * @param {Object} io - Instance Socket.IO
+ * @param {Object} io - Instance Socket.IO (ignoré actuellement)
  * @param {Object} params - Paramètres de la notification
  * @param {string} params.user_id - ID de l'utilisateur concerné
  * @param {string} params.title - Titre de la notification
@@ -13,21 +14,50 @@ const { wss } = require("../config/websocket");
  * @returns {Promise<Object>} La notification créée
  */
 const createAndEmitNotification = async (
-  user_id,
-  title,
-  message,
-  type = "info",
-  link = null
+  io, // paramètre ignoré pour compatibilité
+  params
 ) => {
   try {
-    const [notif] = await pool.query(
-      "INSERT INTO notifications (user_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)",
-      [user_id, title, message, type, link]
+    // Vérifier si params est un objet valide
+    if (!params || typeof params !== "object") {
+      console.error("Paramètres de notification invalides:", params);
+      return null;
+    }
+
+    // Extraire les paramètres
+    const { user_id, title, message, type = "info", link = null } = params;
+
+    // Vérifier les paramètres requis
+    if (!user_id) {
+      console.warn(
+        "Tentative de création de notification sans user_id:",
+        params
+      );
+      return null;
+    }
+
+    // Générer un UUID pour l'id
+    const notificationId = uuidv4();
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+    console.log("Création de notification avec les paramètres:", {
+      id: notificationId,
+      user_id,
+      title,
+      message,
+      type,
+      link,
+      created_at: now,
+    });
+
+    await pool.query(
+      "INSERT INTO notifications (id, user_id, title, message, type, link, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [notificationId, user_id, title, message, type, link, now]
     );
 
     const [notification] = await pool.query(
       "SELECT * FROM notifications WHERE id = ?",
-      [notif.insertId]
+      [notificationId]
     );
 
     // Émettre la notification via WebSocket si disponible
@@ -38,7 +68,7 @@ const createAndEmitNotification = async (
             JSON.stringify({
               type: "NOTIFICATION",
               notification: notification[0],
-              timestamp: new Date().toISOString(),
+              timestamp: now,
             })
           );
         }

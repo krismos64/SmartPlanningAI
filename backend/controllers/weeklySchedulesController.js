@@ -74,7 +74,7 @@ exports.createSchedule = async (req, res) => {
         : `Employé #${employee_id}`;
 
     // Créer une notification pour l'employé
-    await createAndEmitNotification(req.io, {
+    await createAndEmitNotification(null, {
       user_id: employee_id,
       title: "Nouveau planning créé",
       message: `Un planning a été créé pour vous (semaine du ${week_start})`,
@@ -89,7 +89,7 @@ exports.createSchedule = async (req, res) => {
 
     for (const manager of managers) {
       if (manager.id !== req.user.id) {
-        await createAndEmitNotification(req.io, {
+        await createAndEmitNotification(null, {
           user_id: manager.id,
           title: "Nouveau planning créé",
           message: `Un planning a été créé pour ${employeeName} (semaine du ${week_start})`,
@@ -339,7 +339,7 @@ exports.updateSchedule = async (req, res) => {
         : `Employé #${employeeId}`;
 
     // Créer une notification pour l'employé
-    await createAndEmitNotification(req.io, {
+    await createAndEmitNotification(null, {
       user_id: employee_id,
       title: "Planning modifié",
       message: `Votre planning a été modifié (semaine du ${week_start})`,
@@ -354,7 +354,7 @@ exports.updateSchedule = async (req, res) => {
 
     for (const manager of managers) {
       if (manager.id !== req.user.id) {
-        await createAndEmitNotification(req.io, {
+        await createAndEmitNotification(null, {
           user_id: manager.id,
           title: "Planning modifié",
           message: `Le planning de ${employeeName} a été modifié (semaine du ${week_start})`,

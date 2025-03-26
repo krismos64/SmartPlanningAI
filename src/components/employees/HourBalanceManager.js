@@ -117,19 +117,30 @@ const StepButton = styled.button`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: ${({ theme }) => theme.colors.background.hover};
-  color: ${({ theme }) => theme.colors.text.primary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme, type }) =>
+    type === "decrease" ? theme.colors.error : theme.colors.success};
+  color: white;
+  border: none;
+  font-weight: bold;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 
   &:hover {
-    background-color: ${({ theme }) => theme.colors.background.active};
+    transform: scale(1.1);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 `;
 
@@ -412,6 +423,7 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
           <StepperContainer>
             <StepButton
               type="button"
+              type="decrease"
               onClick={() => adjustHours(-0.25)}
               disabled={loading || parseFloat(hours) <= 0.25}
             >

@@ -1,0 +1,50 @@
+# RÉCAPITULATIF DES CORRECTIONS POUR LA CRÉATION D'EMPLOYÉS
+
+## Problème initial
+Lors de la création d'un nouvel employé, une erreur 500 (Internal Server Error) était renvoyée par le serveur, empêchant l'enregistrement des données.
+
+## Causes identifiées
+1. **Problème de nommage des champs** : Incohérence entre le format camelCase (`zipCode`) utilisé côté frontend et le format snake_case (`zip_code`) attendu côté backend
+2. **Problème dans le service de notification** : Erreur "Column count doesn't match value count at row 1" lors de l'insertion des notifications après la création de l'employé
+
+## Corrections apportées
+
+### 1. Normalisation du champ zipCode/zip_code
+
+- **backend/models/Employee.js**
+  - Modification du constructeur pour accepter les deux formats (`zipCode` et `zip_code`)
+  - Ajout de débogage détaillé pour identifier les problèmes de champs
+
+- **backend/routes/employees.js**
+  - Normalisation des données dans la route POST (création)
+  - Normalisation des données dans la route PUT (mise à jour)
+  - Conversion explicite de `zipCode` vers `zip_code` avant le traitement
+
+### 2. Correction du service de notification
+
+- **backend/services/notificationService.js**
+  - Refactorisation pour accepter un objet de paramètres au lieu de paramètres individuels
+  - Amélioration de la gestion des erreurs pour éviter que les notifications ne bloquent la création d'employés
+
+- **backend/models/Employee.js**
+  - Ajout d'une gestion d'erreurs robuste autour des appels à `createAndEmitNotification`
+  - Utilisation d'une structure try/catch pour isoler les erreurs de notification
+
+### 3. Validation et compatibilité de la structure de données
+
+- **backend/migrations/fix_contractHours_field.sql**
+  - Création d'une migration pour s'assurer que le champ `contractHours` est correctement défini
+  - Vérification et correction automatique de la structure de la table
+
+- **backend/scripts/validateEmployeeTable.js**
+  - Script de validation pour vérifier que tous les champs nécessaires existent dans la base de données
+  - Outil de diagnostic pour détecter les problèmes structurels
+
+### 4. Tests
+
+- **backend/scripts/createTestEmployee.js**
+  - Script de test pour valider la fonctionnalité de création d'employés
+  - Gestion robuste des erreurs pour identifier les problèmes potentiels
+
+## Résultat
+Le formulaire de création d'employé fonctionne maintenant correctement, permettant d'enregistrer tous les champs, y compris `zipCode` (transformé en `zip_code` côté serveur) sans erreur serveur. 
