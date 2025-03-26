@@ -381,10 +381,8 @@ const NotificationCenter = () => {
         markAsRead(notification.id);
       }
 
-      // Naviguer vers le lien associé si présent
-      if (notification.link) {
-        window.location.href = notification.link;
-      }
+      // Rediriger vers la page d'activités, indépendamment du lien stocké dans la notification
+      window.location.href = "/activities";
     },
     [markAsRead]
   );
@@ -513,9 +511,34 @@ const NotificationCenter = () => {
                     notification.createdAt || notification.created_at
                   )}
                 </NotificationTime>
+                <NotificationItemActions>
+                  {!notification.read && (
+                    <NotificationItemButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markAsRead(notification.id);
+                      }}
+                    >
+                      <FiCheck size={14} />
+                      Marquer comme lu
+                    </NotificationItemButton>
+                  )}
+                </NotificationItemActions>
               </NotificationContent>
+              {!notification.read && (
+                <MarkAsReadButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAsRead(notification.id);
+                  }}
+                  title="Marquer comme lu"
+                >
+                  <FiCheck size={16} />
+                </MarkAsReadButton>
+              )}
               <DeleteButton
                 onClick={(e) => handleDeleteNotification(e, notification.id)}
+                title="Supprimer la notification"
               >
                 <FiTrash2 size={16} />
               </DeleteButton>
@@ -541,8 +564,8 @@ const NotificationCenter = () => {
     opacity: 0;
     position: absolute;
     right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 10px;
+    transform: translateY(0);
 
     ${NotificationItem}:hover & {
       opacity: 1;
@@ -550,11 +573,43 @@ const NotificationCenter = () => {
 
     &:hover {
       color: #ef4444;
-      transform: translateY(-50%) scale(1.1);
+      transform: scale(1.1);
     }
 
     &:active {
-      transform: translateY(-50%) scale(0.9);
+      transform: scale(0.9);
+    }
+  `;
+
+  // Ajouter un bouton de marquer comme lu
+  const MarkAsReadButton = styled.button`
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: ${({ theme }) => theme.colors.text?.tertiary || "#888"};
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    opacity: 0;
+    position: absolute;
+    right: 45px;
+    top: 10px;
+    transform: translateY(0);
+
+    ${NotificationItem}:hover & {
+      opacity: 1;
+    }
+
+    &:hover {
+      color: #10b981;
+      transform: scale(1.1);
+    }
+
+    &:active {
+      transform: scale(0.9);
     }
   `;
 
@@ -649,12 +704,14 @@ const NotificationCenter = () => {
               <ActionButton
                 onClick={enhancedMarkAllAsRead}
                 disabled={markingAllAsRead || notifications.length === 0}
+                title="Marquer toutes comme lues"
               >
                 <FiCheck />
               </ActionButton>
               <ActionButton
                 onClick={handleDeleteAllNotifications}
                 disabled={notifications.length === 0}
+                title="Supprimer toutes les notifications"
               >
                 <FiTrash2 />
               </ActionButton>
@@ -666,7 +723,7 @@ const NotificationCenter = () => {
           </NotificationList>
 
           <ViewAllContainer
-            onClick={() => (window.location.href = "/notifications")}
+            onClick={() => (window.location.href = "/activities")}
           >
             <ViewAllLink>Voir toutes les notifications</ViewAllLink>
           </ViewAllContainer>

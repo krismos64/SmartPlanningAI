@@ -25,7 +25,13 @@ const createAndEmitNotification = async (
     }
 
     // Extraire les paramètres
-    const { user_id, title, message, type = "info", link = null } = params;
+    const {
+      user_id,
+      title,
+      message,
+      type = "info",
+      link = "/activities",
+    } = params;
 
     // Vérifier les paramètres requis
     if (!user_id) {

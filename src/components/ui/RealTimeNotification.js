@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -197,7 +197,10 @@ export const RealTimeNotificationProvider = ({ children }) => {
           <NotificationItem
             key={notification.id}
             type={notification.type}
-            onClick={() => markAsRead(notification.id)}
+            onClick={() => {
+              markAsRead(notification.id);
+              window.location.href = "/activities";
+            }}
           >
             <NotificationHeader>
               <NotificationTitle>{notification.title}</NotificationTitle>

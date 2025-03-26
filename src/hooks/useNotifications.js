@@ -344,6 +344,11 @@ const useNotifications = () => {
 
     const handleNewNotification = (notification) => {
       try {
+        // S'assurer que le lien pointe vers la page activités
+        if (notification) {
+          notification.link = "/activities";
+        }
+
         // Ajouter la nouvelle notification à la liste sans déclencher une requête complète
         setNotifications((prev) => {
           // Éviter les doublons
@@ -364,12 +369,10 @@ const useNotifications = () => {
             icon: "/logo192.png",
           });
 
-          // Rediriger vers le lien de la notification si l'utilisateur clique dessus
+          // Rediriger vers la page d'activités si l'utilisateur clique sur la notification
           sysNotification.onclick = () => {
             window.focus();
-            if (notification.link) {
-              window.location.href = notification.link;
-            }
+            window.location.href = "/activities";
           };
         }
       } catch (error) {

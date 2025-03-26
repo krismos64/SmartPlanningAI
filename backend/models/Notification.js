@@ -9,7 +9,7 @@ class Notification {
     this.message = data.message;
     this.type = data.type || "info"; // info, success, warning, error
     this.read = data.read || false;
-    this.link = data.link || null;
+    this.link = data.link || "/activities"; // Par défaut, toutes les notifications pointent vers la page d'activités
     this.entity_type = data.entity_type || null; // employee, vacation, schedule, etc.
     this.entity_id = data.entity_id || null;
     this.created_at = data.created_at || new Date().toISOString();
