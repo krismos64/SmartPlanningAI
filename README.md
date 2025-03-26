@@ -1,5 +1,3 @@
-# SmartPlanning AI - Refonte UI/UX
-
 ## 🎨 Présentation du projet
 
 SmartPlanning AI est une application de gestion de planning intelligente qui permet aux entreprises de gérer efficacement leurs employés, plannings, congés et statistiques. Cette refonte complète du design intègre des animations modernes et un style professionnel, tout en conservant une fluidité et une ergonomie optimale.
@@ -276,6 +274,26 @@ npm run dev
 4. **calculate_weekly_schedule_hours**
    - Procédure qui calcule le total des heures d'un planning hebdomadaire
    - Analyse les données JSON du planning et met à jour le champ `total_hours`
+   - Structure des données JSON attendue :
+     ```json
+     [
+       {
+         "type": "work",
+         "hours": "8.0",
+         "absence": null,
+         "note": "",
+         "timeSlots": [
+           {
+             "start": "09:00",
+             "end": "17:00",
+             "break": "1.0"
+           }
+         ]
+       }
+     ]
+     ```
+   - La procédure calcule le total en additionnant le champ `hours` de chaque jour
+   - Mise à jour automatique du champ `total_hours` dans la table `weekly_schedules`
 
 ## 🛠 Technologies utilisées
 
