@@ -1,186 +1,59 @@
 import axios from "axios";
 import moment from "moment";
 import "moment/locale/fr";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-
-// Composants de l'assistant
-
-// ErrorBoundary pour capturer les erreurs dans les composants
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    this.setState({
-      error: error,
-      errorInfo: errorInfo,
-    });
-    console.error("Erreur dans le composant:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div
-          style={{
-            padding: "20px",
-            backgroundColor: "#ffdddd",
-            color: "#ff0000",
-            margin: "20px",
-            borderRadius: "5px",
-          }}
-        >
-          <h3>Une erreur est survenue dans ce composant.</h3>
-          <p>Veuillez contacter l'administrateur ou réessayer plus tard.</p>
-          <details style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>
-            <summary>Détails de l'erreur (pour les développeurs)</summary>
-            <p>{this.state.error && this.state.error.toString()}</p>
-            <p>{this.state.errorInfo && this.state.errorInfo.componentStack}</p>
-          </details>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-// Styles en ligne pour le modal
-const modalStyles = {
-  modalBackdrop: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    zIndex: 100000,
-  },
-  modalContent: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    backgroundColor: "#ffffff",
-    width: "90%",
-    maxWidth: "1000px",
-    maxHeight: "90vh",
-    borderRadius: "0.75rem",
-    boxShadow: "0 20px 25px rgba(0, 0, 0, 0.5)",
-    overflow: "auto",
-  },
-  darkModalContent: {
-    backgroundColor: "#111827",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "1.25rem 1.5rem",
-    borderBottom: "1px solid #e5e7eb",
-  },
-  darkModalHeader: {
-    borderBottom: "1px solid #374151",
-  },
-  modalTitle: {
-    fontSize: "1.25rem",
-    fontWeight: "600",
-    color: "#1f2937",
-  },
-  darkModalTitle: {
-    color: "#f3f4f6",
-  },
-  closeButton: {
-    backgroundColor: "transparent",
-    border: "none",
-    padding: "0.5rem",
-    cursor: "pointer",
-    color: "#6b7280",
-  },
-  darkCloseButton: {
-    color: "#9ca3af",
-  },
-  modalBody: {
-    padding: "1.5rem",
-  },
-  modalFooter: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "1.25rem 1.5rem",
-    borderTop: "1px solid #e5e7eb",
-  },
-  darkModalFooter: {
-    borderTop: "1px solid #374151",
-  },
-  navigationButton: {
-    display: "inline-block",
-    padding: "0.75rem 1.25rem",
-    borderRadius: "0.375rem",
-    fontWeight: "500",
-    cursor: "pointer",
-  },
-  backButton: {
-    backgroundColor: "transparent",
-    color: "#6b7280",
-    border: "1px solid #d1d5db",
-  },
-  darkBackButton: {
-    color: "#9ca3af",
-    border: "1px solid #4b5563",
-  },
-  nextButton: {
-    backgroundColor: "#3b82f6",
-    color: "#ffffff",
-    border: "none",
-  },
-  disabledButton: {
-    opacity: 0.5,
-    cursor: "not-allowed",
-  },
-  progressContainer: {
-    padding: "0 1.5rem",
-    marginTop: "-0.5rem",
-    marginBottom: "1rem",
-  },
-  progressBar: {
-    height: "0.25rem",
-    backgroundColor: "#e5e7eb",
-    borderRadius: "0.125rem",
-    overflow: "hidden",
-  },
-  darkProgressBar: {
-    backgroundColor: "#374151",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#3b82f6",
-    borderRadius: "0.125rem",
-  },
-  loadingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  darkLoadingOverlay: {
-    backgroundColor: "rgba(17, 24, 39, 0.8)",
-  },
-};
+import {
+  FiAlertTriangle,
+  FiArrowLeft,
+  FiArrowRight,
+  FiX,
+} from "react-icons/fi";
+import Lottie from "react-lottie";
+import robotAnimation from "../../animations/robot.json";
 
 // Initialiser moment en français
 moment.locale("fr");
+
+// Animations
+const fadeIn = `
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+`;
+
+const slideIn = `
+  @keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+`;
+
+const pulse = `
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+`;
+
+const shimmer = `
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+`;
+
+// Options pour l'animation Lottie
+const robotOptions = {
+  loop: true,
+  autoplay: true,
+  animationData: robotAnimation,
+  rendererSettings: {
+    preserveAspectRatio: "xMidYMid slice",
+  },
+};
 
 /**
  * Composant AutoScheduleWizard - Assistant de génération automatique de planning avec IA
@@ -195,7 +68,8 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [generatedSchedule, setGeneratedSchedule] = useState(null);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("Impossible de charger les employés");
+  const [showError, setShowError] = useState(true);
 
   // Titres des étapes
   const stepTitles = {
@@ -220,6 +94,20 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
     // Charger les données des employés si le modal est ouvert
     if (isOpen) {
       fetchEmployees();
+
+      // Insérer les styles d'animation
+      const styleElement = document.createElement("style");
+      styleElement.innerHTML = `
+        ${fadeIn}
+        ${slideIn}
+        ${pulse}
+        ${shimmer}
+      `;
+      document.head.appendChild(styleElement);
+
+      return () => {
+        document.head.removeChild(styleElement);
+      };
     }
 
     // Nettoyage
@@ -255,6 +143,7 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
     } catch (err) {
       console.error("Erreur lors du chargement des employés:", err);
       setError("Impossible de charger les employés");
+      setShowError(true);
     } finally {
       setIsLoading(false);
     }
@@ -315,6 +204,7 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
     } catch (err) {
       console.error("Erreur lors de la génération du planning:", err);
       setError("Impossible de générer le planning");
+      setShowError(true);
     } finally {
       setIsGenerating(false);
     }
@@ -335,37 +225,158 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
     switch (currentStep) {
       case 1:
         return (
-          <div>
-            <p style={{ marginBottom: "15px" }}>
+          <div
+            style={{
+              animation: "fadeIn 0.5s ease-out forwards",
+            }}
+          >
+            <p
+              style={{
+                marginBottom: "20px",
+                fontSize: "16px",
+                color: "#3B82F6",
+              }}
+            >
               Sélectionnez les employés à inclure dans le planning:
             </p>
+
             {isLoading ? (
-              <p>Chargement des employés...</p>
-            ) : error ? (
-              <p style={{ color: "red" }}>{error}</p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "20px",
+                }}
+              >
+                <div style={{ width: "150px", height: "150px" }}>
+                  <Lottie options={robotOptions} />
+                </div>
+                <p style={{ color: "#64748B", marginTop: "15px" }}>
+                  Chargement des employés...
+                </p>
+              </div>
+            ) : showError ? (
+              <div
+                style={{
+                  backgroundColor: "rgba(239, 68, 68, 0.1)",
+                  borderLeft: "4px solid #EF4444",
+                  padding: "16px",
+                  borderRadius: "8px",
+                  marginBottom: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  animation: "pulse 2s infinite",
+                }}
+              >
+                <FiAlertTriangle
+                  style={{
+                    color: "#EF4444",
+                    fontSize: "24px",
+                    marginRight: "12px",
+                  }}
+                />
+                <div>
+                  <p
+                    style={{
+                      color: "#EF4444",
+                      fontWeight: "500",
+                      fontSize: "16px",
+                    }}
+                  >
+                    {error}
+                  </p>
+                  <p
+                    style={{
+                      color: "#64748B",
+                      fontSize: "14px",
+                      marginTop: "4px",
+                    }}
+                  >
+                    Veuillez réessayer plus tard ou contacter l'administrateur
+                  </p>
+                </div>
+              </div>
             ) : (
               <div>
                 <p>Liste des employés (simulée)</p>
-                <ul style={{ listStyle: "none", padding: 0 }}>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(250px, 1fr))",
+                    gap: "12px",
+                  }}
+                >
                   {[1, 2, 3, 4, 5].map((id) => (
                     <li
                       key={id}
                       style={{
-                        margin: "10px 0",
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "5px",
+                        padding: "15px",
+                        borderRadius: "10px",
+                        background: "linear-gradient(145deg, #f6f8fc, #ffffff)",
+                        boxShadow:
+                          "5px 5px 10px rgba(163, 177, 198, 0.1), -5px -5px 10px rgba(255, 255, 255, 0.7)",
+                        transition: "all 0.3s ease",
+                        animation: `slideIn 0.3s ease-out forwards ${
+                          id * 0.1
+                        }s`,
+                        opacity: 0,
+                        transform: "translateY(-20px)",
                       }}
                     >
-                      <label style={{ display: "flex", alignItems: "center" }}>
-                        <input
-                          type="checkbox"
-                          style={{ marginRight: "10px" }}
-                          onChange={() => {
-                            // Gérer la sélection des employés
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "20px",
+                            height: "20px",
+                            borderRadius: "4px",
+                            border: "2px solid #3B82F6",
+                            marginRight: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "all 0.2s ease",
+                            backgroundColor: selectedEmployees.includes(id)
+                              ? "#3B82F6"
+                              : "transparent",
                           }}
-                        />
-                        Employé #{id}
+                        >
+                          {selectedEmployees.includes(id) && (
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M5 13L9 17L19 7"
+                                stroke="white"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontWeight: "500",
+                            color: "#1E293B",
+                          }}
+                        >
+                          Employé #{id}
+                        </span>
                       </label>
                     </li>
                   ))}
@@ -376,72 +387,304 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
         );
       case 2:
         return (
-          <div>
-            <p>Définissez les paramètres généraux du planning:</p>
-            <div style={{ marginTop: "15px" }}>
-              <label style={{ display: "block", marginBottom: "10px" }}>
-                Période du planning:
-                <input
-                  type="date"
+          <div
+            style={{
+              animation: "fadeIn 0.5s ease-out forwards",
+            }}
+          >
+            <p
+              style={{
+                marginBottom: "20px",
+                fontSize: "16px",
+                color: "#3B82F6",
+              }}
+            >
+              Définissez les paramètres généraux du planning:
+            </p>
+            <div
+              style={{
+                marginTop: "15px",
+                display: "grid",
+                gap: "20px",
+              }}
+            >
+              <div
+                style={{
+                  background: "linear-gradient(145deg, #f6f8fc, #ffffff)",
+                  boxShadow:
+                    "5px 5px 10px rgba(163, 177, 198, 0.1), -5px -5px 10px rgba(255, 255, 255, 0.7)",
+                  borderRadius: "10px",
+                  padding: "20px",
+                  animation: "slideIn 0.3s ease-out forwards",
+                }}
+              >
+                <label
                   style={{
-                    marginLeft: "10px",
-                    padding: "8px",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
                   }}
-                  defaultValue={moment().format("YYYY-MM-DD")}
-                />
-              </label>
+                >
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: "#1E293B",
+                    }}
+                  >
+                    Période du planning:
+                  </span>
+                  <input
+                    type="date"
+                    style={{
+                      padding: "12px",
+                      border: "1px solid #E2E8F0",
+                      borderRadius: "8px",
+                      outline: "none",
+                      transition: "all 0.2s ease",
+                      fontSize: "14px",
+                      width: "100%",
+                      maxWidth: "300px",
+                    }}
+                    defaultValue={moment().format("YYYY-MM-DD")}
+                  />
+                </label>
+              </div>
             </div>
           </div>
         );
       case 3:
         return (
-          <div>
-            <p>Définissez les préférences pour les quarts de travail:</p>
-            <div style={{ marginTop: "15px" }}>
-              <label style={{ display: "block", marginBottom: "10px" }}>
-                Durée minimale d'un quart:
-                <select
+          <div
+            style={{
+              animation: "fadeIn 0.5s ease-out forwards",
+            }}
+          >
+            <p
+              style={{
+                marginBottom: "20px",
+                fontSize: "16px",
+                color: "#3B82F6",
+              }}
+            >
+              Définissez les préférences pour les quarts de travail:
+            </p>
+            <div
+              style={{
+                marginTop: "15px",
+                display: "grid",
+                gap: "20px",
+              }}
+            >
+              <div
+                style={{
+                  background: "linear-gradient(145deg, #f6f8fc, #ffffff)",
+                  boxShadow:
+                    "5px 5px 10px rgba(163, 177, 198, 0.1), -5px -5px 10px rgba(255, 255, 255, 0.7)",
+                  borderRadius: "10px",
+                  padding: "20px",
+                  animation: "slideIn 0.3s ease-out forwards",
+                }}
+              >
+                <label
                   style={{
-                    marginLeft: "10px",
-                    padding: "8px",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
                   }}
                 >
-                  <option value="4">4 heures</option>
-                  <option value="6">6 heures</option>
-                  <option value="8">8 heures</option>
-                </select>
-              </label>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: "#1E293B",
+                    }}
+                  >
+                    Durée minimale d'un quart:
+                  </span>
+                  <select
+                    style={{
+                      padding: "12px",
+                      border: "1px solid #E2E8F0",
+                      borderRadius: "8px",
+                      outline: "none",
+                      transition: "all 0.2s ease",
+                      fontSize: "14px",
+                      width: "100%",
+                      maxWidth: "300px",
+                      appearance: "none",
+                      backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23475569'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 12px center",
+                      backgroundSize: "16px",
+                    }}
+                  >
+                    <option value="4">4 heures</option>
+                    <option value="6">6 heures</option>
+                    <option value="8">8 heures</option>
+                  </select>
+                </label>
+              </div>
             </div>
           </div>
         );
       case 4:
         return (
-          <div>
-            <p>Ajoutez des contraintes spéciales:</p>
-            <div style={{ marginTop: "15px" }}>
-              <label style={{ display: "block", marginBottom: "10px" }}>
-                Pauses obligatoires:
-                <input type="checkbox" style={{ marginLeft: "10px" }} />
-              </label>
+          <div
+            style={{
+              animation: "fadeIn 0.5s ease-out forwards",
+            }}
+          >
+            <p
+              style={{
+                marginBottom: "20px",
+                fontSize: "16px",
+                color: "#3B82F6",
+              }}
+            >
+              Ajoutez des contraintes spéciales:
+            </p>
+            <div
+              style={{
+                marginTop: "15px",
+                display: "grid",
+                gap: "20px",
+              }}
+            >
+              <div
+                style={{
+                  background: "linear-gradient(145deg, #f6f8fc, #ffffff)",
+                  boxShadow:
+                    "5px 5px 10px rgba(163, 177, 198, 0.1), -5px -5px 10px rgba(255, 255, 255, 0.7)",
+                  borderRadius: "10px",
+                  padding: "20px",
+                  animation: "slideIn 0.3s ease-out forwards",
+                }}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      borderRadius: "4px",
+                      border: "2px solid #3B82F6",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      style={{
+                        opacity: 0,
+                        position: "absolute",
+                      }}
+                    />
+                  </div>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: "#1E293B",
+                    }}
+                  >
+                    Pauses obligatoires
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         );
       case 5:
         return (
-          <div style={{ textAlign: "center" }}>
-            <p>Prêt à générer le planning!</p>
-            <p style={{ marginTop: "15px" }}>
+          <div
+            style={{
+              animation: "fadeIn 0.5s ease-out forwards",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+          >
+            <div
+              style={{
+                width: "200px",
+                height: "200px",
+                marginBottom: "20px",
+              }}
+            >
+              <Lottie options={robotOptions} />
+            </div>
+
+            <p
+              style={{
+                fontSize: "18px",
+                fontWeight: "600",
+                color: "#3B82F6",
+                marginBottom: "15px",
+                textAlign: "center",
+              }}
+            >
+              Prêt à générer le planning!
+            </p>
+
+            <p
+              style={{
+                color: "#64748B",
+                textAlign: "center",
+                maxWidth: "500px",
+                margin: "0 auto",
+              }}
+            >
               L'IA va maintenant générer un planning optimisé en fonction des
               paramètres spécifiés.
             </p>
+
             {isGenerating && (
-              <div style={{ marginTop: "20px" }}>
-                <p>Génération en cours...</p>
-                {/* Emplacement pour un spinner ou animation de chargement */}
+              <div
+                style={{
+                  marginTop: "30px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: "300px",
+                    height: "4px",
+                    backgroundColor: "#E2E8F0",
+                    borderRadius: "2px",
+                    overflow: "hidden",
+                    marginBottom: "15px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "30%",
+                      height: "100%",
+                      background:
+                        "linear-gradient(90deg, #3B82F6, #60A5FA, #3B82F6)",
+                      backgroundSize: "200% 100%",
+                      animation: "shimmer 2s infinite linear",
+                    }}
+                  ></div>
+                </div>
+                <p
+                  style={{
+                    color: "#64748B",
+                    fontSize: "14px",
+                  }}
+                >
+                  Génération en cours...
+                </p>
               </div>
             )}
           </div>
@@ -466,73 +709,90 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
+        backgroundColor: "rgba(15, 23, 42, 0.75)",
+        backdropFilter: "blur(8px)",
         zIndex: 10000000,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
         overflow: "hidden",
+        animation: "fadeIn 0.3s ease-out forwards",
       }}
       onClick={onClose}
     >
       <div
         style={{
           backgroundColor: "#ffffff",
-          borderRadius: "10px",
-          width: "90%",
+          borderRadius: "16px",
+          width: "94%",
           maxWidth: "800px",
           maxHeight: "90vh",
           overflow: "auto",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+          boxShadow:
+            "0 10px 25px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05)",
           position: "relative",
+          animation: "slideIn 0.4s ease-out forwards",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête */}
         <div
           style={{
-            padding: "20px",
-            borderBottom: "1px solid #eee",
+            padding: "20px 24px",
+            borderBottom: "1px solid #E2E8F0",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            background: "linear-gradient(to right, #3B82F6, #60A5FA)",
           }}
         >
-          <h2 style={{ margin: 0, color: "#333" }}>
+          <h2
+            style={{
+              margin: 0,
+              color: "#ffffff",
+              fontSize: "20px",
+              fontWeight: "600",
+              textShadow: "0 1px 2px rgba(0,0,0,0.1)",
+            }}
+          >
             {stepTitles[currentStep] || "Assistant de planification"}
           </h2>
           <button
             style={{
-              background: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              background: "rgba(255, 255, 255, 0.2)",
               border: "none",
-              fontSize: "24px",
               cursor: "pointer",
-              color: "#666",
+              transition: "all 0.2s ease",
+              color: "#ffffff",
             }}
             onClick={onClose}
           >
-            ×
+            <FiX size={20} />
           </button>
         </div>
 
         {/* Barre de progression */}
-        <div style={{ padding: "0 20px" }}>
+        <div style={{ padding: "0" }}>
           <div
             style={{
               height: "6px",
-              backgroundColor: "#eee",
-              borderRadius: "3px",
+              backgroundColor: "#E2E8F0",
               overflow: "hidden",
-              margin: "10px 0",
             }}
           >
             <div
               style={{
                 height: "100%",
                 width: `${progressPercentage}%`,
-                backgroundColor: "#3b82f6",
-                borderRadius: "3px",
-                transition: "width 0.3s ease-in-out",
+                background: "linear-gradient(90deg, #3B82F6, #60A5FA)",
+                transition: "width 0.5s ease-in-out",
               }}
             />
           </div>
@@ -540,54 +800,78 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
 
         {/* Contenu */}
         <form onSubmit={handleSubmit}>
-          <div style={{ padding: "20px" }}>{renderStepContent()}</div>
+          <div style={{ padding: "24px" }}>{renderStepContent()}</div>
 
           {/* Pied de page avec boutons de navigation */}
           <div
             style={{
-              padding: "20px",
-              borderTop: "1px solid #eee",
+              padding: "20px 24px",
+              borderTop: "1px solid #E2E8F0",
               display: "flex",
               justifyContent: "space-between",
+              background: "#F8FAFC",
             }}
           >
             <button
               type="button"
               style={{
-                padding: "10px 20px",
-                backgroundColor: currentStep > 1 ? "#f3f4f6" : "#e5e7eb",
-                color: currentStep > 1 ? "#374151" : "#9ca3af",
-                border: "1px solid #d1d5db",
-                borderRadius: "5px",
+                display: "flex",
+                alignItems: "center",
+                padding: "10px 16px",
+                backgroundColor: currentStep > 1 ? "#ffffff" : "#F1F5F9",
+                color: currentStep > 1 ? "#3B82F6" : "#94A3B8",
+                border: `1px solid ${currentStep > 1 ? "#CBD5E1" : "#E2E8F0"}`,
+                borderRadius: "8px",
+                fontWeight: "500",
+                fontSize: "14px",
                 cursor: currentStep > 1 ? "pointer" : "not-allowed",
-                opacity: currentStep > 1 ? 1 : 0.5,
+                opacity: currentStep > 1 ? 1 : 0.7,
+                transition: "all 0.2s ease",
               }}
               onClick={prevStep}
               disabled={currentStep === 1}
             >
+              <FiArrowLeft size={16} style={{ marginRight: "8px" }} />
               Précédent
             </button>
 
             <button
               type="submit"
               style={{
-                padding: "10px 20px",
-                backgroundColor: isGenerating ? "#9ca3af" : "#3b82f6",
+                display: "flex",
+                alignItems: "center",
+                padding: "10px 16px",
+                background: isGenerating
+                  ? "#94A3B8"
+                  : "linear-gradient(to right, #3B82F6, #60A5FA)",
                 color: "#ffffff",
                 border: "none",
-                borderRadius: "5px",
+                borderRadius: "8px",
+                fontWeight: "500",
+                fontSize: "14px",
                 cursor: isGenerating ? "not-allowed" : "pointer",
                 opacity: isGenerating ? 0.7 : 1,
+                boxShadow: isGenerating
+                  ? "none"
+                  : "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
+                transition: "all 0.2s ease",
               }}
               disabled={isGenerating}
             >
-              {currentStep < 5 ? "Suivant" : "Générer le planning"}
+              {currentStep < 5 ? (
+                <>
+                  Suivant
+                  <FiArrowRight size={16} style={{ marginLeft: "8px" }} />
+                </>
+              ) : (
+                "Générer le planning"
+              )}
             </button>
           </div>
         </form>
 
         {/* Overlay de chargement */}
-        {isLoading && (
+        {isLoading && !showError && (
           <div
             style={{
               position: "absolute",
@@ -595,14 +879,22 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "rgba(255, 255, 255, 0.8)",
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
               display: "flex",
+              flexDirection: "column",
               justifyContent: "center",
               alignItems: "center",
               zIndex: 1,
             }}
           >
-            <p>Chargement...</p>
+            <div style={{ width: "150px", height: "150px" }}>
+              <Lottie options={robotOptions} />
+            </div>
+            <p
+              style={{ color: "#3B82F6", marginTop: "15px", fontWeight: "500" }}
+            >
+              Chargement des données...
+            </p>
           </div>
         )}
       </div>
