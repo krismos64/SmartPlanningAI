@@ -1,6 +1,6 @@
 -- Script SQL complet pour la base de données SmartPlanningAI
--- Généré le: 24 Mars 2025
--- Version: 1.0
+-- Généré le: 26 Mars 2025
+-- Version: 1.1
 
 -- Supprimer la base de données si elle existe
 DROP DATABASE IF EXISTS `smartplanningai`;
@@ -34,7 +34,7 @@ CREATE TABLE `users` (
   `jobTitle` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table structure: user_settings
@@ -104,7 +104,7 @@ CREATE TABLE `employees` (
   CONSTRAINT `employees_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_employees_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_employees_manager` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table structure: activities
@@ -129,7 +129,7 @@ CREATE TABLE `activities` (
   KEY `idx_activities_user_id` (`user_id`),
   KEY `idx_activities_timestamp` (`timestamp`),
   CONSTRAINT `activities_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=41 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 -- Table structure: notifications
@@ -211,7 +211,7 @@ CREATE TABLE `vacation_requests` (
   CONSTRAINT `fk_vacation_requests_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_vacation_requests_rejected_by` FOREIGN KEY (`rejected_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `vacation_requests_ibfk_1` FOREIGN KEY (`creator_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table structure: weekly_schedules
@@ -237,7 +237,7 @@ CREATE TABLE `weekly_schedules` (
   CONSTRAINT `fk_updated_by` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_weekly_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_weekly_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Table structure: work_hours
@@ -259,7 +259,7 @@ CREATE TABLE `work_hours` (
   KEY `idx_work_hours_user_id` (`user_id`),
   CONSTRAINT `fk_work_hours_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `work_hours_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 -- Déclencheurs (Triggers)
@@ -327,6 +327,10 @@ BEGIN
   WHERE id = OLD.employee_id;
 END //
 DELIMITER ;
+
+-- --------------------------------------------------------
+-- Procédures stockées
+-- --------------------------------------------------------
 
 -- Procédure stockée pour calculer le total des heures d'un planning hebdomadaire
 DELIMITER //
