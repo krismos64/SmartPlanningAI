@@ -92,9 +92,10 @@ class WeeklySchedule {
             schedule_data: this.schedule_data,
             total_hours: this.total_hours || 0,
             status: this.status || "draft",
+            _fromSaveMethod: true, // Ajouter un marqueur spécial pour indiquer que cette mise à jour provient de save()
           };
 
-          // Mettre à jour le planning existant
+          // Mettre à jour directement avec le modèle
           const updatedSchedule = await WeeklySchedule.update(
             existingSchedule.id,
             updateData

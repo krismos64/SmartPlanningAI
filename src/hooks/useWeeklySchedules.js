@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import { WeeklyScheduleService } from "../services/api";
-import ActivityLogger from "../utils/activityLogger";
 import {
   parseScheduleFromApi,
   prepareScheduleForApi,
@@ -307,12 +306,14 @@ const useWeeklySchedules = () => {
           // Enregistrer l'activité côté client pour les statistiques
           if (user && user.id) {
             try {
-              await ActivityLogger.logCreation({
-                entity_type: "schedule",
-                entity_id: standardizedSchedule.id,
-                userId: user.id,
-                description: `Planning créé pour l'employé ${standardizedSchedule.employeeId} (semaine du ${standardizedSchedule.weekStart})`,
-              });
+              // L'enregistrement des activités de création est désormais géré par le backend
+              // ActivityLogger.logCreation({
+              //   entity_type: "schedule",
+              //   entity_id: standardizedSchedule.id,
+              //   userId: user.id,
+              //   description: `Planning créé pour l'employé ${standardizedSchedule.employeeId} (semaine du ${standardizedSchedule.weekStart})`,
+              // });
+              console.log("Activité de création enregistrée par le backend");
             } catch (logError) {
               console.error(
                 "Erreur lors de l'enregistrement de l'activité:",
@@ -403,14 +404,16 @@ const useWeeklySchedules = () => {
         // Enregistrer l'activité côté client pour les statistiques
         if (user && user.id) {
           try {
-            await ActivityLogger.logUpdate({
-              entity_type: "schedule",
-              entity_id: id,
-              userId: user.id,
-              description: `Planning mis à jour pour l'employé ${
-                apiData.employee_id || scheduleData.employeeId
-              } (semaine du ${apiData.week_start || scheduleData.weekStart})`,
-            });
+            // L'enregistrement des activités de mise à jour est désormais géré par le backend
+            // ActivityLogger.logUpdate({
+            //   entity_type: "schedule",
+            //   entity_id: id,
+            //   userId: user.id,
+            //   description: `Planning mis à jour pour l'employé ${
+            //     apiData.employee_id || scheduleData.employeeId
+            //   } (semaine du ${apiData.week_start || scheduleData.weekStart})`,
+            // });
+            console.log("Activité de mise à jour enregistrée par le backend");
           } catch (logError) {
             console.error(
               "Erreur lors de l'enregistrement de l'activité:",
@@ -489,12 +492,14 @@ const useWeeklySchedules = () => {
         // Enregistrer l'activité côté client pour les statistiques
         if (user && user.id) {
           try {
-            await ActivityLogger.logDeletion({
-              entity_type: "schedule",
-              entity_id: id,
-              userId: user.id,
-              description: `Planning supprimé pour l'employé ${employeeId} (semaine du ${weekStart})`,
-            });
+            // L'enregistrement des activités de suppression est désormais géré par le backend
+            // ActivityLogger.logDeletion({
+            //   entity_type: "schedule",
+            //   entity_id: id,
+            //   userId: user.id,
+            //   description: `Planning supprimé pour l'employé ${employeeId} (semaine du ${weekStart})`,
+            // });
+            console.log("Activité de suppression enregistrée par le backend");
           } catch (logError) {
             console.error(
               "Erreur lors de l'enregistrement de l'activité:",
