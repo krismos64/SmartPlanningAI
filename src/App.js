@@ -8,7 +8,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import styled from "styled-components";
-import DebugMode from "./components/DebugMode";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/layout/Footer";
 import Navbar from "./components/layout/Navbar";
@@ -268,9 +267,6 @@ const AppContent = () => {
 
           {/* Chatbot disponible uniquement pour les utilisateurs authentifiés et sur les pages protégées */}
           {auth.isAuthenticated && <Chatbot />}
-
-          {/* Composant de débogage */}
-          <DebugMode />
         </Suspense>
       </Router>
     </NotificationProvider>

@@ -368,7 +368,7 @@ const NotificationCenter = () => {
     deleteNotification,
   } = useNotifications();
   const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
   const socket = getSocket();
 
   // Gérer le clic sur une notification
@@ -394,11 +394,7 @@ const NotificationCenter = () => {
 
       if (deleteNotification && notificationId) {
         deleteNotification(notificationId);
-        toast({
-          title: "Notification supprimée",
-          status: "success",
-          duration: 2000,
-        });
+        toast.success("Notification supprimée");
       }
     },
     [deleteNotification, toast]
@@ -408,11 +404,7 @@ const NotificationCenter = () => {
   const handleDeleteAllNotifications = useCallback(() => {
     if (deleteAllNotifications && notifications.length > 0) {
       deleteAllNotifications();
-      toast({
-        title: "Toutes les notifications ont été supprimées",
-        status: "success",
-        duration: 2000,
-      });
+      toast.success("Toutes les notifications ont été supprimées");
     }
   }, [deleteAllNotifications, notifications, toast]);
 
@@ -643,19 +635,9 @@ const NotificationCenter = () => {
     setMarkingAllAsRead(true);
     try {
       await markAllAsRead();
-      toast({
-        title: "Succès",
-        description: "Toutes les notifications ont été marquées comme lues",
-        status: "success",
-        duration: 3000,
-      });
+      toast.success("Toutes les notifications ont été marquées comme lues");
     } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de marquer les notifications comme lues",
-        status: "error",
-        duration: 5000,
-      });
+      toast.error("Impossible de marquer les notifications comme lues");
     } finally {
       setMarkingAllAsRead(false);
     }

@@ -315,36 +315,6 @@ const Settings = () => {
         </SettingsSection>
 
         <SettingsSection>
-          <SectionTitle>{t("settings.notifications")}</SectionTitle>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>{t("notifications.email")}</SettingTitle>
-              <SettingDescription>
-                {t("notifications.emailDescription")}
-              </SettingDescription>
-            </SettingLabel>
-            <ToggleSwitch>
-              <input type="checkbox" defaultChecked />
-              <span></span>
-            </ToggleSwitch>
-          </SettingItem>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>{t("notifications.push")}</SettingTitle>
-              <SettingDescription>
-                {t("notifications.pushDescription")}
-              </SettingDescription>
-            </SettingLabel>
-            <ToggleSwitch>
-              <input type="checkbox" defaultChecked />
-              <span></span>
-            </ToggleSwitch>
-          </SettingItem>
-        </SettingsSection>
-
-        <SettingsSection>
           <SectionTitle>{t("settings.security")}</SectionTitle>
 
           <SettingItem>
