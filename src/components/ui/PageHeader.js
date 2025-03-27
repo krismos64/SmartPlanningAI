@@ -8,9 +8,9 @@ import { useTheme } from "../ThemeProvider";
  * @param {string} props.title - Le titre principal de la page
  * @param {string} props.subtitle - Le sous-titre de la page
  * @param {string} props.icon - L'icône à afficher (emoji ou composant)
- * @param {Object} props.action - Un élément d'action à afficher (bouton, etc.)
+ * @param {Object} props.actions - Les éléments d'action à afficher (boutons, etc.)
  */
-const PageHeader = memo(({ title, subtitle, icon, action }) => {
+const PageHeader = memo(({ title, subtitle, icon, actions }) => {
   const { theme: themeMode } = useTheme();
   const isDarkMode = themeMode === "dark";
 
@@ -63,7 +63,7 @@ const PageHeader = memo(({ title, subtitle, icon, action }) => {
           </Box>
         </Box>
 
-        {action && <Box sx={{ ml: 2 }}>{action}</Box>}
+        {actions && <Box sx={{ ml: 2 }}>{actions}</Box>}
       </Box>
 
       <Divider sx={{ mt: 2, mb: 3 }} />

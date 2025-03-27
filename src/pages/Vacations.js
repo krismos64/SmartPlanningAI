@@ -1,11 +1,12 @@
 import styled from "@emotion/styled";
-import { Add, BeachAccess } from "@mui/icons-material";
+import { Add, BeachAccess, CalendarMonth, ViewList } from "@mui/icons-material";
 import {
   alpha,
   Box,
   Button,
   CircularProgress,
   Container,
+  Divider,
   Grid,
   Paper,
   Tab,
@@ -19,10 +20,10 @@ import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ErrorDisplay from "../components/ui/ErrorDisplay";
 import LoadingScreen from "../components/ui/LoadingScreen";
-import PageHeader from "../components/ui/PageHeader";
 import RejectionDialog from "../components/vacations/RejectionDialog";
 import VacationExport from "../components/vacations/VacationExport";
 import VacationForm from "../components/vacations/VacationForm";
+import VacationFullCalendar from "../components/vacations/VacationFullCalendar";
 import VacationList from "../components/vacations/VacationList";
 import { useAuth } from "../contexts/AuthContext";
 import useVacations from "../hooks/useVacations";
@@ -75,6 +76,7 @@ const Vacations = () => {
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [vacationToReject, setVacationToReject] = useState(null);
   const [localError, setError] = useState(null);
+  const [viewMode, setViewMode] = useState("list"); // "list" ou "calendar"
   const { user } = useAuth();
   const {
     vacations,
@@ -189,6 +191,11 @@ const Vacations = () => {
   // Gérer le changement d'onglet
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  // Basculer entre la vue liste et la vue calendrier
+  const toggleViewMode = () => {
+    setViewMode(viewMode === "list" ? "calendar" : "list");
   };
 
   // Ouvrir le formulaire pour créer un nouveau congé
@@ -441,6 +448,21 @@ const Vacations = () => {
     }
   };
 
+  // Gestionnaire pour l'événement de clic sur un événement du calendrier
+  const handleCalendarEventClick = (vacationData) => {
+    // Si c'est un gestionnaire, permettre la modification
+    if (user.role === "admin" || user.id === vacationData.creator_id) {
+      handleOpenEditForm(vacationData);
+    }
+  };
+
+  // Gestionnaire pour l'événement de clic sur une date du calendrier
+  const handleCalendarDateClick = (date) => {
+    // Préremplir le formulaire avec la date sélectionnée
+    setSelectedVacation(null);
+    setShowForm(true);
+  };
+
   // Filtrer les congés en fonction de l'onglet sélectionné
   const filteredVacations = useMemo(() => {
     // Vérifie si vacations est un array ou s'il est contenu dans data
@@ -473,30 +495,132 @@ const Vacations = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <PageHeader
-        title="Gestion des congés"
-        subtitle="Consultez et gérez les demandes de congés"
-        icon={
-          <StyledIcon>
-            <BeachAccess />
-          </StyledIcon>
-        }
-      />
+    <Container maxWidth="xl" sx={{ mt: 3, mb: 3 }}>
+      <Box sx={{ mb: 4 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 1,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Box
+              sx={{
+                mr: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <StyledIcon>
+                <BeachAccess />
+              </StyledIcon>
+            </Box>
+            <Box>
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{
+                  fontWeight: "bold",
+                  fontSize: { xs: "1.5rem", sm: "2rem", md: "2.25rem" },
+                  color: isDarkMode ? "#F9FAFB" : "inherit",
+                }}
+              >
+                Gestion des congés
+              </Typography>
+              <Typography
+                variant="subtitle1"
+                color={isDarkMode ? "#D1D5DB" : "text.secondary"}
+                sx={{ mt: 0.5 }}
+              >
+                Consultez et gérez les demandes de congés
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Add />}
+              onClick={handleOpenCreateForm}
+              sx={{
+                px: 2,
+                py: 1,
+                fontWeight: 500,
+                transition: "all 0.2s ease",
+                bgcolor: isDarkMode ? "#6366F1" : undefined,
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: isDarkMode
+                    ? `0 8px 16px ${alpha("#000", 0.4)}`
+                    : `0 8px 16px ${alpha("#000", 0.2)}`,
+                },
+              }}
+            >
+              Nouvelle demande
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={toggleViewMode}
+              startIcon={viewMode === "list" ? <CalendarMonth /> : <ViewList />}
+              sx={{
+                px: 2,
+                py: 1,
+                fontWeight: 500,
+                transition: "all 0.2s ease",
+                borderColor: isDarkMode ? "#6366F1" : undefined,
+                color: isDarkMode ? "#93C5FD" : undefined,
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  borderColor: isDarkMode ? "#818CF8" : undefined,
+                },
+              }}
+            >
+              {viewMode === "list" ? "Calendrier" : "Liste"}
+            </Button>
+            {filteredVacations.length > 0 && (
+              <VacationExport vacations={filteredVacations} isGlobal={true} />
+            )}
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleRefresh}
+              sx={{
+                px: 2,
+                py: 1,
+                fontWeight: 500,
+                transition: "all 0.2s ease",
+                bgcolor: isDarkMode ? "#6366F1" : undefined,
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: isDarkMode
+                    ? `0 8px 16px ${alpha("#000", 0.4)}`
+                    : `0 8px 16px ${alpha("#000", 0.2)}`,
+                },
+              }}
+            >
+              Rafraîchir
+            </Button>
+          </Box>
+        </Box>
+        <Divider sx={{ mt: 2, mb: 3 }} />
+      </Box>
 
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Paper
-            elevation={3}
+            elevation={isDarkMode ? 2 : 1}
             sx={{
-              p: 3,
-              mb: 3,
-              backgroundColor: isDarkMode ? "#1F2937" : "#FFFFFF",
-              color: isDarkMode ? "#D1D5DB" : "inherit",
+              p: 2,
+              backgroundColor: isDarkMode ? "#1F2937" : "white",
               borderRadius: 2,
               boxShadow: isDarkMode
-                ? `0 4px 20px ${alpha("#000", 0.4)}`
-                : `0 4px 20px ${alpha("#000", 0.1)}`,
+                ? `0 4px 20px ${alpha("#000", 0.3)}`
+                : `0 4px 15px ${alpha("#000", 0.05)}`,
             }}
           >
             <Box
@@ -513,26 +637,6 @@ const Vacations = () => {
               >
                 Liste des demandes de congés
               </Typography>
-              <Box sx={{ display: "flex", gap: 1 }}>
-                {filteredVacations.length > 0 && (
-                  <VacationExport
-                    vacations={filteredVacations}
-                    isGlobal={true}
-                  />
-                )}
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<Add />}
-                  onClick={handleOpenCreateForm}
-                  sx={{
-                    transition: "all 0.2s ease",
-                    "&:hover": { transform: "scale(1.05)" },
-                  }}
-                >
-                  Nouvelle demande
-                </Button>
-              </Box>
             </Box>
 
             <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
@@ -575,85 +679,165 @@ const Vacations = () => {
                 />
               </Tabs>
             </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Paper
+            elevation={isDarkMode ? 2 : 1}
+            sx={{
+              p: { xs: 1, sm: 2 },
+              backgroundColor: isDarkMode ? "#1F2937" : "white",
+              borderRadius: 2,
+              minHeight: "500px",
+              boxShadow: isDarkMode
+                ? `0 4px 20px ${alpha("#000", 0.3)}`
+                : `0 4px 15px ${alpha("#000", 0.05)}`,
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            {/* Titre de la vue actuelle */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+                borderBottom: `1px solid ${
+                  isDarkMode ? alpha("#6B7280", 0.2) : alpha("#E5E7EB", 0.8)
+                }`,
+                pb: 1,
+              }}
+            >
+              <Typography
+                variant="h6"
+                color={isDarkMode ? "#F9FAFB" : "inherit"}
+              >
+                {viewMode === "list"
+                  ? "Liste des congés"
+                  : "Calendrier des congés"}
+              </Typography>
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={
+                  viewMode === "list" ? <CalendarMonth /> : <ViewList />
+                }
+                onClick={toggleViewMode}
+                sx={{
+                  borderColor: isDarkMode ? "#6366F1" : undefined,
+                  color: isDarkMode ? "#93C5FD" : undefined,
+                }}
+              >
+                Voir en {viewMode === "list" ? "calendrier" : "liste"}
+              </Button>
+            </Box>
 
             {refreshing && (
               <Box
                 sx={{
                   display: "flex",
                   justifyContent: "center",
+                  p: 2,
+                  backgroundColor: isDarkMode
+                    ? alpha("#6366F1", 0.1)
+                    : alpha("#4F46E5", 0.05),
+                  borderRadius: 1,
                   mb: 2,
                 }}
               >
                 <CircularProgress
-                  size={24}
-                  sx={{ color: isDarkMode ? "#6366F1" : undefined }}
+                  size={20}
+                  sx={{ mr: 1, color: isDarkMode ? "#93C5FD" : "#4F46E5" }}
                 />
+                <Typography
+                  variant="body2"
+                  sx={{ color: isDarkMode ? "#93C5FD" : "#4F46E5" }}
+                >
+                  Actualisation en cours...
+                </Typography>
               </Box>
             )}
 
-            {filteredVacations.length === 0 ? (
-              // Afficher un message convivial lorsqu'il n'y a pas de congés
-              <Box
-                sx={{
-                  p: 4,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  textAlign: "center",
-                  minHeight: "250px",
-                  backgroundColor: isDarkMode
-                    ? alpha("#1F2937", 0.5)
-                    : alpha("#F9FAFB", 0.5),
-                  borderRadius: 2,
-                  border: `1px dashed ${isDarkMode ? "#4B5563" : "#E5E7EB"}`,
-                }}
-              >
-                <BeachAccess
+            {/* Afficher la vue liste ou la vue calendrier selon le mode */}
+            {viewMode === "list" ? (
+              // Vue liste
+              filteredVacations.length === 0 ? (
+                // Afficher un message convivial lorsqu'il n'y a pas de congés
+                <Box
                   sx={{
-                    fontSize: 60,
-                    color: isDarkMode ? "#6366F1" : "#4F46E5",
-                    mb: 2,
-                    opacity: 0.7,
+                    p: 4,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    minHeight: "250px",
+                    backgroundColor: isDarkMode
+                      ? alpha("#1F2937", 0.5)
+                      : alpha("#F9FAFB", 0.5),
+                    borderRadius: 2,
+                    border: `1px dashed ${isDarkMode ? "#4B5563" : "#E5E7EB"}`,
                   }}
+                >
+                  <BeachAccess
+                    sx={{
+                      fontSize: 60,
+                      color: isDarkMode ? "#6366F1" : "#4F46E5",
+                      mb: 2,
+                      opacity: 0.7,
+                    }}
+                  />
+                  <Typography
+                    variant="h6"
+                    color={isDarkMode ? "#F9FAFB" : "inherit"}
+                    gutterBottom
+                  >
+                    Aucune demande de congés pour le moment
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    color={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    sx={{ mb: 3 }}
+                  >
+                    Cliquez sur "Nouvelle demande" pour créer votre première
+                    demande de congés.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Add />}
+                    onClick={handleOpenCreateForm}
+                    sx={{
+                      transition: "all 0.2s ease",
+                      "&:hover": { transform: "scale(1.05)" },
+                    }}
+                  >
+                    Créer une demande
+                  </Button>
+                </Box>
+              ) : (
+                // Afficher la liste des congés s'il y en a
+                <VacationList
+                  vacations={filteredVacations}
+                  loading={loading && !refreshing}
+                  onEdit={handleOpenEditForm}
+                  onDelete={handleDeleteVacation}
+                  onApprove={handleApproveVacation}
+                  onReject={handleOpenRejectDialog}
                 />
-                <Typography
-                  variant="h6"
-                  color={isDarkMode ? "#F9FAFB" : "inherit"}
-                  gutterBottom
-                >
-                  Aucune demande de congés pour le moment
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                  sx={{ mb: 3 }}
-                >
-                  Cliquez sur "Nouvelle demande" pour créer votre première
-                  demande de congés.
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<Add />}
-                  onClick={handleOpenCreateForm}
-                  sx={{
-                    transition: "all 0.2s ease",
-                    "&:hover": { transform: "scale(1.05)" },
-                  }}
-                >
-                  Créer une demande
-                </Button>
-              </Box>
+              )
             ) : (
-              // Afficher la liste des congés s'il y en a
-              <VacationList
-                vacations={filteredVacations}
-                loading={loading && !refreshing}
-                onEdit={handleOpenEditForm}
-                onDelete={handleDeleteVacation}
-                onApprove={handleApproveVacation}
-                onReject={handleOpenRejectDialog}
+              // Vue calendrier
+              <VacationFullCalendar
+                vacations={vacations}
+                onEventClick={handleCalendarEventClick}
+                onDateClick={handleCalendarDateClick}
+                onSwitchToList={toggleViewMode}
               />
             )}
           </Paper>

@@ -24,11 +24,11 @@ export const EMPLOYEE_STATUSES = [
  * Types de congés disponibles
  */
 export const VACATION_TYPES = [
-  { value: "paid", label: "Congé payé" },
-  { value: "unpaid", label: "Congé sans solde" },
-  { value: "sick", label: "Congé maladie" },
-  { value: "parental", label: "Congé parental" },
-  { value: "other", label: "Autre" },
+  { value: "paid", label: "Congé payé", color: "#4F46E5" },
+  { value: "unpaid", label: "Congé sans solde", color: "#9CA3AF" },
+  { value: "sick", label: "Congé maladie", color: "#EF4444" },
+  { value: "parental", label: "Congé parental", color: "#10B981" },
+  { value: "other", label: "Autre", color: "#F59E0B" },
 ];
 
 /**
