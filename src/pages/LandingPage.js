@@ -398,42 +398,11 @@ const DemoVideoContainer = styled.div`
   position: relative;
   aspect-ratio: 16/9;
   background-color: ${({ theme }) => theme.colors.surface};
-  animation: ${pulse} 4s ease-in-out infinite;
 
-  &::before {
-    content: "Vidéo de démonstration";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 1.5rem;
-    color: ${({ theme }) => theme.colors.text.secondary};
-    z-index: 1;
-  }
-
-  &::after {
-    content: "▶";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 4rem;
-    color: ${({ theme }) => theme.colors.primary};
-    background-color: ${({ theme }) => theme.colors.surface}CC;
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: ${({ theme }) => theme.shadows.medium};
-    cursor: pointer;
-    transition: transform 0.3s ease;
-    z-index: 2;
-  }
-
-  &:hover::after {
-    transform: translate(-50%, -50%) scale(1.1);
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
   }
 `;
 
@@ -774,7 +743,14 @@ const LandingPage = () => {
             src="/images/business-smartplanning.png"
             alt="Smart Planning for Business"
           />
-          <DemoVideoContainer />
+          <DemoVideoContainer>
+            <iframe
+              src="https://www.youtube.com/embed/bvvlO-FZuVU"
+              title="SmartPlanning Présentation"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            ></iframe>
+          </DemoVideoContainer>
         </DemoContainer>
       </DemoSection>
 
