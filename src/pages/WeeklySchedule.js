@@ -1956,8 +1956,8 @@ const WeeklySchedulePage = () => {
     const weekEndDate = new Date(currentWeekStart);
     weekEndDate.setDate(weekEndDate.getDate() + 6);
 
-    const formattedWeekStart = formatDate(weekStartDate);
-    const formattedWeekEnd = formatDate(weekEndDate);
+    const formattedWeekStart = formatDate(weekStartDate, "dd/MM/yyyy");
+    const formattedWeekEnd = formatDate(weekEndDate, "dd/MM/yyyy");
 
     // Date et heure d'exportation
     const exportDateTime = new Date().toLocaleString("fr-FR", {
@@ -1973,34 +1973,59 @@ const WeeklySchedulePage = () => {
       return sum + (day.isAbsent ? 0 : parseFloat(day.hours || 0));
     }, 0);
 
-    // Créer le contenu HTML
+    // Créer le contenu HTML avec un design professionnel et attractif
     const content = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; text-align: center;">
-        <h2 style="text-align: center; color: #2563eb;">Planning Hebdomadaire</h2>
-        <h3 style="text-align: center; margin-bottom: 10px;">Du ${formattedWeekStart} au ${formattedWeekEnd}</h3>
-        
-        <div style="margin-bottom: 20px; text-align: center;">
-          <h2 style="margin-bottom: 5px; color: #2563eb; font-size: 24px; font-weight: bold;">${
-            employee.firstName || employee.first_name || "Inconnu"
-          } ${employee.lastName || employee.last_name || "Inconnu"}</h2>
-          <p style="margin: 5px 0;">Poste: ${employee.role}</p>
-          <p style="margin: 5px 0;">Département: ${employee.department}</p>
-          <p style="margin: 5px 0;">Heures contractuelles: ${
-            employee.contractHours
-          }h</p>
-          <p style="margin: 5px 0;">Total heures planifiées: ${totalHours.toFixed(
-            1
-          )}h</p>
-          <p style="margin: 5px 0; font-style: italic;">Document généré le ${exportDateTime}</p>
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; padding: 10px; color: #333; max-width: 980px; margin: 0 auto; position: relative;">
+        <!-- Date de génération en haut à droite en italique -->
+        <div style="position: absolute; top: 10px; right: 15px; font-style: italic; font-size: 10px; color: #6B7280;">
+          Document généré le ${exportDateTime}
+        </div>
+
+        <!-- En-tête avec logo de l'entreprise -->
+        <div style="padding: 10px 0 15px 0; border-bottom: 3px solid #3B82F6;">
+          <h1 style="margin: 0; color: #2C3E50; font-size: 28px; font-weight: 600;">Planning Hebdomadaire</h1>
         </div>
         
-        <table style="width: 100%; border-collapse: collapse; margin: 0 auto; max-width: 900px;">
+        <!-- Informations de l'employé -->
+        <div style="display: flex; justify-content: space-between; margin: 15px 0;">
+          <div style="flex: 2;">
+            <h2 style="margin: 0 0 5px 0; color: #2C3E50; font-size: 24px; font-weight: 600;">${
+              employee.firstName || employee.first_name || "Inconnu"
+            } ${employee.lastName || employee.last_name || "Inconnu"}</h2>
+            
+            <!-- Informations en italique et plus petit -->
+            <div style="font-style: italic; font-size: 12px; color: #6B7280; margin-top: 5px;">
+              <p style="margin: 3px 0;">Poste: ${
+                employee.role || "Non défini"
+              }</p>
+              <p style="margin: 3px 0;">Département: ${
+                employee.department || "Non défini"
+              }</p>
+              <p style="margin: 3px 0;">Heures contractuelles: ${
+                employee.contractHours || employee.contract_hours || 0
+              }h</p>
+              <p style="margin: 3px 0;">Total heures planifiées: ${totalHours.toFixed(
+                1
+              )}h</p>
+            </div>
+          </div>
+          
+          <div style="flex: 1; text-align: right;">
+            <!-- Date du planning en rouge et bien en valeur -->
+            <div style="color: #DC2626; font-weight: 600; font-size: 18px; padding: 10px; border: 2px solid #DC2626; border-radius: 8px; display: inline-block; background-color: #FEF2F2;">
+              Du ${formattedWeekStart} au ${formattedWeekEnd}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tableau des horaires avec design moderne -->
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-radius: 8px; overflow: hidden;">
           <thead>
-            <tr style="background-color: #e5e7eb;">
-              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Jour</th>
-              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Heures</th>
-              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Créneaux</th>
-              <th style="padding: 10px; border: 1px solid #d1d5db; text-align: left;">Notes</th>
+            <tr style="background-color: #3B82F6;">
+              <th style="padding: 12px; text-align: left; color: white; font-weight: 500; border-right: 1px solid rgba(255, 255, 255, 0.2);">Jour</th>
+              <th style="padding: 12px; text-align: center; color: white; font-weight: 500; border-right: 1px solid rgba(255, 255, 255, 0.2); width: 15%;">Heures</th>
+              <th style="padding: 12px; text-align: center; color: white; font-weight: 500; border-right: 1px solid rgba(255, 255, 255, 0.2); width: 35%;">Créneaux</th>
+              <th style="padding: 12px; text-align: left; color: white; font-weight: 500; width: 25%;">Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -2012,32 +2037,41 @@ const WeeklySchedulePage = () => {
 
                 return `
                 <tr style="background-color: ${
-                  isWeekendDay ? "#f9fafb" : "white"
-                };">
-                  <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: ${
+                  isWeekendDay ? "#F9FAFB" : "white"
+                }; border-bottom: 1px solid #E5E7EB;">
+                  <td style="padding: 10px 12px; font-weight: ${
                     isWeekendDay ? "bold" : "normal"
-                  };">
-                    ${getDayName(dayDate)} ${formatDate(dayDate, "dd/MM")}
+                  }; color: ${
+                  isWeekendDay ? "#4B5563" : "#1F2937"
+                }; border-right: 1px solid #E5E7EB;">
+                    <div style="font-weight: 600;">${getDayName(dayDate)}</div>
+                    <div style="font-size: 12px; color: #6B7280;">${formatDate(
+                      dayDate,
+                      "dd/MM"
+                    )}</div>
                   </td>
-                  <td style="padding: 10px; border: 1px solid #d1d5db;">
+                  <td style="padding: 10px 12px; text-align: center; border-right: 1px solid #E5E7EB;">
                     ${
                       day.isAbsent
-                        ? `<span style="color: #ef4444; font-weight: bold;">${
+                        ? `<span style="color: #EF4444; font-weight: 500; background-color: #FEE2E2; padding: 3px 8px; border-radius: 4px; display: inline-block; font-size: 12px;">${
                             day.absenceReason || "Absent"
                           }</span>`
-                        : `${day.hours}h`
+                        : `<span style="font-weight: 600; color: #10B981;">${day.hours}h</span>`
                     }
                   </td>
-                  <td style="padding: 10px; border: 1px solid #d1d5db;">
+                  <td style="padding: 10px 12px; text-align: center; border-right: 1px solid #E5E7EB;">
                     ${
                       day.isAbsent
-                        ? "-"
+                        ? '<span style="color: #9CA3AF;">-</span>'
                         : (day.timeSlots || [])
-                            .map((slot) => `${slot.start} - ${slot.end}`)
-                            .join("<br>")
+                            .map(
+                              (slot) =>
+                                `<div style="margin: 3px 0; background-color: #F3F4F6; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px;">${slot.start} - ${slot.end}</div>`
+                            )
+                            .join(" ")
                     }
                   </td>
-                  <td style="padding: 10px; border: 1px solid #d1d5db; font-style: italic;">
+                  <td style="padding: 10px 12px; font-style: italic; color: #6B7280; font-size: 12px;">
                     ${day.notes || "-"}
                   </td>
                 </tr>
@@ -2046,6 +2080,19 @@ const WeeklySchedulePage = () => {
               .join("")}
           </tbody>
         </table>
+        
+        <!-- Pied de page avec légende -->
+        <div style="margin-top: 5px; font-size: 11px; color: #6B7280; border-top: 1px solid #E5E7EB; padding-top: 10px;">
+          <div style="display: flex; justify-content: space-between;">
+            <div style="display: flex; align-items: center;">
+              <span style="width: 12px; height: 12px; background-color: #F9FAFB; border: 1px solid #E5E7EB; display: inline-block; margin-right: 5px;"></span>
+              <span></span>
+            </div>
+            <div style="display: flex; align-items: center;">
+            </div>
+            <div>SmartPlanning</div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -2053,20 +2100,22 @@ const WeeklySchedulePage = () => {
     tempElement.innerHTML = DOMPurify.sanitize(content);
     document.body.appendChild(tempElement);
 
-    // Générer le PDF
+    // Générer le PDF avec options pour s'assurer qu'il tient sur une page
     html2canvas(tempElement, {
       scale: 1,
       useCORS: true,
       logging: false,
+      windowWidth: 1000,
+      windowHeight: 1414, // Rapport d'aspect A4 paysage
     }).then((canvas) => {
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("l", "mm", "a4"); // Format paysage
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const ratio = canvas.width / canvas.height;
-      const imgWidth = pdfWidth;
-      const imgHeight = imgWidth / ratio;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      // Ajustement pour s'assurer que tout tient sur une page
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
       pdf.save(
         `Planning_${employee.firstName || employee.first_name || "Inconnu"}_${
           employee.lastName || employee.last_name || "Inconnu"
