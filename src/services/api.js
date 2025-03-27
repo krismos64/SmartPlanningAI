@@ -3,6 +3,13 @@ import { formatDateForAPI } from "../utils/dateUtils";
 import { formatError } from "../utils/errorHandling";
 
 /**
+ * Configuration et utilitaires pour les appels API
+ */
+
+// Constante pour activer/désactiver les logs de débogage API
+export const API_DEBUG = true;
+
+/**
  * Fonction utilitaire pour normaliser les réponses API
  * Assure que les réponses ont toujours la structure { success, message, data }
  * @param {*} response - La réponse à normaliser
@@ -771,35 +778,24 @@ export const WeeklyScheduleService = {
 
   getByWeek: async (weekStart) => {
     try {
+      console.log("Récupération des plannings pour la semaine du", weekStart);
+
       if (!weekStart) {
         console.error("Date de début de semaine non spécifiée");
         return { success: false, message: "Date de début de semaine requise" };
       }
 
-      // Vérifier que le token d'authentification est présent
-      const token = localStorage.getItem("token");
-      console.error(
-        "Token d'authentification:",
-        token ? "Présent" : "Manquant",
-        token ? `(${token.substring(0, 10)}...)` : ""
-      );
+      // S'assurer que la date est au format YYYY-MM-DD
+      const formattedDate = formatDateForAPI(weekStart);
 
-      if (!token) {
-        console.error("Token d'authentification manquant");
-        return {
-          success: false,
-          message: "Vous devez être connecté pour accéder à ces données",
-        };
-      }
-
-      console.error(
+      console.log(
         "Appel API pour récupérer les plannings de la semaine:",
-        weekStart
+        formattedDate
       );
 
       try {
         const response = await apiRequest(
-          `${API_ENDPOINTS.WEEKLY_SCHEDULES}/week/${weekStart}`,
+          `${API_ENDPOINTS.WEEKLY_SCHEDULES}/week/${formattedDate}`,
           "GET"
         );
 
@@ -815,7 +811,7 @@ export const WeeklyScheduleService = {
           };
         }
 
-        console.error(
+        console.log(
           "Réponse API pour les plannings:",
           JSON.stringify(response).substring(0, 200) + "..."
         );
@@ -848,21 +844,15 @@ export const WeeklyScheduleService = {
         }
       } catch (apiError) {
         console.error("Exception lors de l'appel API:", apiError);
-        return {
-          success: false,
-          message:
-            apiError.message || "Erreur lors de la récupération des plannings",
-          details: apiError.details || "",
-        };
+        throw apiError;
       }
     } catch (error) {
-      console.error("Exception lors de la récupération des plannings:", error);
+      console.error("Exception lors de l'appel API:", error);
       return {
         success: false,
         message:
-          error.message ||
-          "Erreur lors de la récupération des plannings pour cette semaine",
-        details: error.details || "",
+          error.message || "Erreur lors de la récupération des plannings",
+        details: "",
       };
     }
   },

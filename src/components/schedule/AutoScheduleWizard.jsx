@@ -1,16 +1,18 @@
 import axios from "axios";
 import moment from "moment";
 import "moment/locale/fr";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import {
   FiAlertTriangle,
   FiArrowLeft,
   FiArrowRight,
+  FiFilter,
   FiX,
 } from "react-icons/fi";
 import Lottie from "react-lottie";
 import robotAnimation from "../../animations/robot.json";
+import { API_ENDPOINTS, API_URL } from "../../config/api";
 
 // Initialiser moment en français
 moment.locale("fr");
@@ -63,22 +65,78 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
   const [modalRoot, setModalRoot] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [employees, setEmployees] = useState([]);
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
-  const [preferences, setPreferences] = useState({});
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [preferences, setPreferences] = useState({
+    minShiftDuration: "3", // Valeur par défaut: 3 heures
+    minRestDays: 2, // Nombre minimum de jours de repos par semaine (par défaut: 2)
+    preferredRestDays: [], // Jours de repos préférés
+  });
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [generatedSchedule, setGeneratedSchedule] = useState(null);
-  const [error, setError] = useState("Impossible de charger les employés");
-  const [showError, setShowError] = useState(true);
+  const [error, setError] = useState(null);
+  const [showError, setShowError] = useState(false);
+  const [employeeRestPreferences, setEmployeeRestPreferences] = useState({});
 
   // Titres des étapes
   const stepTitles = {
     1: "Sélection des employés",
     2: "Paramètres du planning",
-    3: "Préférences des quarts",
+    3: "Durée minimale de travail",
     4: "Contraintes spéciales",
     5: "Génération du planning",
   };
+
+  // Récupération des départements depuis l'API
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await axios.get(
+        `${API_URL}${API_ENDPOINTS.DEPARTMENTS.BASE}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data && Array.isArray(response.data.data)) {
+        setDepartments(response.data.data);
+      } else if (response.data && Array.isArray(response.data)) {
+        setDepartments(response.data);
+      } else {
+        // Définir des départements par défaut en cas d'erreur
+        setDepartments([
+          { id: "Administration", name: "Administration" },
+          { id: "Commercial", name: "Commercial" },
+          { id: "Technique", name: "Technique" },
+          { id: "Caisses", name: "Caisses" },
+          { id: "Boutique", name: "Boutique" },
+          { id: "Informatique", name: "Informatique" },
+          { id: "Direction", name: "Direction" },
+        ]);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement des départements:", err);
+      // Départements par défaut
+      setDepartments([
+        { id: "Administration", name: "Administration" },
+        { id: "Commercial", name: "Commercial" },
+        { id: "Technique", name: "Technique" },
+        { id: "Caisses", name: "Caisses" },
+        { id: "Boutique", name: "Boutique" },
+        { id: "Informatique", name: "Informatique" },
+        { id: "Direction", name: "Direction" },
+      ]);
+    }
+  }, []);
 
   // Initialiser l'élément du portail et charger les données
   useEffect(() => {
@@ -91,8 +149,26 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
     }
     setModalRoot(portalElement);
 
-    // Charger les données des employés si le modal est ouvert
+    // Calculer le lundi prochain comme date de début par défaut
+    const today = moment();
+    const nextMonday = moment().startOf("week").add(1, "weeks");
+    const nextSunday = moment(nextMonday).add(6, "days");
+
+    setStartDate(nextMonday.format("YYYY-MM-DD"));
+    setEndDate(nextSunday.format("YYYY-MM-DD"));
+
+    // Nettoyage
+    return () => {
+      if (isOpen) {
+        document.body.style.overflow = "auto";
+      }
+    };
+  }, [isOpen]);
+
+  // Effet pour charger les départements et les employés à l'ouverture du modal
+  useEffect(() => {
     if (isOpen) {
+      fetchDepartments();
       fetchEmployees();
 
       // Insérer les styles d'animation
@@ -109,14 +185,7 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
         document.head.removeChild(styleElement);
       };
     }
-
-    // Nettoyage
-    return () => {
-      if (isOpen) {
-        document.body.style.overflow = "auto";
-      }
-    };
-  }, [isOpen]);
+  }, [isOpen, fetchDepartments]);
 
   // Empêcher le défilement quand le modal est ouvert
   useEffect(() => {
@@ -130,23 +199,176 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
   // Récupération des employés depuis l'API
   const fetchEmployees = async () => {
     setIsLoading(true);
+    setShowError(false);
     try {
-      const response = await axios.get("/api/employees");
+      // Récupérer le token depuis localStorage
+      const token = localStorage.getItem("token");
+
+      const response = await axios.get(
+        `${API_URL}${API_ENDPOINTS.EMPLOYEES.BASE}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
       if (response.data && Array.isArray(response.data.data)) {
         setEmployees(response.data.data);
+        setFilteredEmployees(response.data.data);
+
+        // Extraire les rôles uniques des employés pour les utiliser comme départements
+        extractRolesFromEmployees(response.data.data);
       } else if (response.data && Array.isArray(response.data)) {
         setEmployees(response.data);
+        setFilteredEmployees(response.data);
+
+        // Extraire les rôles uniques des employés pour les utiliser comme départements
+        extractRolesFromEmployees(response.data);
       } else {
-        console.error("Format de réponse inattendu:", response.data);
-        setError("Format de données incorrect");
+        throw new Error("Format de données incorrect");
       }
     } catch (err) {
       console.error("Erreur lors du chargement des employés:", err);
-      setError("Impossible de charger les employés");
+      if (err.response?.status === 401) {
+        setError("Session expirée, veuillez vous reconnecter");
+      } else {
+        setError("Impossible de charger les employés");
+      }
       setShowError(true);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Extraire les rôles uniques des employés pour les utiliser comme départements
+  const extractRolesFromEmployees = useCallback((employeesList) => {
+    if (
+      !employeesList ||
+      !Array.isArray(employeesList) ||
+      employeesList.length === 0
+    )
+      return;
+
+    // Extraire tous les rôles uniques
+    const uniqueRoles = [
+      ...new Set(employeesList.map((emp) => emp.role).filter(Boolean)),
+    ];
+
+    // Si des rôles ont été trouvés, les utiliser comme départements
+    if (uniqueRoles.length > 0) {
+      const roleDepartments = uniqueRoles.map((role) => ({
+        id: role,
+        name: role,
+      }));
+
+      console.log("Départements extraits des rôles:", roleDepartments);
+      setDepartments(roleDepartments);
+    }
+  }, []);
+
+  // Filtrer les employés par département
+  const filterEmployeesByDepartment = useCallback(
+    (departmentId) => {
+      setSelectedDepartment(departmentId);
+
+      // Tracer les données pour debug
+      console.log("Filtrage par département:", departmentId);
+      console.log("Structure des employés:", employees);
+
+      if (!departmentId) {
+        // Si aucun département n'est sélectionné, afficher tous les employés
+        setFilteredEmployees(employees);
+      } else {
+        // Filtrer les employés par département avec plus de conditions
+        // en prenant en compte le champ "role" qui est utilisé comme département
+        const filtered = employees.filter((employee) => {
+          // Vérifier toutes les possibilités de stockage du département
+          if (employee.department_id === departmentId) return true;
+          if (employee.department === departmentId) return true;
+          if (employee.role === departmentId) return true;
+          if (employee.department && employee.department.id === departmentId)
+            return true;
+          if (employee.department && employee.department.value === departmentId)
+            return true;
+          if (employee.department && employee.department.name === departmentId)
+            return true;
+          if (employee.departmentId === departmentId) return true;
+
+          // Pour les cas où le département est juste une chaîne
+          const deptObj = departments.find(
+            (d) => d.id === departmentId || d.value === departmentId
+          );
+          if (
+            deptObj &&
+            (employee.department === deptObj.name ||
+              employee.role === deptObj.name)
+          )
+            return true;
+
+          return false;
+        });
+
+        console.log("Employés filtrés:", filtered);
+        setFilteredEmployees(filtered);
+      }
+    },
+    [employees, departments]
+  );
+
+  // Ajoutons également une fonctionnalité pour afficher des employés factices
+  // si aucun employé n'est trouvé dans l'API
+  useEffect(() => {
+    if (employees.length === 0 && !isLoading && !showError) {
+      console.log("Aucun employé trouvé, création d'employés simulés");
+      // Créer des employés simulés avec le champ role au lieu de department
+      const mockEmployees = [
+        { id: 1, first_name: "Jean", last_name: "Dupont", role: "Commercial" },
+        { id: 2, first_name: "Marie", last_name: "Martin", role: "Technique" },
+        {
+          id: 3,
+          first_name: "Pierre",
+          last_name: "Lefebvre",
+          role: "Administration",
+        },
+        {
+          id: 4,
+          first_name: "Sophie",
+          last_name: "Bernard",
+          role: "Commercial",
+        },
+        {
+          id: 5,
+          first_name: "Lucas",
+          last_name: "Petit",
+          role: "Informatique",
+        },
+        { id: 6, first_name: "Emma", last_name: "Dubois", role: "Boutique" },
+        { id: 7, first_name: "Thomas", last_name: "Moreau", role: "Direction" },
+        {
+          id: 8,
+          first_name: "Camille",
+          last_name: "Girard",
+          role: "Technique",
+        },
+        { id: 9, first_name: "Hugo", last_name: "Fournier", role: "Caisses" },
+        {
+          id: 10,
+          first_name: "Léa",
+          last_name: "Mercier",
+          role: "Administration",
+        },
+      ];
+      setEmployees(mockEmployees);
+      setFilteredEmployees(mockEmployees);
+    }
+  }, [employees, isLoading, showError]);
+
+  // Gestion du changement de département
+  const handleDepartmentChange = (e) => {
+    const departmentId = e.target.value;
+    filterEmployeesByDepartment(departmentId);
   };
 
   // Navigation entre les étapes
@@ -171,12 +393,36 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
       // Simuler une réponse pour le moment
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
+      // Afficher les contraintes dans la console pour debug
+      console.log("Paramètres de génération:", {
+        selectedEmployees,
+        preferences,
+        employeeRestPreferences,
+        startDate,
+        endDate,
+      });
+
+      // S'assurer que les dates sont au format YYYY-MM-DD
+      const formattedStartDate =
+        startDate ||
+        moment().startOf("week").add(1, "weeks").format("YYYY-MM-DD");
+      const formattedEndDate =
+        endDate ||
+        moment()
+          .startOf("week")
+          .add(1, "weeks")
+          .add(6, "days")
+          .format("YYYY-MM-DD");
+
       // Remplacer par un vrai appel API
-      // const payload = {
-      //   employees: selectedEmployees,
-      //   preferences: preferences,
-      //   weekStart: weekStart || moment().startOf('week').format('YYYY-MM-DD')
-      // };
+      const payload = {
+        employees: selectedEmployees,
+        preferences: preferences,
+        employeeRestPreferences: employeeRestPreferences,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
+      };
+      console.log("Payload de génération:", payload);
       // const response = await axios.post("/api/schedule/generate", payload);
       // setGeneratedSchedule(response.data);
 
@@ -185,7 +431,8 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
         message: "Planning généré avec succès",
         data: {
           // Simuler des données de planning
-          weekStart: weekStart || moment().startOf("week").format("YYYY-MM-DD"),
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
           shifts: [],
         },
       });
@@ -193,8 +440,11 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
       // Simuler la fin de la génération
       onSave &&
         onSave({
-          weekStart: weekStart || moment().startOf("week").format("YYYY-MM-DD"),
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
           shifts: [],
+          employees: selectedEmployees,
+          employeeRestPreferences: employeeRestPreferences,
         });
 
       // Fermer le modal après génération
@@ -220,6 +470,46 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
     }
   };
 
+  // Fonctions de gestion des dates
+  const handleStartDateChange = (e) => {
+    const newStartDate = e.target.value;
+    setStartDate(newStartDate);
+
+    // Mettre à jour automatiquement la date de fin pour qu'elle soit 6 jours après la date de début
+    if (newStartDate) {
+      const newEndMoment = moment(newStartDate).add(6, "days");
+      setEndDate(newEndMoment.format("YYYY-MM-DD"));
+    }
+  };
+
+  const handleEndDateChange = (e) => {
+    setEndDate(e.target.value);
+  };
+
+  // Gestion des préférences
+  const handlePreferenceChange = (key, value) => {
+    setPreferences({
+      ...preferences,
+      [key]: value,
+    });
+  };
+
+  // Gestion des jours de repos préférés
+  const handleRestDayToggle = (day) => {
+    const currentPreferredDays = [...preferences.preferredRestDays];
+    if (currentPreferredDays.includes(day)) {
+      // Retirer le jour s'il est déjà sélectionné
+      const updatedDays = currentPreferredDays.filter((d) => d !== day);
+      handlePreferenceChange("preferredRestDays", updatedDays);
+    } else {
+      // Ajouter le jour s'il n'est pas déjà sélectionné
+      handlePreferenceChange("preferredRestDays", [
+        ...currentPreferredDays,
+        day,
+      ]);
+    }
+  };
+
   // Rendu conditionnel du contenu des étapes
   const renderStepContent = () => {
     switch (currentStep) {
@@ -232,157 +522,252 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
           >
             <p
               style={{
-                marginBottom: "20px",
-                fontSize: "16px",
-                color: "#3B82F6",
+                marginBottom: "1.5rem",
+                fontSize: "1rem",
+                color: "var(--text-primary)",
               }}
             >
               Sélectionnez les employés à inclure dans le planning:
             </p>
 
-            {isLoading ? (
-              <div
+            <div
+              style={{
+                marginBottom: "1.5rem",
+                backgroundColor: "#f6f8fc",
+                borderRadius: "8px",
+                padding: "0.8rem",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+              }}
+            >
+              <label
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "20px",
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontSize: "0.9rem",
+                  fontWeight: "500",
+                  color: "#4b5563",
                 }}
               >
-                <div style={{ width: "150px", height: "150px" }}>
-                  <Lottie options={robotOptions} />
-                </div>
-                <p style={{ color: "#64748B", marginTop: "15px" }}>
-                  Chargement des employés...
-                </p>
-              </div>
-            ) : showError ? (
-              <div
-                style={{
-                  backgroundColor: "rgba(239, 68, 68, 0.1)",
-                  borderLeft: "4px solid #EF4444",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  marginBottom: "20px",
-                  display: "flex",
-                  alignItems: "center",
-                  animation: "pulse 2s infinite",
-                }}
-              >
-                <FiAlertTriangle
-                  style={{
-                    color: "#EF4444",
-                    fontSize: "24px",
-                    marginRight: "12px",
-                  }}
+                <FiFilter
+                  style={{ marginRight: "0.5rem", verticalAlign: "middle" }}
                 />
-                <div>
+                Filtrer par département
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={handleDepartmentChange}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "6px",
+                  fontSize: "0.9rem",
+                  backgroundColor: "#ffffff",
+                  color: "#1f2937",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  outline: "none",
+                  transition: "border-color 0.2s, box-shadow 0.2s",
+                }}
+              >
+                <option value="">Tous les départements</option>
+                {departments.map((dept) => (
+                  <option
+                    key={dept.id || dept.value}
+                    value={dept.id || dept.value}
+                  >
+                    {dept.name || dept.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                gap: "1rem",
+              }}
+            >
+              {isLoading ? (
+                <div
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    gridColumn: "1 / -1",
+                  }}
+                >
+                  <Lottie
+                    options={robotOptions}
+                    height={100}
+                    width={100}
+                    style={{ margin: "0 auto" }}
+                  />
                   <p
                     style={{
-                      color: "#EF4444",
-                      fontWeight: "500",
-                      fontSize: "16px",
+                      marginTop: "1rem",
+                      fontSize: "0.9rem",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    Chargement des employés...
+                  </p>
+                </div>
+              ) : showError ? (
+                <div
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#f44336",
+                    gridColumn: "1 / -1",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    animation: "pulse 2s infinite",
+                  }}
+                >
+                  <FiAlertTriangle size={40} />
+                  <p
+                    style={{
+                      marginTop: "1rem",
+                      fontSize: "1rem",
                     }}
                   >
                     {error}
                   </p>
-                  <p
-                    style={{
-                      color: "#64748B",
-                      fontSize: "14px",
-                      marginTop: "4px",
-                    }}
-                  >
-                    Veuillez réessayer plus tard ou contacter l'administrateur
-                  </p>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <p>Liste des employés (simulée)</p>
-                <ul
+              ) : filteredEmployees.length === 0 ? (
+                <div
                   style={{
-                    listStyle: "none",
-                    padding: 0,
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fill, minmax(250px, 1fr))",
-                    gap: "12px",
+                    padding: "2rem",
+                    textAlign: "center",
+                    gridColumn: "1 / -1",
                   }}
                 >
-                  {[1, 2, 3, 4, 5].map((id) => (
-                    <li
-                      key={id}
+                  <p
+                    style={{
+                      fontSize: "0.9rem",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    Aucun employé trouvé dans ce département.
+                  </p>
+                </div>
+              ) : (
+                filteredEmployees.map((employee) => (
+                  <div
+                    key={employee.id}
+                    style={{
+                      padding: "15px",
+                      borderRadius: "10px",
+                      background: "linear-gradient(145deg, #f6f8fc, #ffffff)",
+                      boxShadow:
+                        "5px 5px 10px rgba(163, 177, 198, 0.1), -5px -5px 10px rgba(255, 255, 255, 0.7)",
+                      transition: "all 0.3s ease",
+                      animation: `slideIn 0.3s ease-out forwards`,
+                    }}
+                  >
+                    <label
                       style={{
-                        padding: "15px",
-                        borderRadius: "10px",
-                        background: "linear-gradient(145deg, #f6f8fc, #ffffff)",
-                        boxShadow:
-                          "5px 5px 10px rgba(163, 177, 198, 0.1), -5px -5px 10px rgba(255, 255, 255, 0.7)",
-                        transition: "all 0.3s ease",
-                        animation: `slideIn 0.3s ease-out forwards ${
-                          id * 0.1
-                        }s`,
-                        opacity: 0,
-                        transform: "translateY(-20px)",
+                        display: "flex",
+                        alignItems: "center",
+                        cursor: "pointer",
                       }}
                     >
-                      <label
+                      <div
                         style={{
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "4px",
+                          border: "2px solid #3B82F6",
+                          marginRight: "12px",
                           display: "flex",
                           alignItems: "center",
-                          cursor: "pointer",
+                          justifyContent: "center",
+                          transition: "all 0.2s ease",
+                          backgroundColor: selectedEmployees.includes(
+                            employee.id
+                          )
+                            ? "#3B82F6"
+                            : "transparent",
                         }}
                       >
-                        <div
-                          style={{
-                            width: "20px",
-                            height: "20px",
-                            borderRadius: "4px",
-                            border: "2px solid #3B82F6",
-                            marginRight: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            transition: "all 0.2s ease",
-                            backgroundColor: selectedEmployees.includes(id)
-                              ? "#3B82F6"
-                              : "transparent",
-                          }}
-                        >
-                          {selectedEmployees.includes(id) && (
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M5 13L9 17L19 7"
-                                stroke="white"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </div>
+                        {selectedEmployees.includes(employee.id) && (
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M20 6L9 17L4 12"
+                              stroke="#ffffff"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedEmployees.includes(employee.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedEmployees([
+                              ...selectedEmployees,
+                              employee.id,
+                            ]);
+
+                            // Initialiser les préférences de jours de repos pour cet employé
+                            if (!employeeRestPreferences[employee.id]) {
+                              setEmployeeRestPreferences((prev) => ({
+                                ...prev,
+                                [employee.id]: [],
+                              }));
+                            }
+                          } else {
+                            setSelectedEmployees(
+                              selectedEmployees.filter(
+                                (id) => id !== employee.id
+                              )
+                            );
+                          }
+                        }}
+                        style={{ display: "none" }}
+                      />
+                      <div style={{ flex: 1 }}>
                         <span
                           style={{
+                            fontSize: "0.95rem",
                             fontWeight: "500",
-                            color: "#1E293B",
+                            color: "var(--text-primary)",
+                            display: "block",
                           }}
                         >
-                          Employé #{id}
+                          {employee.first_name} {employee.last_name}
                         </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                        <span
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "#64748B",
+                            display: "block",
+                            marginTop: "4px",
+                          }}
+                        >
+                          {/* Afficher les heures contractuelles */}
+                          <strong>Heures: </strong>
+                          {employee.contractHours ||
+                            employee.contract_hours ||
+                            35}
+                          h
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         );
       case 2:
@@ -418,36 +803,122 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
                   animation: "slideIn 0.3s ease-out forwards",
                 }}
               >
-                <label
+                <div
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: "10px",
+                    gap: "20px",
                   }}
                 >
-                  <span
+                  <label
                     style={{
-                      fontWeight: "500",
-                      color: "#1E293B",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
                     }}
                   >
-                    Période du planning:
-                  </span>
-                  <input
-                    type="date"
+                    <span
+                      style={{
+                        fontWeight: "500",
+                        color: "#1E293B",
+                      }}
+                    >
+                      Date de début (lundi):
+                    </span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={handleStartDateChange}
+                      style={{
+                        padding: "12px",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: "8px",
+                        outline: "none",
+                        transition: "all 0.2s ease",
+                        fontSize: "14px",
+                        width: "100%",
+                        maxWidth: "300px",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#64748B",
+                      }}
+                    >
+                      {startDate &&
+                        `${moment(startDate).format("dddd D MMMM YYYY")}`}
+                    </span>
+                  </label>
+
+                  <label
                     style={{
-                      padding: "12px",
-                      border: "1px solid #E2E8F0",
-                      borderRadius: "8px",
-                      outline: "none",
-                      transition: "all 0.2s ease",
-                      fontSize: "14px",
-                      width: "100%",
-                      maxWidth: "300px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
                     }}
-                    defaultValue={moment().format("YYYY-MM-DD")}
-                  />
-                </label>
+                  >
+                    <span
+                      style={{
+                        fontWeight: "500",
+                        color: "#1E293B",
+                      }}
+                    >
+                      Date de fin (dimanche):
+                    </span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={handleEndDateChange}
+                      style={{
+                        padding: "12px",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: "8px",
+                        outline: "none",
+                        transition: "all 0.2s ease",
+                        fontSize: "14px",
+                        width: "100%",
+                        maxWidth: "300px",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#64748B",
+                      }}
+                    >
+                      {endDate &&
+                        `${moment(endDate).format("dddd D MMMM YYYY")}`}
+                    </span>
+                  </label>
+
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      padding: "10px 15px",
+                      backgroundColor: "rgba(59, 130, 246, 0.1)",
+                      borderLeft: "3px solid #3B82F6",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: "13px",
+                        color: "#3B82F6",
+                        margin: 0,
+                      }}
+                    >
+                      La période sélectionnée couvre{" "}
+                      {startDate &&
+                        endDate &&
+                        moment(endDate).diff(moment(startDate), "days") +
+                          1}{" "}
+                      jours, du{" "}
+                      {startDate && moment(startDate).format("DD/MM/YYYY")} au{" "}
+                      {endDate && moment(endDate).format("DD/MM/YYYY")}.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -466,7 +937,7 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
                 color: "#3B82F6",
               }}
             >
-              Définissez les préférences pour les quarts de travail:
+              Définissez la durée minimale de travail sur une journée:
             </p>
             <div
               style={{
@@ -498,9 +969,13 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
                       color: "#1E293B",
                     }}
                   >
-                    Durée minimale d'un quart:
+                    Durée minimale d'un quart de travail:
                   </span>
                   <select
+                    value={preferences.minShiftDuration}
+                    onChange={(e) =>
+                      handlePreferenceChange("minShiftDuration", e.target.value)
+                    }
                     style={{
                       padding: "12px",
                       border: "1px solid #E2E8F0",
@@ -517,11 +992,34 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
                       backgroundSize: "16px",
                     }}
                   >
+                    <option value="3">3 heures</option>
                     <option value="4">4 heures</option>
                     <option value="6">6 heures</option>
                     <option value="8">8 heures</option>
                   </select>
                 </label>
+
+                <div
+                  style={{
+                    marginTop: "20px",
+                    padding: "15px",
+                    backgroundColor: "rgba(59, 130, 246, 0.1)",
+                    borderLeft: "3px solid #3B82F6",
+                    borderRadius: "4px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      color: "#3B82F6",
+                      margin: 0,
+                    }}
+                  >
+                    Cette valeur détermine la durée minimale qu'un employé peut
+                    travailler sur une journée. Les quarts de travail ne
+                    pourront pas être plus courts que cette valeur.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -559,43 +1057,288 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
                   animation: "slideIn 0.3s ease-out forwards",
                 }}
               >
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div
+                <div style={{ marginBottom: "25px" }}>
+                  <label
                     style={{
-                      width: "20px",
-                      height: "20px",
-                      borderRadius: "4px",
-                      border: "2px solid #3B82F6",
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transition: "all 0.2s ease",
+                      flexDirection: "column",
+                      gap: "10px",
                     }}
                   >
-                    <input
-                      type="checkbox"
+                    <span
                       style={{
-                        opacity: 0,
-                        position: "absolute",
+                        fontWeight: "500",
+                        color: "#1E293B",
+                      }}
+                    >
+                      Nombre minimum de jours de repos par semaine:
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="7"
+                      value={preferences.minRestDays}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value, 10);
+                        if (value >= 1 && value <= 7) {
+                          handlePreferenceChange("minRestDays", value);
+                        }
+                      }}
+                      style={{
+                        padding: "12px",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: "8px",
+                        outline: "none",
+                        transition: "all 0.2s ease",
+                        fontSize: "14px",
+                        width: "100%",
+                        maxWidth: "300px",
                       }}
                     />
-                  </div>
-                  <span
+                    {preferences.minRestDays < 1 && (
+                      <span
+                        style={{
+                          color: "#EF4444",
+                          fontSize: "13px",
+                          marginTop: "5px",
+                        }}
+                      >
+                        Le nombre minimum de jours de repos doit être d'au moins
+                        1.
+                      </span>
+                    )}
+                  </label>
+                </div>
+
+                {/* Section pour les jours de repos préférés par employé */}
+                <div style={{ marginBottom: "20px" }}>
+                  <p
                     style={{
-                      fontWeight: "500",
+                      fontWeight: "600",
                       color: "#1E293B",
+                      marginBottom: "20px",
+                      fontSize: "16px",
+                      textAlign: "center",
+                      backgroundColor: "#f1f5f9",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
                     }}
                   >
-                    Pauses obligatoires
-                  </span>
-                </label>
+                    <span
+                      style={{
+                        color: "#3B82F6",
+                        display: "block",
+                        marginBottom: "5px",
+                      }}
+                    >
+                      SÉLECTION DES JOURS DE REPOS
+                    </span>
+                    Pour chaque employé, sélectionnez les jours où ils ne
+                    travaillent pas
+                  </p>
+
+                  {selectedEmployees.length === 0 ? (
+                    <p style={{ color: "#64748B", fontSize: "14px" }}>
+                      Aucun employé sélectionné. Veuillez d'abord sélectionner
+                      des employés à l'étape 1.
+                    </p>
+                  ) : (
+                    selectedEmployees.map((employeeId) => {
+                      const employee = employees.find(
+                        (e) => e.id === employeeId
+                      );
+
+                      if (!employee) return null;
+
+                      return (
+                        <div
+                          key={employeeId}
+                          style={{
+                            marginBottom: "25px",
+                            padding: "20px",
+                            backgroundColor: "#ffffff",
+                            borderRadius: "12px",
+                            border: "1px solid #E2E8F0",
+                            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
+                            transition: "all 0.3s ease",
+                            animation: "fadeIn 0.5s ease-out forwards",
+                          }}
+                        >
+                          <p
+                            style={{
+                              fontWeight: "600",
+                              marginBottom: "10px",
+                              fontSize: "16px",
+                              color: "#3B82F6",
+                              display: "flex",
+                              alignItems: "center",
+                              backgroundColor: "#f0f5ff",
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              border: "1px solid #c7d9ff",
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#3B82F6"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{ marginRight: "8px" }}
+                            >
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                              <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            {employee.first_name} {employee.last_name}
+                          </p>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "10px",
+                            }}
+                          >
+                            {[
+                              "Lundi",
+                              "Mardi",
+                              "Mercredi",
+                              "Jeudi",
+                              "Vendredi",
+                              "Samedi",
+                              "Dimanche",
+                            ].map((day) => {
+                              const isSelected =
+                                employeeRestPreferences[employeeId]?.includes(
+                                  day
+                                );
+
+                              return (
+                                <div
+                                  key={`${employeeId}-${day}`}
+                                  onClick={() => {
+                                    // Gérer la sélection/désélection des jours de repos pour cet employé
+                                    const currentDays =
+                                      employeeRestPreferences[employeeId] || [];
+                                    let updatedDays;
+
+                                    if (currentDays.includes(day)) {
+                                      updatedDays = currentDays.filter(
+                                        (d) => d !== day
+                                      );
+                                    } else {
+                                      updatedDays = [...currentDays, day];
+                                    }
+
+                                    setEmployeeRestPreferences({
+                                      ...employeeRestPreferences,
+                                      [employeeId]: updatedDays,
+                                    });
+                                  }}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    padding: "8px 12px",
+                                    borderRadius: "8px",
+                                    backgroundColor: isSelected
+                                      ? "rgba(59, 130, 246, 0.2)"
+                                      : "rgba(226, 232, 240, 0.7)",
+                                    border: `1px solid ${
+                                      isSelected ? "#3B82F6" : "#E2E8F0"
+                                    }`,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease",
+                                    boxShadow: isSelected
+                                      ? "0 2px 4px rgba(59, 130, 246, 0.25)"
+                                      : "none",
+                                    transform: isSelected
+                                      ? "translateY(-1px)"
+                                      : "none",
+                                    minWidth: "75px",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: "16px",
+                                      height: "16px",
+                                      borderRadius: "50%",
+                                      border: `2px solid ${
+                                        isSelected ? "#3B82F6" : "#94A3B8"
+                                      }`,
+                                      marginRight: "6px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      transition: "all 0.2s ease",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {isSelected && (
+                                      <div
+                                        style={{
+                                          width: "8px",
+                                          height: "8px",
+                                          borderRadius: "50%",
+                                          backgroundColor: "#3B82F6",
+                                        }}
+                                      ></div>
+                                    )}
+                                  </div>
+                                  <span
+                                    style={{
+                                      fontSize: "13px",
+                                      fontWeight: isSelected ? "600" : "400",
+                                      color: isSelected ? "#3B82F6" : "#64748B",
+                                    }}
+                                  >
+                                    {day}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "20px",
+                    padding: "15px",
+                    backgroundColor: "rgba(59, 130, 246, 0.1)",
+                    borderLeft: "3px solid #3B82F6",
+                    borderRadius: "4px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      color: "#3B82F6",
+                      margin: "0 0 10px 0",
+                    }}
+                  >
+                    Ces contraintes seront prises en compte lors de la
+                    génération automatique du planning.
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      color: "#3B82F6",
+                      margin: 0,
+                    }}
+                  >
+                    Le système tentera de respecter au mieux ces préférences,
+                    mais elles ne sont pas garanties.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

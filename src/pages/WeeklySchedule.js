@@ -2785,14 +2785,183 @@ const WeeklySchedulePage = () => {
             isOpen={isWizardOpen}
             onClose={() => setIsWizardOpen(false)}
             onSave={(generatedSchedule) => {
-              // Ici vous pourriez ajouter le nouveau planning généré
+              // Transformation du planning généré automatiquement en format attendu par l'API
               console.log("Planning généré:", generatedSchedule);
-              toast.success("Planning généré avec succès!");
-              setIsWizardOpen(false);
-              // Recharger les données si nécessaire
-              if (fetchSchedules) {
-                fetchSchedules(currentWeekStart);
+
+              // Pour chaque employé sélectionné, créer un planning pour la semaine
+              const selectedEmployeeIds = generatedSchedule.employees || [];
+              const employeeRestPreferences =
+                generatedSchedule.employeeRestPreferences || {};
+
+              if (selectedEmployeeIds.length > 0) {
+                let createdCount = 0;
+
+                // Convertir les jours en français aux index de jours (0 = lundi, 6 = dimanche)
+                const frenchDayToIndex = {
+                  Lundi: 0,
+                  Mardi: 1,
+                  Mercredi: 2,
+                  Jeudi: 3,
+                  Vendredi: 4,
+                  Samedi: 5,
+                  Dimanche: 6,
+                };
+
+                // Parcourir chaque employé sélectionné
+                selectedEmployeeIds.forEach(async (employeeId) => {
+                  try {
+                    // Récupérer les données de l'employé
+                    const employee = employees.find((e) => e.id === employeeId);
+                    if (!employee) {
+                      console.error(
+                        `Employé ${employeeId} non trouvé dans la liste des employés`
+                      );
+                      return;
+                    }
+
+                    const contractHours =
+                      employee.contractHours || employee.contract_hours || 35;
+
+                    // Récupérer les jours de repos préférés de cet employé
+                    const restDays = employeeRestPreferences[employeeId] || [];
+                    const restDayIndexes = restDays.map(
+                      (day) => frenchDayToIndex[day]
+                    );
+
+                    // Calculer les heures quotidiennes en fonction des heures contractuelles
+                    // et du nombre de jours travaillés (excluant les jours de repos)
+                    const workDaysCount = 7 - restDayIndexes.length;
+                    const dailyHours =
+                      workDaysCount > 0
+                        ? Math.round((contractHours / workDaysCount) * 2) / 2 // Arrondir à 0.5 près
+                        : 0;
+
+                    console.log(
+                      `Employé: ${employee.first_name} ${employee.last_name} (ID: ${employeeId})`
+                    );
+                    console.log(`  Heures contractuelles: ${contractHours}h`);
+                    console.log(
+                      `  Jours de repos: ${restDays.join(
+                        ", "
+                      )} (indices: ${restDayIndexes.join(", ")})`
+                    );
+                    console.log(`  Jours travaillés: ${workDaysCount}`);
+                    console.log(`  Heures par jour travaillé: ${dailyHours}h`);
+
+                    // Créer les données du planning pour tous les jours de la semaine
+                    const days = Array(7)
+                      .fill()
+                      .map((_, dayIndex) => {
+                        // Si c'est un jour de repos préféré
+                        if (restDayIndexes.includes(dayIndex)) {
+                          return {
+                            type: "absence",
+                            hours: "0",
+                            absence: "Repos",
+                            note: "",
+                            timeSlots: [],
+                          };
+                        }
+
+                        // Sinon c'est un jour de travail
+                        const timeSlots = [];
+                        let remainingHours = dailyHours;
+
+                        // Si les heures quotidiennes sont <= 4, une seule plage le matin
+                        if (dailyHours <= 4) {
+                          const endHour = Math.floor(9 + dailyHours);
+                          const endMinutes = dailyHours % 1 > 0 ? "30" : "00";
+
+                          timeSlots.push({
+                            start: "09:00",
+                            end: `${endHour}:${endMinutes}`,
+                          });
+                        } else {
+                          // Première plage: 9h-13h (4h)
+                          timeSlots.push({
+                            start: "09:00",
+                            end: "13:00",
+                          });
+
+                          // Deuxième plage: 14h-??h (heures restantes)
+                          const afternoonHours = dailyHours - 4;
+                          if (afternoonHours > 0) {
+                            const endHour = Math.floor(14 + afternoonHours);
+                            const endMinutes =
+                              afternoonHours % 1 > 0 ? "30" : "00";
+
+                            timeSlots.push({
+                              start: "14:00",
+                              end: `${endHour}:${endMinutes}`,
+                            });
+                          }
+                        }
+
+                        return {
+                          type: "work",
+                          hours: dailyHours.toString(),
+                          absence: "",
+                          note: "",
+                          timeSlots: timeSlots,
+                        };
+                      });
+
+                    // Calculer le total d'heures
+                    const totalHours = days.reduce(
+                      (sum, day) => sum + parseFloat(day.hours || "0"),
+                      0
+                    );
+                    console.log(
+                      `  Total d'heures planifiées: ${totalHours}h (cible: ${contractHours}h)`
+                    );
+
+                    // Créer un planning pour cet employé
+                    const scheduleData = {
+                      employeeId: employeeId,
+                      weekStart: generatedSchedule.startDate,
+                      weekEnd: generatedSchedule.endDate,
+                      days: days,
+                    };
+
+                    // Sauvegarder le planning
+                    const result = await createSchedule(scheduleData);
+
+                    if (result.success) {
+                      console.log(
+                        `Planning créé avec succès pour l'employé ${employeeId}:`,
+                        result
+                      );
+                      createdCount++;
+                    } else {
+                      console.error(
+                        `Erreur lors de la création du planning pour l'employé ${employeeId}:`,
+                        result.message
+                      );
+                    }
+                  } catch (error) {
+                    console.error(
+                      `Erreur lors de la création du planning pour l'employé ${employeeId}:`,
+                      error
+                    );
+                  }
+                });
+
+                // Afficher un message de succès
+                setTimeout(() => {
+                  toast.success(
+                    `Planning(s) généré(s) avec succès pour ${createdCount} employé(s)!`
+                  );
+
+                  // Recharger les données
+                  fetchSchedules(currentWeekStart);
+                }, 1500); // Attendre 1,5 secondes pour que les plannings soient sauvegardés
+              } else {
+                toast.error(
+                  "Aucun employé sélectionné pour la génération de planning"
+                );
               }
+
+              setIsWizardOpen(false);
             }}
             weekStart={currentWeekStart}
           />
