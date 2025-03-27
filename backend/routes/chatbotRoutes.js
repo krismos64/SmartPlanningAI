@@ -507,7 +507,7 @@ router.get("/absences/today", adminOnly, async (req, res) => {
     // Formater les données pour la réponse
     const formattedAbsences = absencesToday.map((emp) => ({
       name: `${emp.first_name} ${emp.last_name}`,
-      department: emp.department || "Non affecté",
+      department: emp.department || "      ",
       reason: emp.reason,
     }));
 
@@ -570,7 +570,7 @@ router.get("/vacations/upcoming", adminOnly, async (req, res) => {
 
       return {
         name: `${vacation.first_name} ${vacation.last_name}`,
-        department: vacation.department || "Non affecté",
+        department: vacation.department || "",
         start_date: startDate.toLocaleDateString("fr-FR", options),
         end_date: endDate.toLocaleDateString("fr-FR", options),
       };
@@ -692,7 +692,7 @@ router.get("/hours/positive", adminOnly, async (req, res) => {
     // Formater les données pour la réponse
     const formattedBalances = positiveBalances.map((emp) => ({
       name: `${emp.first_name} ${emp.last_name}`,
-      department: emp.department || "Non affecté",
+      department: emp.department || "",
       balance: parseFloat(emp.balance).toFixed(2),
     }));
 
@@ -744,7 +744,7 @@ router.get("/hours/negative", adminOnly, async (req, res) => {
     // Formater les données pour la réponse
     const formattedBalances = negativeBalances.map((emp) => ({
       name: `${emp.first_name} ${emp.last_name}`,
-      department: emp.department || "Non affecté",
+      department: emp.department || "",
       balance: parseFloat(emp.balance).toFixed(2),
     }));
 
@@ -854,7 +854,7 @@ router.get("/employees/working-today", adminOnly, async (req, res) => {
     // Formater les données pour la réponse
     const formattedEmployees = employeesToday.map((emp) => ({
       name: `${emp.first_name} ${emp.last_name}`,
-      department: emp.department || "Non affecté",
+      department: emp.department || "",
     }));
 
     console.log(
@@ -966,7 +966,7 @@ router.get("/employees/hours-today", adminOnly, async (req, res) => {
     // Formater les données pour la réponse
     const formattedHours = employeeHoursToday.map((emp) => ({
       name: `${emp.first_name} ${emp.last_name}`,
-      department: emp.department || "Non affecté",
+      department: emp.department || "",
       start_time: emp.start_time || "00:00",
       end_time: emp.end_time || "00:00",
       hours: parseFloat(emp.hours || 0).toFixed(1),

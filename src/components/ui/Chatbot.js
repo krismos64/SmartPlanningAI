@@ -134,8 +134,6 @@ const Chatbot = ({ onGenerate, onClose }) => {
             { text: "Planning", action: "topic_plannings" },
             { text: "Congés", action: "check_vacations" },
             { text: "Employés", action: "topic_employes" },
-            { text: "Activités", action: "topic_activites" },
-            { text: "Statistiques", action: "topic_statistiques" },
             { text: "Aide", action: "get_help" },
             { text: "Données personnalisées", action: "check_data" },
           ],

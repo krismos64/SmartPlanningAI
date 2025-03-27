@@ -584,6 +584,38 @@ const LanguageSelectorWrapper = styled.div`
   margin-right: 1rem;
 `;
 
+const FeatureImage = styled.img`
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: ${({ theme }) => theme.shadows.medium};
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: ${({ theme }) => theme.shadows.large};
+  }
+`;
+
+const HeroBrandImage = styled.img`
+  max-width: 200px;
+  height: auto;
+  margin-bottom: 2rem;
+  animation: ${float} 6s ease-in-out infinite;
+
+  @media (max-width: 992px) {
+    margin: 0 auto 2rem;
+  }
+`;
+
+const TestimonialImage = styled.img`
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 3rem 0;
+  box-shadow: ${({ theme }) => theme.shadows.large};
+`;
+
 const LandingPage = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [visibleBenefits, setVisibleBenefits] = useState([]);
@@ -646,6 +678,10 @@ const LandingPage = () => {
         <BackgroundDecoration className="bottom-left" />
 
         <HeroContent>
+          <HeroBrandImage
+            src="/images/logo-smartplanning.png"
+            alt="Smart Planning Logo"
+          />
           <HeroTitle>{t("landingPage.hero.title")}</HeroTitle>
           <HeroSubtitle>{t("landingPage.hero.subtitle")}</HeroSubtitle>
           <CTAButtons>
@@ -734,6 +770,10 @@ const LandingPage = () => {
         <DemoContainer>
           <SectionTitle>{t("landingPage.demo.title")}</SectionTitle>
           <SectionSubtitle>{t("landingPage.demo.subtitle")}</SectionSubtitle>
+          <FeatureImage
+            src="/images/business-smartplanning.png"
+            alt="Smart Planning for Business"
+          />
           <DemoVideoContainer />
         </DemoContainer>
       </DemoSection>
@@ -741,6 +781,15 @@ const LandingPage = () => {
       <BenefitsSection>
         <SectionTitle>{t("landingPage.benefits.title")}</SectionTitle>
         <SectionSubtitle>{t("landingPage.benefits.subtitle")}</SectionSubtitle>
+
+        <div
+          style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center" }}
+        >
+          <TestimonialImage
+            src="/images/comic-smartplanning.png"
+            alt="Smart Planning Testimonial"
+          />
+        </div>
 
         <div ref={benefitsRef} style={{ maxWidth: "900px", margin: "0 auto" }}>
           <BenefitItem className={visibleBenefits.includes(0) ? "visible" : ""}>

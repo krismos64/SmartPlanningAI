@@ -1,9 +1,9 @@
 /**
- * Configuration des sujets et questions préconfigurées pour le chatbot
+ * Configuration des sujets et questions préconfigurées pour le chatbot (version CommonJS pour tests)
  */
 
 // Suppression des icônes Material UI pour éviter les problèmes de rendu
-export const CHATBOT_TOPICS = [
+const CHATBOT_TOPICS = [
   {
     id: "donnees",
     name: "Données personnalisées",
@@ -148,7 +148,7 @@ export const CHATBOT_TOPICS = [
  * @param {string} questionId - L'ID de la question à trouver
  * @returns {Object|null} La question trouvée ou null
  */
-export const findQuestionById = (questionId) => {
+const findQuestionById = (questionId) => {
   for (const topic of CHATBOT_TOPICS) {
     const question = topic.questions.find((q) => q.id === questionId);
     if (question) return question;
@@ -161,9 +161,13 @@ export const findQuestionById = (questionId) => {
  * @param {string} topicId - L'ID du sujet à trouver
  * @returns {Object|null} Le sujet trouvé ou null
  */
-export const findTopicById = (topicId) => {
+const findTopicById = (topicId) => {
   return CHATBOT_TOPICS.find((topic) => topic.id === topicId) || null;
 };
 
-// Export par défaut pour compatibilité avec l'importation dans ChatbotRulesIntegration
-export default CHATBOT_TOPICS;
+module.exports = {
+  CHATBOT_TOPICS,
+  findQuestionById,
+  findTopicById,
+  default: CHATBOT_TOPICS,
+};
