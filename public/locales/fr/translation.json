@@ -248,5 +248,43 @@
     "twoFactorDescription": "Ajouter une couche de sécurité supplémentaire à votre compte.",
     "passwordDescription": "Mettre à jour votre mot de passe actuel.",
     "enable": "Activer"
+  },
+  "cookieConsent": {
+    "title": "Paramètres des cookies",
+    "description": "Nous utilisons des cookies pour améliorer votre expérience sur notre site. Vous pouvez personnaliser vos préférences ci-dessous.",
+    "necessary": "Les cookies nécessaires sont toujours activés car ils sont essentiels au fonctionnement du site.",
+    "buttons": {
+      "reject": "Tout rejeter",
+      "customize": "Personnaliser",
+      "accept": "Tout accepter",
+      "cancel": "Annuler",
+      "save": "Enregistrer"
+    },
+    "preferences": {
+      "title": "Préférences de cookies",
+      "necessary": {
+        "title": "Cookies nécessaires",
+        "description": "Ces cookies sont essentiels au fonctionnement du site et ne peuvent être désactivés."
+      },
+      "analytics": {
+        "title": "Cookies analytiques",
+        "description": "Ces cookies nous aident à comprendre comment les visiteurs interagissent avec notre site."
+      },
+      "marketing": {
+        "title": "Cookies marketing",
+        "description": "Ces cookies permettent d'afficher des publicités personnalisées selon vos centres d'intérêt."
+      }
+    }
+  },
+  "login": {
+    "title": "Connectez-vous à votre compte",
+    "subtitle": "Ou créez un nouveau compte",
+    "email": "Adresse email",
+    "password": "Mot de passe",
+    "remember": "Se souvenir de moi",
+    "forgot": "Mot de passe oublié ?",
+    "button": "Se connecter",
+    "loading": "Connexion en cours...",
+    "error": "Identifiants incorrects. Veuillez réessayer."
   }
 }

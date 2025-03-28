@@ -648,6 +648,9 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      // Fermer le menu utilisateur
+      setUserMenuOpen(false);
+      // Naviguer vers la page de connexion
       navigate("/login");
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);

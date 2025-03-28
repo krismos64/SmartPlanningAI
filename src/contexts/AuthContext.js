@@ -614,26 +614,30 @@ export const AuthProvider = ({ children }) => {
 
   // Fonction pour se déconnecter
   const logout = () => {
-    // Notifier le WebSocket de la déconnexion et fermer proprement la connexion
-    if (user) {
-      try {
-        notifyDataChange("auth", "logout", user.id);
-        // Déconnecter proprement le WebSocket
-        disconnect();
-      } catch (error) {
-        console.error("Erreur lors de la déconnexion WebSocket:", error);
+    return new Promise((resolve) => {
+      // Notifier le WebSocket de la déconnexion et fermer proprement la connexion
+      if (user) {
+        try {
+          notifyDataChange("auth", "logout", user.id);
+          // Déconnecter proprement le WebSocket
+          disconnect();
+        } catch (error) {
+          console.error("Erreur lors de la déconnexion WebSocket:", error);
+        }
       }
-    }
 
-    // Attendre un court instant pour permettre au WebSocket de se fermer proprement
-    setTimeout(() => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setToken(null);
-      setUser(null);
-      setIsAuthenticated(false);
-      window.location.href = "/login";
-    }, 300);
+      // Attendre un court instant pour permettre au WebSocket de se fermer proprement
+      setTimeout(() => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userEmployees");
+        setToken(null);
+        setUser(null);
+        setIsAuthenticated(false);
+        // Ne pas rediriger ici, renvoyer le contrôle au composant
+        resolve(true);
+      }, 300);
+    });
   };
 
   // Fonction pour se connecter avec Google

@@ -13,6 +13,7 @@ import Footer from "./components/layout/Footer";
 import Navbar from "./components/layout/Navbar";
 import ThemeProvider from "./components/ThemeProvider";
 import Chatbot from "./components/ui/Chatbot";
+import CookieConsent from "./components/ui/CookieConsent";
 import { NotificationProvider } from "./components/ui/Notification";
 import ApiProvider from "./contexts/ApiContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -262,6 +263,7 @@ const AppContent = () => {
               </ErrorBoundary>
               {!isAuthPage && <Footer />}
             </MainContent>
+            <CookieConsent />
           </HelmetProvider>
 
           {/* Chatbot disponible uniquement pour les utilisateurs authentifiés et sur les pages protégées */}
