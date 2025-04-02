@@ -5,7 +5,6 @@ import styled, {
   keyframes,
   useTheme as useStyledTheme,
 } from "styled-components";
-import robotAnimation from "../animations/robot.json";
 import planningAnimation from "../assets/animations/planning-animation.json";
 import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
@@ -453,13 +452,6 @@ const ErrorMessage = styled.div`
   animation: ${slideUp} 0.5s ease-in-out;
 `;
 
-const RobotAnimationContainer = styled.div`
-  width: 100%;
-  height: 300px;
-  margin-top: 2rem;
-  animation: ${float} 6s ease-in-out infinite;
-`;
-
 const Contact = () => {
   const { toggleTheme } = useTheme();
   const isDarkMode = useTheme().theme === "dark";
@@ -544,10 +536,6 @@ const Contact = () => {
                 <DetailText>{t("contact.emailAddress")}</DetailText>
               </DetailContent>
             </ContactDetailCard>
-
-            <RobotAnimationContainer>
-              <EnhancedLottie animationData={robotAnimation} loop={true} />
-            </RobotAnimationContainer>
           </ContactDetailsContainer>
         </ContactInfo>
 
