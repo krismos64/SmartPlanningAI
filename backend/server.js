@@ -14,6 +14,7 @@ const path = require("path");
 const http = require("http");
 const setupWebSocket = require("./config/websocket");
 const Activity = require("./models/Activity");
+const jwt = require("jsonwebtoken");
 
 // Configuration CSRF et gestionnaire d'erreurs
 const {
@@ -269,6 +270,30 @@ app.get("/api/csrf-token", csrfProtection, (req, res) => {
 });
 
 // Configurer les routes CSRF pour les opérations sensibles
+// Route de test directe et simple pour le changement de mot de passe (SANS MIDDLEWARE)
+app.post("/api/direct-password-test", (req, res) => {
+  console.log("Route de test directe pour mot de passe appelée");
+  console.log("Body:", req.body);
+  console.log("Auth:", req.headers.authorization ? "Present" : "Missing");
+
+  // Simuler l'objet user pour le test
+  if (req.headers.authorization) {
+    try {
+      const token = req.headers.authorization.split(" ")[1];
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || "smartplanningai_secret_key"
+      );
+      req.user = { id: decoded.userId };
+      console.log("User ID extrait du token:", req.user.id);
+    } catch (error) {
+      console.error("Erreur token:", error.message);
+    }
+  }
+
+  return changePassword(req, res);
+});
+
 app.use("/api/auth", applyCsrfProtection, authRoutes);
 
 // Routes nécessitant une authentification
@@ -295,6 +320,13 @@ app.use("/api/schedule", secureAuth, autoScheduleRoutes); // Routes pour la gén
 // Route de base
 app.get("/", (req, res) => {
   res.json({ message: "SmartPlanning AI API" });
+});
+
+// Route de test directe pour le changement de mot de passe
+const { changePassword } = require("./controllers/usersController");
+app.post("/api/test-password-change", secureAuth, (req, res) => {
+  console.log("Route de test pour le changement de mot de passe appelée");
+  return changePassword(req, res);
 });
 
 // Gestion des erreurs

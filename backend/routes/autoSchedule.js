@@ -5,7 +5,7 @@
 const express = require("express");
 const router = express.Router();
 const autoScheduleController = require("../controllers/autoScheduleController");
-const authMiddleware = require("../middleware/authMiddleware");
+const { authMiddleware } = require("../middleware/authMiddleware");
 
 /**
  * @route POST /api/schedule/auto-generate

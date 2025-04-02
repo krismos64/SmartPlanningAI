@@ -6,6 +6,7 @@ import { useLocation } from "react-router-dom";
 import styled from "styled-components";
 import LanguageSelector from "../components/LanguageSelector";
 import DeleteAccountModal from "../components/modals/DeleteAccountModal";
+import ChangePasswordForm from "../components/settings/ChangePasswordForm";
 import {
   useTheme,
   useTheme as useThemeProvider,
@@ -162,20 +163,20 @@ const ToggleSwitch = styled.label`
   }
 `;
 
-const Button = styled.button`
+const StyledButton = styled.button`
   padding: 0.5rem 1rem;
-  background-color: ${({ theme, variant }) =>
-    variant === "primary"
+  background-color: ${({ theme, $variant }) =>
+    $variant === "primary"
       ? theme.colors.primary
-      : variant === "danger"
+      : $variant === "danger"
       ? theme.colors.error
       : "transparent"};
-  color: ${({ theme, variant }) =>
-    variant === "primary" || variant === "danger"
+  color: ${({ theme, $variant }) =>
+    $variant === "primary" || $variant === "danger"
       ? "white"
       : theme.colors.text.primary};
-  border: ${({ theme, variant }) =>
-    variant === "outline" ? `1px solid ${theme.colors.border}` : "none"};
+  border: ${({ theme, $variant }) =>
+    $variant === "outline" ? `1px solid ${theme.colors.border}` : "none"};
   border-radius: ${({ theme }) => theme.borderRadius.small};
   font-size: 0.875rem;
   font-weight: 500;
@@ -183,10 +184,10 @@ const Button = styled.button`
   transition: all 0.2s;
 
   &:hover {
-    background-color: ${({ theme, variant }) =>
-      variant === "primary"
+    background-color: ${({ theme, $variant }) =>
+      $variant === "primary"
         ? `${theme.colors.primary}dd`
-        : variant === "danger"
+        : $variant === "danger"
         ? `${theme.colors.error}dd`
         : `${theme.colors.border}33`};
   }
@@ -198,10 +199,66 @@ const LanguageWrapper = styled.div`
   align-items: center;
 `;
 
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: ${(props) => (props.$isOpen ? "flex" : "none")};
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background-color: ${(props) => props.theme.colors.surface};
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+`;
+
+// Définir les composants du Modal en dehors du composant principal
+const PasswordModal = ({ $isOpen, onClose }) => {
+  return (
+    <ModalOverlay $isOpen={$isOpen} onClick={onClose}>
+      <ModalContent
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: "var(--surface-color, #1e293b)",
+          color: "var(--text-color, #ffffff)",
+        }}
+      >
+        <h2
+          style={{
+            marginBottom: "1.5rem",
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+          }}
+        >
+          Changer mon mot de passe
+        </h2>
+        <ChangePasswordForm />
+        <Box sx={{ mt: 4, textAlign: "right" }}>
+          <StyledButton $variant="outline" onClick={onClose}>
+            Fermer
+          </StyledButton>
+        </Box>
+      </ModalContent>
+    </ModalOverlay>
+  );
+};
+
 // Composant Settings
 const Settings = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const { t } = useTranslation();
   const location = useLocation();
 
@@ -240,6 +297,14 @@ const Settings = () => {
   // Fermer le modal de suppression de compte
   const closeDeleteModal = () => {
     setIsDeleteModalOpen(false);
+  };
+
+  const openPasswordModal = () => {
+    setIsPasswordModalOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    setIsPasswordModalOpen(false);
   };
 
   return (
@@ -324,7 +389,9 @@ const Settings = () => {
                 {t("security.twoFactorDescription")}
               </SettingDescription>
             </SettingLabel>
-            <Button variant="primary">{t("security.enable")}</Button>
+            <StyledButton $variant="primary">
+              {t("security.enable")}
+            </StyledButton>
           </SettingItem>
 
           <SettingItem>
@@ -334,7 +401,9 @@ const Settings = () => {
                 {t("security.passwordDescription")}
               </SettingDescription>
             </SettingLabel>
-            <Button variant="outline">{t("common.edit")}</Button>
+            <StyledButton $variant="outline" onClick={openPasswordModal}>
+              {t("common.edit")}
+            </StyledButton>
           </SettingItem>
         </SettingsSection>
 
@@ -348,9 +417,9 @@ const Settings = () => {
                 {t("settings.confirmDeleteAccount")}
               </SettingDescription>
             </SettingLabel>
-            <Button variant="danger" onClick={openDeleteModal}>
+            <StyledButton $variant="danger" onClick={openDeleteModal}>
               {t("common.delete")}
-            </Button>
+            </StyledButton>
           </SettingItem>
         </SettingsSection>
       </SettingsCard>
@@ -359,6 +428,12 @@ const Settings = () => {
       <DeleteAccountModal
         $isOpen={isDeleteModalOpen}
         onClose={closeDeleteModal}
+      />
+
+      {/* Modal de changement de mot de passe */}
+      <PasswordModal
+        $isOpen={isPasswordModalOpen}
+        onClose={closePasswordModal}
       />
     </SettingsContainer>
   );

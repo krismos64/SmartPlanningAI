@@ -3,6 +3,9 @@ const router = express.Router();
 const User = require("../models/User");
 const { secureAuth } = require("../middleware/secureAuth");
 const { checkRole } = require("../middleware/auth");
+const rateLimit = require("express-rate-limit");
+const { authMiddleware } = require("../middleware/authMiddleware");
+const { changePassword } = require("../controllers/usersController");
 
 /**
  * @route   GET /api/users
@@ -87,5 +90,22 @@ router.get("/:id", secureAuth, async (req, res) => {
     });
   }
 });
+
+// Rate limiter pour le changement de mot de passe
+const passwordChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 tentatives max
+  message: {
+    message: "Trop de tentatives. Veuillez réessayer dans 15 minutes.",
+  },
+});
+
+// Route de changement de mot de passe
+router.post(
+  "/change-password",
+  secureAuth,
+  passwordChangeLimiter,
+  changePassword
+);
 
 module.exports = router;

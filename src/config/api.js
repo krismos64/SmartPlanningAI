@@ -78,6 +78,7 @@ export const API_ENDPOINTS = {
     CONFIRM_ACCOUNT_DELETION: "/api/auth/confirm-account-deletion",
     PROFILE: "/api/user/profile",
     UPDATE_PROFILE: "/api/user/profile",
+    CHANGE_PASSWORD: "/api/users/change-password",
   },
   DEPARTMENTS: {
     BASE: "/api/departments",

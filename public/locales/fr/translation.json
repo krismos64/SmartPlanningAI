@@ -30,7 +30,8 @@
     "stats": "Statistiques",
     "settings": "Paramètres",
     "profile": "Profil",
-    "navigation": "Navigation"
+    "navigation": "Navigation",
+    "logout": "Déconnexion"
   },
   "dashboard": {
     "welcome": "Bienvenue",

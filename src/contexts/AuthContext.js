@@ -34,6 +34,9 @@ const AuthContext = createContext({
   updateUser: async () => {},
   requestAccountDeletion: async () => {},
   confirmAccountDeletion: async () => {},
+  preparePasswordChange: async () => {},
+  refreshToken: async () => {},
+  changePassword: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -417,6 +420,39 @@ export const AuthProvider = ({ children }) => {
     return false;
   };
 
+  // Fonction pour préparer le changement de mot de passe
+  const preparePasswordChange = async () => {
+    try {
+      // Récupérer un token CSRF frais
+      const csrfSuccess = await refreshCsrfToken();
+      if (!csrfSuccess) {
+        throw new Error("Impossible de récupérer le token CSRF");
+      }
+
+      // Récupérer le token CSRF depuis les cookies
+      const csrfToken = getCsrfToken();
+      if (!csrfToken) {
+        throw new Error(
+          "Token CSRF non trouvé dans les cookies après rafraîchissement"
+        );
+      }
+
+      // Récupérer le token JWT
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Aucun token d'authentification disponible");
+      }
+
+      return { token, csrfToken };
+    } catch (error) {
+      console.error(
+        "Erreur lors de la préparation du changement de mot de passe:",
+        error
+      );
+      throw error;
+    }
+  };
+
   // Modifier la fonction de login pour initialiser le WebSocket après connexion
   const login = async (email, password) => {
     setIsLoading(true);
@@ -788,6 +824,96 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Fonction pour rafraîchir le token d'accès
+  const refreshToken = async () => {
+    try {
+      setIsLoading(true);
+      console.log("Tentative de rafraîchissement du token...");
+
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include", // Important pour envoyer les cookies avec la requête
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        console.log("Token rafraîchi avec succès");
+
+        // Mettre à jour le token dans le localStorage si présent dans la réponse
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+          setToken(data.token);
+        }
+
+        // Mettre à jour les infos utilisateur si présentes
+        if (data.user) {
+          localStorage.setItem("user", JSON.stringify(data.user));
+          setUser(data.user);
+        }
+
+        setIsAuthenticated(true);
+        setLoginError(null);
+        return true;
+      } else {
+        console.error("Échec du rafraîchissement du token:", data.message);
+        // Si le rafraîchissement échoue, déconnecter l'utilisateur
+        logout();
+        return false;
+      }
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement du token:", error);
+      // En cas d'erreur, déconnecter l'utilisateur
+      logout();
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error(
+          "Vous devez être connecté pour changer votre mot de passe"
+        );
+      }
+
+      const csrfToken = getCsrfToken();
+      const response = await fetch(`${API_URL}/api/users/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword: newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Erreur lors du changement de mot de passe"
+        );
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Erreur lors du changement de mot de passe:", error);
+      throw error;
+    }
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -803,6 +929,9 @@ export const AuthProvider = ({ children }) => {
     updateUserProfile,
     requestAccountDeletion,
     confirmAccountDeletion,
+    preparePasswordChange,
+    refreshToken,
+    changePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

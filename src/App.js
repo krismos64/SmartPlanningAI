@@ -7,6 +7,8 @@ import {
   Routes,
   useNavigate,
 } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import styled from "styled-components";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/layout/Footer";
@@ -14,9 +16,9 @@ import Navbar from "./components/layout/Navbar";
 import ThemeProvider from "./components/ThemeProvider";
 import Chatbot from "./components/ui/Chatbot";
 import CookieConsent from "./components/ui/CookieConsent";
-import { NotificationProvider } from "./components/ui/Notification";
 import ApiProvider from "./contexts/ApiContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import { initializeErrorHandling } from "./utils/errorHandling";
 import { setupErrorInterceptors } from "./utils/errorInterceptor";
 
@@ -101,13 +103,18 @@ const MainContent = styled.div`
 const App = () => {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <ApiProvider>
-            <AppContent />
-          </ApiProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <NotificationProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ApiProvider>
+              <Router>
+                <AppContent />
+              </Router>
+            </ApiProvider>
+          </AuthProvider>
+        </ThemeProvider>
+        <ToastContainer />
+      </NotificationProvider>
     </ErrorBoundary>
   );
 };
@@ -166,111 +173,94 @@ const AppContent = () => {
   });
 
   return (
-    <NotificationProvider>
-      <Router>
-        <Suspense fallback={<LoadingFallback />}>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: "#333",
-                color: "#fff",
-              },
-              success: {
-                style: {
-                  background: "#28a745",
-                },
-              },
-              error: {
-                style: {
-                  background: "#dc3545",
-                },
-              },
-            }}
-          />
-          <HelmetProvider>
-            <Navbar />
-            <MainContent
-              $hasNavbar={shouldShowNavbar}
-              $isPublicPage={isPublicPage}
-            >
-              <ErrorBoundary>
-                <Routes>
-                  {/* Pages publiques avec PublicLayout */}
-                  <Route element={<PublicLayout />}>
-                    {/* Landing Page */}
-                    <Route path="/" element={<LandingPage />} />
+    <Suspense fallback={<LoadingFallback />}>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#333",
+            color: "#fff",
+          },
+          success: {
+            style: {
+              background: "#28a745",
+            },
+          },
+          error: {
+            style: {
+              background: "#dc3545",
+            },
+          },
+        }}
+      />
+      <HelmetProvider>
+        <Navbar />
+        <MainContent $hasNavbar={shouldShowNavbar} $isPublicPage={isPublicPage}>
+          <ErrorBoundary>
+            <Routes>
+              {/* Pages publiques avec PublicLayout */}
+              <Route element={<PublicLayout />}>
+                {/* Landing Page */}
+                <Route path="/" element={<LandingPage />} />
 
-                    {/* Pages légales */}
-                    <Route path="/terms" element={<TermsOfService />} />
-                    <Route path="/privacy" element={<PrivacyPolicy />} />
-                    <Route path="/contact" element={<Contact />} />
-                  </Route>
+                {/* Pages légales */}
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/contact" element={<Contact />} />
+              </Route>
 
-                  {/* Routes d'authentification */}
-                  <Route element={<AuthLayout />}>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route
-                      path="/forgot-password"
-                      element={<ForgotPassword />}
-                    />
-                    <Route
-                      path="/reset-password/:token"
-                      element={<ResetPassword />}
-                    />
-                    <Route
-                      path="/account/delete-confirmation/:token"
-                      element={<ConfirmDeletionPage />}
-                    />
-                    <Route path="/unauthorized" element={<Unauthorized />} />
-                  </Route>
+              {/* Routes d'authentification */}
+              <Route element={<AuthLayout />}>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route
+                  path="/reset-password/:token"
+                  element={<ResetPassword />}
+                />
+                <Route
+                  path="/account/delete-confirmation/:token"
+                  element={<ConfirmDeletionPage />}
+                />
+                <Route path="/unauthorized" element={<Unauthorized />} />
+              </Route>
 
-                  {/* Routes protégées */}
-                  <Route
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/employees" element={<Employees />} />
-                    <Route
-                      path="/employees/:employeeId"
-                      element={<Employees />}
-                    />
-                    <Route path="/schedule" element={<WeeklySchedule />} />
-                    <Route
-                      path="/weekly-schedule"
-                      element={<WeeklySchedule />}
-                    />
-                    <Route
-                      path="/weekly-schedule/:weekStart"
-                      element={<WeeklySchedule />}
-                    />
-                    <Route path="/vacations" element={<Vacations />} />
-                    <Route path="/activities" element={<Activities />} />
-                    <Route path="/stats" element={<Stats />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/profile" element={<Profile />} />
-                  </Route>
+              {/* Routes protégées */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <MainLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/employees" element={<Employees />} />
+                <Route path="/employees/:employeeId" element={<Employees />} />
+                <Route path="/schedule" element={<WeeklySchedule />} />
+                <Route path="/weekly-schedule" element={<WeeklySchedule />} />
+                <Route
+                  path="/weekly-schedule/:weekStart"
+                  element={<WeeklySchedule />}
+                />
+                <Route path="/vacations" element={<Vacations />} />
+                <Route path="/activities" element={<Activities />} />
+                <Route path="/stats" element={<Stats />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/profile" element={<Profile />} />
+              </Route>
 
-                  {/* Page 404 */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </ErrorBoundary>
-              {!isAuthPage && <Footer />}
-            </MainContent>
-            <CookieConsent />
-          </HelmetProvider>
+              {/* Page 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ErrorBoundary>
+          {!isAuthPage && <Footer />}
+        </MainContent>
+        <CookieConsent />
+      </HelmetProvider>
 
-          {/* Chatbot disponible uniquement pour les utilisateurs authentifiés et sur les pages protégées */}
-          {auth.isAuthenticated && <Chatbot />}
-        </Suspense>
-      </Router>
-    </NotificationProvider>
+      {auth.isAuthenticated && <Chatbot />}
+    </Suspense>
   );
 };
 

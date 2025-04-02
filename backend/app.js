@@ -8,6 +8,7 @@ const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
 const routes = require("./routes");
 const { NlpManager } = require("node-nlp");
+const { changePassword } = require("./controllers/usersController");
 
 dotenv.config();
 
@@ -76,6 +77,24 @@ app.use("/api", routes);
 // ✅ Route ping
 app.get("/ping", (req, res) => {
   res.status(200).json({ message: "API en ligne" });
+});
+
+// Route de test pour le changement de mot de passe
+app.post("/api/test/password", (req, res) => {
+  console.log("Route de test password appelée");
+  console.log("Requête:", {
+    body: req.body,
+    headers: {
+      authorization: req.headers.authorization ? "Present" : "Missing",
+      contentType: req.headers["content-type"],
+    },
+  });
+  try {
+    return changePassword(req, res);
+  } catch (error) {
+    console.error("Erreur dans la route de test:", error);
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 // ❌ Route non trouvée

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 // Import du middleware d'authentification et de limitation de taux
-const authMiddleware = require("../middleware/authMiddleware");
+const { authMiddleware } = require("../middleware/authMiddleware");
 const { authLimiter } = require("../middleware/rateLimit");
 
 // Route CSRF token (pour la sécurité)

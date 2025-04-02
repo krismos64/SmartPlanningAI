@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Employee = require("../models/Employee");
-const authMiddleware = require("../middleware/authMiddleware");
+const { authMiddleware } = require("../middleware/authMiddleware");
 const WorkHours = require("../models/WorkHours");
 
 // @route   GET /api/hour-balance/:employeeId

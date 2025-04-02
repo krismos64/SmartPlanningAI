@@ -5,7 +5,7 @@
 const express = require("express");
 const router = express.Router();
 const weeklySchedulesController = require("../controllers/weeklySchedulesController");
-const authMiddleware = require("../middleware/authMiddleware");
+const { authMiddleware } = require("../middleware/authMiddleware");
 
 /**
  * @route POST /api/weekly-schedules
