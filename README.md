@@ -587,3 +587,37 @@ backend/
 ├── app.js         # Configuration de l'application Express
 └── server.js      # Point d'entrée du serveur
 ```
+
+## Test du Chatbot SmartPlanningAI
+
+Le système intègre un chatbot intelligent capable de répondre à deux types de questions :
+
+1. **Questions standards (FAQ interne)** - Réponses prédéfinies sur l'utilisation de l'application
+2. **Questions personnalisées** - Réponses dynamiques basées sur des données de la base MySQL
+
+### Pour tester le chatbot
+
+1. **Installer les dépendances**
+
+   ```bash
+   npm install node-fetch@2
+   ```
+
+2. **Exécuter le script de test manuel**
+
+   ```bash
+   node __tests__/manuel-test-chatbot.js
+   ```
+
+3. **Se connecter avec un compte utilisateur valide**
+
+   - Utilisez un compte administrateur pour tester toutes les fonctionnalités
+   - Utilisez un compte employé pour tester les requêtes personnelles
+
+4. **Exemples de questions à tester**:
+   - Standards: "Bonjour", "Comment créer un planning ?", "Comment poser un congé ?"
+   - Données dynamiques: "Qui travaille aujourd'hui ?", "Quel est mon solde de congés ?"
+
+## Introduction
+
+SmartPlanning est une application web de gestion de planning, congés et personnel pour les petites et moyennes entreprises.

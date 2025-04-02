@@ -130,7 +130,7 @@ const Chatbot = ({ onGenerate, onClose }) => {
             isBot: true,
             suggestions: [
               { text: "Planning", action: "topic_plannings" },
-              { text: "Congés", action: "check_vacations" },
+              { text: "Congés", action: "topic_conges" },
               { text: "Employés", action: "topic_employes" },
               { text: "Aide", action: "get_help" },
               { text: "Données personnalisées", action: "check_data" },
@@ -205,40 +205,31 @@ const Chatbot = ({ onGenerate, onClose }) => {
 
   /**
    * Gère le clic sur une suggestion
-   * @param {Object} suggestion - Suggestion cliquée
+   * @param {Object} suggestion - Suggestion sélectionnée
    */
   const handleSuggestionClick = async (suggestion) => {
     if (!suggestion || !suggestion.action) return;
 
-    console.log("Clic sur suggestion:", suggestion);
-
-    // Ajouter visuellement la suggestion comme si l'utilisateur l'avait tapée
+    // Ajouter le message utilisateur (la suggestion cliquée)
     addMessage({
       text: suggestion.text,
       isBot: false,
     });
 
-    // Indiquer que le bot est en train de traiter
     setIsTyping(true);
 
-    // Exécuter l'action associée
     try {
+      // Exécuter l'action associée à la suggestion
       const result = await chatbotIntegration.current.handleAction(
         suggestion.action
       );
-      console.log("Résultat de l'action:", result);
 
-      // Traiter manuellement le résultat si les callbacks ne fonctionnent pas correctement
-      if (result && !result._handled) {
-        result._handled = true; // Marquer comme traité pour éviter les doublons
-        handleActionResult(result);
-      }
+      // Pas besoin de traiter le résultat ici, c'est déjà fait par les callbacks
+      console.log("Résultat de l'action:", result);
     } catch (error) {
       console.error("Erreur lors du traitement de la suggestion:", error);
-
-      // Message d'erreur
       addMessage({
-        text: "Désolé, une erreur s'est produite lors du traitement de cette suggestion.",
+        text: "Désolé, une erreur s'est produite lors du traitement de votre demande.",
         isBot: true,
       });
     } finally {

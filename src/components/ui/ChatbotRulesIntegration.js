@@ -151,7 +151,34 @@ class ChatbotRulesIntegration {
     try {
       // Actions spéciales qui ne nécessitent pas d'appel au backend
       if (action.startsWith("topic_")) {
-        return this.handleTopicAction(action);
+        const result = this.handleTopicAction(action);
+
+        // Gérer le résultat directement ici
+        if (this.onHandleActionResult) {
+          this.onHandleActionResult(result);
+        }
+
+        return result;
+      }
+
+      // Vérifier si l'action correspond à une question prédéfinie avec réponse statique
+      const questionMatch = this.findQuestionByAction(action);
+      if (questionMatch && questionMatch.response) {
+        // C'est une question avec réponse statique, pas besoin d'API
+        this.onAddBotMessage({
+          text: questionMatch.response,
+          isBot: true,
+          suggestions: questionMatch.suggestions || [],
+        });
+
+        const result = {
+          success: true,
+          response: questionMatch.response,
+          suggestions: questionMatch.suggestions || [],
+          _handled: true, // Marquer comme déjà traité
+        };
+
+        return result;
       }
 
       // Actions qui génèrent des plannings
@@ -159,17 +186,25 @@ class ChatbotRulesIntegration {
         if (this.onStartScheduleGeneration) {
           this.onStartScheduleGeneration();
         }
-        return {
+
+        const result = {
           success: true,
           response:
             "J'ai lancé la génération du planning. Vous serez notifié quand ce sera terminé.",
         };
+
+        if (this.onHandleActionResult) {
+          this.onHandleActionResult(result);
+        }
+
+        return result;
       }
 
       // Requêtes à la base de données via l'API
       const result = await this.handleDatabaseQuery(action);
 
-      if (this.onHandleActionResult) {
+      // Éviter de traiter le résultat deux fois
+      if (!result._handled && this.onHandleActionResult) {
         this.onHandleActionResult(result);
       }
 
@@ -226,17 +261,34 @@ class ChatbotRulesIntegration {
   }
 
   /**
+   * Trouve une question par son action
+   * @param {string} action - L'action à rechercher
+   * @returns {Object|null} - La question trouvée ou null
+   */
+  findQuestionByAction(action) {
+    for (const topic of CHATBOT_TOPICS) {
+      for (const question of topic.questions) {
+        if (question.id === action || question.action === action) {
+          return question;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Exécute une requête à la base de données via l'API
    * @param {string} action - L'action à exécuter
    * @returns {Object} Résultat de la requête
    */
   async handleDatabaseQuery(action) {
     try {
-      const token = localStorage.getItem("token");
-
+      // Vérifier si un token d'authentification est disponible
+      const token = localStorage.getItem("authToken");
       if (!token) {
         return {
           success: false,
+          error: "Non authentifié",
           response: "Vous devez être connecté pour effectuer cette action.",
         };
       }
@@ -251,19 +303,78 @@ class ChatbotRulesIntegration {
       });
 
       if (!response.ok) {
+        // Gérer spécifiquement les erreurs 404
+        if (response.status === 404) {
+          const fallbackResponse = this.getFallbackResponse(action);
+          // Marquer comme déjà traité pour éviter les doublons
+          fallbackResponse._handled = true;
+          return fallbackResponse;
+        }
+
         throw new Error("Erreur de réponse serveur");
       }
 
       return await response.json();
     } catch (error) {
       console.error("Erreur lors de la requête:", error);
-      return {
+
+      const errorResponse = {
         success: false,
         error: error.message || "Erreur inconnue",
         response:
           "Désolé, une erreur s'est produite lors de la communication avec le serveur.",
+        _handled: true, // Marquer comme déjà traité
       };
+
+      return errorResponse;
     }
+  }
+
+  /**
+   * Fournit une réponse de fallback lorsque l'API n'est pas disponible
+   * @param {string} action - L'action demandée
+   * @returns {Object} Réponse de fallback
+   */
+  getFallbackResponse(action) {
+    // Réponses par défaut pour les actions courantes
+    const fallbackResponses = {
+      check_vacations: {
+        success: true,
+        response:
+          "Vous pouvez consulter vos congés dans la section 'Congés' du menu principal. Pour poser un congé, cliquez sur 'Nouvelle demande'.",
+        suggestions: [
+          { text: "Comment poser un congé ?", action: "conges_1" },
+          { text: "Voir mes congés", action: "redirect_vacations" },
+        ],
+      },
+      check_data: {
+        success: true,
+        response:
+          "Je ne peux pas accéder à vos données personnalisées pour le moment. Vous pouvez consulter votre profil dans la section 'Mon Profil'.",
+        suggestions: [
+          { text: "Planning", action: "topic_plannings" },
+          { text: "Congés", action: "topic_conges" },
+        ],
+      },
+      get_absences_today: {
+        success: true,
+        response:
+          "Je ne peux pas accéder aux informations d'absence en ce moment. Veuillez consulter le calendrier des absences dans l'application.",
+      },
+      get_working_today: {
+        success: true,
+        response:
+          "Je ne peux pas accéder aux plannings en ce moment. Veuillez consulter le calendrier des présences dans l'application.",
+      },
+    };
+
+    return (
+      fallbackResponses[action] || {
+        success: true,
+        response:
+          "Cette fonctionnalité n'est pas disponible actuellement. Veuillez réessayer plus tard ou consulter l'application directement.",
+      }
+    );
   }
 }
 
