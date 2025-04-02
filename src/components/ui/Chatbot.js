@@ -121,12 +121,11 @@ const Chatbot = ({ onGenerate, onClose }) => {
   }, []);
 
   /**
-   * Traite le résultat d'une action
-   * @param {Object} result - Résultat de l'action
+   * Gère le résultat d'une action
    */
   const handleActionResult = useCallback(
     (result) => {
-      if (result && result.response) {
+      if (result) {
         console.log("Traitement du résultat d'action :", result);
 
         // Ne pas ajouter le message si _handled est true
@@ -137,8 +136,14 @@ const Chatbot = ({ onGenerate, onClose }) => {
           return;
         }
 
+        // Marquer le résultat comme traité pour éviter la duplication
+        result._handled = true;
+
+        // Utiliser le message détaillé s'il est disponible, sinon utiliser response
+        const messageText = result.message || result.response;
+
         addMessage({
-          text: result.response,
+          text: messageText,
           isBot: true,
           suggestions: result.suggestions || [],
         });
@@ -249,9 +254,9 @@ const Chatbot = ({ onGenerate, onClose }) => {
             suggestions: [
               { text: "Planning hebdomadaire", action: "topic_plannings" },
               { text: "Congés", action: "topic_conges" },
-              { text: "Employés", action: "topic_employes" },
+              { text: "Création d'employé", action: "topic_employes" },
               { text: "Aide", action: "get_help" },
-              { text: "Données réelles (API)", action: "check_data" },
+              { text: "Mes employés", action: "check_data" },
             ],
           });
         }, 500);

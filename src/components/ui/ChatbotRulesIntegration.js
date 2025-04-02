@@ -208,8 +208,8 @@ class ChatbotRulesIntegration {
       // Requêtes à la base de données via l'API
       const result = await this.handleDatabaseQuery(action);
 
-      // Éviter de traiter le résultat deux fois
-      if (!result._handled && this.onHandleActionResult) {
+      // Ne pas marquer comme handled, laisser le callback gérer cela
+      if (this.onHandleActionResult) {
         this.onHandleActionResult(result);
       }
 
@@ -232,8 +232,15 @@ class ChatbotRulesIntegration {
 
       // Ne pas appeler directement onAddBotMessage, laisser le callback s'en charger
       if (this.onHandleActionResult) {
-        this.onHandleActionResult(errorResponse);
+        this.log(
+          "Appel du callback onHandleActionResult avec la réponse de fallback"
+        );
+        // Ne pas appeler le callback ici pour éviter le doublon
+        // this.onHandleActionResult(errorResponse);
       }
+
+      // Marquer la réponse comme non traitée pour permettre à handleAction de le faire
+      errorResponse._handled = false;
 
       return errorResponse;
     } finally {
@@ -279,6 +286,16 @@ class ChatbotRulesIntegration {
    */
   findQuestionByAction(action) {
     // Actions spéciales qui ne sont pas dans les sujets
+    if (action === "get_help") {
+      return {
+        id: "get_help",
+        text: "Aide",
+        response:
+          "Vous ne trouvez pas de réponse claire à votre problème ? Contactez notre support client en remplissant le formulaire de contact suivant, nous vous répondrons dans les plus brefs délais :",
+        suggestions: [{ text: "Support client", action: "redirect_contact" }],
+      };
+    }
+
     if (action === "features_available") {
       return {
         id: "features_available",
@@ -356,24 +373,17 @@ class ChatbotRulesIntegration {
           _handled: true,
         };
 
-        // Ne pas appeler directement la fonction d'ajout de message
-        // Laisser le callback onHandleActionResult s'en charger
-        // this.onAddBotMessage({
-        //   text: authRequiredResponse.response,
-        //   isBot: true,
-        //   suggestions: authRequiredResponse.suggestions || [],
-        // });
-
-        // Ne pas marquer comme déjà traité pour permettre au callback de l'afficher
-        // authRequiredResponse._handled = true;
-
         // S'assurer que le callback est appelé avec le résultat de fallback
         if (this.onHandleActionResult) {
           this.log(
             "Appel du callback onHandleActionResult avec la réponse de fallback"
           );
-          this.onHandleActionResult(authRequiredResponse);
+          // Ne pas appeler le callback ici pour éviter le doublon
+          // this.onHandleActionResult(authRequiredResponse);
         }
+
+        // Marquer la réponse comme non traitée pour permettre à handleAction de le faire
+        authRequiredResponse._handled = false;
 
         return authRequiredResponse;
       }
@@ -381,12 +391,26 @@ class ChatbotRulesIntegration {
       // Essayez d'accéder à l'API backend avec le token
       this.log("Tentative d'accès à l'API avec token valide");
 
-      const response = await fetch("/api/chatbot/query", {
+      const headers = {
+        "Content-Type": "application/json",
+      };
+
+      // N'ajoute pas le header d'authentification pour check_data car c'est une route spéciale qui fonctionne sans auth
+      if (action !== "check_data" && effectiveToken) {
+        headers.Authorization = `Bearer ${effectiveToken}`;
+      }
+
+      // Utiliser l'URL complète au lieu du chemin relatif pour éviter les problèmes de proxy
+      const apiBaseUrl =
+        process.env.NODE_ENV === "production"
+          ? "/api/chatbot/query"
+          : "http://localhost:5001/api/chatbot/query";
+
+      this.log("URL de l'API utilisée:", apiBaseUrl);
+
+      const response = await fetch(apiBaseUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${effectiveToken}`,
-        },
+        headers: headers,
         body: JSON.stringify({ action }),
       });
 
@@ -398,24 +422,17 @@ class ChatbotRulesIntegration {
 
           const fallbackResponse = this.getFallbackResponse(action);
 
-          // Ne pas appeler directement la fonction d'ajout de message
-          // Laisser le callback onHandleActionResult s'en charger
-          // this.onAddBotMessage({
-          //   text: fallbackResponse.response,
-          //   isBot: true,
-          //   suggestions: fallbackResponse.suggestions || [],
-          // });
-
-          // Ne pas marquer comme déjà traité pour permettre au callback de l'afficher
-          // fallbackResponse._handled = true;
-
           // S'assurer que le callback est appelé avec le résultat de fallback
           if (this.onHandleActionResult) {
             this.log(
               "Appel du callback onHandleActionResult avec la réponse de fallback"
             );
-            this.onHandleActionResult(fallbackResponse);
+            // Ne pas appeler le callback ici pour éviter le doublon
+            // this.onHandleActionResult(fallbackResponse);
           }
+
+          // Marquer la réponse comme non traitée pour permettre à handleAction de le faire
+          fallbackResponse._handled = false;
 
           return fallbackResponse;
         }
@@ -447,8 +464,15 @@ class ChatbotRulesIntegration {
 
       // Ne pas appeler directement onAddBotMessage, laisser le callback s'en charger
       if (this.onHandleActionResult) {
-        this.onHandleActionResult(errorResponse);
+        this.log(
+          "Appel du callback onHandleActionResult avec la réponse de fallback"
+        );
+        // Ne pas appeler le callback ici pour éviter le doublon
+        // this.onHandleActionResult(errorResponse);
       }
+
+      // Marquer la réponse comme non traitée pour permettre à handleAction de le faire
+      errorResponse._handled = false;
 
       return errorResponse;
     }
@@ -590,6 +614,7 @@ class ChatbotRulesIntegration {
       redirect_profile: "/profile",
       redirect_dashboard: "/dashboard",
       redirect_employees: "/employees",
+      redirect_contact: "/contact",
     };
 
     const path = redirectMap[action];

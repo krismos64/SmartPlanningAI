@@ -73,6 +73,9 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
+// Appliquer CORS avant toute autre configuration
+app.use(cors(corsOptions));
+
 // Configuration de Helmet pour sécuriser les en-têtes HTTP
 app.use(
   helmet({
@@ -116,7 +119,6 @@ app.use(cookieParser(COOKIE_SECRET));
 // Configuration pour traiter les données JSON
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(cors(corsOptions));
 
 // Middleware de logging pour le débogage
 app.use((req, res, next) => {
