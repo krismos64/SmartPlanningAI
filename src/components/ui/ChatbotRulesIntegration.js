@@ -63,7 +63,7 @@ class ChatbotRulesIntegration {
       if (matchedQuestion) {
         // Si c'est une question avec réponse dynamique (via API)
         if (matchedQuestion.dynamicResponse) {
-          const result = await this.handleAction(matchedQuestion.action);
+          await this.handleAction(matchedQuestion.action);
           return { processed: true, action: matchedQuestion.action };
         }
         // Si c'est une question avec réponse statique
@@ -146,7 +146,7 @@ class ChatbotRulesIntegration {
   normalizeText(text) {
     return text
       .toLowerCase()
-      .replace(/[.,?!;:'"()\-]/g, "")
+      .replace(/[.,?!;:'"()\\-]/g, "")
       .replace(/\s+/g, " ")
       .trim();
   }

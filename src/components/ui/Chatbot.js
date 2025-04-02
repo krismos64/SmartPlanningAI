@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 // Import des composants UI
@@ -98,6 +98,123 @@ const Chatbot = ({ onGenerate, onClose }) => {
   const messagesEndRef = useRef(null);
   const chatbotIntegration = useRef(null);
 
+  /**
+   * Ajoute un message à la conversation
+   * @param {Object} message - Message à ajouter
+   */
+  const addMessage = useCallback((message) => {
+    const newMessage = {
+      id: Date.now(),
+      text: message.text,
+      isBot: message.isBot || false,
+      timestamp: new Date(),
+      suggestions: message.suggestions || [],
+    };
+
+    setMessages((prev) => [...prev, newMessage]);
+    console.log(
+      "Message ajouté:",
+      newMessage,
+      "avec suggestions:",
+      message.suggestions
+    );
+  }, []);
+
+  /**
+   * Traite le résultat d'une action
+   * @param {Object} result - Résultat de l'action
+   */
+  const handleActionResult = useCallback(
+    (result) => {
+      if (result && result.response) {
+        console.log("Traitement du résultat d'action :", result);
+
+        // Ne pas ajouter le message si _handled est true
+        if (result._handled) {
+          console.log(
+            "Résultat déjà traité, pas d'ajout de message supplémentaire"
+          );
+          return;
+        }
+
+        addMessage({
+          text: result.response,
+          isBot: true,
+          suggestions: result.suggestions || [],
+        });
+        console.log("Résultat d'action traité:", result);
+      }
+    },
+    [addMessage]
+  );
+
+  /**
+   * Défilement automatique vers le bas de la conversation
+   */
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+
+  // Fonction pour ouvrir/fermer le chatbot
+  const toggleChatbot = useCallback(() => {
+    setIsOpen(!isOpen);
+  }, [isOpen]);
+
+  // Créer une nouvelle conversation
+  const startNewConversation = useCallback(() => {
+    setMessages([]);
+    console.log("Nouvelle conversation démarrée");
+  }, []);
+
+  /**
+   * Gère le clic sur une suggestion
+   * @param {Object} suggestion - Suggestion sélectionnée
+   */
+  const handleSuggestionClick = useCallback(
+    async (suggestion) => {
+      if (!suggestion || !suggestion.action) return;
+
+      // Ajouter le message utilisateur (la suggestion cliquée)
+      addMessage({
+        text: suggestion.text,
+        isBot: false,
+      });
+
+      setIsTyping(true);
+
+      try {
+        // Exécuter l'action associée à la suggestion
+        const result = await chatbotIntegration.current.handleAction(
+          suggestion.action
+        );
+
+        // Vérifier si le résultat a été traité par les callbacks
+        // Si ce n'est pas le cas (par exemple si le callback n'a pas été appelé correctement),
+        // traiter le résultat manuellement
+        if (result && !result._handled) {
+          console.log(
+            "Résultat non traité par les callbacks, traitement manuel :",
+            result
+          );
+          handleActionResult(result);
+        }
+
+        console.log("Résultat de l'action:", result);
+      } catch (error) {
+        console.error("Erreur lors du traitement de la suggestion:", error);
+        addMessage({
+          text: "Désolé, une erreur s'est produite lors du traitement de votre demande.",
+          isBot: true,
+        });
+      } finally {
+        setIsTyping(false);
+      }
+    },
+    [addMessage, handleActionResult]
+  );
+
   // Effet d'initialisation
   useEffect(() => {
     if (!HIDDEN_ROUTES.includes(location.pathname)) {
@@ -142,130 +259,26 @@ const Chatbot = ({ onGenerate, onClose }) => {
         return () => clearTimeout(timer);
       }
     }
-  }, [isOpen, messages.length, onGenerate, location.pathname]);
+  }, [
+    isOpen,
+    messages.length,
+    onGenerate,
+    location.pathname,
+    addMessage,
+    handleActionResult,
+  ]);
 
   // Effet de défilement automatique
   useEffect(() => {
     if (!HIDDEN_ROUTES.includes(location.pathname)) {
       scrollToBottom();
     }
-  }, [messages, location.pathname]);
+  }, [messages, location.pathname, scrollToBottom]);
 
   // Vérifier si le chatbot doit être masqué sur la route actuelle
   if (HIDDEN_ROUTES.includes(location.pathname)) {
     return null;
   }
-
-  // Fonction pour ouvrir/fermer le chatbot
-  const toggleChatbot = () => {
-    setIsOpen(!isOpen);
-  };
-
-  // Créer une nouvelle conversation
-  const startNewConversation = () => {
-    setMessages([]);
-    console.log("Nouvelle conversation démarrée");
-  };
-
-  /**
-   * Ajoute un message à la conversation
-   * @param {Object} message - Message à ajouter
-   */
-  const addMessage = (message) => {
-    const newMessage = {
-      id: Date.now(),
-      text: message.text,
-      isBot: message.isBot || false,
-      timestamp: new Date(),
-      suggestions: message.suggestions || [],
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-    console.log(
-      "Message ajouté:",
-      newMessage,
-      "avec suggestions:",
-      message.suggestions
-    );
-  };
-
-  /**
-   * Traite le résultat d'une action
-   * @param {Object} result - Résultat de l'action
-   */
-  const handleActionResult = (result) => {
-    if (result && result.response) {
-      console.log("Traitement du résultat d'action :", result);
-
-      // Ne pas ajouter le message si _handled est true
-      if (result._handled) {
-        console.log(
-          "Résultat déjà traité, pas d'ajout de message supplémentaire"
-        );
-        return;
-      }
-
-      addMessage({
-        text: result.response,
-        isBot: true,
-        suggestions: result.suggestions || [],
-      });
-      console.log("Résultat d'action traité:", result);
-    }
-  };
-
-  /**
-   * Gère le clic sur une suggestion
-   * @param {Object} suggestion - Suggestion sélectionnée
-   */
-  const handleSuggestionClick = async (suggestion) => {
-    if (!suggestion || !suggestion.action) return;
-
-    // Ajouter le message utilisateur (la suggestion cliquée)
-    addMessage({
-      text: suggestion.text,
-      isBot: false,
-    });
-
-    setIsTyping(true);
-
-    try {
-      // Exécuter l'action associée à la suggestion
-      const result = await chatbotIntegration.current.handleAction(
-        suggestion.action
-      );
-
-      // Vérifier si le résultat a été traité par les callbacks
-      // Si ce n'est pas le cas (par exemple si le callback n'a pas été appelé correctement),
-      // traiter le résultat manuellement
-      if (result && !result._handled) {
-        console.log(
-          "Résultat non traité par les callbacks, traitement manuel :",
-          result
-        );
-        handleActionResult(result);
-      }
-
-      console.log("Résultat de l'action:", result);
-    } catch (error) {
-      console.error("Erreur lors du traitement de la suggestion:", error);
-      addMessage({
-        text: "Désolé, une erreur s'est produite lors du traitement de votre demande.",
-        isBot: true,
-      });
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  /**
-   * Défilement automatique vers le bas de la conversation
-   */
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
 
   return (
     <div className="chatbot-container">
