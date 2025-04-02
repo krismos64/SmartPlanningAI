@@ -119,6 +119,7 @@ const Chatbot = ({ onGenerate, onClose }) => {
         onHandleActionResult: (result) => {
           handleActionResult(result);
         },
+        debug: true,
       });
 
       // Éviter d'envoyer plusieurs messages de bienvenue
@@ -129,11 +130,11 @@ const Chatbot = ({ onGenerate, onClose }) => {
             text: "Bonjour, je suis votre assistant SmartPlanning. Comment puis-je vous aider aujourd'hui ?",
             isBot: true,
             suggestions: [
-              { text: "Planning", action: "topic_plannings" },
+              { text: "Planning hebdomadaire", action: "topic_plannings" },
               { text: "Congés", action: "topic_conges" },
               { text: "Employés", action: "topic_employes" },
               { text: "Aide", action: "get_help" },
-              { text: "Données personnalisées", action: "check_data" },
+              { text: "Données réelles (API)", action: "check_data" },
             ],
           });
         }, 500);
@@ -193,7 +194,17 @@ const Chatbot = ({ onGenerate, onClose }) => {
    * @param {Object} result - Résultat de l'action
    */
   const handleActionResult = (result) => {
-    if (result.response) {
+    if (result && result.response) {
+      console.log("Traitement du résultat d'action :", result);
+
+      // Ne pas ajouter le message si _handled est true
+      if (result._handled) {
+        console.log(
+          "Résultat déjà traité, pas d'ajout de message supplémentaire"
+        );
+        return;
+      }
+
       addMessage({
         text: result.response,
         isBot: true,
@@ -224,7 +235,17 @@ const Chatbot = ({ onGenerate, onClose }) => {
         suggestion.action
       );
 
-      // Pas besoin de traiter le résultat ici, c'est déjà fait par les callbacks
+      // Vérifier si le résultat a été traité par les callbacks
+      // Si ce n'est pas le cas (par exemple si le callback n'a pas été appelé correctement),
+      // traiter le résultat manuellement
+      if (result && !result._handled) {
+        console.log(
+          "Résultat non traité par les callbacks, traitement manuel :",
+          result
+        );
+        handleActionResult(result);
+      }
+
       console.log("Résultat de l'action:", result);
     } catch (error) {
       console.error("Erreur lors du traitement de la suggestion:", error);
