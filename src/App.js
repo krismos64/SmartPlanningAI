@@ -70,11 +70,30 @@ const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("ProtectedRoute - vérification d'authentification:", {
+      isAuthenticated,
+      isLoading,
+      token: localStorage.getItem("token") ? "présent" : "absent",
+      user: localStorage.getItem("user") ? "présent" : "absent",
+    });
+
     // Vérifier s'il y a un token dans localStorage
     const token = localStorage.getItem("token");
+    const user = localStorage.getItem("user");
 
     if (!isAuthenticated && !token) {
-      navigate("/login", { replace: true });
+      console.log(
+        "ProtectedRoute - redirection vers login (pas authentifié et pas de token)"
+      );
+      navigate(
+        "/login?redirect=" + encodeURIComponent(window.location.pathname),
+        { replace: true }
+      );
+    } else if (token && !isAuthenticated) {
+      console.log(
+        "ProtectedRoute - token présent mais pas authentifié, attendons..."
+      );
+      // On attend que isAuthenticated soit mis à jour
     }
   }, [isAuthenticated, navigate]);
 
@@ -82,7 +101,15 @@ const ProtectedRoute = ({ children }) => {
     return <LoadingFallback />;
   }
 
-  return children;
+  // Si on a un token mais qu'on n'est pas authentifié, on affiche quand même
+  // le composant pour éviter les redirections inutiles pendant que le contexte se charge
+  const token = localStorage.getItem("token");
+  if (token || isAuthenticated) {
+    return children;
+  }
+
+  // En dernier recours, affiche quand même le loading
+  return <LoadingFallback />;
 };
 
 // Style pour le contenu principal qui doit s'adapter à la sidebar

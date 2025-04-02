@@ -461,6 +461,8 @@ export const AuthProvider = ({ children }) => {
 
     try {
       console.log("Démarrage de la procédure de connexion");
+      console.log("Email utilisé pour la connexion:", email);
+      console.log("Longueur du mot de passe:", password ? password.length : 0);
 
       // Récupérer le token CSRF avec retry
       const csrfSuccess = await refreshCsrfToken();
@@ -508,13 +510,24 @@ export const AuthProvider = ({ children }) => {
       }
 
       const data = await loginResponse.json();
-      console.log("Connexion réussie");
+      console.log("Connexion réussie", data);
 
       // Stocker le token
       localStorage.setItem("token", data.token);
       setToken(data.token);
+
+      // Stocker l'utilisateur
+      localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
+
+      // Définir l'authentification
       setIsAuthenticated(true);
+
+      console.log("État après login:", {
+        token: data.token ? data.token.substring(0, 15) + "..." : null,
+        user: data.user ? data.user.email : null,
+        isAuthenticated: true,
+      });
 
       // Initialiser la connexion WebSocket avec le token
       try {

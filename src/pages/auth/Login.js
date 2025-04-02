@@ -176,6 +176,18 @@ const Login = () => {
     }
   }, [showNotification]);
 
+  // Récupérer le paramètre de redirection
+  const [redirectPath, setRedirectPath] = useState("/dashboard");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect");
+    if (redirect) {
+      console.log("Paramètre de redirection détecté:", redirect);
+      setRedirectPath(redirect);
+    }
+  }, []);
+
   // Effet pour obtenir un token CSRF au chargement
   useEffect(() => {
     const fetchCsrfToken = async () => {
@@ -245,6 +257,10 @@ const Login = () => {
       return;
     }
 
+    // Nettoyage du mot de passe (suppression des espaces et points potentiels à la fin)
+    const cleanPassword = password.trim().replace(/[.\s]+$/, "");
+    console.log("Mot de passe nettoyé pour connexion");
+
     // Essayer d'obtenir un nouveau token CSRF juste avant la connexion
     try {
       const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
@@ -291,9 +307,10 @@ const Login = () => {
 
     try {
       console.log("Tentative de connexion avec:", { email, password: "***" });
+      console.log("Mot de passe brut pour connexion:", cleanPassword); // Utiliser la version nettoyée
 
       // Utiliser la fonction login du contexte d'authentification avec le token CSRF
-      const success = await login(email, password, csrfToken);
+      const success = await login(email, cleanPassword, csrfToken);
 
       console.log("Résultat de la connexion:", success);
 
@@ -321,11 +338,12 @@ const Login = () => {
           message: "Bienvenue sur SmartPlanning AI !",
         });
 
-        // Petite pause pour s'assurer que tout est bien enregistré
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        // Pause plus longue pour s'assurer que tout est bien enregistré et que la notification s'affiche
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        // Rediriger vers le tableau de bord
-        navigate("/dashboard");
+        // Forcer une actualisation complète plutôt qu'une redirection simple pour s'assurer que le contexte est réinitialisé
+        console.log("Redirection vers le dashboard via window.location.href");
+        window.location.href = redirectPath;
       } else {
         console.error("Connexion échouée sans exception", { loginError });
 

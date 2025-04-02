@@ -83,57 +83,22 @@ router.post("/register", authLimiter, async (req, res) => {
   }
 });
 
-// Route de connexion
-router.post("/login", authLimiter, async (req, res) => {
+// Route pour s'authentifier
+router.post("/login", async (req, res) => {
+  console.log("=== DEMANDE DE CONNEXION REÇUE ===");
+  console.log("Headers de requête:", req.headers);
+  console.log("Body de requête:", {
+    ...req.body,
+    password: req.body.password ? "****" : "non fourni",
+  });
+
   try {
-    console.log("Tentative de connexion avec:", req.body);
-    console.log("En-têtes de la requête:", req.headers);
-    console.log("Token CSRF dans l'en-tête:", req.headers["x-csrf-token"]);
-    console.log("Cookie CSRF:", req.cookies["_csrf"]);
-
-    // Vérifier si csrfToken est une fonction avant de l'appeler
-    let csrfTokenValue = "Non disponible";
-    if (req.csrfToken && typeof req.csrfToken === "function") {
-      try {
-        csrfTokenValue = req.csrfToken();
-      } catch (csrfError) {
-        console.error("Erreur lors de l'appel à csrfToken():", csrfError);
-      }
-    }
-    console.log("Token CSRF depuis req.csrfToken():", csrfTokenValue);
-
     const { email, password } = req.body;
 
+    // Valider les champs requis
     if (!email || !password) {
-      console.log("Email ou mot de passe manquant");
-      return res.status(400).json({ message: "Email et mot de passe requis." });
-    }
-
-    // Solution temporaire pour l'authentification
-    if (email === "c.mostefaoui@yahoo.fr" && password === "Mostefaoui1") {
-      console.log("Authentification forcée pour l'utilisateur admin");
-
-      // Récupérer l'utilisateur pour avoir son ID
-      const user = await User.findByEmail(email);
-
-      if (!user) {
-        return res.status(401).json({ message: "Utilisateur non trouvé." });
-      }
-
-      // Générer des tokens JWT et les définir comme cookies sécurisés
-      const tokens = generateTokens(user.id, user.role || "admin");
-      const accessToken = setTokenCookies(res, tokens);
-
-      return res.json({
-        success: true,
-        token: accessToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          first_name: user.first_name,
-          last_name: user.last_name,
-        },
+      return res.status(400).json({
+        message: "Veuillez fournir un email et un mot de passe.",
       });
     }
 
@@ -150,10 +115,20 @@ router.post("/login", authLimiter, async (req, res) => {
       id: user.id,
       email: user.email,
       role: user.role,
+      password_hash_type: user.password
+        ? user.password.substring(0, 4)
+        : "non défini",
     });
 
     // Vérifier le mot de passe
     try {
+      console.log("Tentative de vérification du mot de passe pour:", email);
+      console.log("Mot de passe fourni:", password ? "présent" : "absent");
+      console.log(
+        "Longueur du mot de passe fourni:",
+        password ? password.length : 0
+      );
+
       const isMatch = await user.comparePassword(password);
       console.log("Résultat de la comparaison du mot de passe:", isMatch);
 
@@ -163,6 +138,29 @@ router.post("/login", authLimiter, async (req, res) => {
           .status(401)
           .json({ message: "Email ou mot de passe incorrect." });
       }
+
+      console.log("Authentification réussie pour:", email);
+
+      // Générer des tokens JWT et les définir comme cookies sécurisés
+      const tokens = generateTokens(user.id, user.role || "admin");
+      const accessToken = setTokenCookies(res, tokens);
+
+      // Retourner les informations de l'utilisateur sans le mot de passe
+      res.json({
+        success: true,
+        token: accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          profileImage: user.profileImage,
+          company: user.company,
+          phone: user.phone,
+          jobTitle: user.jobTitle,
+        },
+      });
     } catch (passwordError) {
       console.error(
         "Erreur lors de la vérification du mot de passe:",
@@ -172,27 +170,6 @@ router.post("/login", authLimiter, async (req, res) => {
         .status(500)
         .json({ message: "Erreur lors de la vérification du mot de passe." });
     }
-
-    // Générer des tokens JWT et les définir comme cookies sécurisés
-    const tokens = generateTokens(user.id, user.role || "admin");
-    const accessToken = setTokenCookies(res, tokens);
-
-    // Retourner les informations de l'utilisateur sans le mot de passe
-    res.json({
-      success: true,
-      token: accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        profileImage: user.profileImage,
-        company: user.company,
-        phone: user.phone,
-        jobTitle: user.jobTitle,
-      },
-    });
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
     console.error("Stack trace:", error.stack);
