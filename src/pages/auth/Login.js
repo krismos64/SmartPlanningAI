@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import Button from "../../components/ui/Button";
@@ -147,12 +147,11 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const { login, loginWithGoogle, loginError } = useAuth();
+  const { login } = useAuth();
   const { showNotification } = useNotification();
-  const navigate = useNavigate();
 
   // Afficher l'erreur de connexion si elle existe
+  const { loginError } = useAuth();
   useEffect(() => {
     if (loginError) {
       showNotification({
@@ -161,7 +160,7 @@ const Login = () => {
         message: loginError,
       });
     }
-  }, [loginError]);
+  }, [loginError, showNotification]);
 
   // Vérifier les erreurs d'URL
   useEffect(() => {
@@ -371,28 +370,13 @@ const Login = () => {
 
   // Gérer la connexion avec Google
   const handleGoogleLogin = async () => {
-    // Temporairement désactivé jusqu'à ce que le backend soit configuré
+    // Fonctionnalité désactivée
     showNotification({
       type: "info",
       title: "Fonctionnalité en développement",
       message:
         "La connexion avec Google sera bientôt disponible. Veuillez utiliser la méthode de connexion standard pour le moment.",
     });
-
-    // Code commenté jusqu'à ce que le backend soit prêt
-    /*
-    try {
-      await loginWithGoogle();
-      // Pas besoin de redirection ici car loginWithGoogle redirige déjà l'utilisateur
-    } catch (error) {
-      console.error("Erreur lors de la connexion avec Google:", error);
-      showNotification({
-        type: "error",
-        title: "Erreur de connexion",
-        message: "La connexion avec Google a échoué. Veuillez réessayer.",
-      });
-    }
-    */
   };
 
   return (
