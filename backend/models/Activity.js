@@ -399,77 +399,72 @@ class Activity {
    * @param {Object} activityData - Données de l'activité
    * @returns {Promise<Object>} - Résultat de l'opération
    */
-  static async logActivity(activityData) {
+  static async logActivity(
+    type,
+    entity_type,
+    entity_id,
+    description,
+    user_id = null,
+    details = null,
+    ip_address = null,
+    user_agent = null
+  ) {
     try {
-      // Préparer les données
-      const {
-        type,
-        entity_type,
-        entity_id,
-        description,
-        user_id,
-        userId,
-        userName,
-        details,
-        ipAddress,
-        userAgent,
-      } = activityData;
+      // Validation des paramètres requis
+      if (!type || !entity_type) {
+        throw new Error(
+          "Le type et entity_type sont requis pour l'enregistrement d'une activité"
+        );
+      }
 
-      // Déterminer l'ID utilisateur à utiliser (préférer user_id si disponible)
-      const finalUserId = user_id || userId;
+      // Conversion des détails en JSON si nécessaire
+      let detailsJson = details;
+      if (details && typeof details === "object") {
+        detailsJson = JSON.stringify(details);
+      }
 
-      // Préparer les détails avec le nom d'utilisateur
-      const detailsWithUserName = {
-        ...(typeof details === "object" ? details : {}),
-        userName: userName || "Utilisateur inconnu",
-      };
-
-      // Convertir les détails en JSON
-      const detailsJson = JSON.stringify(detailsWithUserName);
-
-      // Insérer l'activité dans la base de données en utilisant NOW() pour le timestamp
-      const sql = `
+      // Requête SQL avec des valeurs par défaut pour les champs NULL
+      const query = `
         INSERT INTO activities (
           type, entity_type, entity_id, description, 
           user_id, details, ip_address, user_agent, timestamp
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
-      const params = [
+      const values = [
+        type,
+        entity_type,
+        entity_id || 0,
+        description || "Activité système",
+        user_id,
+        detailsJson,
+        ip_address,
+        user_agent,
+      ];
+
+      console.log("Paramètres de logActivity:", values);
+
+      const [result] = await db.query(query, values);
+
+      if (!result || !result.insertId) {
+        throw new Error("Échec de l'enregistrement de l'activité");
+      }
+
+      console.log("Activité enregistrée avec succès:", {
+        id: result.insertId,
         type,
         entity_type,
         entity_id,
         description,
-        finalUserId,
-        detailsJson,
-        ipAddress,
-        userAgent,
-      ];
+        user_id,
+        details: detailsJson,
+        timestamp: new Date(),
+      });
 
-      console.log("Paramètres de logActivity:", params);
-
-      const [result] = await db.query(sql, params);
-      const activityId = result.insertId;
-
-      // Récupérer l'activité créée avec la date formatée correctement
-      const [[createdActivity]] = await db.query(
-        "SELECT * FROM activities WHERE id = ?",
-        [activityId]
-      );
-
-      console.log("Activité enregistrée avec succès:", createdActivity);
-
-      // Retourner le résultat
-      return {
-        success: true,
-        activity: createdActivity,
-      };
+      return result.insertId;
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de l'activité:", error);
-      return {
-        success: false,
-        error: error.message || "Erreur lors de l'enregistrement de l'activité",
-      };
+      throw error;
     }
   }
 

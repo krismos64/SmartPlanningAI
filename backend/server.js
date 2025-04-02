@@ -391,42 +391,53 @@ const findAvailablePort = async (startPort) => {
 };
 
 const startServer = async () => {
-  // Vérifier si le serveur est déjà en cours d'exécution
-  if (isServerRunning()) {
-    console.log(
-      "⛔ Le serveur est déjà en cours d'exécution. Arrêt du processus actuel."
-    );
-    process.exit(0);
-    return;
-  }
-
   try {
+    // Utiliser le port fourni par Render ou 5001 comme fallback
     const port = process.env.PORT || 5001;
     const server = http.createServer(app);
+
+    // Configurer WebSocket
     setupWebSocket(server);
 
+    // Démarrer le serveur
     server.listen(port, () => {
       console.log(`✅ Serveur démarré sur le port ${port}`);
+
+      // Log de l'activité avec tous les paramètres requis
       Activity.logActivity(
-        "system",
-        "server",
-        0,
-        `Serveur démarré sur le port ${port}`,
-        null,
+        "system", // type
+        "server", // entity_type
+        0, // entity_id
+        `Serveur démarré sur le port ${port}`, // description
+        null, // user_id
         JSON.stringify({
           port,
           pid: process.pid,
           nodeVersion: process.version,
-          environment: process.env.NODE_ENV,
-          userName: "Utilisateur inconnu",
+          environment: process.env.NODE_ENV || "development",
+          host: process.env.DB_HOST,
+          database: process.env.DB_NAME,
         })
-      );
+      ).catch((err) => {
+        console.error("Erreur lors du log d'activité:", err);
+      });
     });
 
     // Gérer les erreurs de serveur
     server.on("error", (error) => {
       console.error("Erreur du serveur:", error);
-      cleanup();
+      // Gérer la fermeture proprement
+      if (fs.existsSync(lockFile)) {
+        try {
+          fs.unlinkSync(lockFile);
+        } catch (err) {
+          console.error(
+            "Erreur lors de la suppression du fichier de lock:",
+            err
+          );
+        }
+      }
+      process.exit(1);
     });
   } catch (error) {
     console.error("Erreur lors du démarrage du serveur:", error);
