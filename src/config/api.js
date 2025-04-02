@@ -9,9 +9,10 @@ if (!process.env.REACT_APP_API_URL) {
   console.error(`
 ⚠️ ERREUR DE CONFIGURATION ⚠️
 La variable d'environnement REACT_APP_API_URL n'est pas définie.
-Veuillez la définir dans votre fichier .env ou .env.production :
-REACT_APP_API_URL=https://votre-api.com/api
+Veuillez la définir dans votre fichier .env.production :
+REACT_APP_API_URL=https://smartplanning.onrender.com/api
   `);
+  throw new Error("REACT_APP_API_URL non définie");
 }
 
 // URL de base de l'API
@@ -26,17 +27,33 @@ L'URL de l'API n'est pas configurée. Impossible d'effectuer des requêtes.
 Vérifiez la variable REACT_APP_API_URL dans vos fichiers .env
     `);
   }
+
+  // Vérifier que l'URL n'est pas localhost en production
+  if (process.env.NODE_ENV === "production" && API_URL.includes("localhost")) {
+    throw new Error(`
+⚠️ Configuration invalide ⚠️
+L'URL de l'API ne peut pas pointer vers localhost en production.
+URL actuelle: ${API_URL}
+    `);
+  }
+
   return true;
 };
 
 // Fonction pour construire une URL d'API complète
 export const buildApiUrl = (endpoint) => {
   validateApiUrl();
-  return `${API_URL}${endpoint}`;
+  // S'assurer que l'endpoint ne commence pas par /api si déjà inclus dans l'URL
+  const cleanEndpoint = endpoint.startsWith("/api/")
+    ? endpoint.substring(4)
+    : endpoint;
+  return `${API_URL}${
+    cleanEndpoint.startsWith("/") ? cleanEndpoint : "/" + cleanEndpoint
+  }`;
 };
 
 // Constante pour activer/désactiver les logs de débogage API
-export const API_DEBUG = true;
+export const API_DEBUG = process.env.NODE_ENV !== "production";
 
 // Fonction utilitaire pour récupérer le token CSRF depuis les cookies
 export const getCsrfToken = () => {
@@ -129,13 +146,9 @@ export const API_ENDPOINTS = {
   },
 };
 
-/**
- * Fonction utilitaire pour logger les messages de débogage API
- * Ne fait rien si API_DEBUG est false
- */
+// Fonction utilitaire pour logger les messages de débogage API
 export const apiDebug = (message, data = null) => {
   if (!API_DEBUG) return;
-
   if (data) {
     console.log(`[API Debug] ${message}`, data);
   } else {

@@ -1,6 +1,6 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
-import { API_URL } from "../config/api";
+import { API_URL, apiDebug, validateApiUrl } from "../config/api";
 import { formatError, handleApiError } from "../utils/errorHandling";
 import { useAuth } from "./AuthContext";
 
@@ -14,64 +14,110 @@ export const useApi = () => useContext(ApiContext);
 export const ApiProvider = ({ children }) => {
   const { getToken, logout } = useAuth();
   const [axiosInstance, setAxiosInstance] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Création d'une instance axios avec des configurations par défaut
-    const instance = axios.create({
-      baseURL: API_URL,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-    });
+    try {
+      // Valider l'URL de l'API avant de créer l'instance
+      validateApiUrl();
 
-    // Intercepteur pour ajouter le token d'authentification à chaque requête
-    instance.interceptors.request.use(
-      async (config) => {
-        const token = await getToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+      // Création d'une instance axios avec des configurations par défaut
+      const instance = axios.create({
+        baseURL: API_URL,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        // Ajouter un timeout pour éviter les requêtes infinies
+        timeout: 10000,
+      });
+
+      // Intercepteur pour ajouter le token d'authentification à chaque requête
+      instance.interceptors.request.use(
+        async (config) => {
+          apiDebug(`Requête ${config.method.toUpperCase()} vers ${config.url}`);
+          const token = await getToken();
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+          return config;
+        },
+        (error) => {
+          apiDebug("Erreur lors de la préparation de la requête", error);
+          return Promise.reject(error);
         }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+      );
 
-    // Intercepteur pour gérer les réponses et les erreurs
-    instance.interceptors.response.use(
-      (response) => {
-        // Pour les réponses réussies, retourner directement les données ou normaliser la structure
-        const data = response.data;
+      // Intercepteur pour gérer les réponses et les erreurs
+      instance.interceptors.response.use(
+        (response) => {
+          apiDebug("Réponse reçue", response.data);
+          const data = response.data;
 
-        // Normaliser les réponses pour avoir toujours une structure { success, message, data }
-        if (data.success === undefined) {
-          return {
-            success: true,
-            data: data,
-            message: "Opération réussie",
-          };
+          if (data.success === undefined) {
+            return {
+              success: true,
+              data: data,
+              message: "Opération réussie",
+            };
+          }
+
+          return data;
+        },
+        (error) => {
+          apiDebug("Erreur API reçue", error);
+
+          // Gérer les erreurs d'authentification
+          if (error.response?.status === 401) {
+            logout();
+            return Promise.reject({
+              success: false,
+              message: "Session expirée. Veuillez vous reconnecter.",
+              error: true,
+              status: 401,
+            });
+          }
+
+          // Gérer les erreurs de timeout
+          if (error.code === "ECONNABORTED") {
+            return Promise.reject({
+              success: false,
+              message: "La requête a pris trop de temps. Veuillez réessayer.",
+              error: true,
+              status: 408,
+            });
+          }
+
+          // Gérer les erreurs de connexion
+          if (!error.response) {
+            return Promise.reject({
+              success: false,
+              message:
+                "Impossible de se connecter au serveur. Vérifiez votre connexion.",
+              error: true,
+              status: 0,
+            });
+          }
+
+          const formattedError = handleApiError(error);
+          return Promise.reject(formattedError);
         }
+      );
 
-        return data;
-      },
-      (error) => {
-        console.error("API Error:", error);
-
-        // Si l'erreur est une erreur d'authentification (401), déconnecter l'utilisateur
-        if (error.response && error.response.status === 401) {
-          logout();
-        }
-
-        // Utiliser notre formatage d'erreur standardisé
-        const formattedError = handleApiError(error);
-        console.log("Erreur formatée:", formattedError);
-
-        return Promise.reject(formattedError);
-      }
-    );
-
-    setAxiosInstance(instance);
+      setAxiosInstance(instance);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+      console.error("Erreur lors de l'initialisation de l'API:", err);
+    }
   }, [getToken, logout]);
+
+  // Si une erreur de configuration est détectée
+  if (error) {
+    return (
+      <div className="api-error">Erreur de configuration API: {error}</div>
+    );
+  }
 
   // Méthodes HTTP principales exposées par le contexte
   const api = {
