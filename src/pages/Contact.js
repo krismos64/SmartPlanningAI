@@ -5,12 +5,11 @@ import styled, {
   keyframes,
   useTheme as useStyledTheme,
 } from "styled-components";
+import robotAnimation from "../animations/robot.json";
 import planningAnimation from "../assets/animations/planning-animation.json";
-import robotAnimation from "../assets/animations/robot.json";
 import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
 import EnhancedLottie from "../components/ui/EnhancedLottie";
-import LanguageSelector from "../components/ui/LanguageSelector";
 import { ThemeSwitch } from "../components/ui/ThemeSwitch";
 
 // Animations
@@ -137,14 +136,12 @@ const LogoAnimation = styled.div`
   animation: ${float} 3s ease-in-out infinite;
 `;
 
-const Nav = styled.nav`
+const Nav = styled.div`
   display: flex;
   align-items: center;
   gap: 1.5rem;
 
-  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-    width: 100%;
-    justify-content: center;
+  @media (max-width: 768px) {
     gap: 1rem;
   }
 `;
@@ -158,6 +155,12 @@ const NavItem = styled(Link)`
   &:hover {
     color: ${({ theme }) => theme.colors.primary};
   }
+`;
+
+const ThemeSwitchWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const ContactSection = styled.section`
@@ -522,8 +525,9 @@ const Contact = () => {
         <Nav>
           <NavItem to="/">{t("common.goHome")}</NavItem>
           <NavItem to="/login">{t("auth.login")}</NavItem>
-          <LanguageSelector />
-          <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
+          <ThemeSwitchWrapper>
+            <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
+          </ThemeSwitchWrapper>
         </Nav>
       </Header>
 

@@ -213,6 +213,28 @@
       "title": "Prêt à révolutionner votre gestion de planning ?",
       "subtitle": "Rejoignez des milliers d'entreprises qui ont déjà optimisé leur planification grâce à SmartPlanning",
       "button": "Commencer gratuitement"
+    },
+    "faq": {
+      "title": "Foire aux questions",
+      "subtitle": "Tout ce que vous devez savoir sur SmartPlanning",
+      "items": {
+        "security": {
+          "question": "Mes données sont-elles sécurisées ?",
+          "answer": "Absolument. La sécurité est notre priorité. Toutes les données sont cryptées et nous respectons strictement le RGPD. Nous n'utilisons jamais vos données à des fins commerciales."
+        },
+        "pricing": {
+          "question": "SmartPlanning est-il vraiment gratuit ?",
+          "answer": "Oui, SmartPlanning est actuellement disponible gratuitement pendant sa phase bêta. Après le lancement officiel, nous proposerons différentes formules tarifaires, avec un mois gratuit pour les utilisateurs de la bêta."
+        },
+        "updates": {
+          "question": "Comment fonctionne l'optimisation des plannings avec l'IA ?",
+          "answer": "Notre algorithme d'IA analyse les contraintes de votre entreprise (disponibilités, compétences, règles de travail) pour générer automatiquement des plannings optimisés qui maximisent l'efficacité."
+        },
+        "mobile": {
+          "question": "Puis-je utiliser SmartPlanning sur mobile ?",
+          "answer": "Oui, SmartPlanning est entièrement responsive et accessible sur tous vos appareils : ordinateurs, tablettes et smartphones. Il suffit d'ouvrir votre navigateur pour accéder à toutes les fonctionnalités."
+        }
+      }
     }
   },
   "footer": {

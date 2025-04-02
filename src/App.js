@@ -176,6 +176,7 @@ const AppContent = () => {
     "/register",
     "/forgot-password",
     "/reset-password",
+    "/account/delete-confirmation",
     "/unauthorized",
   ].some((path) => location.pathname.startsWith(path));
 

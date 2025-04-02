@@ -1,13 +1,24 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
-import LanguageSelector from "../../components/LanguageSelector";
 import { useTheme } from "../../components/ThemeProvider";
 import { useAuth } from "../../contexts/AuthContext";
 import EnhancedLottie from "../ui/EnhancedLottie";
 import NotificationCenter from "../ui/NotificationCenter";
+
+// Animations
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
 
 // Composants stylisés
 const NavbarContainer = styled.nav`
@@ -95,22 +106,23 @@ const NavActions = styled.div`
 `;
 
 const ThemeToggle = styled.button`
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  width: 40px;
-  height: 40px;
-  border-radius: ${({ theme }) => theme.borderRadius.round};
-  cursor: pointer;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease;
 
   &:hover {
-    background-color: ${({ theme }) => `${theme.colors.primary}11`};
     color: ${({ theme }) => theme.colors.primary};
-    transform: rotate(15deg);
+  }
+
+  @media (max-width: 768px) {
+    margin-right: 0.5rem;
   }
 `;
 
@@ -257,12 +269,6 @@ const MobileMenuButton = styled.button`
   }
 `;
 
-const LanguageSelectorWrapper = styled.div`
-  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
-    display: none;
-  }
-`;
-
 const MobileMenuContainer = styled.div`
   display: none;
 
@@ -296,79 +302,39 @@ const MobileMenuContainer = styled.div`
 const MobileMenuContent = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: ${({ theme }) => theme.spacing.xl};
-  gap: ${({ theme }) => theme.spacing.md};
+  padding: 2rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 4rem);
 `;
 
-const MobileNavLink = styled(NavLink)`
-  width: 100%;
-  text-align: center;
-  padding: ${({ theme }) => `${theme.spacing.md} ${theme.spacing.md}`};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-  background-color: ${({ theme, $active }) =>
-    $active ? `${theme.colors.primary}22` : "transparent"};
-  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+const MobileNavLink = styled(Link)`
+  font-size: 1.2rem;
+  text-decoration: none;
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.primary : theme.colors.text.primary};
+  font-weight: ${({ $active }) => ($active ? "600" : "400")};
+  padding: 1rem;
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
   opacity: 0;
-  transform: translateY(20px);
-  animation: fadeIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  animation-delay: ${({ $index }) => `${0.1 + $index * 0.08}s`};
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
-    Roboto, sans-serif;
-  font-size: 1.3rem;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+  animation: ${fadeIn} 0.3s ease forwards;
+  animation-delay: ${({ $index }) => $index * 0.05}s;
 
   &:hover {
-    background-color: ${({ theme }) => `${theme.colors.primary}33`};
-    transform: translateY(-5px) scale(1.03);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-  }
-
-  &:active {
-    transform: translateY(2px);
-    transition: all 0.2s;
-  }
-
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    width: ${({ $active }) => ($active ? "50%" : "0")};
-    height: 3px;
-    background-color: ${({ theme }) => theme.colors.primary};
-    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
-      left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-    transform: translateX(-50%);
-    opacity: ${({ $active }) => ($active ? "1" : "0")};
-    border-radius: 3px;
-  }
-
-  &:hover::after {
-    width: 70%;
-    opacity: 1;
+    background-color: ${({ theme }) => theme.colors.background.hover};
   }
 `;
 
-const MobileLanguageSelector = styled.div`
-  margin-top: ${({ theme }) => theme.spacing.xl};
-  opacity: 0;
-  animation: fadeIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  animation-delay: 0.5s;
-  transform: scale(1.1);
+const MobileThemeToggle = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: ${({ theme }) => theme.borderRadius.round};
+  background-color: ${({ theme }) => theme.colors.surface};
+  box-shadow: ${({ theme }) => theme.shadows.small};
+  margin-top: ${({ theme }) => theme.spacing.md};
 `;
 
 // Icônes
@@ -669,18 +635,13 @@ const Navbar = () => {
 
       {/* Actions area */}
       <NavActions>
-        {/* Language selector */}
-        <LanguageSelectorWrapper>
-          <LanguageSelector isNavbar={true} />
-        </LanguageSelectorWrapper>
-
-        {/* Centre de notifications */}
-        <NotificationCenter />
-
         {/* Theme toggle */}
         <ThemeToggle onClick={toggleTheme} aria-label="Toggle theme">
           {isDarkMode ? <SunIcon /> : <MoonIcon />}
         </ThemeToggle>
+
+        {/* Centre de notifications */}
+        <NotificationCenter />
 
         {/* User profile */}
         <UserProfile onClick={() => setUserMenuOpen(!userMenuOpen)}>
@@ -793,15 +754,12 @@ const Navbar = () => {
               {t("navbar.stats")}
             </MobileNavLink>
 
-            {/* Sélecteur de langue en bas du menu mobile */}
-            <MobileLanguageSelector>
-              <LanguageSelector />
-            </MobileLanguageSelector>
-
             {/* Centre de notifications mobile */}
-            <MobileLanguageSelector style={{ marginTop: "10px" }}>
-              <NotificationCenter />
-            </MobileLanguageSelector>
+            <MobileThemeToggle>
+              <ThemeToggle onClick={toggleTheme} aria-label="Toggle theme">
+                {isDarkMode ? <SunIcon /> : <MoonIcon />}
+              </ThemeToggle>
+            </MobileThemeToggle>
           </MobileMenuContent>
         </MobileMenuContainer>
       )}

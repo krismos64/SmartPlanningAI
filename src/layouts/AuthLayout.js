@@ -1,6 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
 import styled from "styled-components";
-import Footer from "../components/layout/Footer";
 import { useAuth } from "../contexts/AuthContext";
 
 const AuthLayoutContainer = styled.div`
@@ -27,7 +26,6 @@ const AuthLayout = () => {
         <AuthContainer>
           <div>Chargement...</div>
         </AuthContainer>
-        <Footer />
       </AuthLayoutContainer>
     );
   }
@@ -41,7 +39,6 @@ const AuthLayout = () => {
       <AuthContainer>
         <Outlet />
       </AuthContainer>
-      <Footer />
     </AuthLayoutContainer>
   );
 };

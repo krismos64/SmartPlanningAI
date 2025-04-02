@@ -1,10 +1,10 @@
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import planningAnimation from "../assets/animations/planning-animation.json";
-import LanguageSelector from "../components/LanguageSelector";
 import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
 import EnhancedLottie from "../components/ui/EnhancedLottie";
@@ -134,6 +134,12 @@ const Nav = styled.nav`
     justify-content: center;
     gap: 1rem;
   }
+`;
+
+const ThemeSwitchWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const HeroSection = styled.section`
@@ -541,10 +547,6 @@ const CircleDecoration = styled.div`
   }
 `;
 
-const LanguageSelectorWrapper = styled.div`
-  margin-right: 1rem;
-`;
-
 const FeatureImage = styled.img`
   max-width: 100%;
   height: auto;
@@ -655,29 +657,79 @@ const FAQContainer = styled.div`
   margin: 0 auto;
   position: relative;
   z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
-const FAQItem = styled.div`
-  margin-bottom: 2rem;
+const FAQCard = styled(motion.div)`
+  background: ${({ theme }) => theme.colors.surface};
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: ${({ theme }) => theme.shadows.medium};
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      ${({ theme }) => theme.colors.primary},
+      ${({ theme }) => theme.colors.secondary}
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: ${({ theme }) => theme.shadows.large};
+
+    &::before {
+      opacity: 1;
+    }
+  }
 `;
 
 const FAQQuestion = styled.h3`
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
   color: ${({ theme }) => theme.colors.primary};
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+
+  svg {
+    color: ${({ theme }) => theme.colors.secondary};
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
 `;
 
 const FAQAnswer = styled.p`
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   color: ${({ theme }) => theme.colors.text.secondary};
   line-height: 1.6;
+  margin-left: 2.5rem;
 `;
 
 const LandingPage = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [visibleBenefits, setVisibleBenefits] = useState([]);
   const benefitsRef = useRef(null);
+  const demoRef = useRef(null);
   const { t } = useTranslation();
   const sectionRef = useRef(null);
 
@@ -733,6 +785,10 @@ const LandingPage = () => {
       }
     };
   }, []);
+
+  const scrollToDemo = () => {
+    demoRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   // Données structurées JSON-LD
   const jsonLd = {
@@ -901,10 +957,9 @@ const LandingPage = () => {
           SmartPlanning
         </Logo>
         <Nav>
-          <LanguageSelectorWrapper>
-            <LanguageSelector isNavbar={true} />
-          </LanguageSelectorWrapper>
-          <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
+          <ThemeSwitchWrapper>
+            <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
+          </ThemeSwitchWrapper>
           <Link to="/login">
             <Button variant="ghost">{t("auth.login")}</Button>
           </Link>
@@ -929,11 +984,16 @@ const LandingPage = () => {
             <Link to="/register">
               <Button size="large">{t("landingPage.hero.cta.start")}</Button>
             </Link>
-            <Link to="/login">
-              <Button variant="outlined" size="large">
-                {t("landingPage.hero.cta.demo")}
-              </Button>
-            </Link>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => {
+                const demoSection = document.getElementById("demo-section");
+                demoSection?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              {t("landingPage.hero.cta.demo")}
+            </Button>
           </CTAButtons>
         </HeroContent>
         <AnimationContainer>
@@ -1011,7 +1071,7 @@ const LandingPage = () => {
         </FeaturesGrid>
       </FeaturesSection>
 
-      <DemoSection>
+      <DemoSection ref={demoRef} id="demo-section">
         <DemoContainer>
           <SectionTitle>{t("landingPage.demo.title")}</SectionTitle>
           <SectionSubtitle>{t("landingPage.demo.subtitle")}</SectionSubtitle>
@@ -1136,82 +1196,65 @@ const LandingPage = () => {
         </BetaContent>
       </BetaSection>
 
-      {/* Section FAQ pour le SEO */}
       <FAQSection>
-        <SectionTitle>Foire Aux Questions</SectionTitle>
-        <SectionSubtitle>
-          Tout ce que vous devez savoir sur SmartPlanning
-        </SectionSubtitle>
-
+        <SectionTitle>{t("landingPage.faq.title")}</SectionTitle>
+        <SectionSubtitle>{t("landingPage.faq.subtitle")}</SectionSubtitle>
         <FAQContainer>
-          <FAQItem>
-            <FAQQuestion>Qu'est-ce que SmartPlanning ?</FAQQuestion>
-            <FAQAnswer>
-              SmartPlanning est une solution de planification intelligente pour
-              entreprises, qui utilise l'intelligence artificielle pour
-              optimiser vos plannings d'employés. Notre plateforme est
-              disponible sur smartplanning.fr et propose une version bêta
-              gratuite.
-            </FAQAnswer>
-          </FAQItem>
-
-          <FAQItem>
+          <FAQCard
+            whileHover={{ scale: 1.02 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
             <FAQQuestion>
-              Comment fonctionne l'optimisation des plannings avec l'IA ?
+              <span>🔒</span>
+              {t("landingPage.faq.items.security.question")}
             </FAQQuestion>
-            <FAQAnswer>
-              Notre algorithme d'IA analyse les contraintes de votre entreprise
-              (disponibilités des employés, compétences requises, règles de
-              travail) pour générer automatiquement des plannings optimisés qui
-              maximisent l'efficacité tout en respectant les préférences de
-              chacun.
-            </FAQAnswer>
-          </FAQItem>
+            <FAQAnswer>{t("landingPage.faq.items.security.answer")}</FAQAnswer>
+          </FAQCard>
 
-          <FAQItem>
-            <FAQQuestion>SmartPlanning est-il vraiment gratuit ?</FAQQuestion>
-            <FAQAnswer>
-              Oui, SmartPlanning est actuellement disponible gratuitement
-              pendant sa phase bêta. Après le lancement officiel, nous
-              proposerons différentes formules tarifaires, mais les utilisateurs
-              de la bêta bénéficieront d'un mois gratuit supplémentaire.
-            </FAQAnswer>
-          </FAQItem>
-
-          <FAQItem>
+          <FAQCard
+            whileHover={{ scale: 1.02 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
             <FAQQuestion>
-              Quels types d'entreprises peuvent utiliser SmartPlanning ?
+              <span>💰</span>
+              {t("landingPage.faq.items.pricing.question")}
             </FAQQuestion>
-            <FAQAnswer>
-              SmartPlanning s'adapte à tous types d'entreprises : restaurants,
-              commerces, hôpitaux, cliniques, usines, centres d'appels, etc.
-              Notre solution est particulièrement efficace pour les entreprises
-              avec des horaires variables ou complexes.
-            </FAQAnswer>
-          </FAQItem>
+            <FAQAnswer>{t("landingPage.faq.items.pricing.answer")}</FAQAnswer>
+          </FAQCard>
 
-          <FAQItem>
-            <FAQQuestion>Comment puis-je accéder à SmartPlanning ?</FAQQuestion>
-            <FAQAnswer>
-              SmartPlanning est accessible directement depuis votre navigateur
-              sur smartplanning.fr. Il suffit de créer un compte gratuit pour
-              commencer à utiliser toutes les fonctionnalités. Notre application
-              est responsive et fonctionne sur ordinateurs, tablettes et
-              smartphones.
-            </FAQAnswer>
-          </FAQItem>
-
-          <FAQItem>
+          <FAQCard
+            whileHover={{ scale: 1.02 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
             <FAQQuestion>
-              Mes données sont-elles sécurisées avec SmartPlanning ?
+              <span>🔄</span>
+              {t("landingPage.faq.items.updates.question")}
             </FAQQuestion>
-            <FAQAnswer>
-              Absolument. La sécurité est notre priorité. Toutes les données
-              sont cryptées et nous respectons strictement le RGPD. Nous
-              n'utilisons jamais vos données à des fins commerciales et vous
-              restez propriétaire de toutes vos informations.
-            </FAQAnswer>
-          </FAQItem>
+            <FAQAnswer>{t("landingPage.faq.items.updates.answer")}</FAQAnswer>
+          </FAQCard>
+
+          <FAQCard
+            whileHover={{ scale: 1.02 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <FAQQuestion>
+              <span>📱</span>
+              {t("landingPage.faq.items.mobile.question")}
+            </FAQQuestion>
+            <FAQAnswer>{t("landingPage.faq.items.mobile.answer")}</FAQAnswer>
+          </FAQCard>
         </FAQContainer>
       </FAQSection>
 

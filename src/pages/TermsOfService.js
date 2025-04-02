@@ -93,16 +93,20 @@ const Logo = styled(Link)`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
-const Nav = styled.nav`
+const Nav = styled.div`
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 20px;
 
-  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-    width: 100%;
-    justify-content: center;
-    gap: 1rem;
+  @media (max-width: 768px) {
+    gap: 10px;
   }
+`;
+
+const ThemeSwitchWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const NavItem = styled(Link)`
@@ -268,7 +272,9 @@ const TermsOfService = () => {
         <Nav>
           <NavItem to="/">Accueil</NavItem>
           <NavItem to="/login">Connexion</NavItem>
-          <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
+          <ThemeSwitchWrapper>
+            <ThemeSwitch onChange={toggleTheme} checked={isDarkMode} />
+          </ThemeSwitchWrapper>
         </Nav>
       </Header>
 
