@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 // Import des composants UI
 import {
@@ -22,6 +23,15 @@ import EnhancedLottie from "./EnhancedLottie";
 
 // CSS
 import "../../styles/Chatbot.css";
+
+// Liste des routes où le chatbot ne doit pas apparaître
+const HIDDEN_ROUTES = [
+  "/", // Landing page
+  "/privacy", // Page de confidentialité
+  "/terms", // Conditions d'utilisation
+  "/contact", // Formulaire de contact
+  "/feedback", // Page de feedback
+];
 
 /**
  * Composant d'animation optimisé pour éviter les problèmes de cycle de vie
@@ -80,15 +90,70 @@ const ChatbotLottieAnimation = ({
  * @returns {JSX.Element} Composant Chatbot
  */
 const Chatbot = ({ onGenerate, onClose }) => {
-  // État du chatbot
+  const location = useLocation();
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isRobotHovered, setIsRobotHovered] = useState(false);
   const messagesEndRef = useRef(null);
-
-  // Initialisation du chatbot
   const chatbotIntegration = useRef(null);
+
+  // Effet d'initialisation
+  useEffect(() => {
+    if (!HIDDEN_ROUTES.includes(location.pathname)) {
+      console.log("Initialisation du chatbot, état d'ouverture:", isOpen);
+
+      // Initialiser l'intégration du chatbot
+      chatbotIntegration.current = new ChatbotRulesIntegration({
+        onAddBotMessage: (message) => {
+          addMessage(message);
+        },
+        onStartScheduleGeneration: () => {
+          if (onGenerate) {
+            onGenerate();
+          }
+        },
+        onSetIsTyping: (status) => {
+          setIsTyping(status);
+        },
+        onHandleActionResult: (result) => {
+          handleActionResult(result);
+        },
+      });
+
+      // Éviter d'envoyer plusieurs messages de bienvenue
+      if (isOpen && messages.length === 0) {
+        // Ajouter un délai pour simuler une réponse naturelle
+        const timer = setTimeout(() => {
+          addMessage({
+            text: "Bonjour, je suis votre assistant SmartPlanning. Comment puis-je vous aider aujourd'hui ?",
+            isBot: true,
+            suggestions: [
+              { text: "Planning", action: "topic_plannings" },
+              { text: "Congés", action: "check_vacations" },
+              { text: "Employés", action: "topic_employes" },
+              { text: "Aide", action: "get_help" },
+              { text: "Données personnalisées", action: "check_data" },
+            ],
+          });
+        }, 500);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isOpen, messages.length, onGenerate, location.pathname]);
+
+  // Effet de défilement automatique
+  useEffect(() => {
+    if (!HIDDEN_ROUTES.includes(location.pathname)) {
+      scrollToBottom();
+    }
+  }, [messages, location.pathname]);
+
+  // Vérifier si le chatbot doit être masqué sur la route actuelle
+  if (HIDDEN_ROUTES.includes(location.pathname)) {
+    return null;
+  }
 
   // Fonction pour ouvrir/fermer le chatbot
   const toggleChatbot = () => {
@@ -100,54 +165,6 @@ const Chatbot = ({ onGenerate, onClose }) => {
     setMessages([]);
     console.log("Nouvelle conversation démarrée");
   };
-
-  // Effet d'initialisation
-  useEffect(() => {
-    console.log("Initialisation du chatbot, état d'ouverture:", isOpen);
-
-    // Initialiser l'intégration du chatbot
-    chatbotIntegration.current = new ChatbotRulesIntegration({
-      onAddBotMessage: (message) => {
-        addMessage(message);
-      },
-      onStartScheduleGeneration: () => {
-        if (onGenerate) {
-          onGenerate();
-        }
-      },
-      onSetIsTyping: (status) => {
-        setIsTyping(status);
-      },
-      onHandleActionResult: (result) => {
-        handleActionResult(result);
-      },
-    });
-
-    // Éviter d'envoyer plusieurs messages de bienvenue
-    if (isOpen && messages.length === 0) {
-      // Ajouter un délai pour simuler une réponse naturelle
-      const timer = setTimeout(() => {
-        addMessage({
-          text: "Bonjour, je suis votre assistant SmartPlanning. Comment puis-je vous aider aujourd'hui ?",
-          isBot: true,
-          suggestions: [
-            { text: "Planning", action: "topic_plannings" },
-            { text: "Congés", action: "check_vacations" },
-            { text: "Employés", action: "topic_employes" },
-            { text: "Aide", action: "get_help" },
-            { text: "Données personnalisées", action: "check_data" },
-          ],
-        });
-      }, 500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, messages.length, onGenerate]);
-
-  // Effet de défilement automatique
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   /**
    * Ajoute un message à la conversation
