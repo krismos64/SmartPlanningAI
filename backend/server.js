@@ -401,85 +401,25 @@ const startServer = async () => {
   }
 
   try {
-    const PORT = await findAvailablePort(
-      parseInt(process.env.PORT || 5000, 10)
-    );
-
-    // Créer le fichier de verrouillage avec le PID actuel
-    fs.writeFileSync(lockFile, process.pid.toString());
-
-    // Nettoyer le fichier de verrouillage à la fermeture
-    const cleanup = () => {
-      try {
-        if (fs.existsSync(lockFile)) {
-          fs.unlinkSync(lockFile);
-        }
-      } catch (error) {
-        console.error("Erreur lors du nettoyage:", error);
-      }
-      process.exit(0);
-    };
-
-    // Gérer les signaux de fermeture
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
-    process.on("exit", cleanup);
-
-    // Créer un serveur HTTP
+    const port = process.env.PORT || 5001;
     const server = http.createServer(app);
-
-    // Configurer le WebSocket
-    // wss est utilisé implicitement par setupWebSocket pour gérer les connexions WebSocket
     setupWebSocket(server);
-    console.log("🔌 WebSocket configuré et prêt à recevoir des connexions");
 
-    // Démarrer le serveur
-    server.listen(PORT, () => {
-      console.log(`🚀 Serveur démarré sur le port ${PORT}`);
-      console.log(`📚 Documentation API: http://localhost:${PORT}/api-docs`);
-      console.log(
-        `🔑 JWT Secret: ${
-          process.env.JWT_SECRET || "smartplanningai_secret_key"
-        }`
-      );
-      console.log(`🌐 CORS Origins: ${JSON.stringify(corsOptions.origin)}`);
-
-      // Afficher les routes enregistrées
-      console.log("Routes enregistrées:");
-      app._router.stack.forEach(function (middleware) {
-        if (middleware.route) {
-          // routes registered directly on the app
-          console.log(`Route: ${middleware.route.path}`);
-        } else if (middleware.name === "router") {
-          // router middleware
-          middleware.handle.stack.forEach(function (handler) {
-            if (handler.route) {
-              const path = handler.route.path;
-              const methods = Object.keys(handler.route.methods).join(", ");
-              console.log(`Route: ${methods.toUpperCase()} ${path}`);
-            }
-          });
-        }
-      });
-
-      // Enregistrer une activité de démarrage du serveur
-      Activity.logActivity({
-        type: "system",
-        entity_type: "server",
-        entity_id: 0,
-        description: `Serveur démarré sur le port ${PORT}`,
-        user_id: null,
-        details: {
-          port: PORT,
+    server.listen(port, () => {
+      console.log(`✅ Serveur démarré sur le port ${port}`);
+      Activity.logActivity(
+        "system",
+        "server",
+        0,
+        `Serveur démarré sur le port ${port}`,
+        null,
+        JSON.stringify({
+          port,
           pid: process.pid,
           nodeVersion: process.version,
-          environment: process.env.NODE_ENV || "development",
-        },
-      }).catch((err) =>
-        console.error(
-          "Erreur lors de l'enregistrement de l'activité de démarrage:",
-          err
-        )
+          environment: process.env.NODE_ENV,
+          userName: "Utilisateur inconnu",
+        })
       );
     });
 
