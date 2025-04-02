@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -73,15 +74,6 @@ const float = keyframes`
   }
   100% {
     transform: translateY(0px);
-  }
-`;
-
-const rotate = keyframes`
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
   }
 `;
 
@@ -585,11 +577,74 @@ const TestimonialImage = styled.img`
   box-shadow: ${({ theme }) => theme.shadows.large};
 `;
 
+const BetaSection = styled.section`
+  padding: 4rem 2rem;
+  background: linear-gradient(
+    135deg,
+    ${({ theme }) => theme.colors.primary}15,
+    ${({ theme }) => theme.colors.secondary}15
+  );
+  text-align: center;
+  animation: ${fadeIn} 0.8s ease-in-out;
+`;
+
+const BetaContent = styled.div`
+  max-width: 800px;
+  margin: 0 auto;
+`;
+
+const BetaTitle = styled.h2`
+  font-size: 2.5rem;
+  color: ${({ theme }) => theme.colors.primary};
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+`;
+
+const BetaDescription = styled.p`
+  font-size: 1.2rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const BetaFeatures = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+`;
+
+const BetaFeature = styled.div`
+  padding: 1.5rem;
+  background: ${({ theme }) => theme.colors.surface};
+  border-radius: 10px;
+  box-shadow: ${({ theme }) => theme.shadows.small};
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: translateY(-5px);
+  }
+`;
+
+const BetaFeatureIcon = styled.div`
+  font-size: 2rem;
+  margin-bottom: 1rem;
+`;
+
+const BetaFeatureText = styled.p`
+  font-size: 1.1rem;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
 const LandingPage = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [visibleBenefits, setVisibleBenefits] = useState([]);
   const benefitsRef = useRef(null);
   const { t } = useTranslation();
+  const sectionRef = useRef(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -608,19 +663,91 @@ const LandingPage = () => {
       { threshold: 0.1 }
     );
 
-    if (benefitsRef.current) {
-      observer.observe(benefitsRef.current);
+    const currentBenefitsRef = benefitsRef.current;
+
+    if (currentBenefitsRef) {
+      observer.observe(currentBenefitsRef);
     }
 
     return () => {
-      if (benefitsRef.current) {
-        observer.unobserve(benefitsRef.current);
+      if (currentBenefitsRef) {
+        observer.unobserve(currentBenefitsRef);
       }
     };
   }, []);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSectionRef = sectionRef.current;
+
+    if (currentSectionRef) {
+      observer.observe(currentSectionRef);
+    }
+
+    return () => {
+      if (currentSectionRef) {
+        observer.disconnect();
+      }
+    };
+  }, []);
+
+  // Données structurées JSON-LD
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "SmartPlanningAI",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "EUR",
+    },
+    description:
+      "Optimisez la gestion de vos plannings avec SmartPlanningAI. Version bêta gratuite, intuitive et assistée par IA.",
+    featureList: [
+      "Planification intelligente",
+      "Gestion des employés",
+      "Optimisation des plannings",
+      "Interface intuitive",
+    ],
+  };
+
   return (
     <LandingContainer>
+      <Helmet>
+        <title>
+          SmartPlanningAI - Planification intelligente et gratuite pour les
+          entreprises
+        </title>
+        <meta
+          name="description"
+          content="Optimisez la gestion de vos plannings avec SmartPlanningAI. Version bêta gratuite, intuitive et assistée par IA. Essayez-la dès maintenant !"
+        />
+        <meta
+          name="keywords"
+          content="planification, planning, IA, intelligence artificielle, gestion d'entreprise, optimisation, bêta gratuite"
+        />
+        <meta
+          property="og:title"
+          content="SmartPlanningAI - Planification intelligente et gratuite"
+        />
+        <meta
+          property="og:description"
+          content="Optimisez la gestion de vos plannings avec SmartPlanningAI. Version bêta gratuite, intuitive et assistée par IA."
+        />
+        <meta property="og:type" content="website" />
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      </Helmet>
+
       <Header>
         <Logo>
           <LogoAnimation>
@@ -649,7 +776,7 @@ const LandingPage = () => {
         <HeroContent>
           <HeroBrandImage
             src="/images/logo-smartplanning.png"
-            alt="Smart Planning Logo"
+            alt="SmartPlanningAI - Logiciel de planification intelligente pour entreprises"
           />
           <HeroTitle>{t("landingPage.hero.title")}</HeroTitle>
           <HeroSubtitle>{t("landingPage.hero.subtitle")}</HeroSubtitle>
@@ -665,7 +792,11 @@ const LandingPage = () => {
           </CTAButtons>
         </HeroContent>
         <AnimationContainer>
-          <EnhancedLottie animationData={planningAnimation} loop={true} />
+          <EnhancedLottie
+            animationData={planningAnimation}
+            loop={true}
+            alt="Animation de planification intelligente avec SmartPlanningAI"
+          />
         </AnimationContainer>
       </HeroSection>
 
@@ -741,12 +872,12 @@ const LandingPage = () => {
           <SectionSubtitle>{t("landingPage.demo.subtitle")}</SectionSubtitle>
           <FeatureImage
             src="/images/business-smartplanning.png"
-            alt="Smart Planning for Business"
+            alt="SmartPlanningAI en action - Interface de planification pour entreprises"
           />
           <DemoVideoContainer>
             <iframe
               src="https://www.youtube.com/embed/bvvlO-FZuVU"
-              title="SmartPlanning Présentation"
+              title="SmartPlanning AI - Démonstration du logiciel de planification intelligent"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             ></iframe>
@@ -763,7 +894,7 @@ const LandingPage = () => {
         >
           <TestimonialImage
             src="/images/comic-smartplanning.png"
-            alt="Smart Planning Testimonial"
+            alt="Témoignages clients SmartPlanningAI - Bénéfices de la planification intelligente"
           />
         </div>
 
@@ -817,6 +948,48 @@ const LandingPage = () => {
           </BenefitItem>
         </div>
       </BenefitsSection>
+
+      {/* Nouvelle section Bêta à la bonne position après les bénéfices */}
+      <BetaSection ref={sectionRef}>
+        <BetaContent>
+          <BetaTitle>🎉 SmartPlanningAI est en bêta gratuite ! 🎁</BetaTitle>
+          <BetaDescription>
+            Profitez de notre version bêta gratuite et contribuez à
+            l'amélioration de SmartPlanningAI !
+          </BetaDescription>
+          <BetaFeatures>
+            <BetaFeature>
+              <BetaFeatureIcon>🎁</BetaFeatureIcon>
+              <BetaFeatureText>
+                Accès complet gratuit pendant la phase bêta
+              </BetaFeatureText>
+            </BetaFeature>
+            <BetaFeature>
+              <BetaFeatureIcon>💡</BetaFeatureIcon>
+              <BetaFeatureText>
+                1 mois gratuit à partir du lancement du plan tarifaire
+              </BetaFeatureText>
+            </BetaFeature>
+            <BetaFeature>
+              <BetaFeatureIcon>🤝</BetaFeatureIcon>
+              <BetaFeatureText>
+                Contribuez à l'amélioration du produit
+              </BetaFeatureText>
+            </BetaFeature>
+            <BetaFeature>
+              <BetaFeatureIcon>✉️</BetaFeatureIcon>
+              <BetaFeatureText>
+                Donnez votre avis et signalez les bugs
+              </BetaFeatureText>
+            </BetaFeature>
+          </BetaFeatures>
+          <Link to="/contact">
+            <Button variant="primary" size="large">
+              Donner votre avis
+            </Button>
+          </Link>
+        </BetaContent>
+      </BetaSection>
 
       <CTASection>
         <CircleDecoration className="small" />

@@ -12,6 +12,7 @@ const FormContainer = styled(motion.div)`
   background: ${({ theme }) => theme.colors.cardBackground};
   border-radius: 15px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const Title = styled(motion.h2)`
@@ -47,6 +48,10 @@ const Input = styled.input`
     outline: none;
     border-color: ${({ theme }) => theme.colors.primary};
     box-shadow: 0 0 0 3px ${({ theme }) => `${theme.colors.primary}33`};
+  }
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.textSecondary};
   }
 `;
 
