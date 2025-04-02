@@ -5,7 +5,10 @@ const connectDB = require("./config/db");
 require("dotenv").config();
 
 // Configuration
-const API_URL = "http://localhost:5001/api"; // Correction du port et du chemin de l'API
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.REACT_APP_API_URL
+    : "http://localhost:5001/api";
 const JWT_SECRET = process.env.JWT_SECRET || "smartplanningai_secret_key";
 
 // Fonction pour créer un utilisateur de test

@@ -401,14 +401,13 @@ class ChatbotRulesIntegration {
       }
 
       // Utiliser l'URL complète au lieu du chemin relatif pour éviter les problèmes de proxy
-      const apiBaseUrl =
-        process.env.NODE_ENV === "production"
-          ? "/api/chatbot/query"
-          : "http://localhost:5001/api/chatbot/query";
+      const CHATBOT_API_URL = process.env.REACT_APP_API_URL
+        ? `${process.env.REACT_APP_API_URL}/chatbot/query`
+        : `${process.env.REACT_APP_API_URL}/chatbot/query`;
 
-      this.log("URL de l'API utilisée:", apiBaseUrl);
+      this.log("URL de l'API utilisée:", CHATBOT_API_URL);
 
-      const response = await fetch(apiBaseUrl, {
+      const response = await fetch(CHATBOT_API_URL, {
         method: "POST",
         headers: headers,
         body: JSON.stringify({ action }),

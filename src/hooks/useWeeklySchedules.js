@@ -24,7 +24,7 @@ const getSchedulesByWeek = async (formattedDate) => {
 
     // Utiliser la bonne URL d'API pour récupérer les plannings par semaine
     const response = await fetch(
-      `http://localhost:5001/api/weekly-schedules/week/${formattedDate}`,
+      `${process.env.REACT_APP_API_URL}/weekly-schedules/week/${formattedDate}`,
       {
         method: "GET",
         headers: {

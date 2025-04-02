@@ -4,11 +4,36 @@
 
 import axios from "axios";
 
+// Vérification de la présence de l'URL d'API
+if (!process.env.REACT_APP_API_URL) {
+  console.error(`
+⚠️ ERREUR DE CONFIGURATION ⚠️
+La variable d'environnement REACT_APP_API_URL n'est pas définie.
+Veuillez la définir dans votre fichier .env ou .env.production :
+REACT_APP_API_URL=https://votre-api.com/api
+  `);
+}
+
 // URL de base de l'API
-export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
+export const API_URL = process.env.REACT_APP_API_URL;
 
 // Fonction pour vérifier si l'URL est correcte
-console.log("API_URL configurée:", API_URL);
+export const validateApiUrl = () => {
+  if (!API_URL) {
+    throw new Error(`
+⚠️ URL d'API non définie ⚠️
+L'URL de l'API n'est pas configurée. Impossible d'effectuer des requêtes.
+Vérifiez la variable REACT_APP_API_URL dans vos fichiers .env
+    `);
+  }
+  return true;
+};
+
+// Fonction pour construire une URL d'API complète
+export const buildApiUrl = (endpoint) => {
+  validateApiUrl();
+  return `${API_URL}${endpoint}`;
+};
 
 // Constante pour activer/désactiver les logs de débogage API
 export const API_DEBUG = true;
@@ -132,18 +157,14 @@ export const apiRequest = async (
   data = null,
   headers = {}
 ) => {
-  // Construire l'URL complète en préfixant avec API_URL si l'URL ne commence pas par http
-  const url = endpoint.startsWith("http") ? endpoint : `${API_URL}${endpoint}`;
+  validateApiUrl();
+
+  // Construire l'URL complète
+  const url = buildApiUrl(endpoint);
 
   apiDebug(`${method} ${url}`, data ? { payload: data } : null);
 
   try {
-    // Vérifier si l'URL est définie
-    if (!url) {
-      console.error("[apiRequest] URL non définie");
-      throw new Error("URL non définie pour la requête API");
-    }
-
     const token = localStorage.getItem("token");
     console.log(
       `[apiRequest] ${method} ${url} - Token:`,

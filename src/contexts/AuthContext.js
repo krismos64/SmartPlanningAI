@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { API_URL } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import { AuthService } from "../services/api";
 
@@ -52,6 +51,8 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorageToken);
   const [loginError, setLoginError] = useState(null);
   const { notifyDataChange, disconnect } = useWebSocket();
+
+  const API_URL = process.env.REACT_APP_API_URL;
 
   // Fonction pour vérifier et renouveler le token si nécessaire
   const ensureValidToken = async () => {
@@ -271,7 +272,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkInitialAuth();
-  }, []);
+  }, [API_URL]);
 
   // Fonction pour mettre à jour le profil utilisateur
   const updateUserProfile = async (userData) => {
@@ -354,7 +355,7 @@ export const AuthProvider = ({ children }) => {
 
   // Modifier la fonction pour récupérer un nouveau token CSRF avec retry
   const refreshCsrfToken = async (retryCount = 3, delay = 1000) => {
-    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
+    const API_URL = process.env.REACT_APP_API_URL;
 
     for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
@@ -457,8 +458,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setIsLoading(true);
     setLoginError(null);
-    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
-
+    const API_URL = process.env.REACT_APP_API_URL;
     try {
       console.log("Démarrage de la procédure de connexion");
       console.log("Email utilisé pour la connexion:", email);
@@ -772,7 +772,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkOAuthRedirect();
-  }, []);
+  }, [API_URL, notifyDataChange]);
 
   // Demander la suppression du compte (envoi d'un lien par email)
   const requestAccountDeletion = async () => {

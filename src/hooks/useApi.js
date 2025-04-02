@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from "react";
 import { toast } from "react-hot-toast";
-import { API_URL } from "../config/api";
 
 /**
  * Hook personnalisé pour effectuer des appels API
@@ -105,7 +104,7 @@ const useApi = () => {
     const get = async (endpoint) => {
       try {
         // Vérifier que l'URL est correcte
-        const apiUrl = API_URL || "http://localhost:5001"; // Utiliser l'URL correcte
+        const apiUrl = process.env.REACT_APP_API_URL; // Utiliser l'URL correcte
         console.log(`[API] GET ${apiUrl}${endpoint}`);
 
         // Gestion spéciale pour les départements - ne pas afficher d'erreurs
@@ -192,7 +191,7 @@ const useApi = () => {
         }
 
         // Vérifier que l'URL est correcte
-        const apiUrl = API_URL || "http://localhost:5001"; // Utiliser l'URL correcte
+        const apiUrl = process.env.REACT_APP_API_URL; // Utiliser l'URL correcte
         console.log(`[API] POST ${apiUrl}${endpoint}`);
 
         // Vérifier si le token est présent
@@ -284,7 +283,7 @@ const useApi = () => {
     const put = async (endpoint, data) => {
       try {
         // Vérifier que l'URL est correcte
-        const apiUrl = API_URL || "http://localhost:5001"; // Utiliser l'URL correcte
+        const apiUrl = process.env.REACT_APP_API_URL; // Utiliser l'URL correcte
         console.log(`[API] PUT ${apiUrl}${endpoint}`, data);
 
         const token = localStorage.getItem("token");
@@ -362,7 +361,7 @@ const useApi = () => {
     const del = async (endpoint) => {
       try {
         // Vérifier que l'URL est correcte
-        const apiUrl = API_URL || "http://localhost:5004"; // Forcer l'URL correcte
+        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5004"; // Forcer l'URL correcte
         console.log(`[API] DELETE ${apiUrl}${endpoint}`);
 
         const token = localStorage.getItem("token");

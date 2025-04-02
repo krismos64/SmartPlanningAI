@@ -1,3 +1,10 @@
+require("dotenv").config();
+
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.REACT_APP_API_URL
+    : "http://localhost:5001/api";
+
 // Utiliser import() dynamique pour node-fetch
 (async () => {
   const fetch = (await import("node-fetch")).default;
@@ -6,7 +13,7 @@
     try {
       console.log("🔍 Test de la route d'authentification");
 
-      const response = await fetch("http://localhost:5001/api/auth/login", {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

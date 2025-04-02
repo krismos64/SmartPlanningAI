@@ -1,3 +1,10 @@
+require("dotenv").config();
+
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.REACT_APP_API_URL
+    : "http://localhost:5001/api";
+
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const { generateTokens, verifyAccessToken } = require("./utils/tokenUtils");
@@ -32,22 +39,19 @@ const testProfileRoute = async () => {
 
     // Test de la route /api/auth/profile
     console.log("\n=== TEST DE LA ROUTE /api/auth/profile ===");
-    console.log("URL de test:", "http://localhost:5001/api/auth/profile");
+    console.log("URL de test:", `${API_URL}/auth/profile`);
     console.log(
       "En-tête Authorization:",
       `Bearer ${accessToken.substring(0, 20)}...`
     );
 
     try {
-      const authResponse = await axios.get(
-        "http://localhost:5001/api/auth/profile",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          withCredentials: true,
-        }
-      );
+      const authResponse = await axios.get(`${API_URL}/auth/profile`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        withCredentials: true,
+      });
 
       console.log("\n=== RÉPONSE DU SERVEUR (AUTH) ===");
       console.log("Status:", authResponse.status);
@@ -69,22 +73,19 @@ const testProfileRoute = async () => {
 
     // Test de la route /api/user/profile
     console.log("\n=== TEST DE LA ROUTE /api/user/profile ===");
-    console.log("URL de test:", "http://localhost:5001/api/user/profile");
+    console.log("URL de test:", `${API_URL}/user/profile`);
     console.log(
       "En-tête Authorization:",
       `Bearer ${accessToken.substring(0, 20)}...`
     );
 
     try {
-      const userResponse = await axios.get(
-        "http://localhost:5001/api/user/profile",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          withCredentials: true,
-        }
-      );
+      const userResponse = await axios.get(`${API_URL}/user/profile`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        withCredentials: true,
+      });
 
       console.log("\n=== RÉPONSE DU SERVEUR (USER) ===");
       console.log("Status:", userResponse.status);
