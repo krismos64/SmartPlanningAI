@@ -1,15 +1,26 @@
 {
   "short_name": "SmartPlanning",
-  "name": "SmartPlanning",
+  "name": "SmartPlanning - Gestion intelligente des plannings",
   "icons": [
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
+    },
+    {
+      "src": "calendar-icon.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#3a86ff",
-  "background_color": "#ffffff"
+  "background_color": "#ffffff",
+  "description": "Application de gestion intelligente des plannings et des employés",
+  "dir": "ltr",
+  "lang": "fr",
+  "orientation": "any",
+  "categories": ["productivity", "business"]
 }
