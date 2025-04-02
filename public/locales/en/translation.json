@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "SmartPlanning AI",
+    "title": "SmartPlanning",
     "description": "Intelligent planning solution for businesses"
   },
   "auth": {
@@ -95,7 +95,7 @@
     "confirmNewPassword": "Confirm new password",
     "deleteAccount": "Delete account",
     "confirmDeleteAccount": "Are you sure you want to delete your account?",
-    "description": "Manage your SmartPlanning AI application settings."
+    "description": "Manage your SmartPlanning application settings."
   },
   "notifications": {
     "success": "Success",
@@ -188,7 +188,7 @@
     },
     "benefits": {
       "title": "More efficiency for your company",
-      "subtitle": "SmartPlanning AI brings you concrete and measurable benefits",
+      "subtitle": "SmartPlanning brings you concrete and measurable benefits",
       "items": {
         "time": {
           "title": "Considerable time saving",
@@ -210,7 +210,7 @@
     },
     "cta": {
       "title": "Ready to revolutionize your schedule management?",
-      "subtitle": "Join thousands of companies that have already optimized their planning with SmartPlanning AI",
+      "subtitle": "Join thousands of companies that have already optimized their planning with SmartPlanning",
       "button": "Start for free"
     }
   },
@@ -218,11 +218,11 @@
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "contact": "Contact",
-    "copyright": "© {{year}} SmartPlanning AI. All rights reserved."
+    "copyright": "© {{year}} SmartPlanning. All rights reserved."
   },
   "contact": {
     "title": "Contact Us",
-    "subtitle": "Do you have questions about SmartPlanning AI or need help? Our support team is here to help you.",
+    "subtitle": "Do you have questions about SmartPlanning or need help? Our support team is here to help you.",
     "email": "Email",
     "emailAddress": "support@smartplanning.ai",
     "form": {

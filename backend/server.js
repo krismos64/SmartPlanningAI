@@ -321,7 +321,7 @@ app.use("/api/schedule", secureAuth, autoScheduleRoutes); // Routes pour la gén
 
 // Route de base
 app.get("/", (req, res) => {
-  res.json({ message: "SmartPlanning AI API" });
+  res.json({ message: "SmartPlanning API" });
 });
 
 // Route de test directe pour le changement de mot de passe

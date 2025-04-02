@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "SmartPlanning AI",
+    "title": "SmartPlanning",
     "description": "Solution intelligente de planification pour entreprises"
   },
   "auth": {
@@ -96,7 +96,7 @@
     "confirmNewPassword": "Confirmer le nouveau mot de passe",
     "deleteAccount": "Supprimer le compte",
     "confirmDeleteAccount": "Êtes-vous sûr de vouloir supprimer votre compte ?",
-    "description": "Gérez les paramètres de votre application SmartPlanning AI."
+    "description": "Gérez les paramètres de votre application SmartPlanning."
   },
   "notifications": {
     "success": "Succès",
@@ -189,7 +189,7 @@
     },
     "benefits": {
       "title": "Plus d'efficacité pour votre entreprise",
-      "subtitle": "SmartPlanning AI vous apporte des avantages concrets et mesurables",
+      "subtitle": "SmartPlanning vous apporte des avantages concrets et mesurables",
       "items": {
         "time": {
           "title": "Gain de temps considérable",
@@ -211,7 +211,7 @@
     },
     "cta": {
       "title": "Prêt à révolutionner votre gestion de planning ?",
-      "subtitle": "Rejoignez des milliers d'entreprises qui ont déjà optimisé leur planification grâce à SmartPlanning AI",
+      "subtitle": "Rejoignez des milliers d'entreprises qui ont déjà optimisé leur planification grâce à SmartPlanning",
       "button": "Commencer gratuitement"
     }
   },
@@ -219,11 +219,11 @@
     "terms": "Conditions d'utilisation",
     "privacy": "Politique de confidentialité",
     "contact": "Contact",
-    "copyright": "© {{year}} SmartPlanning AI. Tous droits réservés."
+    "copyright": "© {{year}} SmartPlanning. Tous droits réservés."
   },
   "contact": {
     "title": "Contactez-nous",
-    "subtitle": "Vous avez des questions sur SmartPlanning AI ou vous avez besoin d'aide ? Notre équipe support est là pour vous aider.",
+    "subtitle": "Vous avez des questions sur SmartPlanning ou vous avez besoin d'aide ? Notre équipe support est là pour vous aider.",
     "email": "Email",
     "emailAddress": "support@smartplanning.ai",
     "form": {

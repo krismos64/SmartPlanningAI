@@ -334,7 +334,7 @@ const Login = () => {
         showNotification({
           type: "success",
           title: "Connexion réussie",
-          message: "Bienvenue sur SmartPlanning AI !",
+          message: "Bienvenue sur SmartPlanning !",
         });
 
         // Pause plus longue pour s'assurer que tout est bien enregistré et que la notification s'affiche
@@ -386,7 +386,7 @@ const Login = () => {
           <LogoAnimation>
             <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
-          <div>SmartPlanning AI</div>
+          <div>SmartPlanning</div>
         </LogoContainer>
 
         <Form onSubmit={handleSubmit}>

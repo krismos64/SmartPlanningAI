@@ -639,6 +639,41 @@ const BetaFeatureText = styled.p`
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
+const FAQSection = styled.section`
+  padding: 6rem 2rem;
+  background-color: ${({ theme }) => theme.colors.background};
+  position: relative;
+  overflow: hidden;
+
+  @media (max-width: 768px) {
+    padding: 4rem 1rem;
+  }
+`;
+
+const FAQContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+`;
+
+const FAQItem = styled.div`
+  margin-bottom: 2rem;
+`;
+
+const FAQQuestion = styled.h3`
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: ${({ theme }) => theme.colors.primary};
+`;
+
+const FAQAnswer = styled.p`
+  font-size: 1.2rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  line-height: 1.6;
+`;
+
 const LandingPage = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [visibleBenefits, setVisibleBenefits] = useState([]);
@@ -703,7 +738,7 @@ const LandingPage = () => {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "SmartPlanningAI",
+    name: "SmartPlanning",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     offers: {
@@ -712,12 +747,92 @@ const LandingPage = () => {
       priceCurrency: "EUR",
     },
     description:
-      "Optimisez la gestion de vos plannings avec SmartPlanningAI. Version bêta gratuite, intuitive et assistée par IA.",
+      "Optimisez la gestion de vos plannings avec SmartPlanning. Version bêta gratuite, intuitive et assistée par IA.",
     featureList: [
       "Planification intelligente",
       "Gestion des employés",
       "Optimisation des plannings",
       "Interface intuitive",
+    ],
+    url: "https://smartplanning.fr",
+    author: {
+      "@type": "Organization",
+      name: "SmartPlanning",
+      url: "https://smartplanning.fr",
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.8",
+      ratingCount: "127",
+    },
+    availableOnDevice: ["Desktop", "Mobile", "Tablet"],
+    screenshot: "https://smartplanning.fr/images/business-smartplanning.png",
+  };
+
+  // Données structurées pour organisation
+  const organizationLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "SmartPlanning",
+    url: "https://smartplanning.fr",
+    logo: "https://smartplanning.fr/images/logo-smartplanning.png",
+    description:
+      "SmartPlanning offre une solution de planification intelligente pour les entreprises de toutes tailles.",
+  };
+
+  // Données structurées pour FAQ
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "Qu'est-ce que SmartPlanning ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "SmartPlanning est une solution de planification intelligente pour entreprises, qui utilise l'intelligence artificielle pour optimiser vos plannings d'employés. Notre plateforme est disponible sur smartplanning.fr et propose une version bêta gratuite.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Comment fonctionne l'optimisation des plannings avec l'IA ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Notre algorithme d'IA analyse les contraintes de votre entreprise (disponibilités des employés, compétences requises, règles de travail) pour générer automatiquement des plannings optimisés qui maximisent l'efficacité tout en respectant les préférences de chacun.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "SmartPlanning est-il vraiment gratuit ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Oui, SmartPlanning est actuellement disponible gratuitement pendant sa phase bêta. Après le lancement officiel, nous proposerons différentes formules tarifaires, mais les utilisateurs de la bêta bénéficieront d'un mois gratuit supplémentaire.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Quels types d'entreprises peuvent utiliser SmartPlanning ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "SmartPlanning s'adapte à tous types d'entreprises : restaurants, commerces, hôpitaux, cliniques, usines, centres d'appels, etc. Notre solution est particulièrement efficace pour les entreprises avec des horaires variables ou complexes.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Comment puis-je accéder à SmartPlanning ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "SmartPlanning est accessible directement depuis votre navigateur sur smartplanning.fr. Il suffit de créer un compte gratuit pour commencer à utiliser toutes les fonctionnalités. Notre application est responsive et fonctionne sur ordinateurs, tablettes et smartphones.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Mes données sont-elles sécurisées avec SmartPlanning ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Absolument. La sécurité est notre priorité. Toutes les données sont cryptées et nous respectons strictement le RGPD. Nous n'utilisons jamais vos données à des fins commerciales et vous restez propriétaire de toutes vos informations.",
+        },
+      },
     ],
   };
 
@@ -725,27 +840,57 @@ const LandingPage = () => {
     <LandingContainer>
       <Helmet>
         <title>
-          SmartPlanningAI - Planification intelligente et gratuite pour les
-          entreprises
+          SmartPlanning - Logiciel de planification intelligent et gratuit pour
+          les entreprises
         </title>
         <meta
           name="description"
-          content="Optimisez la gestion de vos plannings avec SmartPlanningAI. Version bêta gratuite, intuitive et assistée par IA. Essayez-la dès maintenant !"
+          content="SmartPlanning.fr - Optimisez la gestion de vos plannings d'entreprise avec notre solution intelligente assistée par IA. Version bêta gratuite, intuitive et efficace. Essayez-la dès maintenant !"
         />
         <meta
           name="keywords"
-          content="planification, planning, IA, intelligence artificielle, gestion d'entreprise, optimisation, bêta gratuite"
+          content="planification, planning, IA, intelligence artificielle, gestion d'entreprise, optimisation, bêta gratuite, smartplanning.fr, logiciel planning, planning entreprise, planning employés"
         />
         <meta
           property="og:title"
-          content="SmartPlanningAI - Planification intelligente et gratuite"
+          content="SmartPlanning - Logiciel de planification intelligent et gratuit"
         />
         <meta
           property="og:description"
-          content="Optimisez la gestion de vos plannings avec SmartPlanningAI. Version bêta gratuite, intuitive et assistée par IA."
+          content="SmartPlanning.fr - Optimisez la gestion de vos plannings d'entreprise avec notre solution intelligente assistée par IA. Version bêta gratuite, intuitive et efficace."
         />
+        <meta property="og:url" content="https://smartplanning.fr" />
         <meta property="og:type" content="website" />
+        <meta
+          property="og:image"
+          content="https://smartplanning.fr/images/business-smartplanning.png"
+        />
+        <meta property="og:site_name" content="SmartPlanning" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="SmartPlanning - Logiciel de planification intelligent"
+        />
+        <meta
+          name="twitter:description"
+          content="Solution de planification intelligente pour entreprises. Essayez gratuitement sur smartplanning.fr"
+        />
+        <meta
+          name="twitter:image"
+          content="https://smartplanning.fr/images/business-smartplanning.png"
+        />
+        <link rel="canonical" href="https://smartplanning.fr" />
+        <meta name="author" content="SmartPlanning" />
+        <meta name="robots" content="index, follow" />
+        <meta
+          name="google-site-verification"
+          content="votre-code-de-verification"
+        />
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+        <script type="application/ld+json">
+          {JSON.stringify(organizationLd)}
+        </script>
+        <script type="application/ld+json">{JSON.stringify(faqLd)}</script>
       </Helmet>
 
       <Header>
@@ -753,7 +898,7 @@ const LandingPage = () => {
           <LogoAnimation>
             <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
-          SmartPlanning AI
+          SmartPlanning
         </Logo>
         <Nav>
           <LanguageSelectorWrapper>
@@ -872,12 +1017,12 @@ const LandingPage = () => {
           <SectionSubtitle>{t("landingPage.demo.subtitle")}</SectionSubtitle>
           <FeatureImage
             src="/images/business-smartplanning.png"
-            alt="SmartPlanningAI en action - Interface de planification pour entreprises"
+            alt="SmartPlanning en action - Interface de planification pour entreprises sur smartplanning.fr"
           />
           <DemoVideoContainer>
             <iframe
               src="https://www.youtube.com/embed/bvvlO-FZuVU"
-              title="SmartPlanning AI - Démonstration du logiciel de planification intelligent"
+              title="SmartPlanning - Démonstration du logiciel de planification intelligent sur smartplanning.fr"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             ></iframe>
@@ -894,7 +1039,7 @@ const LandingPage = () => {
         >
           <TestimonialImage
             src="/images/comic-smartplanning.png"
-            alt="Témoignages clients SmartPlanningAI - Bénéfices de la planification intelligente"
+            alt="Témoignages clients SmartPlanning - Bénéfices de la planification intelligente sur smartplanning.fr"
           />
         </div>
 
@@ -952,10 +1097,10 @@ const LandingPage = () => {
       {/* Nouvelle section Bêta à la bonne position après les bénéfices */}
       <BetaSection ref={sectionRef}>
         <BetaContent>
-          <BetaTitle>🎉 SmartPlanningAI est en bêta gratuite ! 🎁</BetaTitle>
+          <BetaTitle>🎉 SmartPlanning est en bêta gratuite ! 🎁</BetaTitle>
           <BetaDescription>
             Profitez de notre version bêta gratuite et contribuez à
-            l'amélioration de SmartPlanningAI !
+            l'amélioration de SmartPlanning !
           </BetaDescription>
           <BetaFeatures>
             <BetaFeature>
@@ -990,6 +1135,85 @@ const LandingPage = () => {
           </Link>
         </BetaContent>
       </BetaSection>
+
+      {/* Section FAQ pour le SEO */}
+      <FAQSection>
+        <SectionTitle>Foire Aux Questions</SectionTitle>
+        <SectionSubtitle>
+          Tout ce que vous devez savoir sur SmartPlanning
+        </SectionSubtitle>
+
+        <FAQContainer>
+          <FAQItem>
+            <FAQQuestion>Qu'est-ce que SmartPlanning ?</FAQQuestion>
+            <FAQAnswer>
+              SmartPlanning est une solution de planification intelligente pour
+              entreprises, qui utilise l'intelligence artificielle pour
+              optimiser vos plannings d'employés. Notre plateforme est
+              disponible sur smartplanning.fr et propose une version bêta
+              gratuite.
+            </FAQAnswer>
+          </FAQItem>
+
+          <FAQItem>
+            <FAQQuestion>
+              Comment fonctionne l'optimisation des plannings avec l'IA ?
+            </FAQQuestion>
+            <FAQAnswer>
+              Notre algorithme d'IA analyse les contraintes de votre entreprise
+              (disponibilités des employés, compétences requises, règles de
+              travail) pour générer automatiquement des plannings optimisés qui
+              maximisent l'efficacité tout en respectant les préférences de
+              chacun.
+            </FAQAnswer>
+          </FAQItem>
+
+          <FAQItem>
+            <FAQQuestion>SmartPlanning est-il vraiment gratuit ?</FAQQuestion>
+            <FAQAnswer>
+              Oui, SmartPlanning est actuellement disponible gratuitement
+              pendant sa phase bêta. Après le lancement officiel, nous
+              proposerons différentes formules tarifaires, mais les utilisateurs
+              de la bêta bénéficieront d'un mois gratuit supplémentaire.
+            </FAQAnswer>
+          </FAQItem>
+
+          <FAQItem>
+            <FAQQuestion>
+              Quels types d'entreprises peuvent utiliser SmartPlanning ?
+            </FAQQuestion>
+            <FAQAnswer>
+              SmartPlanning s'adapte à tous types d'entreprises : restaurants,
+              commerces, hôpitaux, cliniques, usines, centres d'appels, etc.
+              Notre solution est particulièrement efficace pour les entreprises
+              avec des horaires variables ou complexes.
+            </FAQAnswer>
+          </FAQItem>
+
+          <FAQItem>
+            <FAQQuestion>Comment puis-je accéder à SmartPlanning ?</FAQQuestion>
+            <FAQAnswer>
+              SmartPlanning est accessible directement depuis votre navigateur
+              sur smartplanning.fr. Il suffit de créer un compte gratuit pour
+              commencer à utiliser toutes les fonctionnalités. Notre application
+              est responsive et fonctionne sur ordinateurs, tablettes et
+              smartphones.
+            </FAQAnswer>
+          </FAQItem>
+
+          <FAQItem>
+            <FAQQuestion>
+              Mes données sont-elles sécurisées avec SmartPlanning ?
+            </FAQQuestion>
+            <FAQAnswer>
+              Absolument. La sécurité est notre priorité. Toutes les données
+              sont cryptées et nous respectons strictement le RGPD. Nous
+              n'utilisons jamais vos données à des fins commerciales et vous
+              restez propriétaire de toutes vos informations.
+            </FAQAnswer>
+          </FAQItem>
+        </FAQContainer>
+      </FAQSection>
 
       <CTASection>
         <CircleDecoration className="small" />

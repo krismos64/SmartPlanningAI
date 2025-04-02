@@ -263,7 +263,7 @@ const TermsOfService = () => {
     <PageContainer>
       <Header>
         <Logo to="/">
-          <span>📅</span> SmartPlanning AI
+          <span>📅</span> SmartPlanning
         </Logo>
         <Nav>
           <NavItem to="/">Accueil</NavItem>
@@ -281,9 +281,9 @@ const TermsOfService = () => {
         <Section>
           <SectionTitle>1. Introduction</SectionTitle>
           <Paragraph>
-            Bienvenue sur SmartPlanning AI, une plateforme de gestion de
-            plannings et de personnel. Ces conditions d'utilisation régissent
-            votre utilisation de notre site web, de nos applications et de nos
+            Bienvenue sur SmartPlanning, une plateforme de gestion de plannings
+            et de personnel. Ces conditions d'utilisation régissent votre
+            utilisation de notre site web, de nos applications et de nos
             services (collectivement désignés comme les "Services").
           </Paragraph>
           <Paragraph>
@@ -297,7 +297,7 @@ const TermsOfService = () => {
           <SectionTitle>2. Définitions</SectionTitle>
           <List>
             <ListItem>
-              <strong>SmartPlanning AI</strong> : désigne notre plateforme de
+              <strong>SmartPlanning </strong> : désigne notre plateforme de
               gestion de plannings et de personnel, y compris le site web, les
               applications et tous les services associés.
             </ListItem>
@@ -318,9 +318,9 @@ const TermsOfService = () => {
         <Section>
           <SectionTitle>3. Services Proposés</SectionTitle>
           <Paragraph>
-            SmartPlanning AI fournit des outils de gestion de plannings, de
-            suivi de temps de travail, de gestion des congés et d'optimisation
-            des ressources humaines. Nos Services peuvent inclure :
+            SmartPlanning fournit des outils de gestion de plannings, de suivi
+            de temps de travail, de gestion des congés et d'optimisation des
+            ressources humaines. Nos Services peuvent inclure :
           </Paragraph>
           <List>
             <ListItem>Création et gestion de plannings</ListItem>
@@ -351,9 +351,9 @@ const TermsOfService = () => {
         <Section>
           <SectionTitle>5. Propriété Intellectuelle</SectionTitle>
           <Paragraph>
-            SmartPlanning AI et son contenu, fonctionnalités et fonctionnalités
-            sont et resteront la propriété exclusive de SmartPlanning AI et de
-            ses concédants de licence. Nos Services sont protégés par le droit
+            SmartPlanning et son contenu, fonctionnalités et fonctionnalités
+            sont et resteront la propriété exclusive de SmartPlanning et de ses
+            concédants de licence. Nos Services sont protégés par le droit
             d'auteur, les marques et autres lois françaises et internationales.
           </Paragraph>
           <Paragraph>
@@ -407,13 +407,13 @@ const TermsOfService = () => {
         <Section>
           <SectionTitle>8. Limitations de Responsabilité</SectionTitle>
           <Paragraph>
-            SmartPlanning AI fournit ses Services "tels quels" et "tels que
+            SmartPlanning fournit ses Services "tels quels" et "tels que
             disponibles", sans garantie d'aucune sorte. Nous ne garantissons pas
             que nos Services seront ininterrompus, opportuns, sécurisés ou
             exempts d'erreurs.
           </Paragraph>
           <Paragraph>
-            En aucun cas, SmartPlanning AI ne sera responsable des dommages
+            En aucun cas, SmartPlanning ne sera responsable des dommages
             indirects, accessoires, spéciaux, consécutifs ou punitifs, ou de
             toute perte de profits ou de revenus, résultant de votre utilisation
             de nos Services.

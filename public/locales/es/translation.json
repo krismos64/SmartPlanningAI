@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "SmartPlanning AI",
+    "title": "SmartPlanning",
     "description": "Solución inteligente de planificación para empresas"
   },
   "auth": {
@@ -95,7 +95,7 @@
     "confirmNewPassword": "Confirmar nueva contraseña",
     "deleteAccount": "Eliminar cuenta",
     "confirmDeleteAccount": "¿Estás seguro de que quieres eliminar tu cuenta?",
-    "description": "Administra la configuración de tu aplicación SmartPlanning AI."
+    "description": "Administra la configuración de tu aplicación SmartPlanning."
   },
   "notifications": {
     "success": "Éxito",
@@ -188,7 +188,7 @@
     },
     "benefits": {
       "title": "Más eficiencia para tu empresa",
-      "subtitle": "SmartPlanning AI te ofrece beneficios concretos y medibles",
+      "subtitle": "SmartPlanning te ofrece beneficios concretos y medibles",
       "items": {
         "time": {
           "title": "Ahorro de tiempo considerable",
@@ -210,7 +210,7 @@
     },
     "cta": {
       "title": "¿Listo para revolucionar tu gestión de horarios?",
-      "subtitle": "Únete a miles de empresas que ya han optimizado su planificación con SmartPlanning AI",
+      "subtitle": "Únete a miles de empresas que ya han optimizado su planificación con SmartPlanning",
       "button": "Comenzar gratis"
     }
   },
@@ -218,11 +218,11 @@
     "terms": "Términos de servicio",
     "privacy": "Política de privacidad",
     "contact": "Contacto",
-    "copyright": "© {{year}} SmartPlanning AI. Todos los derechos reservados."
+    "copyright": "© {{year}} SmartPlanning. Todos los derechos reservados."
   },
   "contact": {
     "title": "Contáctanos",
-    "subtitle": "¿Tienes preguntas sobre SmartPlanning AI o necesitas ayuda? Nuestro equipo de soporte está aquí para ayudarte.",
+    "subtitle": "¿Tienes preguntas sobre SmartPlanning o necesitas ayuda? Nuestro equipo de soporte está aquí para ayudarte.",
     "email": "Correo electrónico",
     "emailAddress": "support@smartplanning.ai",
     "form": {

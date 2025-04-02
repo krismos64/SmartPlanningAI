@@ -409,7 +409,7 @@ const Register = () => {
             <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
           <h1>Créer un compte</h1>
-          <p>Rejoignez SmartPlanning AI dès aujourd'hui</p>
+          <p>Rejoignez SmartPlanning dès aujourd'hui</p>
         </RegisterHeader>
 
         <Form onSubmit={handleSubmit}>

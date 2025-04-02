@@ -1,6 +1,6 @@
 ## 🎨 Présentation du projet
 
-SmartPlanning AI est une application de gestion de planning intelligente qui permet aux entreprises de gérer efficacement leurs employés, plannings, congés et statistiques. Cette refonte complète du design intègre des animations modernes et un style professionnel, tout en conservant une fluidité et une ergonomie optimale.
+SmartPlanning est une application de gestion de planning intelligente qui permet aux entreprises de gérer efficacement leurs employés, plannings, congés et statistiques. Cette refonte complète du design intègre des animations modernes et un style professionnel, tout en conservant une fluidité et une ergonomie optimale.
 
 ## ✨ Caractéristiques principales
 
@@ -384,7 +384,7 @@ Distribué sous la licence MIT. Voir `LICENSE` pour plus d'informations.
 
 ---
 
-© 2023 SmartPlanning AI. Tous droits réservés.
+© 2025 SmartPlanning. Tous droits réservés.
 
 ## Structure des données de planning
 

@@ -329,7 +329,7 @@ const PrivacyPolicy = () => {
     <PageContainer>
       <Header>
         <Logo to="/">
-          <span>📅</span> SmartPlanning AI
+          <span>📅</span> SmartPlanning
         </Logo>
         <Nav>
           <NavItem to="/">Accueil</NavItem>
@@ -347,8 +347,8 @@ const PrivacyPolicy = () => {
         <Section>
           <SectionTitle>1. Introduction</SectionTitle>
           <Paragraph>
-            Chez SmartPlanning AI, nous accordons une importance particulière à
-            la protection de vos données personnelles. Cette politique de
+            Chez SmartPlanning, nous accordons une importance particulière à la
+            protection de vos données personnelles. Cette politique de
             confidentialité vous informe de la manière dont nous collectons,
             utilisons, partageons et protégeons vos données personnelles lorsque
             vous utilisez notre plateforme de gestion de plannings et de
@@ -590,8 +590,8 @@ const PrivacyPolicy = () => {
             </a>
           </Paragraph>
           <Paragraph>
-            <strong>Adresse postale :</strong> SmartPlanning AI, 123 Avenue de
-            la Tech, 75001 Paris, France
+            <strong>Adresse postale :</strong> SmartPlanning, 123 Avenue de la
+            Tech, 75001 Paris, France
           </Paragraph>
           <Paragraph>
             Vous avez également le droit d'introduire une réclamation auprès de

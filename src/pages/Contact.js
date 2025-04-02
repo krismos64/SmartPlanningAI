@@ -517,7 +517,7 @@ const Contact = () => {
           <LogoAnimation>
             <EnhancedLottie animationData={planningAnimation} loop={true} />
           </LogoAnimation>
-          SmartPlanning AI
+          SmartPlanning
         </Logo>
         <Nav>
           <NavItem to="/">{t("common.goHome")}</NavItem>

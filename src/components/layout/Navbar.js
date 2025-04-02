@@ -664,7 +664,7 @@ const Navbar = () => {
         <LogoAnimation>
           <EnhancedLottie animationData={planningAnimation} />
         </LogoAnimation>
-        SmartPlanning AI
+        SmartPlanning
       </Logo>
 
       {/* Actions area */}
