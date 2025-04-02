@@ -28,13 +28,16 @@ Vérifiez la variable REACT_APP_API_URL dans vos fichiers .env
     `);
   }
 
-  // Vérifier que l'URL n'est pas localhost en production
-  if (process.env.NODE_ENV === "production" && API_URL.includes("localhost")) {
-    throw new Error(`
+  // En production, vérifier que l'URL est bien celle de Render
+  if (process.env.NODE_ENV === "production") {
+    const expectedUrl = "https://smartplanning.onrender.com/api";
+    if (!API_URL.startsWith(expectedUrl)) {
+      throw new Error(`
 ⚠️ Configuration invalide ⚠️
-L'URL de l'API ne peut pas pointer vers localhost en production.
+L'URL de l'API en production doit commencer par ${expectedUrl}
 URL actuelle: ${API_URL}
-    `);
+      `);
+    }
   }
 
   return true;
@@ -43,13 +46,17 @@ URL actuelle: ${API_URL}
 // Fonction pour construire une URL d'API complète
 export const buildApiUrl = (endpoint) => {
   validateApiUrl();
-  // S'assurer que l'endpoint ne commence pas par /api si déjà inclus dans l'URL
-  const cleanEndpoint = endpoint.startsWith("/api/")
-    ? endpoint.substring(4)
-    : endpoint;
-  return `${API_URL}${
-    cleanEndpoint.startsWith("/") ? cleanEndpoint : "/" + cleanEndpoint
-  }`;
+
+  // Nettoyer l'endpoint
+  const cleanEndpoint = endpoint.replace(/^\/api\//, "/");
+
+  // Construire l'URL complète
+  const baseUrl = API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL;
+  const finalEndpoint = cleanEndpoint.startsWith("/")
+    ? cleanEndpoint
+    : `/${cleanEndpoint}`;
+
+  return `${baseUrl}${finalEndpoint}`;
 };
 
 // Constante pour activer/désactiver les logs de débogage API

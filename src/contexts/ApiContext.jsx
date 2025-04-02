@@ -1,6 +1,6 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
-import { API_URL, apiDebug, validateApiUrl } from "../config/api";
+import { API_URL, validateApiUrl } from "../config/api";
 import { formatError, handleApiError } from "../utils/errorHandling";
 import { useAuth } from "./AuthContext";
 
@@ -28,22 +28,31 @@ export const ApiProvider = ({ children }) => {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        // Ajouter un timeout pour éviter les requêtes infinies
-        timeout: 10000,
+        // Timeout plus long en production
+        timeout: process.env.NODE_ENV === "production" ? 30000 : 10000,
       });
 
       // Intercepteur pour ajouter le token d'authentification à chaque requête
       instance.interceptors.request.use(
         async (config) => {
-          apiDebug(`Requête ${config.method.toUpperCase()} vers ${config.url}`);
+          console.log(
+            `🔍 [API Request] ${config.method.toUpperCase()} vers ${
+              config.baseURL
+            }${config.url}`
+          );
+          console.log(`🌐 [API Base URL] ${API_URL}`);
+
           const token = await getToken();
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log(`🔑 [API Auth] Token présent`);
+          } else {
+            console.log(`⚠️ [API Auth] Pas de token`);
           }
           return config;
         },
         (error) => {
-          apiDebug("Erreur lors de la préparation de la requête", error);
+          console.error("❌ [API Error] Erreur de préparation:", error);
           return Promise.reject(error);
         }
       );
@@ -51,7 +60,11 @@ export const ApiProvider = ({ children }) => {
       // Intercepteur pour gérer les réponses et les erreurs
       instance.interceptors.response.use(
         (response) => {
-          apiDebug("Réponse reçue", response.data);
+          console.log(
+            `✅ [API Response] ${response.config.method.toUpperCase()} ${
+              response.config.url
+            } - Status: ${response.status}`
+          );
           const data = response.data;
 
           if (data.success === undefined) {
@@ -65,7 +78,7 @@ export const ApiProvider = ({ children }) => {
           return data;
         },
         (error) => {
-          apiDebug("Erreur API reçue", error);
+          console.error("❌ [API Error] Erreur API reçue:", error);
 
           // Gérer les erreurs d'authentification
           if (error.response?.status === 401) {
