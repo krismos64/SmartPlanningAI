@@ -4,19 +4,13 @@
 
 import axios from "axios";
 
-// Vérification de la présence de l'URL d'API
-if (!process.env.REACT_APP_API_URL) {
-  console.error(`
-⚠️ ERREUR DE CONFIGURATION ⚠️
-La variable d'environnement REACT_APP_API_URL n'est pas définie.
-Veuillez la définir dans votre fichier .env.production :
-REACT_APP_API_URL=https://smartplanning.onrender.com/api
-  `);
-  throw new Error("REACT_APP_API_URL non définie");
-}
+const PROD_API_URL = "https://smartplanning.onrender.com/";
 
 // URL de base de l'API
-export const API_URL = process.env.REACT_APP_API_URL;
+export const API_URL =
+  process.env.NODE_ENV === "production"
+    ? PROD_API_URL
+    : process.env.REACT_APP_API_URL || "http://localhost:5001";
 
 // Fonction pour vérifier si l'URL est correcte
 export const validateApiUrl = () => {
@@ -24,20 +18,16 @@ export const validateApiUrl = () => {
     throw new Error(`
 ⚠️ URL d'API non définie ⚠️
 L'URL de l'API n'est pas configurée. Impossible d'effectuer des requêtes.
-Vérifiez la variable REACT_APP_API_URL dans vos fichiers .env
     `);
   }
 
   // En production, vérifier que l'URL est bien celle de Render
-  if (process.env.NODE_ENV === "production") {
-    const expectedUrl = "https://smartplanning.onrender.com/api";
-    if (!API_URL.startsWith(expectedUrl)) {
-      throw new Error(`
+  if (process.env.NODE_ENV === "production" && API_URL !== PROD_API_URL) {
+    throw new Error(`
 ⚠️ Configuration invalide ⚠️
-L'URL de l'API en production doit commencer par ${expectedUrl}
+L'URL de l'API en production doit être ${PROD_API_URL}
 URL actuelle: ${API_URL}
-      `);
-    }
+    `);
   }
 
   return true;
