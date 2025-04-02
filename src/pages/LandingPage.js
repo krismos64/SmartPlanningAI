@@ -1081,7 +1081,7 @@ const LandingPage = () => {
           />
           <DemoVideoContainer>
             <iframe
-              src="https://www.youtube.com/embed/bvvlO-FZuVU"
+              src="https://www.youtube.com/watch?v=W4UWkI4S2Qg&ab_channel=krismosDev"
               title="SmartPlanning - Démonstration du logiciel de planification intelligent sur smartplanning.fr"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
