@@ -50,27 +50,13 @@ const app = express();
 // Configuration CORS
 const corsOptions = {
   origin: [
-    process.env.FRONTEND_URL || "http://localhost:5002",
-    "http://localhost:3000",
-    "http://localhost:5004",
-    "http://localhost:5005",
-    "http://localhost:5007",
+    process.env.FRONTEND_URL || "https://smartplanning.onrender.com",
+    "https://smartplanning.onrender.com",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "Sec-WebSocket-Key",
-    "Sec-WebSocket-Version",
-    "Sec-WebSocket-Extensions",
-    "Sec-WebSocket-Protocol",
-    "Upgrade",
-    "Connection",
-    "X-CSRF-Token",
-  ],
-  exposedHeaders: ["Sec-WebSocket-Accept"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   credentials: true,
-  optionsSuccessStatus: 200,
+  maxAge: 86400, // 24 heures
 };
 
 // Appliquer CORS avant toute autre configuration
@@ -86,30 +72,32 @@ app.use(
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "ws:", "wss:"],
+        connectSrc: ["'self'", "wss:", "https://smartplanning.onrender.com"],
       },
     },
     xssFilter: true,
     noSniff: true,
     referrerPolicy: { policy: "same-origin" },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
   })
 );
 
-// Limiter les tentatives d'authentification
-const loginLimiter = rateLimit({
+// Configuration des limites de requêtes
+const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 tentatives max
-  standardHeaders: true,
-  legacyHeaders: false,
+  max: process.env.NODE_ENV === "production" ? 100 : 1000, // limite plus stricte en production
   message: {
     success: false,
-    message: "Trop de tentatives de connexion, veuillez réessayer plus tard",
+    message: "Trop de requêtes, veuillez réessayer plus tard",
   },
 });
 
-// Appliquer le limiteur uniquement aux routes d'authentification
-app.use("/auth/login", loginLimiter);
-app.use("/auth/register", loginLimiter);
+// Appliquer le limiteur à toutes les routes
+app.use("/api/", limiter);
 
 // Utiliser cookie-parser pour les cookies sécurisés avec une clé secrète
 const COOKIE_SECRET =
