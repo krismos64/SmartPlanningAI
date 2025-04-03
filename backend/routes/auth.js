@@ -79,21 +79,38 @@ router.post("/register", authLimiter, async (req, res) => {
     const tokens = generateTokens(user.id, user.role || "admin");
     setTokenCookies(res, tokens);
 
-    // Retourner les informations de l'utilisateur
-    res.status(201).json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        profileImage: user.profileImage,
-        company: user.company,
-        phone: user.phone,
-        jobTitle: user.jobTitle,
-      },
-    });
+    // Stocker l'ID utilisateur dans la session
+    if (req.session) {
+      req.session.userId = user.id;
+      console.log(`✅ Session utilisateur créée - ID: ${user.id}`);
+    } else {
+      console.warn(
+        "⚠️ Session non disponible - Impossible de sauvegarder l'ID utilisateur"
+      );
+    }
+
+    // Vérifier si le client attend une réponse JSON ou peut accepter une redirection
+    if (req.headers.accept && req.headers.accept.includes("application/json")) {
+      // Le client attend une réponse JSON (API fetch)
+      return res.status(201).json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          profileImage: user.profileImage,
+          company: user.company,
+          phone: user.phone,
+          jobTitle: user.jobTitle,
+        },
+      });
+    } else {
+      // Le client peut gérer une redirection (formulaire standard)
+      console.log("🔄 Redirection vers le dashboard après inscription réussie");
+      return res.redirect("https://smartplanning.fr/dashboard");
+    }
   } catch (error) {
     console.error("Erreur lors de l'inscription:", error);
     res.status(500).json({ message: "Erreur lors de l'inscription." });
@@ -190,21 +207,38 @@ router.post("/login", async (req, res) => {
     const tokens = generateTokens(user.id, user.role);
     setTokenCookies(res, tokens);
 
-    // Retourner les informations de l'utilisateur
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        profileImage: user.profileImage,
-        company: user.company,
-        phone: user.phone,
-        jobTitle: user.jobTitle,
-      },
-    });
+    // Stocker l'ID utilisateur dans la session
+    if (req.session) {
+      req.session.userId = user.id;
+      console.log(`✅ Session utilisateur mise à jour - ID: ${user.id}`);
+    } else {
+      console.warn(
+        "⚠️ Session non disponible - Impossible de sauvegarder l'ID utilisateur"
+      );
+    }
+
+    // Vérifier si le client attend une réponse JSON ou peut accepter une redirection
+    if (req.headers.accept && req.headers.accept.includes("application/json")) {
+      // Le client attend une réponse JSON (API fetch)
+      return res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          profileImage: user.profileImage,
+          company: user.company,
+          phone: user.phone,
+          jobTitle: user.jobTitle,
+        },
+      });
+    } else {
+      // Le client peut gérer une redirection (formulaire standard)
+      console.log("🔄 Redirection vers le dashboard après connexion réussie");
+      return res.redirect("https://smartplanning.fr/dashboard");
+    }
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
 
