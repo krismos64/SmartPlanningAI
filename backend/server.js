@@ -210,32 +210,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware pour ajouter les en-têtes CORS manuellement
-app.use((req, res, next) => {
-  // Vérifier si l'origine de la requête est autorisée
-  const origin = req.headers.origin;
-  if (corsOptions.origin.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  } else {
-    // Si l'origine n'est pas dans la liste, utiliser la première origine comme fallback
-    res.header("Access-Control-Allow-Origin", corsOptions.origin[0]);
-  }
-
-  res.header("Access-Control-Allow-Methods", corsOptions.methods.join(", "));
-  res.header(
-    "Access-Control-Allow-Headers",
-    corsOptions.allowedHeaders.join(", ")
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // Gérer les requêtes OPTIONS (preflight)
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  next();
-});
-
 // Route pour obtenir le token CSRF
 app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
   // Générer un token CSRF aléatoire
