@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getStoredCsrfToken } from "../config/api";
 
 /**
  * Service d'authentification pour gérer les opérations liées à l'authentification
@@ -64,18 +65,11 @@ const AuthService = {
   },
 
   /**
-   * Récupère le token CSRF depuis le cookie
+   * Récupère le token CSRF
    * @returns {string|null} Le token CSRF ou null
    */
   getCsrfToken: () => {
-    const cookies = document.cookie.split(";");
-    for (let cookie of cookies) {
-      const [name, value] = cookie.trim().split("=");
-      if (name === "XSRF-TOKEN") {
-        return decodeURIComponent(value);
-      }
-    }
-    return null;
+    return getStoredCsrfToken();
   },
 
   /**

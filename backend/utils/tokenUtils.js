@@ -244,13 +244,15 @@ function setTokenCookies(
  * @param {Object} res - Objet response Express
  */
 function clearTokenCookies(res) {
+  // Configuration des cookies commune
   const cookieConfig = {
-    httpOnly: true,
     secure: true,
     sameSite: "None",
-    domain: ".smartplanning.fr",
+    httpOnly: true,
+    domain: "smartplanning.onrender.com",
   };
 
+  // Effacer les cookies JWT
   res.cookie("accessToken", "", {
     ...cookieConfig,
     expires: new Date(0),
@@ -259,27 +261,6 @@ function clearTokenCookies(res) {
 
   res.cookie("refreshToken", "", {
     ...cookieConfig,
-    expires: new Date(0),
-    path: "/api/auth/refresh",
-  });
-
-  res.cookie("auth_token", "", {
-    ...cookieConfig,
-    httpOnly: false,
-    expires: new Date(0),
-    path: "/",
-  });
-
-  // Supprimer également le cookie CSRF
-  res.cookie("_csrf_secret", "", {
-    ...cookieConfig,
-    expires: new Date(0),
-    path: "/",
-  });
-
-  res.cookie("XSRF-TOKEN", "", {
-    ...cookieConfig,
-    httpOnly: false,
     expires: new Date(0),
     path: "/",
   });

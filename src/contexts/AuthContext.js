@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
-import { API_URL, apiRequest } from "../config/api";
+import { API_URL, apiRequest, fetchCsrfToken } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
-import { AuthService } from "../services/api";
 
 // Style de la modale d'inactivité
 const StyledInactivityModal = styled.div`
@@ -51,23 +50,6 @@ const StyledModalContent = styled.div`
     }
   }
 `;
-
-// Modifier la fonction pour récupérer le token CSRF avec une meilleure gestion des erreurs
-const getCsrfToken = () => {
-  const cookies = document.cookie.split(";");
-  for (let i = 0; i < cookies.length; i++) {
-    const cookie = cookies[i].trim();
-    // Chercher le cookie CSRF, qui pourrait avoir différents noms selon la configuration du serveur
-    if (
-      cookie.startsWith("csrf-token=") ||
-      cookie.startsWith("XSRF-TOKEN=") ||
-      cookie.startsWith("_csrf=")
-    ) {
-      return decodeURIComponent(cookie.split("=")[1]);
-    }
-  }
-  return null;
-};
 
 const AuthContext = createContext({
   isAuthenticated: false,
@@ -240,459 +222,290 @@ export const AuthProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
+  // Au chargement initial, obtenir un token CSRF et vérifier l'authentification
+  useEffect(() => {
+    // Initialiser le token CSRF
+    const initApp = async () => {
+      // Récupérer un token CSRF au démarrage
+      await fetchCsrfToken();
+
+      // Vérifier l'authentification
+      await checkInitialAuth();
+    };
+
+    initApp();
+  }, []);
+
   // Fonction pour vérifier et renouveler le token si nécessaire
   const ensureValidToken = async () => {
     // Récupérer le token du localStorage
     let currentToken = localStorage.getItem("token");
 
-    // Récupérer le token des cookies (qui pourrait être plus récent)
-    const cookies = document.cookie.split(";");
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (
-        cookie.startsWith("accessToken=") ||
-        cookie.startsWith("auth_token=")
-      ) {
-        const cookieToken = decodeURIComponent(cookie.split("=")[1]);
-        // Si le token du cookie est différent de celui du localStorage, utiliser celui du cookie
-        if (cookieToken && cookieToken !== currentToken) {
-          console.log("Token mis à jour depuis les cookies");
-          localStorage.setItem("token", cookieToken);
-          setToken(cookieToken);
-          currentToken = cookieToken;
-        }
-      }
-    }
-
-    // S'il n'y a toujours pas de token valide, essayer de se reconnecter
     if (!currentToken) {
-      console.log("Aucun token valide trouvé");
+      console.warn("Aucun token d'authentification trouvé");
+      setIsAuthenticated(false);
+      setUser(null);
+      setToken(null);
       return null;
     }
 
     return currentToken;
   };
 
-  // Modifier getToken pour utiliser ensureValidToken
+  // Fonction pour récupérer le token authentifié
   const getToken = async () => {
-    // Si le token est déjà dans l'état, vérifier quand même qu'il est à jour
     return await ensureValidToken();
   };
 
-  // Fonction pour définir l'utilisateur avec le rôle admin
+  // Fonction pour définir l'utilisateur avec le rôle admin par défaut
   const setUserWithAdminRole = (userData) => {
-    // Attribuer automatiquement le rôle admin à tous les utilisateurs
-    const userWithAdminRole = {
+    // S'assurer que l'utilisateur a un rôle (admin par défaut)
+    const userWithRole = {
       ...userData,
-      role: "admin", // Tous les utilisateurs ont le rôle admin
-      profileImage: userData.profileImage || null,
-      company: userData.company || null,
-      phone: userData.phone || null,
-      jobTitle: userData.jobTitle || null,
+      role: userData.role || "admin",
     };
-    setUser(userWithAdminRole);
-    setIsAuthenticated(true);
-    return userWithAdminRole;
+
+    // Mettre à jour l'état
+    setUser(userWithRole);
+    localStorage.setItem("user", JSON.stringify(userWithRole));
+
+    return userWithRole;
   };
 
-  // Fonction pour mettre à jour les données utilisateur
+  // Fonction pour mettre à jour les informations utilisateur
   const updateUser = (userData) => {
-    console.log("Mise à jour des données utilisateur:", userData);
-    const updatedUser = {
-      ...user,
-      ...userData,
-      profileImage: userData.profileImage || user?.profileImage || null,
-      company: userData.company || user?.company || "",
-      phone: userData.phone || user?.phone || "",
-      jobTitle: userData.jobTitle || user?.jobTitle || "",
-    };
-    setUser(updatedUser);
-    localStorage.setItem("user", JSON.stringify(updatedUser));
+    if (!userData) {
+      console.error(
+        "Tentative de mise à jour avec des données utilisateur nulles"
+      );
+      return null;
+    }
+
+    // Mettre à jour l'état et le stockage local
+    const updatedUser = setUserWithAdminRole(userData);
+    console.log("Utilisateur mis à jour:", updatedUser);
+    notifyDataChange("user"); // Notifier les autres onglets
+
     return updatedUser;
   };
 
-  // Vérifier l'authentification au chargement
-  useEffect(() => {
-    const checkInitialAuth = async () => {
-      try {
-        console.log("=== DEBUT RESTORATION DE SESSION ===");
+  // Vérifier si l'utilisateur est déjà authentifié au chargement
+  const checkInitialAuth = async () => {
+    if (!localStorageToken) {
+      setIsLoading(false);
+      return;
+    }
 
-        // Tentative de récupération du token CSRF
-        await refreshCsrfToken();
+    try {
+      // Vérifier la validité du token auprès du serveur
+      console.log("Vérification du token stocké...");
+      const response = await apiRequest("/api/auth/verify", "GET");
 
-        // Vérifier la session d'authentification actuelle avec le backend
-        const response = await fetch(`${API_URL}/api/auth/check`, {
-          method: "GET",
-          credentials: "include", // Envoyer les cookies avec la requête
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+      if (response && response.success) {
+        console.log("Token valide, utilisateur authentifié");
 
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.success && data.isAuthenticated) {
-            console.log("Session valide trouvée", data);
-            // Mettre à jour les infos utilisateur depuis la réponse du serveur
-            setUser(data.user);
-            setIsAuthenticated(true);
-
-            // Si la réponse contient un token, le mettre à jour également
-            if (data.token) {
-              localStorage.setItem("token", data.token);
-              setToken(data.token);
-            }
-
-            // Enregistrer l'utilisateur dans le localStorage
-            localStorage.setItem("user", JSON.stringify(data.user));
-          } else {
-            console.log("Aucune session valide trouvée");
-            setIsAuthenticated(false);
-            setUser(null);
-          }
-        } else {
-          console.log(
-            "Erreur lors de la vérification de session:",
-            response.status
-          );
-          setIsAuthenticated(false);
-          setUser(null);
+        // Mettre à jour les informations utilisateur si disponibles
+        if (response.user) {
+          updateUser(response.user);
         }
-      } catch (error) {
-        console.error(
-          "Erreur lors de la vérification de l'authentification:",
-          error
-        );
+
+        setIsAuthenticated(true);
+        setToken(localStorageToken);
+      } else {
+        console.warn("Token invalide, déconnexion");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
         setIsAuthenticated(false);
         setUser(null);
-      } finally {
-        setIsLoading(false);
+        setToken(null);
       }
-    };
-
-    checkInitialAuth();
-  }, []);
-
-  // Fonction pour mettre à jour le profil utilisateur
-  const updateUserProfile = async (userData) => {
-    try {
-      setIsLoading(true);
-      setLoginError(null);
-
-      // Récupérer le token le plus récent
-      const currentToken = await getToken();
-
-      console.log("===== Appel à updateUserProfile =====");
-      console.log("Token disponible:", !!currentToken);
-      console.log("Données envoyées:", {
-        ...userData,
-        profileImage: userData.profileImage ? "[IMAGE]" : null,
-      });
-
-      const response = await fetch(`${API_URL}/api/user/profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${currentToken}`,
-        },
-        body: JSON.stringify(userData),
-        credentials: "include",
-      });
-
-      console.log("Réponse du serveur:", {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Données de profil reçues:", {
-          ...data,
-          profileImage: data.profileImage ? "[IMAGE]" : null,
-        });
-
-        // S'assurer que les données du profil sont complètes
-        const updatedUserData = {
-          ...user,
-          ...data,
-          // Préserver ces champs s'ils sont envoyés, sinon utiliser les valeurs existantes
-          profileImage:
-            userData.profileImage ||
-            data.profileImage ||
-            user.profileImage ||
-            null,
-          phone: userData.phone || data.phone || user.phone || null,
-          company: userData.company || data.company || user.company || null,
-          jobTitle: userData.jobTitle || data.jobTitle || user.jobTitle || null,
-        };
-
-        // Mettre à jour l'état et le stockage local
-        setUser(updatedUserData);
-        localStorage.setItem("user", JSON.stringify(updatedUserData));
-
-        // Notifier le WebSocket du changement de profil
-        notifyDataChange("profile", "update", user.id);
-
-        return { success: true };
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        setLoginError(
-          errorData.message || "Erreur lors de la mise à jour du profil"
-        );
-        return { success: false, error: errorData.message };
-      }
-    } catch (err) {
-      const errorMessage =
-        err.message || "Erreur lors de la mise à jour du profil";
-      setLoginError(errorMessage);
-      return { success: false, error: errorMessage };
+    } catch (error) {
+      console.error("Erreur lors de la vérification du token:", error);
+      // Ne pas supprimer le token - peut-être un problème de connexion réseau
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Modifier la fonction pour récupérer un nouveau token CSRF avec retry
-  const refreshCsrfToken = async (retryCount = 3, delay = 1000) => {
-    for (let attempt = 0; attempt < retryCount; attempt++) {
-      try {
-        console.log(
-          `Tentative de récupération du token CSRF (${
-            attempt + 1
-          }/${retryCount})...`
-        );
+  // Fonction pour mettre à jour le profil utilisateur
+  const updateUserProfile = async (userData) => {
+    try {
+      const response = await apiRequest("/api/user/profile", "PUT", userData);
 
-        // Utiliser apiRequest pour garantir une cohérence dans la gestion des requêtes
-        try {
-          await apiRequest("/api/csrf-token", "GET");
-          console.log("Nouveau token CSRF obtenu avec succès");
-
-          // Vérifier si le token est bien défini dans les cookies après la réponse
-          const csrfToken = getCsrfToken();
-          if (!csrfToken) {
-            console.warn(
-              "Le token CSRF n'a pas été correctement défini dans les cookies"
-            );
-            if (attempt < retryCount - 1) {
-              console.log(`Nouvelle tentative dans ${delay}ms...`);
-              await new Promise((resolve) => setTimeout(resolve, delay));
-              continue;
-            }
-          } else {
-            return true;
-          }
-        } catch (apiError) {
-          console.error("Erreur lors de l'appel à /api/csrf-token:", apiError);
-          if (attempt < retryCount - 1) {
-            console.log(`Nouvelle tentative dans ${delay}ms...`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            continue;
-          }
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération du token CSRF:", error);
-        if (attempt < retryCount - 1) {
-          console.log(`Nouvelle tentative dans ${delay}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
+      if (response && response.success) {
+        // Mettre à jour les informations utilisateur localement
+        const updatedUser = {
+          ...user,
+          ...response.user,
+        };
+        updateUser(updatedUser);
+        return {
+          success: true,
+          message: "Profil mis à jour avec succès",
+        };
+      } else {
+        return {
+          success: false,
+          message:
+            response?.message || "Erreur lors de la mise à jour du profil",
+        };
       }
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du profil:", error);
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la mise à jour du profil",
+      };
     }
+  };
 
-    console.error(
-      `Échec après ${retryCount} tentatives de récupération du token CSRF`
-    );
-    return false;
+  // Fonction pour rafraîchir le token CSRF
+  const refreshCsrfToken = async () => {
+    try {
+      console.log("Rafraîchissement du token CSRF...");
+      await fetchCsrfToken();
+      console.log("Token CSRF rafraîchi avec succès");
+      return true;
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement du token CSRF:", error);
+      return false;
+    }
   };
 
   // Fonction pour préparer le changement de mot de passe
   const preparePasswordChange = async () => {
     try {
-      // Récupérer un token CSRF frais
-      const csrfSuccess = await refreshCsrfToken();
-      if (!csrfSuccess) {
-        throw new Error("Impossible de récupérer le token CSRF");
-      }
+      // Rafraîchir le token CSRF avant de changer le mot de passe
+      await refreshCsrfToken();
 
-      // Récupérer le token CSRF depuis les cookies
-      const csrfToken = getCsrfToken();
-      if (!csrfToken) {
-        throw new Error(
-          "Token CSRF non trouvé dans les cookies après rafraîchissement"
-        );
-      }
-
-      // Récupérer le token JWT
-      const token = await getToken();
-      if (!token) {
-        throw new Error("Aucun token d'authentification disponible");
-      }
-
-      return { token, csrfToken };
+      return {
+        success: true,
+        message: "Préparation au changement de mot de passe réussie",
+      };
     } catch (error) {
       console.error(
-        "Erreur lors de la préparation du changement de mot de passe:",
+        "Erreur lors de la préparation au changement de mot de passe:",
         error
       );
-      throw error;
+      return {
+        success: false,
+        message:
+          "Erreur lors de la préparation au changement de mot de passe: " +
+          error.message,
+      };
     }
   };
 
-  // Modifier la fonction de login pour initialiser le WebSocket après connexion
+  // Fonction pour se connecter
   const login = async (email, password) => {
-    setIsLoading(true);
-    setLoginError(null);
     try {
-      console.log("Démarrage de la procédure de connexion");
-      console.log("Email utilisé pour la connexion:", email);
-      console.log("Longueur du mot de passe:", password ? password.length : 0);
+      setIsLoading(true);
+      setLoginError(null);
 
-      // Récupérer le token CSRF avec retry
-      const csrfSuccess = await refreshCsrfToken();
-      if (!csrfSuccess) {
-        throw new Error(
-          "Impossible de récupérer le token CSRF après plusieurs tentatives"
-        );
-      }
+      // Rafraîchir le token CSRF avant la connexion
+      await refreshCsrfToken();
 
-      // Récupérer le token du cookie
-      const csrfToken = getCsrfToken();
-      if (!csrfToken) {
-        throw new Error("Token CSRF non trouvé dans les cookies");
-      }
-
-      console.log("Token CSRF récupéré avec succès");
-
-      // Utiliser apiRequest qui gère déjà les tokens CSRF et credentials
-      const data = await apiRequest("/api/auth/login", "POST", {
+      // Effectuer la requête de connexion
+      const response = await apiRequest("/api/auth/login", "POST", {
         email,
         password,
       });
 
-      console.log("Connexion réussie", data);
+      if (response && response.success) {
+        // Récupérer le token et les informations utilisateur
+        const userToken = response.token || response.accessToken;
+        const userData = response.user;
 
-      // Stocker le token
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
-
-      // Stocker l'utilisateur
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
-
-      // Définir l'authentification
-      setIsAuthenticated(true);
-
-      console.log("État après login:", {
-        token: data.token ? data.token.substring(0, 15) + "..." : null,
-        user: data.user ? data.user.email : null,
-        isAuthenticated: true,
-      });
-
-      // Initialiser la connexion WebSocket avec le token
-      try {
-        const { initializeSocket } = require("../services/socket");
-        const socket = initializeSocket(data.token);
-        if (socket) {
-          console.log("Initialisation WebSocket après connexion réussie");
-          // Connecter explicitement la socket - important pour éviter les connexions automatiques
-          socket.connect();
+        // Stocker le token dans localStorage
+        if (userToken) {
+          localStorage.setItem("token", userToken);
+          setToken(userToken);
         }
-      } catch (socketError) {
-        console.error(
-          "Erreur lors de l'initialisation du WebSocket après connexion:",
-          socketError
-        );
-        // Ne pas faire échouer le login si le WebSocket échoue
-      }
 
-      return true;
+        // Mettre à jour les informations utilisateur
+        if (userData) {
+          updateUser(userData);
+        }
+
+        setIsAuthenticated(true);
+        setLoginError(null);
+
+        return {
+          success: true,
+          message: "Connexion réussie",
+          user: userData,
+        };
+      } else {
+        setLoginError(response?.message || "Erreur lors de la connexion");
+        return {
+          success: false,
+          message: response?.message || "Erreur lors de la connexion",
+        };
+      }
     } catch (error) {
       console.error("Erreur lors de la connexion:", error);
-      setLoginError(error.message || "Erreur de connexion");
-      return false;
+      setLoginError(error.message || "Erreur lors de la connexion");
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la connexion",
+      };
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Modifier la fonction de register pour initialiser le WebSocket après inscription
+  // Fonction pour s'inscrire
   const register = async (userData) => {
-    setIsLoading(true);
     try {
-      // S'assurer que les champs optionnels sont null et non undefined
-      const sanitizedUserData = {
-        ...userData,
-        profileImage: userData.profileImage || null,
-        company: userData.company || null,
-        phone: userData.phone || null,
-        jobTitle: userData.jobTitle || null,
-      };
+      setIsLoading(true);
+      setLoginError(null);
 
-      console.log("Tentative d'inscription avec:", {
-        ...sanitizedUserData,
-        password: sanitizedUserData.password ? "***" : null,
-        profileImageLength: sanitizedUserData.profileImage
-          ? sanitizedUserData.profileImage.length
-          : 0,
-      });
+      // Rafraîchir le token CSRF avant l'inscription
+      await refreshCsrfToken();
 
-      // Utiliser apiRequest qui gère déjà correctement le CSRF
-      const response = await apiRequest(
-        "/api/auth/register",
-        "POST",
-        sanitizedUserData
-      );
+      // Effectuer la requête d'inscription
+      const response = await apiRequest("/api/auth/register", "POST", userData);
 
-      console.log("Données d'inscription reçues:", {
-        ...response,
-        token: response.token ? "***" : null,
-        profileImageLength: response.profileImage
-          ? response.profileImage.length
-          : 0,
-      });
+      if (response && response.success) {
+        // Récupérer le token et les informations utilisateur
+        const userToken = response.token || response.accessToken;
+        const userInfo = response.user;
 
-      // Stocker le token si présent dans la réponse
-      if (response.token) {
-        localStorage.setItem("token", response.token);
-        setToken(response.token);
-      }
-
-      // Définir l'utilisateur comme admin
-      const adminUser = setUserWithAdminRole({
-        ...response,
-        profileImage: response.profileImage || null,
-        company: response.company || null,
-        phone: response.phone || null,
-        jobTitle: response.jobTitle || null,
-      });
-
-      setUser(adminUser);
-      localStorage.setItem("user", JSON.stringify(adminUser));
-
-      // Initialiser la connexion WebSocket avec le token
-      try {
-        const { initializeSocket } = require("../services/socket");
-        const socket = initializeSocket(response.token);
-        if (socket) {
-          console.log("Initialisation WebSocket après inscription réussie");
-          // Connecter explicitement la socket - important pour éviter les connexions automatiques
-          socket.connect();
+        // Stocker le token dans localStorage
+        if (userToken) {
+          localStorage.setItem("token", userToken);
+          setToken(userToken);
         }
-      } catch (socketError) {
-        console.error(
-          "Erreur lors de l'initialisation du WebSocket après inscription:",
-          socketError
-        );
-        // Ne pas faire échouer l'inscription si le WebSocket échoue
+
+        // Mettre à jour les informations utilisateur
+        if (userInfo) {
+          updateUser(userInfo);
+        }
+
+        setIsAuthenticated(true);
+        setLoginError(null);
+
+        return {
+          success: true,
+          message: "Inscription réussie",
+          user: userInfo,
+        };
+      } else {
+        const errorMsg = response?.message || "Erreur lors de l'inscription";
+        setLoginError(errorMsg);
+        return {
+          success: false,
+          message: errorMsg,
+        };
       }
-
-      // Notifier le WebSocket de la connexion
-      notifyDataChange("auth", "login", adminUser.id);
-
-      return true;
     } catch (error) {
-      console.error("Erreur d'inscription:", error);
-      throw error;
+      console.error("Erreur lors de l'inscription:", error);
+      const errorMsg = error.message || "Erreur lors de l'inscription";
+      setLoginError(errorMsg);
+      return {
+        success: false,
+        message: errorMsg,
+      };
     } finally {
       setIsLoading(false);
     }
@@ -700,275 +513,188 @@ export const AuthProvider = ({ children }) => {
 
   // Fonction pour se déconnecter
   const logout = () => {
-    return new Promise((resolve) => {
-      // Notifier le WebSocket de la déconnexion et fermer proprement la connexion
-      if (user) {
-        try {
-          notifyDataChange("auth", "logout", user.id);
-          // Déconnecter proprement le WebSocket
-          disconnect();
-        } catch (error) {
-          console.error("Erreur lors de la déconnexion WebSocket:", error);
-        }
-      }
-
-      // Attendre un court instant pour permettre au WebSocket de se fermer proprement
-      setTimeout(() => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("userEmployees");
-        setToken(null);
-        setUser(null);
-        setIsAuthenticated(false);
-        // Ne pas rediriger ici, renvoyer le contrôle au composant
-        resolve(true);
-      }, 300);
-    });
-  };
-
-  // Fonction pour se connecter avec Google
-  const loginWithGoogle = async () => {
     try {
-      setIsLoading(true);
-      setLoginError(null);
+      // Supprimer les informations d'authentification
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
 
-      console.log("Redirection vers l'authentification Google");
+      // Fermer les connexions WebSocket
+      disconnect();
 
-      // Rediriger vers l'endpoint d'authentification Google
-      window.location.href = `${API_URL}/api/auth/google`;
+      // Mettre à jour l'état
+      setIsAuthenticated(false);
+      setUser(null);
+      setToken(null);
 
-      // Cette fonction ne retourne rien car elle redirige l'utilisateur
-      return true;
-    } catch (err) {
-      console.error("Erreur lors de la connexion avec Google:", err);
-      setLoginError(err.message || "Erreur lors de la connexion avec Google");
-      setIsLoading(false);
-      return false;
-    }
-  };
-
-  // Vérifier si l'utilisateur revient d'une authentification OAuth
-  useEffect(() => {
-    const checkOAuthRedirect = async () => {
-      // Vérifier si nous avons un token dans l'URL (après redirection OAuth)
-      const urlParams = new URLSearchParams(window.location.search);
-      const oauthToken = urlParams.get("token");
-      const oauthError = urlParams.get("error");
-
-      if (oauthToken) {
-        try {
-          // Stocker le token
-          localStorage.setItem("token", oauthToken);
-          setToken(oauthToken);
-
-          // Récupérer les informations de l'utilisateur
-          const response = await fetch(`${API_URL}/api/auth/me`, {
-            headers: {
-              Authorization: `Bearer ${oauthToken}`,
-            },
-          });
-
-          if (response.ok) {
-            const userData = await response.json();
-
-            // Définir l'utilisateur comme admin
-            const adminUser = setUserWithAdminRole(userData);
-            localStorage.setItem("user", JSON.stringify(adminUser));
-
-            // Nettoyer l'URL
-            window.history.replaceState(
-              {},
-              document.title,
-              window.location.pathname
-            );
-
-            // Notifier le WebSocket de la connexion
-            notifyDataChange("auth", "login", adminUser.id);
-          }
-        } catch (error) {
-          console.error(
-            "Erreur lors de la récupération des données utilisateur après OAuth:",
-            error
-          );
-          setLoginError(
-            "Erreur lors de la récupération des données utilisateur"
-          );
-        } finally {
-          setIsLoading(false);
-        }
-      } else if (oauthError) {
-        setLoginError(`Erreur d'authentification: ${oauthError}`);
-        setIsLoading(false);
-        // Nettoyer l'URL
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
-      }
-    };
-
-    checkOAuthRedirect();
-  }, [API_URL, notifyDataChange]);
-
-  // Demander la suppression du compte (envoi d'un lien par email)
-  const requestAccountDeletion = async () => {
-    try {
-      setIsLoading(true);
-      const result = await AuthService.requestAccountDeletion();
-
-      if (result.success) {
-        return { success: true, message: result.message };
-      } else {
-        return { success: false, message: result.message };
-      }
-    } catch (error) {
-      console.error(
-        "Erreur lors de la demande de suppression de compte:",
-        error
-      );
-      return {
-        success: false,
-        message:
-          error.message ||
-          "Une erreur est survenue lors de la demande de suppression",
-      };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Confirmer la suppression du compte avec le token reçu par email
-  const confirmAccountDeletion = async (token) => {
-    try {
-      setIsLoading(true);
-      const result = await AuthService.confirmAccountDeletion(token);
-
-      if (result.success) {
-        // Supprimer les données locales et déconnecter l'utilisateur
-        setUser(null);
-        setToken(null);
-        setIsAuthenticated(false);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        // Déconnecter du websocket si nécessaire
-        disconnect && disconnect();
-
-        return { success: true, message: result.message };
-      } else {
-        return { success: false, message: result.message };
-      }
-    } catch (error) {
-      console.error(
-        "Erreur lors de la confirmation de suppression de compte:",
-        error
-      );
-      return {
-        success: false,
-        message:
-          error.message ||
-          "Une erreur est survenue lors de la suppression du compte",
-      };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fonction pour rafraîchir le token d'accès
-  const refreshToken = async () => {
-    try {
-      setIsLoading(true);
-      console.log("Tentative de rafraîchissement du token...");
-
-      const response = await fetch(`${API_URL}/api/auth/refresh`, {
-        method: "POST",
-        credentials: "include", // Important pour envoyer les cookies avec la requête
-        headers: {
-          "Content-Type": "application/json",
-        },
+      // Effectuer une requête de déconnexion au backend (sans attendre la réponse)
+      apiRequest("/api/auth/logout", "POST").catch((error) => {
+        console.error("Erreur lors de la déconnexion:", error);
       });
 
-      const data = await response.json();
+      return {
+        success: true,
+        message: "Déconnexion réussie",
+      };
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la déconnexion",
+      };
+    }
+  };
 
-      if (response.ok && data.success) {
-        console.log("Token rafraîchi avec succès");
+  // Fonction pour se connecter avec Google (redirection)
+  const loginWithGoogle = async () => {
+    try {
+      window.location.href = `${API_URL}/api/auth/google`;
+      return { success: true };
+    } catch (error) {
+      console.error("Erreur lors de la redirection vers Google:", error);
+      return {
+        success: false,
+        message: error.message || "Erreur lors de la connexion avec Google",
+      };
+    }
+  };
 
-        // Mettre à jour le token dans le localStorage si présent dans la réponse
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-          setToken(data.token);
-        }
+  // Fonction pour demander la suppression du compte
+  const requestAccountDeletion = async () => {
+    try {
+      // Rafraîchir le token CSRF avant la demande
+      await refreshCsrfToken();
 
-        // Mettre à jour les infos utilisateur si présentes
-        if (data.user) {
-          localStorage.setItem("user", JSON.stringify(data.user));
-          setUser(data.user);
-        }
+      const response = await apiRequest(
+        "/api/auth/request-account-deletion",
+        "POST"
+      );
 
-        setIsAuthenticated(true);
-        setLoginError(null);
+      return {
+        success: true,
+        message: response?.message || "Demande de suppression envoyée",
+      };
+    } catch (error) {
+      console.error("Erreur lors de la demande de suppression:", error);
+      return {
+        success: false,
+        message:
+          error.message || "Erreur lors de la demande de suppression de compte",
+      };
+    }
+  };
 
-        // Redémarrer le timer d'inactivité
-        resetInactivityTimer();
+  // Fonction pour confirmer la suppression du compte
+  const confirmAccountDeletion = async (token) => {
+    try {
+      // Rafraîchir le token CSRF avant la confirmation
+      await refreshCsrfToken();
 
-        return true;
-      } else {
-        console.error("Échec du rafraîchissement du token:", data.message);
-        // Si le rafraîchissement échoue, déconnecter l'utilisateur
+      const response = await apiRequest(
+        "/api/auth/confirm-account-deletion",
+        "POST",
+        { token }
+      );
+
+      // Si la suppression est réussie, déconnecter l'utilisateur
+      if (response && response.success) {
         logout();
-        return false;
+      }
+
+      return {
+        success: true,
+        message: response?.message || "Compte supprimé avec succès",
+      };
+    } catch (error) {
+      console.error("Erreur lors de la confirmation de suppression:", error);
+      return {
+        success: false,
+        message:
+          error.message ||
+          "Erreur lors de la confirmation de suppression de compte",
+      };
+    }
+  };
+
+  // Fonction pour rafraîchir le token d'authentification
+  const refreshToken = async () => {
+    try {
+      console.log("Rafraîchissement du token d'authentification...");
+
+      // Rafraîchir d'abord le token CSRF
+      await refreshCsrfToken();
+
+      const response = await apiRequest("/api/auth/refresh", "POST");
+
+      if (response && response.success) {
+        // Récupérer le nouveau token
+        const newToken = response.token || response.accessToken;
+
+        if (newToken) {
+          console.log("Nouveau token reçu");
+          localStorage.setItem("token", newToken);
+          setToken(newToken);
+        } else {
+          console.warn("Aucun token dans la réponse de rafraîchissement");
+        }
+
+        // Mettre à jour les informations utilisateur si disponibles
+        if (response.user) {
+          updateUser(response.user);
+        }
+
+        return {
+          success: true,
+          message: "Token rafraîchi avec succès",
+        };
+      } else {
+        console.warn("Échec du rafraîchissement du token:", response?.message);
+        return {
+          success: false,
+          message: response?.message || "Échec du rafraîchissement du token",
+        };
       }
     } catch (error) {
       console.error("Erreur lors du rafraîchissement du token:", error);
-      // En cas d'erreur, déconnecter l'utilisateur
-      logout();
-      return false;
-    } finally {
-      setIsLoading(false);
+      return {
+        success: false,
+        message: error.message || "Erreur lors du rafraîchissement du token",
+      };
     }
   };
 
+  // Fonction pour changer le mot de passe
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      const token = await getToken();
-      if (!token) {
-        throw new Error(
-          "Vous devez être connecté pour changer votre mot de passe"
-        );
-      }
+      // Rafraîchir le token CSRF avant le changement de mot de passe
+      await refreshCsrfToken();
 
-      const csrfToken = getCsrfToken();
-      const response = await fetch(`${API_URL}/api/users/change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-          confirmPassword: newPassword,
-        }),
+      const response = await apiRequest("/api/users/change-password", "POST", {
+        currentPassword,
+        newPassword,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Erreur lors du changement de mot de passe"
-        );
+      if (response && response.success) {
+        return {
+          success: true,
+          message: response.message || "Mot de passe changé avec succès",
+        };
+      } else {
+        return {
+          success: false,
+          message:
+            response?.message || "Erreur lors du changement de mot de passe",
+        };
       }
-
-      return data;
     } catch (error) {
       console.error("Erreur lors du changement de mot de passe:", error);
-      throw error;
+      return {
+        success: false,
+        message: error.message || "Erreur lors du changement de mot de passe",
+      };
     }
   };
 
-  // Ajouter le composant de modal d'inactivité
+  // Composant pour la modale d'inactivité
   const InactivityModal = () => {
     if (!showInactivityModal) return null;
 
@@ -976,18 +702,21 @@ export const AuthProvider = ({ children }) => {
       <StyledInactivityModal>
         <StyledModalContent>
           <h2>Session inactive</h2>
-          <p>Vous allez être déconnecté pour inactivité.</p>
-          <p>Cliquez n'importe où pour rester connecté.</p>
+          <p>
+            Vous serez déconnecté automatiquement dans 1 minute en raison
+            d'inactivité.
+          </p>
           <button onClick={resetInactivityTimer}>Rester connecté</button>
         </StyledModalContent>
       </StyledInactivityModal>
     );
   };
 
-  const value = {
-    user,
+  // Valeur du contexte à fournir
+  const contextValue = {
     isAuthenticated,
     isLoading,
+    user,
     token,
     getToken,
     login,
@@ -995,21 +724,18 @@ export const AuthProvider = ({ children }) => {
     logout,
     register,
     loginError,
-    updateUser,
-    updateUserProfile,
+    updateUser: updateUserProfile,
     requestAccountDeletion,
     confirmAccountDeletion,
     preparePasswordChange,
     refreshToken,
     changePassword,
-    showInactivityModal,
-    resetInactivityTimer,
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
-      {showInactivityModal && <InactivityModal />}
+      <InactivityModal />
     </AuthContext.Provider>
   );
 };

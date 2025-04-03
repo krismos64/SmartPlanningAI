@@ -1,12 +1,24 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
-import { API_URL } from "../config/api.js";
+import { API_URL, fetchCsrfToken, getStoredCsrfToken } from "../config/api.js";
 
 /**
  * Hook personnalisé pour effectuer des appels API
  * @returns {Object} Méthodes pour effectuer des requêtes API
  */
 const useApi = () => {
+  // Récupérer le token CSRF au chargement du hook
+  useEffect(() => {
+    const initCsrf = async () => {
+      const csrfToken = getStoredCsrfToken();
+      if (!csrfToken) {
+        await fetchCsrfToken();
+      }
+    };
+
+    initCsrf();
+  }, []);
+
   const handleResponse = useCallback(async (response) => {
     try {
       // Récupérer les en-têtes pour le débogage
@@ -220,17 +232,27 @@ const useApi = () => {
           snakeCaseData
         );
 
+        // Récupérer le token CSRF
+        const csrfToken = getStoredCsrfToken();
+
         // Configurer les en-têtes de la requête
         const headers = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
         };
 
         // Journaliser les détails de la requête (sans le token complet)
         console.log("Détails de la requête POST:", {
           endpoint,
           dataSize: JSON.stringify(snakeCaseData).length,
-          headers: { ...headers, Authorization: "Bearer [MASQUÉ]" },
+          headers: {
+            ...headers,
+            Authorization: "Bearer [MASQUÉ]",
+            "X-CSRF-Token": csrfToken
+              ? `${csrfToken.substring(0, 10)}...`
+              : undefined,
+          },
         });
 
         // Effectuer la requête avec un timeout
@@ -248,48 +270,26 @@ const useApi = () => {
         // Annuler le timeout
         clearTimeout(timeoutId);
 
-        // Vérifier si la réponse est une erreur d'authentification
-        if (response.status === 401 || response.status === 403) {
-          console.error("Erreur d'authentification:", response.status);
-          throw new Error("Veuillez vous connecter pour accéder à cette page.");
-        }
-
-        // Traiter la réponse
-        return handleResponse(response);
+        return await handleResponse(response);
       } catch (error) {
-        // Gérer les erreurs spécifiques
-        if (error.name === "AbortError") {
-          console.error("La requête a été interrompue (timeout):", error);
-          throw new Error(
-            "La requête a pris trop de temps. Veuillez réessayer."
-          );
-        }
-
-        if (
-          error.message.includes("NetworkError") ||
-          error.message.includes("Failed to fetch")
-        ) {
-          console.error("Erreur réseau lors de la requête POST:", error);
-          throw new Error(
-            "Problème de connexion au serveur, veuillez vérifier votre connexion internet"
-          );
-        }
-
-        // Journaliser et propager l'erreur
-        console.error("Erreur lors de la requête POST:", error);
+        console.error(`[API] POST ${endpoint} Error:`, error);
         throw error;
       }
     };
 
     const put = async (endpoint, data) => {
       try {
-        // Vérifier que l'URL est correcte
-        const apiUrl = API_URL; // Utiliser l'URL correcte
-        console.log(`[API] PUT ${apiUrl}${endpoint}`, data);
+        // Vérifier que les données sont valides
+        if (!data || typeof data !== "object") {
+          console.error("Données invalides pour la requête PUT:", data);
+          throw new Error("Données invalides pour la requête PUT");
+        }
 
-        const token = localStorage.getItem("token");
+        // Vérifier que l'URL est correcte
+        console.log(`[API] PUT ${API_URL}${endpoint}`);
 
         // Vérifier si le token est présent
+        const token = localStorage.getItem("token");
         if (!token) {
           console.error("Token d'authentification manquant");
           throw new Error("Veuillez vous connecter pour accéder à cette page.");
@@ -297,7 +297,6 @@ const useApi = () => {
 
         // S'assurer que les données sont sérialisables
         const cleanData = JSON.parse(JSON.stringify(data));
-        console.log("Données nettoyées:", cleanData);
 
         // Supprimer hourlyRate des données pour éviter l'erreur
         if (cleanData.hourlyRate !== undefined) {
@@ -305,58 +304,58 @@ const useApi = () => {
           delete cleanData.hourlyRate;
         }
 
-        // Vérifier si les données sont déjà en snake_case ou si elles doivent être converties
-        const needsConversion = Object.keys(cleanData).some(
-          (key) => key.includes("_") === false && /[A-Z]/.test(key)
+        // Convertir les données en snake_case pour le backend
+        const snakeCaseData = {};
+        for (const key in cleanData) {
+          snakeCaseData[camelToSnakeCase(key)] = cleanData[key];
+        }
+        console.log(
+          "Données converties en snake_case pour PUT:",
+          snakeCaseData
         );
 
-        let dataToSend;
-        if (needsConversion) {
-          // Convertir les données en snake_case pour le backend
-          dataToSend = {};
-          for (const key in cleanData) {
-            dataToSend[camelToSnakeCase(key)] = cleanData[key];
-          }
-          console.log("Données converties en snake_case:", dataToSend);
-        } else {
-          // Utiliser les données telles quelles si déjà au bon format
-          dataToSend = cleanData;
-          console.log(
-            "Données déjà au bon format, pas de conversion nécessaire"
-          );
-        }
+        // Récupérer le token CSRF
+        const csrfToken = getStoredCsrfToken();
 
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          method: "PUT",
+        // Configurer les en-têtes de la requête
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        };
+
+        // Journaliser les détails de la requête
+        console.log("Détails de la requête PUT:", {
+          endpoint,
+          dataSize: JSON.stringify(snakeCaseData).length,
           headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            ...headers,
+            Authorization: "Bearer [MASQUÉ]",
+            "X-CSRF-Token": csrfToken
+              ? `${csrfToken.substring(0, 10)}...`
+              : undefined,
           },
-          body: JSON.stringify(dataToSend),
+        });
+
+        // Effectuer la requête avec un timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(snakeCaseData),
+          signal: controller.signal,
           credentials: "include",
         });
 
-        // Vérifier si la réponse est une erreur d'authentification
-        if (response.status === 401 || response.status === 403) {
-          console.error("Erreur d'authentification:", response.status);
-          throw new Error("Veuillez vous connecter pour accéder à cette page.");
-        }
+        // Annuler le timeout
+        clearTimeout(timeoutId);
 
-        const result = await handleResponse(response);
-        console.log(`[API] PUT ${endpoint} Response:`, result);
-        return result;
+        return await handleResponse(response);
       } catch (error) {
         console.error(`[API] PUT ${endpoint} Error:`, error);
-
-        // Ne pas rediriger automatiquement vers la page de connexion
-        // Laisser le composant gérer l'erreur
-
-        return {
-          ok: false,
-          status: error.status || 0,
-          data: { message: error.message || "Erreur lors de la requête PUT" },
-          headers: new Headers(),
-        };
+        throw error;
       }
     };
 
@@ -365,40 +364,45 @@ const useApi = () => {
         // Vérifier que l'URL est correcte
         console.log(`[API] DELETE ${API_URL}${endpoint}`);
 
+        // Vérifier si le token est présent
         const token = localStorage.getItem("token");
         if (!token) {
           console.error("Token d'authentification manquant");
           throw new Error("Veuillez vous connecter pour accéder à cette page.");
         }
 
+        // Récupérer le token CSRF
+        const csrfToken = getStoredCsrfToken();
+
+        // Configurer les en-têtes de la requête
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        };
+
+        // Journaliser les détails de la requête
+        console.log("Détails de la requête DELETE:", {
+          endpoint,
+          headers: {
+            ...headers,
+            Authorization: "Bearer [MASQUÉ]",
+            "X-CSRF-Token": csrfToken
+              ? `${csrfToken.substring(0, 10)}...`
+              : undefined,
+          },
+        });
+
         const response = await fetch(`${API_URL}${endpoint}`, {
           method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
           credentials: "include",
         });
 
-        // Vérifier si la réponse est une erreur d'authentification
-        if (response.status === 401 || response.status === 403) {
-          console.error("Erreur d'authentification:", response.status);
-          throw new Error("Veuillez vous connecter pour accéder à cette page.");
-        }
-
-        const result = await handleResponse(response);
-        console.log(`[API] DELETE ${endpoint} Response:`, result);
-        return result;
+        return await handleResponse(response);
       } catch (error) {
         console.error(`[API] DELETE ${endpoint} Error:`, error);
-        return {
-          ok: false,
-          status: error.status || 0,
-          data: {
-            message: error.message || "Erreur lors de la requête DELETE",
-          },
-          headers: new Headers(),
-        };
+        throw error;
       }
     };
 

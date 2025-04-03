@@ -12,17 +12,13 @@ const handleCsrfToken = (req, res) => {
 
   if (req.session) {
     req.session.csrfToken = csrfToken;
+    console.log(
+      "🔐 [CSRF] Token généré et stocké en session:",
+      csrfToken.substring(0, 10) + "..."
+    );
+  } else {
+    console.warn("⚠️ [CSRF] Session non disponible pour stocker le token");
   }
-
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    secure: true,
-    sameSite: "None",
-    httpOnly: false,
-    path: "/",
-    domain: "smartplanning.onrender.com", // Domaine du backend
-  });
-
-  console.log("🔐 [CSRF] Token généré:", csrfToken.substring(0, 10) + "...");
 
   res.json({
     success: true,
@@ -44,7 +40,6 @@ router.get("/token", handleCsrfToken);
  */
 router.get("/debug", (req, res) => {
   res.json({
-    cookies: req.cookies,
     sessionCsrf: req.session?.csrfToken
       ? `${req.session.csrfToken.substring(0, 10)}...`
       : null,

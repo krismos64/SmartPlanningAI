@@ -208,24 +208,15 @@ app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
   // Stocker le token dans la session si elle existe
   if (req.session) {
     req.session.csrfToken = csrfToken;
+    console.log(
+      "🔐 [CSRF] Token généré et stocké en session:",
+      csrfToken.substring(0, 10) + "..."
+    );
+  } else {
+    console.warn("⚠️ [CSRF] Session non disponible pour stocker le token");
   }
 
-  // Envoyer le token dans un cookie non-HTTPOnly
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    httpOnly: false,
-    secure: true,
-    sameSite: "None",
-    path: "/",
-    domain: "smartplanning.onrender.com",
-    maxAge: 24 * 60 * 60 * 1000, // 24 heures
-  });
-
-  console.log(
-    `[CSRF] Token envoyé : XSRF-TOKEN=${csrfToken.substring(0, 10)}...`
-  );
-  console.log(`[CSRF] Domaine du cookie : smartplanning.onrender.com`);
-
-  // Retourner également le token dans la réponse JSON
+  // Retourner le token dans la réponse JSON
   res.json({
     success: true,
     csrfToken,

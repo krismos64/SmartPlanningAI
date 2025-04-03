@@ -178,23 +178,9 @@ const Register = () => {
     const fetchCsrfToken = async () => {
       try {
         console.log("Demande de token CSRF...");
-        // Vider les cookies existants pour éviter les problèmes
-        document.cookie.split(";").forEach(function (c) {
-          if (c.trim().startsWith("XSRF-TOKEN=")) {
-            document.cookie = c
-              .replace(/^ +/, "")
-              .replace(
-                /=.*/,
-                "=;expires=" + new Date().toUTCString() + ";path=/"
-              );
-            console.log("Cookie CSRF précédent supprimé");
-          }
-        });
-
-        // Utiliser apiRequest qui gère les credentials correctement
+        // Appeler l'API pour récupérer un token CSRF
         await apiRequest("/api/csrf-token", "GET");
         console.log("Token CSRF obtenu avec succès");
-        console.log("Cookies après obtention du token:", document.cookie);
       } catch (error) {
         console.error("Erreur lors de la récupération du token CSRF:", error);
       }

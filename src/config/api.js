@@ -23,6 +23,9 @@ export const API_URL = resolveApiUrl();
 
 console.log("🌐 [API] API_URL utilisé :", API_URL);
 
+// Variable globale pour stocker le token CSRF
+let globalCsrfToken = null;
+
 // Création d'une instance Axios
 export const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -137,6 +140,18 @@ axiosInstance.interceptors.response.use(
   }
 );
 
+// Ajouter un intercepteur pour ajouter automatiquement le token CSRF aux requêtes
+axiosInstance.interceptors.request.use(
+  (config) => {
+    // Ajouter le token CSRF à toutes les requêtes sauf GET
+    if (config.method !== "get" && globalCsrfToken) {
+      config.headers["X-CSRF-Token"] = globalCsrfToken;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // Endpoints de l'API
 export const API_ENDPOINTS = {
   LOGIN: "/api/auth/login",
@@ -215,6 +230,9 @@ export const API_ENDPOINTS = {
     AUTO_GENERATE: "/api/schedule/auto-generate",
   },
   HEALTH: "", // Endpoint vide pour vérifier l'état de l'API
+  CSRF: {
+    TOKEN: "/api/csrf-token",
+  },
 };
 
 // Fonction pour vérifier si l'URL est correcte
@@ -264,59 +282,49 @@ export const buildApiUrl = (endpoint) => {
 // Constante pour activer/désactiver les logs de débogage API
 export const API_DEBUG = process.env.NODE_ENV !== "production";
 
-// Fonction pour récupérer le token CSRF à partir des cookies
-export const getCsrfToken = () => {
+/**
+ * Récupère un token CSRF depuis le serveur et le stocke globalement
+ * @returns {Promise<string>} Le token CSRF
+ */
+export const fetchCsrfToken = async () => {
   try {
-    // Obtenir tous les cookies
-    const allCookies = document.cookie;
+    console.log("🔒 Demande d'un nouveau token CSRF");
+    const response = await axiosInstance.get(API_ENDPOINTS.CSRF.TOKEN);
 
-    // Vérifier que nous avons des cookies
-    if (!allCookies || allCookies.trim() === "") {
-      console.warn("⚠️ Aucun cookie trouvé");
+    if (response.data && response.data.csrfToken) {
+      globalCsrfToken = response.data.csrfToken;
+      console.log(
+        "✅ Token CSRF reçu:",
+        globalCsrfToken.substring(0, 10) + "..."
+      );
+      return globalCsrfToken;
+    } else {
+      console.error("❌ Pas de token CSRF dans la réponse");
       return null;
     }
-
-    console.log("🔍 Recherche du token CSRF dans les cookies:", allCookies);
-
-    // Diviser les cookies
-    const cookies = allCookies.split(";");
-
-    // Chercher le cookie XSRF-TOKEN
-    for (let cookie of cookies) {
-      cookie = cookie.trim();
-
-      // Vérifier différentes variantes possibles du nom du cookie
-      if (cookie.startsWith("XSRF-TOKEN=")) {
-        const value = decodeURIComponent(
-          cookie.substring("XSRF-TOKEN=".length)
-        );
-        console.log("✅ Token CSRF trouvé:", value.substring(0, 10) + "...");
-        return value;
-      } else if (cookie.startsWith("xsrf-token=")) {
-        const value = decodeURIComponent(
-          cookie.substring("xsrf-token=".length)
-        );
-        console.log(
-          "✅ Token CSRF trouvé (minuscules):",
-          value.substring(0, 10) + "..."
-        );
-        return value;
-      } else if (cookie.startsWith("_csrf=")) {
-        const value = decodeURIComponent(cookie.substring("_csrf=".length));
-        console.log(
-          "✅ Token CSRF trouvé (_csrf):",
-          value.substring(0, 10) + "..."
-        );
-        return value;
-      }
-    }
-
-    console.warn("⚠️ Aucun token CSRF trouvé dans les cookies");
-    return null;
   } catch (error) {
     console.error("❌ Erreur lors de la récupération du token CSRF:", error);
     return null;
   }
+};
+
+/**
+ * Récupère le token CSRF actuel ou en demande un nouveau s'il n'existe pas
+ * @returns {Promise<string>} Le token CSRF
+ */
+export const getCsrfToken = async () => {
+  if (globalCsrfToken) {
+    return globalCsrfToken;
+  }
+  return fetchCsrfToken();
+};
+
+/**
+ * Récupère immédiatement le token CSRF stocké globalement sans appel API
+ * @returns {string|null} Le token CSRF ou null s'il n'existe pas
+ */
+export const getStoredCsrfToken = () => {
+  return globalCsrfToken;
 };
 
 // Fonction utilitaire générique pour récupérer n'importe quel cookie par son nom
@@ -359,61 +367,28 @@ export const apiRequest = async (
 
   const url = endpoint.startsWith("/") ? endpoint : buildApiUrl(endpoint);
 
-  // Récupérer le token CSRF uniquement pour les méthodes non-GET
-  let csrfToken = method !== "GET" ? getCsrfToken() : null;
-
-  // Si on a besoin d'un token CSRF mais qu'il n'est pas disponible, essayer de le rafraîchir
-  if (method !== "GET" && !csrfToken && !endpoint.includes("csrf-token")) {
-    console.warn("⚠️ Token CSRF manquant, tentative de rafraîchissement...");
-    console.log("Cookies actuels:", document.cookie);
-    try {
-      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (csrfResponse.ok) {
-        const csrfData = await csrfResponse.json();
-        console.log("✅ Réponse CSRF reçue:", csrfData.message || "OK");
-
-        // Attendre un peu pour que le cookie soit défini
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        // Récupérer à nouveau le token
-        csrfToken = getCsrfToken();
-        console.log("Cookies après rafraîchissement:", document.cookie);
-        if (csrfToken) {
-          console.log(
-            "✅ Token CSRF récupéré avec succès:",
-            csrfToken.substring(0, 10) + "..."
-          );
-        } else {
-          console.error(
-            "❌ Le token CSRF n'a pas été défini dans les cookies après rafraîchissement"
-          );
-        }
-      } else {
-        console.error(
-          "❌ Échec de l'obtention du token CSRF:",
-          csrfResponse.status,
-          csrfResponse.statusText
-        );
-      }
-    } catch (error) {
-      console.error("❌ Erreur lors du rafraîchissement du token CSRF:", error);
-    }
+  // Pour les méthodes non-GET, s'assurer d'avoir un token CSRF
+  if (
+    method !== "GET" &&
+    !globalCsrfToken &&
+    !endpoint.includes("csrf-token")
+  ) {
+    console.log("🔒 Récupération du token CSRF avant requête", method);
+    await fetchCsrfToken();
   }
 
-  // Utiliser le token récupéré ou fraîchement rafraîchi
-  const csrfHeader = csrfToken ? { "X-CSRF-Token": csrfToken } : {};
+  // Ajouter le token CSRF aux en-têtes pour les méthodes non-GET
+  const csrfHeader =
+    method !== "GET" && globalCsrfToken
+      ? { "X-CSRF-Token": globalCsrfToken }
+      : {};
 
   // Log du token CSRF utilisé
   if (method !== "GET") {
-    if (csrfToken) {
-      console.log(`🔐 Envoi du token CSRF: ${csrfToken.substring(0, 10)}...`);
+    if (globalCsrfToken) {
+      console.log(
+        `🔐 Envoi du token CSRF: ${globalCsrfToken.substring(0, 10)}...`
+      );
     } else {
       console.warn("⚠️ Aucun token CSRF disponible pour cette requête");
     }
@@ -433,12 +408,12 @@ export const apiRequest = async (
 
   console.log(
     `📡 [API] ${method} ${url} ${
-      csrfToken ? "avec token CSRF" : "sans token CSRF"
+      globalCsrfToken ? "avec token CSRF" : "sans token CSRF"
     }`
   );
 
   try {
-    if (method !== "GET" && !csrfToken) {
+    if (method !== "GET" && !globalCsrfToken) {
       console.warn(`⚠️ Requête ${method} sans token CSRF: ${url}`);
     }
 
@@ -448,157 +423,115 @@ export const apiRequest = async (
     // Vérifier s'il s'agit d'une erreur CSRF
     const isCsrfError =
       error.response?.status === 403 &&
-      (error.response?.data?.error?.includes("CSRF") ||
-        error.response?.data?.message?.includes("CSRF") ||
-        error.response?.data?.message?.includes("csrf"));
+      (error.response?.data?.error === "CSRF_TOKEN_MISSING" ||
+        error.response?.data?.error === "CSRF_TOKEN_INVALID");
 
-    if (isCsrfError) {
-      console.error("🔒 Erreur CSRF détectée:");
-      console.error("- URL:", url);
-      console.error("- Méthode:", method);
-      console.error(
-        "- Token utilisé:",
-        csrfToken ? csrfToken.substring(0, 10) + "..." : "Aucun"
-      );
-      console.error("- Cookies disponibles:", document.cookie);
-      console.error("- Réponse d'erreur:", error.response?.data);
-    } else {
-      console.error(
-        `[apiRequest] Erreur lors de la requête ${method} ${url}:`,
-        error?.response?.data?.message || error.message
-      );
-    }
-    throw error;
-  }
-};
+    // Si c'est une erreur CSRF, essayer de rafraîchir le token et réessayer
+    if (isCsrfError && !config._csrf_retry) {
+      console.warn("🔄 Erreur CSRF, tentative de rafraîchissement du token");
 
-export const handleApiError = (error) => {
-  if (error.response) {
-    const { status, data } = error.response;
+      try {
+        await fetchCsrfToken();
 
-    // Extraire le message d'erreur selon la nouvelle structure
-    let errorMessage = "Une erreur est survenue";
-    if (data && typeof data === "object" && "message" in data) {
-      errorMessage = data.message;
-    } else if (data && typeof data === "string") {
-      errorMessage = data;
-    }
+        if (globalCsrfToken) {
+          // Marquer cette requête pour éviter les boucles infinies
+          config._csrf_retry = true;
 
-    switch (status) {
-      case 400:
-        return errorMessage || "Requête invalide";
-      case 401:
-        return "Non autorisé - Veuillez vous reconnecter";
-      case 403:
-        return "Accès refusé";
-      case 404:
-        return "Ressource non trouvée";
-      case 409:
-        return "Conflit - La ressource existe déjà";
-      case 422:
-        return "Données invalides";
-      case 429:
-        return "Trop de requêtes - Veuillez réessayer plus tard";
-      case 500:
-        return "Erreur serveur - Veuillez réessayer plus tard";
-      default:
-        return `Erreur ${status} - ${errorMessage}`;
-    }
-  }
-  if (error.request) {
-    return "Impossible de contacter le serveur";
-  }
-  return error.message || "Une erreur est survenue";
-};
+          // Mettre à jour l'en-tête CSRF
+          config.headers["X-CSRF-Token"] = globalCsrfToken;
 
-/**
- * Fonction utilitaire pour normaliser les réponses API
- * Permet de garantir une structure de données cohérente quelle que soit la version de l'API
- * @param {object} response - Réponse brute de l'API
- * @returns {object} - Réponse normalisée avec success, message, data
- */
-export const normalizeApiResponse = (response) => {
-  if (!response) {
-    return { success: false, message: "Réponse vide", data: null };
-  }
-
-  // Si c'est déjà un format normalisé
-  if (typeof response === "object" && "success" in response) {
-    return {
-      success: response.success,
-      message: response.message || "",
-      data: response.data || null,
-      ...response, // Garder les autres propriétés éventuelles
-    };
-  }
-
-  // Si c'est une structure issue de l'ancienne API où les données sont directement retournées
-  if (typeof response === "object") {
-    // Si c'est un tableau, on considère que ce sont directement les données
-    if (Array.isArray(response)) {
-      return {
-        success: true,
-        message: "Données récupérées avec succès",
-        data: response,
-      };
-    }
-
-    // Si c'est un objet mais pas au format attendu
-    return {
-      success: true,
-      message: "Données récupérées avec succès",
-      data: response,
-    };
-  }
-
-  // Cas improbable mais on gère quand même
-  return {
-    success: true,
-    message: "Données récupérées",
-    data: response,
-  };
-};
-
-/**
- * Fonction utilitaire pour gérer les erreurs API de manière uniforme
- * @param {Error} error - Erreur capturée
- * @returns {object} - Objet d'erreur normalisé
- */
-export const normalizeApiError = (error) => {
-  let errorMessage = error.message || "Une erreur est survenue";
-  let errorData = null;
-
-  // Si l'erreur contient une réponse (erreur HTTP)
-  if (error.response) {
-    const { status, data } = error.response;
-
-    // Extraire le message selon la structure
-    if (data) {
-      if (typeof data === "object" && "message" in data) {
-        errorMessage = data.message;
-        errorData = data.error || data.data || null;
-      } else if (typeof data === "string") {
-        errorMessage = data;
+          // Réessayer la requête
+          console.log("🔄 Réessai de la requête avec un nouveau token CSRF");
+          const retryResponse = await axiosInstance(config);
+          return retryResponse.data;
+        }
+      } catch (retryError) {
+        console.error(
+          "❌ Échec du rafraîchissement du token CSRF:",
+          retryError
+        );
       }
     }
 
-    return {
-      success: false,
-      message: errorMessage,
-      status: status,
-      data: errorData,
-      error: true,
-    };
+    // Propager l'erreur
+    throw handleApiError(error);
+  }
+};
+
+// Fonction pour gérer les erreurs API de manière standardisée
+export const handleApiError = (error) => {
+  // Si c'est déjà un objet d'erreur normalisé, le retourner tel quel
+  if (error.isApiError) {
+    return error;
   }
 
-  // Erreur réseau ou autre
+  // Créer un nouvel objet d'erreur normalisé
+  const apiError = new Error(
+    error.response?.data?.message || error.message || "Erreur inconnue"
+  );
+
+  // Ajouter des propriétés pour faciliter le traitement
+  apiError.isApiError = true;
+  apiError.status = error.response?.status || 0;
+  apiError.originalError = error;
+  apiError.data = error.response?.data || {};
+
+  // Journaliser l'erreur avec des détails
+  console.error("❌ [API Error]", {
+    message: apiError.message,
+    status: apiError.status,
+    data: apiError.data,
+    url: error.config?.url,
+    method: error.config?.method,
+  });
+
+  return apiError;
+};
+
+// Fonction pour normaliser les réponses API
+export const normalizeApiResponse = (response) => {
+  // Si la réponse est déjà un objet standard, la retourner
+  if (response.success !== undefined && response.data !== undefined) {
+    return response;
+  }
+
+  // Construire un objet standard
   return {
-    success: false,
-    message: errorMessage,
-    data: null,
-    error: true,
-    network: !error.response,
+    success: true,
+    data: response,
+    message: null,
+    meta: null,
   };
+};
+
+// Fonction pour normaliser les erreurs API
+export const normalizeApiError = (error) => {
+  // Si c'est déjà un objet d'erreur normalisé, le retourner tel quel
+  if (error.isNormalizedApiError) {
+    return error;
+  }
+
+  // Déterminer le statut HTTP
+  const status = error.status || error.response?.status || 500;
+
+  // Déterminer le message d'erreur à afficher
+  let message = error.message || "Une erreur est survenue";
+  if (error.response?.data?.message) {
+    message = error.response.data.message;
+  }
+
+  // Construire un objet d'erreur standard
+  const normalizedError = {
+    isNormalizedApiError: true,
+    success: false,
+    status,
+    message,
+    error: error.response?.data?.error || "UNKNOWN_ERROR",
+    data: error.response?.data || null,
+    originalError: error,
+  };
+
+  return normalizedError;
 };
 
 export default apiRequest;

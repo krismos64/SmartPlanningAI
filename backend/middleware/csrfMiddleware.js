@@ -4,50 +4,6 @@ const crypto = require("crypto");
 const CSRF_CONFIG = {
   secretLength: 32, // 256 bits
   tokenExpiration: 24 * 60 * 60 * 1000, // 24h
-  cookieOptions: {
-    httpOnly: true,
-    secure: true,
-    sameSite: "None",
-    path: "/",
-    domain: "smartplanning.onrender.com",
-  },
-};
-
-/**
- * Génère et envoie un token CSRF sous forme de cookies
- */
-const generateCsrfToken = (req, res, next) => {
-  try {
-    // Générer un secret aléatoire
-    const secret = crypto.randomBytes(CSRF_CONFIG.secretLength).toString("hex");
-
-    // Créer un token avec timestamp
-    const timestamp = Date.now();
-    const tokenData = `${timestamp}:${secret}`;
-    const token = crypto
-      .createHmac("sha256", secret)
-      .update(tokenData)
-      .digest("hex");
-
-    // Stocker le secret dans un cookie HttpOnly
-    res.cookie("_csrf_secret", secret, {
-      ...CSRF_CONFIG.cookieOptions,
-      maxAge: CSRF_CONFIG.tokenExpiration,
-    });
-
-    // Stocker le token public avec timestamp
-    res.cookie("XSRF-TOKEN", `${timestamp}:${token}`, {
-      ...CSRF_CONFIG.cookieOptions,
-      httpOnly: false,
-      maxAge: CSRF_CONFIG.tokenExpiration,
-    });
-
-    req.csrfToken = token;
-    next();
-  } catch (error) {
-    console.error("Erreur lors de la génération du token CSRF:", error);
-    res.status(500).json({ error: "Erreur de sécurité" });
-  }
 };
 
 /**
@@ -76,8 +32,6 @@ const logRequestDetails = (req) => {
     }
   });
 
-  console.log("🍪 Cookies:", req.cookies);
-
   // Session si disponible
   if (req.session) {
     console.log(
@@ -101,7 +55,39 @@ const logRequestDetails = (req) => {
 };
 
 /**
- * Middleware de vérification du token CSRF
+ * Génère un nouveau token CSRF et le stocke dans la session
+ */
+const generateCsrfToken = (req, res, next) => {
+  try {
+    // Générer un token aléatoire
+    const csrfToken = crypto
+      .randomBytes(CSRF_CONFIG.secretLength)
+      .toString("hex");
+
+    // Stocker le token dans la session
+    if (req.session) {
+      req.session.csrfToken = csrfToken;
+      console.log(
+        "✅ [CSRF] Token stocké dans la session:",
+        csrfToken.substring(0, 10) + "..."
+      );
+    } else {
+      console.error(
+        "❌ [CSRF] Session non disponible pour stocker le token CSRF"
+      );
+    }
+
+    // Exposer le token dans la réponse
+    res.locals.csrfToken = csrfToken;
+    next();
+  } catch (error) {
+    console.error("Erreur lors de la génération du token CSRF:", error);
+    res.status(500).json({ error: "Erreur de sécurité" });
+  }
+};
+
+/**
+ * Middleware de vérification du token CSRF via l'en-tête X-CSRF-Token
  */
 const verifyCsrfToken = (req, res, next) => {
   // Ne pas vérifier pour les méthodes GET, OPTIONS, HEAD
@@ -119,14 +105,12 @@ const verifyCsrfToken = (req, res, next) => {
     req.headers["xsrf-token"] ||
     req.headers["x-xsrf-token"];
 
-  // Récupérer le token stocké (en priorité dans la session, sinon dans les cookies)
-  const storedToken = req.session?.csrfToken || req.cookies["XSRF-TOKEN"];
+  // Récupérer le token stocké dans la session
+  const storedToken = req.session?.csrfToken;
 
   // Si aucun token n'est fourni dans l'en-tête
   if (!csrfToken) {
     console.error("⛔ [CSRF] Token manquant dans les en-têtes");
-    console.error("Cookies disponibles:", req.cookies);
-    console.error("Session disponible:", req.session ? "Oui" : "Non");
     console.error("En-têtes de la requête:", req.headers);
 
     // En mode DEBUG, on peut temporairement désactiver la vérification
@@ -145,11 +129,10 @@ const verifyCsrfToken = (req, res, next) => {
     });
   }
 
-  // Si aucun token n'est stocké dans la session ou dans les cookies
+  // Si aucun token n'est stocké dans la session
   if (!storedToken) {
-    console.error("⛔ [CSRF] Token non trouvé dans la session ou les cookies");
+    console.error("⛔ [CSRF] Token non trouvé dans la session");
     console.error("Token reçu:", csrfToken);
-    console.error("Cookies:", req.cookies);
 
     // En mode DEBUG, on peut temporairement désactiver la vérification
     if (
