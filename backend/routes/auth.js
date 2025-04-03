@@ -10,13 +10,10 @@ const {
   clearTokenCookies,
   verifyRefreshToken,
 } = require("../utils/tokenUtils");
-const {
-  csrfProtection,
-  generateCsrfToken,
-} = require("../middleware/csrfMiddleware");
+const { verifyCsrfToken } = require("../middleware/csrfMiddleware");
 
 // Route pour obtenir un token CSRF
-router.get("/csrf-token", csrfProtection, generateCsrfToken, (req, res) => {
+router.get("/csrf-token", verifyCsrfToken, (req, res) => {
   res.json({
     success: true,
     csrfToken: req.csrfToken,
@@ -24,7 +21,7 @@ router.get("/csrf-token", csrfProtection, generateCsrfToken, (req, res) => {
 });
 
 // Route d'inscription
-router.post("/register", authLimiter, async (req, res) => {
+router.post("/register", authLimiter, verifyCsrfToken, async (req, res) => {
   try {
     const {
       email,
@@ -84,7 +81,7 @@ router.post("/register", authLimiter, async (req, res) => {
 });
 
 // Route pour s'authentifier
-router.post("/login", async (req, res) => {
+router.post("/login", verifyCsrfToken, async (req, res) => {
   console.log("=== DEMANDE DE CONNEXION REÇUE ===");
   console.log("Headers de requête:", req.headers);
   console.log("Body de requête:", {
@@ -98,82 +95,45 @@ router.post("/login", async (req, res) => {
     // Valider les champs requis
     if (!email || !password) {
       return res.status(400).json({
-        message: "Veuillez fournir un email et un mot de passe.",
+        success: false,
+        message: "Email et mot de passe requis",
       });
     }
 
-    // Vérifier si l'utilisateur existe
+    // Vérifier les identifiants
     const user = await User.findByEmail(email);
-    if (!user) {
-      console.log("Utilisateur non trouvé:", email);
-      return res
-        .status(401)
-        .json({ message: "Email ou mot de passe incorrect." });
-    }
-
-    console.log("Utilisateur trouvé:", {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      password_hash_type: user.password
-        ? user.password.substring(0, 4)
-        : "non défini",
-    });
-
-    // Vérifier le mot de passe
-    try {
-      console.log("Tentative de vérification du mot de passe pour:", email);
-      console.log("Mot de passe fourni:", password ? "présent" : "absent");
-      console.log(
-        "Longueur du mot de passe fourni:",
-        password ? password.length : 0
-      );
-
-      const isMatch = await user.comparePassword(password);
-      console.log("Résultat de la comparaison du mot de passe:", isMatch);
-
-      if (!isMatch) {
-        console.log("Mot de passe incorrect pour:", email);
-        return res
-          .status(401)
-          .json({ message: "Email ou mot de passe incorrect." });
-      }
-
-      console.log("Authentification réussie pour:", email);
-
-      // Générer des tokens JWT et les définir comme cookies sécurisés
-      const tokens = generateTokens(user.id, user.role || "admin");
-      const accessToken = setTokenCookies(res, tokens);
-
-      // Retourner les informations de l'utilisateur sans le mot de passe
-      res.json({
-        success: true,
-        token: accessToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          profileImage: user.profileImage,
-          company: user.company,
-          phone: user.phone,
-          jobTitle: user.jobTitle,
-        },
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({
+        success: false,
+        message: "Email ou mot de passe incorrect",
       });
-    } catch (passwordError) {
-      console.error(
-        "Erreur lors de la vérification du mot de passe:",
-        passwordError
-      );
-      return res
-        .status(500)
-        .json({ message: "Erreur lors de la vérification du mot de passe." });
     }
+
+    // Générer les tokens
+    const tokens = generateTokens(user.id, user.role);
+    setTokenCookies(res, tokens);
+
+    // Retourner les informations de l'utilisateur
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        profileImage: user.profileImage,
+        company: user.company,
+        phone: user.phone,
+        jobTitle: user.jobTitle,
+      },
+    });
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
-    console.error("Stack trace:", error.stack);
-    res.status(500).json({ message: "Erreur lors de la connexion." });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la connexion",
+    });
   }
 });
 
