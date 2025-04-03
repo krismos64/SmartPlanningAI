@@ -355,8 +355,6 @@ export const AuthProvider = ({ children }) => {
 
   // Modifier la fonction pour récupérer un nouveau token CSRF avec retry
   const refreshCsrfToken = async (retryCount = 3, delay = 1000) => {
-    const API_URL = process.env.REACT_APP_API_URL;
-
     for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
         console.log(
@@ -458,7 +456,6 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setIsLoading(true);
     setLoginError(null);
-    const API_URL = process.env.REACT_APP_API_URL;
     try {
       console.log("Démarrage de la procédure de connexion");
       console.log("Email utilisé pour la connexion:", email);

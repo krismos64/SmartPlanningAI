@@ -5,7 +5,7 @@
 import axios from "axios";
 
 // URL de base de l'API en production
-const PROD_API_URL = "https://smartplanning.onrender.com/api";
+const PROD_API_URL = "https://smartplanning.onrender.com";
 
 // URL de base de l'API
 export const API_URL =
