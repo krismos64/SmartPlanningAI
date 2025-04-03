@@ -863,8 +863,7 @@ const WeeklySchedulePage = () => {
     try {
       // Utiliser une requête fetch directe
       const token = localStorage.getItem("token");
-      const apiUrl = API_URL || "http://localhost:5001";
-      const response = await fetch(`${apiUrl}/api/users/${userIdStr}`, {
+      const response = await fetch(`${API_URL}/api/users/${userIdStr}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

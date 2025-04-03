@@ -18,7 +18,7 @@ app.set("trust proxy", 1);
 // Configuration CORS
 app.use(
   cors({
-    origin: process.env.REACT_APP_FRONTEND_URL || "http://localhost:5005",
+    origin: process.env.FRONTEND_URL || "https://smartplanning.fr",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
+import { API_URL } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import { AuthService } from "../services/api";
 
@@ -100,8 +101,6 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorageToken);
   const [loginError, setLoginError] = useState(null);
   const { notifyDataChange, disconnect } = useWebSocket();
-
-  const API_URL = process.env.REACT_APP_API_URL;
 
   // État pour gérer l'inactivité de l'utilisateur
   const [lastActivity, setLastActivity] = useState(Date.now());

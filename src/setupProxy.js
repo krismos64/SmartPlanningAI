@@ -3,7 +3,10 @@ require("dotenv").config();
 
 // En développement uniquement
 const isDev = process.env.NODE_ENV === "development";
-const target = isDev ? "http://localhost:5001" : process.env.REACT_APP_API_URL;
+// Utiliser l'URL définie dans l'environnement ou l'URL de production si en production
+const target = isDev
+  ? "http://localhost:5001"
+  : "https://smartplanning.onrender.com";
 
 module.exports = function (app) {
   if (isDev) {

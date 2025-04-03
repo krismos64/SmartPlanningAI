@@ -133,9 +133,7 @@ const useEmployees = () => {
 
     setLoading(true);
     try {
-      // Forcer l'URL correcte
-      const apiUrl = API_URL || "http://localhost:5004";
-      console.log(`[fetchEmployeeById] Utilisation de l'URL: ${apiUrl}`);
+      console.log(`[fetchEmployeeById] Utilisation de l'URL: ${API_URL}`);
 
       // Vérifier si le token est présent
       const token = localStorage.getItem("token");
@@ -144,7 +142,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${apiUrl}/api/employees/${id}`, {
+      const response = await fetch(`${API_URL}/api/employees/${id}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -202,9 +200,7 @@ const useEmployees = () => {
       // Supprimer hourlyRate des données pour éviter l'erreur
       const { hourlyRate, ...cleanedData } = employeeData;
 
-      // Forcer l'URL correcte
-      const apiUrl = API_URL || "http://localhost:5004";
-      console.log(`[createEmployee] Utilisation de l'URL: ${apiUrl}`);
+      console.log(`[createEmployee] Utilisation de l'URL: ${API_URL}`);
 
       // Vérifier si le token est présent
       const token = localStorage.getItem("token");
@@ -228,7 +224,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${apiUrl}/api/employees`, {
+      const response = await fetch(`${API_URL}/api/employees`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -288,9 +284,7 @@ const useEmployees = () => {
       // Supprimer hourlyRate des données pour éviter l'erreur
       const { hourlyRate, ...cleanedData } = employeeData;
 
-      // Forcer l'URL correcte
-      const apiUrl = API_URL || "http://localhost:5004";
-      console.log(`[updateEmployee] Utilisation de l'URL: ${apiUrl}`);
+      console.log(`[updateEmployee] Utilisation de l'URL: ${API_URL}`);
 
       // Vérifier si le token est présent
       const token = localStorage.getItem("token");
@@ -314,7 +308,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${apiUrl}/api/employees/${id}`, {
+      const response = await fetch(`${API_URL}/api/employees/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -371,9 +365,7 @@ const useEmployees = () => {
 
     setLoading(true);
     try {
-      // Forcer l'URL correcte
-      const apiUrl = API_URL || "http://localhost:5004";
-      console.log(`[deleteEmployee] Utilisation de l'URL: ${apiUrl}`);
+      console.log(`[deleteEmployee] Utilisation de l'URL: ${API_URL}`);
 
       // Vérifier si le token est présent
       const token = localStorage.getItem("token");
@@ -382,7 +374,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${apiUrl}/api/employees/${id}`, {
+      const response = await fetch(`${API_URL}/api/employees/${id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
