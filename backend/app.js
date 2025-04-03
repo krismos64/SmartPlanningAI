@@ -18,7 +18,7 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(
   cors({
-    origin: "https://smartplanning.fr",
+    origin: ["https://smartplanning.fr", "https://www.smartplanning.fr"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [

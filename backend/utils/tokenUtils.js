@@ -210,7 +210,7 @@ function setTokenCookies(
   const cookieConfig = {
     httpOnly: true,
     secure: true,
-    sameSite: "None",
+    sameSite: "none",
     domain: ".smartplanning.fr",
   };
 
