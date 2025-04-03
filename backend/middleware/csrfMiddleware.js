@@ -9,7 +9,7 @@ const CSRF_CONFIG = {
     secure: true,
     sameSite: "None",
     path: "/",
-    domain: ".smartplanning.fr",
+    domain: "smartplanning.onrender.com",
   },
 };
 
