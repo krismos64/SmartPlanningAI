@@ -46,7 +46,7 @@ app.use(
     cookie: {
       secure: true,
       httpOnly: true,
-      sameSite: "none",
+      sameSite: "None",
       maxAge: 24 * 60 * 60 * 1000,
       domain: ".smartplanning.fr",
       path: "/",
@@ -60,7 +60,7 @@ const csrfProtection = csrf({
     key: "_csrf",
     httpOnly: true,
     secure: true,
-    sameSite: "none",
+    sameSite: "None",
     signed: true,
     path: "/",
     domain: ".smartplanning.fr",
@@ -75,7 +75,7 @@ app.get("/api/csrf-token", (req, res) => {
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false,
     secure: true,
-    sameSite: "none",
+    sameSite: "None",
     path: "/",
     domain: ".smartplanning.fr",
   });

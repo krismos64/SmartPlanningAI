@@ -247,7 +247,7 @@ app.get("/api/csrf-token", csrfProtection, (req, res) => {
     res.cookie("XSRF-TOKEN", token, {
       httpOnly: false,
       secure: true,
-      sameSite: "none",
+      sameSite: "None",
       path: "/",
       domain: ".smartplanning.fr",
     });
