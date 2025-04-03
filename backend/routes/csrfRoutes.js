@@ -19,7 +19,7 @@ const handleCsrfToken = (req, res) => {
     sameSite: "None",
     httpOnly: false,
     path: "/",
-    domain: "smartplanning.onrender.com", // 🔥 Important : définit correctement le domaine pour que le cookie soit lisible côté client
+    domain: "smartplanning.fr", // 🔥 Important : définit correctement le domaine pour que le cookie soit lisible côté client
   });
 
   console.log("🔐 [CSRF] Token généré:", csrfToken.substring(0, 10) + "...");
