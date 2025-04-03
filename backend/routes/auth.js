@@ -92,8 +92,12 @@ router.post("/register", authLimiter, async (req, res) => {
     // Vérifier si le client attend une réponse JSON ou peut accepter une redirection
     if (req.headers.accept && req.headers.accept.includes("application/json")) {
       // Le client attend une réponse JSON (API fetch)
+      console.log("📤 Envoi de la réponse JSON après inscription réussie");
       return res.status(201).json({
         success: true,
+        token: tokens.accessToken, // Pour la rétrocompatibilité
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
         user: {
           id: user.id,
           email: user.email,
@@ -220,8 +224,12 @@ router.post("/login", async (req, res) => {
     // Vérifier si le client attend une réponse JSON ou peut accepter une redirection
     if (req.headers.accept && req.headers.accept.includes("application/json")) {
       // Le client attend une réponse JSON (API fetch)
+      console.log("📤 Envoi de la réponse JSON après authentification réussie");
       return res.json({
         success: true,
+        token: tokens.accessToken, // Pour la rétrocompatibilité
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
         user: {
           id: user.id,
           email: user.email,
@@ -738,6 +746,9 @@ router.post("/refresh", async (req, res) => {
     // Renvoyer les informations utilisateur mises à jour
     return res.json({
       success: true,
+      token: tokens.accessToken, // Pour la rétrocompatibilité
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user.id,
         email: user.email,

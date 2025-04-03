@@ -82,7 +82,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(localStorageUser);
   const [token, setToken] = useState(localStorageToken);
   const [loginError, setLoginError] = useState(null);
-  const { notifyDataChange, disconnect } = useWebSocket();
+  const { notifyDataChange, disconnect, connect } = useWebSocket();
 
   // État pour gérer l'inactivité de l'utilisateur
   const [lastActivity, setLastActivity] = useState(Date.now());
@@ -410,11 +410,17 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
       });
+      console.log("Réponse de connexion reçue:", response);
 
       if (response && response.success) {
         // Récupérer le token et les informations utilisateur
         const userToken = response.token || response.accessToken;
-        const userData = response.user;
+        const refreshToken = response.refreshToken;
+        const userInfo = response.user;
+
+        console.log("Token reçu:", userToken ? "Oui" : "Non");
+        console.log("RefreshToken reçu:", refreshToken ? "Oui" : "Non");
+        console.log("User info reçues:", userInfo ? "Oui" : "Non");
 
         // Stocker le token dans localStorage
         if (userToken) {
@@ -423,31 +429,41 @@ export const AuthProvider = ({ children }) => {
         }
 
         // Mettre à jour les informations utilisateur
-        if (userData) {
-          updateUser(userData);
+        if (userInfo) {
+          updateUser(userInfo);
         }
 
         setIsAuthenticated(true);
         setLoginError(null);
 
+        // Si le WebSocket est configuré, se connecter
+        if (connect) {
+          connect();
+        }
+
         return {
           success: true,
           message: "Connexion réussie",
-          user: userData,
+          user: userInfo,
         };
       } else {
-        setLoginError(response?.message || "Erreur lors de la connexion");
+        const errorMsg = response?.message || "Erreur lors de la connexion";
+        setLoginError(errorMsg);
         return {
           success: false,
-          message: response?.message || "Erreur lors de la connexion",
+          message: errorMsg,
         };
       }
     } catch (error) {
       console.error("Erreur lors de la connexion:", error);
-      setLoginError(error.message || "Erreur lors de la connexion");
+      const errorMsg =
+        error.message ||
+        error.response?.data?.message ||
+        "Erreur lors de la connexion";
+      setLoginError(errorMsg);
       return {
         success: false,
-        message: error.message || "Erreur lors de la connexion",
+        message: errorMsg,
       };
     } finally {
       setIsLoading(false);
@@ -465,11 +481,17 @@ export const AuthProvider = ({ children }) => {
 
       // Effectuer la requête d'inscription
       const response = await apiRequest("/api/auth/register", "POST", userData);
+      console.log("Réponse d'inscription reçue:", response);
 
       if (response && response.success) {
         // Récupérer le token et les informations utilisateur
         const userToken = response.token || response.accessToken;
+        const refreshToken = response.refreshToken;
         const userInfo = response.user;
+
+        console.log("Token reçu:", userToken ? "Oui" : "Non");
+        console.log("RefreshToken reçu:", refreshToken ? "Oui" : "Non");
+        console.log("User info reçues:", userInfo ? "Oui" : "Non");
 
         // Stocker le token dans localStorage
         if (userToken) {
@@ -624,10 +646,15 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       const response = await apiRequest("/api/auth/refresh", "POST");
+      console.log("Réponse de rafraîchissement reçue:", response);
 
       if (response && response.success) {
         // Récupérer le nouveau token
         const newToken = response.token || response.accessToken;
+        const refreshToken = response.refreshToken;
+
+        console.log("Nouveau token reçu:", newToken ? "Oui" : "Non");
+        console.log("Nouveau refreshToken reçu:", refreshToken ? "Oui" : "Non");
 
         if (newToken) {
           console.log("Nouveau token reçu");

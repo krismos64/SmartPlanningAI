@@ -209,32 +209,69 @@ function setTokenCookies(
   // Configuration commune pour tous les cookies
   const cookieConfig = {
     httpOnly: true,
-    secure: true,
-    sameSite: "None",
-    domain: ".smartplanning.fr",
+    secure: true, // Cookies sécurisés
+    sameSite: "None", // Important pour le cross-domain
+    path: "/",
   };
+
+  console.log("🍪 Configuration des cookies de token JWT");
+  console.log(
+    "- accessToken (premiers caractères):",
+    accessToken.substring(0, 10)
+  );
+  console.log("- accessExpires:", accessExpires);
+  console.log("- refreshExpires:", refreshExpires);
+  console.log("- cookieConfig:", JSON.stringify(cookieConfig));
 
   // Configurer le cookie pour le token d'accès
   res.cookie("accessToken", accessToken, {
     ...cookieConfig,
     expires: accessExpires,
-    path: "/",
   });
+  console.log("✅ Cookie accessToken défini, expire:", accessExpires);
 
   // Configurer le cookie pour le refresh token
   res.cookie("refreshToken", refreshToken, {
     ...cookieConfig,
-    path: "/api/auth/refresh",
     expires: refreshExpires,
   });
+  console.log("✅ Cookie refreshToken défini, expire:", refreshExpires);
 
   // Cookie non-httpOnly pour le client JavaScript
   res.cookie("auth_token", accessToken, {
-    ...cookieConfig,
+    secure: true,
+    sameSite: "None",
+    path: "/",
     httpOnly: false,
     expires: accessExpires,
-    path: "/",
   });
+  console.log(
+    "✅ Cookie auth_token défini (non-httpOnly) pour accès JavaScript"
+  );
+
+  // Définir un en-tête Authorization pour les clients qui ne supportent pas les cookies
+  res.setHeader("Authorization", `Bearer ${accessToken}`);
+  console.log("✅ En-tête Authorization défini avec le token JWT");
+
+  // Ajout des tokens dans le corps de la réponse pour que le frontend puisse les récupérer
+  // même si les cookies ne sont pas correctement stockés
+  if (!res.locals.tokenAdded) {
+    res._json = res.json;
+    res.json = function (body) {
+      body = body || {};
+      // Ne pas écraser token et refreshToken s'ils existent déjà
+      if (!body.token && !body.accessToken) {
+        body.accessToken = accessToken;
+        body.token = accessToken; // Pour la compatibilité
+      }
+      if (!body.refreshToken) {
+        body.refreshToken = refreshToken;
+      }
+      res.locals.tokenAdded = true;
+      return res._json(body);
+    };
+    console.log("✅ Tokens ajoutés au corps de la réponse JSON (fallback)");
+  }
 
   return accessToken;
 }
