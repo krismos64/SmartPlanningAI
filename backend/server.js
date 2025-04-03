@@ -244,8 +244,8 @@ app.get("/api/csrf-token", csrfProtection, (req, res) => {
     // Ajouter le token au cookie client avec des paramètres adaptés pour le cross-domain
     res.cookie("XSRF-TOKEN", token, {
       httpOnly: false, // Accessible via JavaScript
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", // Changer de strict à lax pour permettre les requêtes cross-domain
+      secure: true,
+      sameSite: "none",
       path: "/", // Assurer que le cookie est disponible pour tout le domaine
     });
 

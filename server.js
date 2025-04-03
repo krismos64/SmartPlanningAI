@@ -41,9 +41,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,
+      secure: true,
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
@@ -62,8 +62,8 @@ app.get("/api/csrf-token", (req, res) => {
   // Définir le cookie CSRF
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false,
-    secure: false,
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
     path: "/",
   });
 
