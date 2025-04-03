@@ -18,6 +18,7 @@ const {
   verifyCsrfToken,
 } = require("./middleware/csrfMiddleware");
 const { secureAuth } = require("./middleware/secureAuth");
+const crypto = require("crypto");
 
 // Rendre le modèle Activity disponible globalement
 global.Activity = Activity;
@@ -201,7 +202,29 @@ app.use((req, res, next) => {
 
 // Route pour obtenir le token CSRF
 app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
-  res.json({ csrfToken: req.csrfToken });
+  // Générer un token CSRF aléatoire
+  const csrfToken = crypto.randomBytes(32).toString("hex");
+
+  // Stocker le token dans la session si elle existe
+  if (req.session) {
+    req.session.csrfToken = csrfToken;
+  }
+
+  // Envoyer le token dans un cookie non-HTTPOnly
+  res.cookie("XSRF-TOKEN", csrfToken, {
+    httpOnly: false,
+    secure: true,
+    sameSite: "None",
+    path: "/",
+  });
+
+  console.log(`[CSRF] Token envoyé : XSRF-TOKEN=${csrfToken}`);
+
+  // Retourner également le token dans la réponse JSON
+  res.json({
+    success: true,
+    csrfToken,
+  });
 });
 
 // Appliquer la vérification CSRF aux routes protégées

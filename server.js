@@ -4,6 +4,7 @@ const cors = require("cors");
 const csrf = require("csurf");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
+const crypto = require("crypto");
 require("dotenv").config();
 
 // Import des routes
@@ -69,9 +70,15 @@ const csrfProtection = csrf({
 
 // Route pour obtenir le token CSRF (sans protection CSRF)
 app.get("/api/csrf-token", (req, res) => {
-  const token = req.csrfToken ? req.csrfToken() : "default-token";
-  console.log("CSRF Token généré:", token);
+  // Générer un token CSRF aléatoire
+  const token = crypto.randomBytes(32).toString("hex");
 
+  // Stocker le token dans la session si elle existe
+  if (req.session) {
+    req.session.csrfToken = token;
+  }
+
+  // Envoyer le token dans un cookie non-HTTPOnly
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false,
     secure: true,
@@ -80,7 +87,13 @@ app.get("/api/csrf-token", (req, res) => {
     domain: ".smartplanning.fr",
   });
 
-  res.json({ csrfToken: token });
+  console.log(`[CSRF] Token envoyé : XSRF-TOKEN=${token}`);
+
+  // Retourner également le token dans la réponse JSON
+  res.json({
+    success: true,
+    csrfToken: token,
+  });
 });
 
 // Routes d'authentification
