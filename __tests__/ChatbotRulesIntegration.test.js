@@ -76,14 +76,16 @@ const ChatbotRulesIntegration = jest.fn().mockImplementation((options) => {
     handleDatabaseQuery: async (action) => {
       try {
         const token = localStorage.getItem("token");
+        const API_URL = process.env.REACT_APP_API_URL || "";
 
-        const response = await fetch("/api/chatbot/query", {
+        const response = await fetch(`${API_URL}/api/chatbot/query`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ action }),
+          credentials: "include",
         });
 
         if (!response.ok) {

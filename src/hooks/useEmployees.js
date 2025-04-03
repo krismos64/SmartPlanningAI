@@ -150,6 +150,7 @@ const useEmployees = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -234,6 +235,7 @@ const useEmployees = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(snakeCaseData),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -319,6 +321,7 @@ const useEmployees = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(snakeCaseData),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -385,6 +388,7 @@ const useEmployees = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
       });
 
       if (!response.ok) {

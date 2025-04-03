@@ -35,6 +35,7 @@ async function testLoginRoute() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(loginData),
+      credentials: "include",
     });
 
     console.log(

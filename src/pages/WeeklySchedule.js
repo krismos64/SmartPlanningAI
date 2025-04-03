@@ -902,6 +902,7 @@ const WeeklySchedulePage = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include", // Ajout de l'option pour envoyer les cookies
       });
 
       if (!response.ok) {

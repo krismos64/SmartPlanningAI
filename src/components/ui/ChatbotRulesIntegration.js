@@ -410,6 +410,7 @@ class ChatbotRulesIntegration {
       const response = await fetch(CHATBOT_API_URL, {
         method: "POST",
         headers: headers,
+        credentials: "include",
         body: JSON.stringify({ action }),
       });
 

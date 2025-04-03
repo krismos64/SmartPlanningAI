@@ -119,6 +119,7 @@ const useApi = () => {
         const response = await fetch(`${apiUrl}${endpoint}`, {
           method: "GET",
           headers,
+          credentials: "include",
         });
 
         // Pour les requêtes autres que les départements, vérifier si la réponse est OK
@@ -242,6 +243,7 @@ const useApi = () => {
           headers,
           body: JSON.stringify(snakeCaseData),
           signal: controller.signal,
+          credentials: "include",
         });
 
         // Annuler le timeout
@@ -332,6 +334,7 @@ const useApi = () => {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(dataToSend),
+          credentials: "include",
         });
 
         // Vérifier si la réponse est une erreur d'authentification
@@ -376,6 +379,7 @@ const useApi = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          credentials: "include",
         });
 
         // Vérifier si la réponse est une erreur d'authentification

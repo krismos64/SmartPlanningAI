@@ -338,6 +338,7 @@ export const VacationService = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
       });
 
       console.log("VacationService.getAll - Réponse status:", response.status);

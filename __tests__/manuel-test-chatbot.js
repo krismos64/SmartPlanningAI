@@ -32,6 +32,7 @@ async function login(username, password) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ email: username, password }),
+      credentials: "include",
     });
 
     const data = await response.json();
@@ -65,6 +66,7 @@ async function sendMessage(message) {
         Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({ message }),
+      credentials: "include",
     });
 
     return await response.json();
@@ -89,6 +91,7 @@ async function executeAction(action) {
         Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({ action }),
+      credentials: "include",
     });
 
     return await response.json();

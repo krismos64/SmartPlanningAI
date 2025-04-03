@@ -22,6 +22,7 @@ const API_URL =
           email: "admin@admin.fr",
           password: "admin",
         }),
+        credentials: "include",
       });
 
       console.log("📊 Statut de la réponse:", response.status);
