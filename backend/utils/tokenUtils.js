@@ -206,37 +206,36 @@ function setTokenCookies(
   res,
   { accessToken, refreshToken, accessExpires, refreshExpires }
 ) {
-  // Déterminer si on est en environnement de production
-  const isProduction = process.env.NODE_ENV === "production";
+  // Configuration commune pour tous les cookies
+  const cookieConfig = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+    domain: ".smartplanning.fr",
+  };
 
   // Configurer le cookie pour le token d'accès
   res.cookie("accessToken", accessToken, {
-    httpOnly: true, // Inaccessible via JavaScript
-    secure: isProduction, // HTTPS uniquement en production
-    sameSite: "lax", // Permettre les requêtes cross-domain avec lax au lieu de strict
-    expires: accessExpires,
-    path: "/", // Disponible sur toutes les routes
-  });
-
-  // Configurer le cookie pour le refresh token avec un chemin spécifique
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax", // Permettre les requêtes cross-domain
-    path: "/api/auth/refresh", // Chemin complet pour la route de refresh
-    expires: refreshExpires,
-  });
-
-  // Ajouter un cookie non-httpOnly contenant le token pour le client JavaScript
-  res.cookie("auth_token", accessToken, {
-    httpOnly: false, // Accessible via JavaScript
-    secure: isProduction,
-    sameSite: "lax",
+    ...cookieConfig,
     expires: accessExpires,
     path: "/",
   });
 
-  // Retourner également le token dans la réponse
+  // Configurer le cookie pour le refresh token
+  res.cookie("refreshToken", refreshToken, {
+    ...cookieConfig,
+    path: "/api/auth/refresh",
+    expires: refreshExpires,
+  });
+
+  // Cookie non-httpOnly pour le client JavaScript
+  res.cookie("auth_token", accessToken, {
+    ...cookieConfig,
+    httpOnly: false,
+    expires: accessExpires,
+    path: "/",
+  });
+
   return accessToken;
 }
 

@@ -9,10 +9,11 @@ const csrfProtection = csrf({
   cookie: {
     key: "_csrf",
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,
+    sameSite: "None",
     signed: true,
     path: "/",
+    domain: ".smartplanning.fr",
   },
 });
 
@@ -38,9 +39,10 @@ const generateCsrfToken = (req, res, next) => {
   // Ajouter le token à la réponse pour le client
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false, // Accessible via JavaScript (nécessaire pour les apps client-side)
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,
+    sameSite: "None",
     path: "/",
+    domain: ".smartplanning.fr",
   });
 
   // Stocker le token dans l'objet req pour un accès facile

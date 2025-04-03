@@ -14,46 +14,24 @@ dotenv.config();
 
 const app = express();
 
-// Middleware CORS manuel ultra permissif pour corriger les erreurs liées à "cache-control" ou "x-csrf-token"
-app.use((req, res, next) => {
-  // Logger les en-têtes de requête pour le debug
-  if (req.method === "OPTIONS") {
-    console.log("🔍 Headers de requête preflight:", req.headers);
-  }
-
-  // Autoriser l'origine spécifique
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-
-  // Récupérer les en-têtes demandés dans la requête preflight
-  const requestedHeaders = req.headers["access-control-request-headers"];
-
-  // Si des en-têtes spécifiques sont demandés dans le preflight, les autoriser directement
-  if (requestedHeaders) {
-    res.setHeader("Access-Control-Allow-Headers", requestedHeaders);
-  } else {
-    // Sinon, autoriser une liste exhaustive d'en-têtes courants
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token, x-csrf-token, Cache-Control, cache-control"
-    );
-  }
-
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
-
-  res.setHeader("Access-Control-Expose-Headers", "Set-Cookie, Cookie");
-
-  // Répondre immédiatement aux requêtes OPTIONS (preflight)
-  if (req.method === "OPTIONS") {
-    console.log("✅ Réponse preflight CORS envoyée avec succès");
-    return res.status(204).end();
-  }
-
-  next();
-});
+// Configuration du proxy et CORS
+app.set("trust proxy", 1);
+app.use(
+  cors({
+    origin: "https://smartplanning.fr",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-CSRF-Token",
+      "CSRF-Token",
+      "csrf-token",
+      "xsrf-token",
+    ],
+    exposedHeaders: ["X-CSRF-Token", "CSRF-Token", "csrf-token", "xsrf-token"],
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

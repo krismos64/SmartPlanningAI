@@ -259,7 +259,7 @@ export const apiRequest = async (
         ...headers,
       },
       ...(data && { data }),
-      withCredentials: true, // Pour inclure les cookies dans les requêtes cross-origin
+      withCredentials: true,
     };
 
     console.log(`[apiRequest] Configuration:`, {
