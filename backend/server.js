@@ -6,6 +6,9 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
+// Ajouter express-session et le store MySQL
+const session = require("express-session");
+const MySQLStore = require("express-mysql-session")(session);
 // Utiliser db directement dans un commentaire pour indiquer son utilisation implicite
 // db est utilisé implicitement pour établir la connexion à la base de données au démarrage
 const fs = require("fs");
@@ -58,12 +61,51 @@ const corsOptions = {
     "X-CSRF-Token",
     "x-xsrf-token",
   ],
-  credentials: true,
+  credentials: true, // Important pour les cookies cross-domain
   maxAge: 86400, // 24 heures
 };
 
 // Appliquer CORS avant toute autre configuration
 app.use(cors(corsOptions));
+
+// Configuration du proxy pour gérer les en-têtes X-Forwarded-For
+app.set("trust proxy", 1);
+
+// Utiliser cookie-parser pour les cookies sécurisés
+app.use(cookieParser());
+
+// Configuration du store MySQL pour les sessions
+const dbOptions = {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+};
+
+const sessionStore = new MySQLStore(dbOptions);
+
+// Configuration et mise en place du middleware express-session
+app.use(
+  session({
+    key: "sid", // Nom du cookie
+    secret: process.env.SESSION_SECRET || "smartplanning_session_secret",
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    credentials: true, // Important pour la gestion des sessions cross-domain
+    cookie: {
+      httpOnly: true,
+      secure: true, // Cookies sécurisés (HTTPS)
+      sameSite: "None", // Permettre les cookies cross-domain
+      maxAge: 24 * 60 * 60 * 1000, // 24 heures
+    },
+  })
+);
+
+console.log(
+  "✅ Session configurée avec MySQL Store et cookie sécurisé (sameSite: None)"
+);
 
 // Configuration de Helmet pour sécuriser les en-têtes HTTP
 app.use(
@@ -101,12 +143,6 @@ const limiter = rateLimit({
 
 // Appliquer le limiteur à toutes les routes
 app.use("/api/", limiter);
-
-// Configuration du proxy pour gérer les en-têtes X-Forwarded-For
-app.set("trust proxy", 1);
-
-// Utiliser cookie-parser pour les cookies sécurisés
-app.use(cookieParser());
 
 // Configuration pour traiter les données JSON
 app.use(express.json({ limit: "50mb" }));
