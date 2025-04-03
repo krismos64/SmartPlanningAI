@@ -8,26 +8,22 @@ const crypto = require("crypto");
  * @param {Object} res - Réponse Express
  */
 const handleCsrfToken = (req, res) => {
-  // Générer un token CSRF aléatoire
   const csrfToken = crypto.randomBytes(32).toString("hex");
 
-  // Enregistrer le token dans la session si on utilise express-session
   if (req.session) {
     req.session.csrfToken = csrfToken;
   }
 
-  // Envoyer le token dans un cookie non-HTTPOnly pour que JavaScript puisse y accéder
   res.cookie("XSRF-TOKEN", csrfToken, {
     secure: true,
     sameSite: "None",
     httpOnly: false,
     path: "/",
+    domain: "smartplanning.onrender.com", // 🔥 Important : définit correctement le domaine pour que le cookie soit lisible côté client
   });
 
-  // Journaliser l'opération pour le debug
   console.log("🔐 [CSRF] Token généré:", csrfToken.substring(0, 10) + "...");
 
-  // Retourner également le token dans la réponse JSON
   res.json({
     success: true,
     csrfToken,
@@ -60,5 +56,4 @@ router.get("/debug", (req, res) => {
 });
 
 module.exports = router;
-// Exporter aussi le gestionnaire directement pour la rétrocompatibilité
 module.exports.handle = handleCsrfToken;
