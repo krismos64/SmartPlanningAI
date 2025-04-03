@@ -10,7 +10,7 @@ const csrfProtection = csrf({
     key: "_csrf",
     httpOnly: true,
     secure: true,
-    sameSite: "none",
+    sameSite: "None",
     signed: true,
     path: "/",
     domain: ".smartplanning.fr",
@@ -40,7 +40,7 @@ const generateCsrfToken = (req, res, next) => {
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false, // Accessible via JavaScript (nécessaire pour les apps client-side)
     secure: true,
-    sameSite: "none",
+    sameSite: "None",
     path: "/",
     domain: ".smartplanning.fr",
   });
