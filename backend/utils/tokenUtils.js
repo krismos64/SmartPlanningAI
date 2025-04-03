@@ -3,9 +3,9 @@ const crypto = require("crypto");
 
 // Configuration
 const ACCESS_TOKEN_SECRET =
-  process.env.JWT_SECRET || "smartplanningai_secret_key";
+  process.env.JWT_SECRET || "smartplanning_secret_key";
 const REFRESH_TOKEN_SECRET =
-  process.env.JWT_REFRESH_SECRET || "smartplanningai_refresh_secret_key";
+  process.env.JWT_REFRESH_SECRET || "smartplanning_refresh_secret_key";
 const ACCESS_TOKEN_EXPIRY = "1h"; // 1 heure
 const REFRESH_TOKEN_EXPIRY = "7d"; // 7 jours
 
