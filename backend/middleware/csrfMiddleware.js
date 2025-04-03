@@ -1,39 +1,24 @@
-const csrf = require("csurf");
-const crypto = require("crypto");
+const csrf = require("csrf-csrf").default;
+const tokens = csrf();
 
 /**
  * Middleware de protection CSRF
  * Utilise des cookies sécurisés pour stocker les tokens CSRF
  */
-const csrfProtection = csrf({
-  cookie: {
-    key: "_csrf",
+const csrfMiddleware = (req, res, next) => {
+  const secret = tokens.secretSync();
+  const token = tokens.create(secret);
+
+  // Stocke le secret côté serveur dans un cookie HTTPOnly
+  res.cookie("_csrf_secret", secret, {
     httpOnly: true,
     secure: true,
     sameSite: "None",
-    signed: true,
     path: "/",
     domain: ".smartplanning.fr",
-  },
-});
+  });
 
-/**
- * Génère un token CSRF pour le client
- * @param {Object} req - Requête Express
- * @param {Object} res - Réponse Express
- * @param {Function} next - Fonction suivante
- */
-const generateCsrfToken = (req, res, next) => {
-  if (!req.csrfToken) {
-    console.error("Le middleware csrf n'est pas configuré correctement");
-    return res.status(500).json({
-      success: false,
-      message: "Erreur de configuration de sécurité CSRF",
-    });
-  }
-
-  const token = req.csrfToken();
-
+  // Stocke le token accessible par le frontend
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false,
     secure: true,
@@ -75,7 +60,6 @@ const handleCsrfError = (err, req, res, next) => {
 };
 
 module.exports = {
-  csrfProtection,
-  generateCsrfToken,
+  csrfMiddleware,
   handleCsrfError,
 };

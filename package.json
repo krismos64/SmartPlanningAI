@@ -33,6 +33,7 @@
     "cookie": "^0.6.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "csrf-csrf": "^3.1.0",
     "csurf": "^1.11.0",
     "date-fns": "^2.30.0",
     "dompurify": "^3.2.4",
@@ -74,6 +75,9 @@
     "socket.io-client": "^4.8.1",
     "styled-components": "^6.1.15",
     "tslib": "^2.8.1"
+  },
+  "resolutions": {
+    "cookie": "0.6.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

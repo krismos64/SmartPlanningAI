@@ -15,6 +15,8 @@ const http = require("http");
 const setupWebSocket = require("./config/websocket");
 const Activity = require("./models/Activity");
 const jwt = require("jsonwebtoken");
+const { csrfMiddleware } = require("./middleware/csrfMiddleware");
+const { default: tokens } = require("csrf-csrf");
 
 // Configuration CSRF et gestionnaire d'erreurs
 const {
@@ -196,98 +198,25 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware pour appliquer la protection CSRF aux routes d'authentification
-const applyCsrfProtection = (req, res, next) => {
-  try {
-    // Appliquer csrfProtection
-    csrfProtection(req, res, (err) => {
-      if (err) {
-        // Si une erreur CSRF se produit, la gérer
-        if (err.code === "EBADCSRFTOKEN") {
-          console.error("Tentative CSRF détectée:", {
-            ip: req.ip,
-            method: req.method,
-            url: req.originalUrl,
-            headers: req.headers,
-            timestamp: new Date().toISOString(),
-          });
+// Route pour obtenir le token CSRF
+app.get("/api/csrf-token", csrfMiddleware, (req, res) => {
+  res.json({ csrfToken: req.csrfToken });
+});
 
-          return res.status(403).json({
-            success: false,
-            message: "Action rejetée: tentative d'attaque CSRF détectée",
-          });
-        }
+// Middleware de vérification CSRF pour les routes protégées
+const verifyCsrf = (req, res, next) => {
+  const secret = req.cookies._csrf_secret;
+  const token = req.get("x-xsrf-token") || req.body._csrf;
 
-        // Autres erreurs
-        console.error("Erreur CSRF:", err);
-        return res.status(500).json({
-          success: false,
-          message: "Erreur de sécurité serveur",
-        });
-      }
-
-      // Si pas d'erreur, appliquer le middleware de génération de token
-      generateCsrfToken(req, res, next);
-    });
-  } catch (error) {
-    console.error("Erreur lors de l'application de la protection CSRF:", error);
-    next(error);
+  if (!tokens.verify(secret, token)) {
+    return res.status(403).json({ error: "Token CSRF invalide" });
   }
+
+  next();
 };
 
-// Configuration du proxy pour gérer les en-têtes X-Forwarded-For
-app.set("trust proxy", 1);
-
-// Route spécifique pour obtenir un token CSRF avant la protection CSRF
-app.get("/api/csrf-token", csrfProtection, (req, res) => {
-  try {
-    const token = req.csrfToken();
-    console.log("CSRF Token généré:", token);
-
-    res.cookie("XSRF-TOKEN", token, {
-      httpOnly: false,
-      secure: true,
-      sameSite: "None",
-      path: "/",
-      domain: ".smartplanning.fr",
-    });
-
-    res.json({ success: true, message: "Token CSRF généré avec succès" });
-  } catch (error) {
-    console.error("Erreur lors de la génération du token CSRF:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la génération du token CSRF",
-    });
-  }
-});
-
-// Configurer les routes CSRF pour les opérations sensibles
-// Route de test directe et simple pour le changement de mot de passe (SANS MIDDLEWARE)
-app.post("/api/direct-password-test", (req, res) => {
-  console.log("Route de test directe pour mot de passe appelée");
-  console.log("Body:", req.body);
-  console.log("Auth:", req.headers.authorization ? "Present" : "Missing");
-
-  // Simuler l'objet user pour le test
-  if (req.headers.authorization) {
-    try {
-      const token = req.headers.authorization.split(" ")[1];
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET || "smartplanningai_secret_key"
-      );
-      req.user = { id: decoded.userId };
-      console.log("User ID extrait du token:", req.user.id);
-    } catch (error) {
-      console.error("Erreur token:", error.message);
-    }
-  }
-
-  return changePassword(req, res);
-});
-
-app.use("/api/auth", applyCsrfProtection, authRoutes);
+// Appliquer la vérification CSRF aux routes protégées
+app.use("/api/auth", verifyCsrf, authRoutes);
 
 // Routes nécessitant une authentification
 app.use("/api/employees", secureAuth, employeesRoutes);
