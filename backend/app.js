@@ -14,8 +14,10 @@ dotenv.config();
 
 const app = express();
 
-// Configuration du proxy et CORS
+// Configuration du proxy pour gérer les en-têtes X-Forwarded-For
 app.set("trust proxy", 1);
+
+// Configuration CORS
 app.use(
   cors({
     origin: ["https://smartplanning.fr", "https://www.smartplanning.fr"],

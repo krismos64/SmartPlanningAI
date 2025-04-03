@@ -12,6 +12,9 @@ const authRoutes = require("./backend/routes/auth");
 const app = express();
 const port = process.env.BACKEND_PORT || 5001;
 
+// Configuration du proxy pour gérer les en-têtes X-Forwarded-For
+app.set("trust proxy", 1);
+
 // Configuration CORS
 app.use(
   cors({
