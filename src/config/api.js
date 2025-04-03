@@ -254,13 +254,13 @@ export const buildApiUrl = (endpoint) => {
 // Constante pour activer/désactiver les logs de débogage API
 export const API_DEBUG = process.env.NODE_ENV !== "production";
 
-// Fonction utilitaire pour récupérer le token CSRF depuis les cookies
+// Fonction pour récupérer le token CSRF à partir des cookies
 export const getCsrfToken = () => {
   const cookies = document.cookie.split(";");
   for (let cookie of cookies) {
     cookie = cookie.trim();
     if (cookie.startsWith("XSRF-TOKEN=")) {
-      return cookie.substring("XSRF-TOKEN=".length);
+      return decodeURIComponent(cookie.substring("XSRF-TOKEN=".length));
     }
   }
   return null;
@@ -292,141 +292,32 @@ export const apiRequest = async (
 ) => {
   validateApiUrl();
 
-  // Construire l'URL complète
   const url = endpoint.startsWith("/") ? endpoint : buildApiUrl(endpoint);
 
-  apiDebug(`${method} ${url}`, data ? { payload: data } : null);
+  const csrfToken = getCsrfToken();
+  const csrfHeader =
+    csrfToken && method !== "GET" ? { "X-CSRF-Token": csrfToken } : {};
+
+  const config = {
+    method,
+    url,
+    headers: {
+      "Content-Type": "application/json",
+      ...csrfHeader,
+      ...headers,
+    },
+    ...(data && { data }),
+    withCredentials: true, // indispensable pour envoyer les cookies
+  };
 
   try {
-    // Récupérer le token CSRF pour toutes les requêtes
-    const csrfToken = getCsrfToken();
-    let csrfHeader = {};
-
-    if (csrfToken && method !== "GET") {
-      csrfHeader = { "X-CSRF-Token": csrfToken };
-      console.log(`[apiRequest] Token CSRF ajouté pour la route ${url}`);
-    }
-
-    const config = {
-      method,
-      url,
-      headers: {
-        ...csrfHeader,
-        ...headers,
-      },
-      ...(data && { data }),
-    };
-
-    console.log(`[apiRequest] Configuration:`, {
-      method: config.method,
-      url: config.url,
-      headers: Object.keys(config.headers),
-      hasData: !!data,
-      authorization: csrfToken
-        ? `CSRF Token: ${csrfToken.substring(0, 10)}...`
-        : "Non fourni",
-    });
-
-    try {
-      console.log(`[apiRequest] Envoi de la requête...`);
-      const response = await axiosInstance(config);
-      console.log(`[apiRequest] Réponse reçue:`, {
-        status: response.status,
-        statusText: response.statusText,
-        responseType: typeof response.data,
-        isObject: typeof response.data === "object",
-        properties: response.data ? Object.keys(response.data) : [],
-      });
-
-      // Analyse détaillée de la réponse
-      if (response.data) {
-        if (typeof response.data === "object") {
-          console.log("[apiRequest] Structure de la réponse:", {
-            hasSuccess: "success" in response.data,
-            hasData: "data" in response.data,
-            hasMessage: "message" in response.data,
-            successValue:
-              "success" in response.data ? response.data.success : "non défini",
-          });
-        } else {
-          console.log(
-            "[apiRequest] La réponse n'est pas un objet:",
-            typeof response.data
-          );
-        }
-      }
-
-      // Adaptation à la nouvelle structure de l'API
-      if (response.data && typeof response.data === "object") {
-        // Si la réponse a la nouvelle structure { success, message, data }
-        if ("success" in response.data && "data" in response.data) {
-          console.log(
-            "[apiRequest] Retour de la réponse au format standardisé"
-          );
-          return {
-            ...response.data.data,
-            success: response.data.success,
-            message: response.data.message,
-            // Garder les données originales accessibles si nécessaire
-            _originalResponse: response.data,
-          };
-        }
-      }
-
-      apiDebug(`${method} ${url} - Réponse`, response);
-      return response.data;
-    } catch (axiosError) {
-      console.error(
-        `[apiRequest] Erreur Axios lors de la requête ${method} ${url}:`,
-        axiosError
-      );
-
-      // Gérer les erreurs réseau
-      if (!axiosError.response) {
-        console.error("[apiRequest] Erreur réseau:", axiosError.message);
-        throw new Error("Erreur réseau. Veuillez vérifier votre connexion.");
-      }
-
-      // Gérer les erreurs d'authentification
-      if (axiosError.response.status === 401) {
-        console.error("[apiRequest] Erreur d'authentification (401)");
-        // Rediriger vers la page de connexion ou rafraîchir le token
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
-      }
-
-      // Propager l'erreur avec les détails selon la nouvelle structure de réponse
-      let errorMessage = "Une erreur est survenue";
-      let errorDetails = "";
-
-      if (axiosError.response.data) {
-        if (typeof axiosError.response.data === "object") {
-          // Nouvelle structure { success: false, message: "..." }
-          errorMessage = axiosError.response.data.message || errorMessage;
-          errorDetails = axiosError.response.data.error || "";
-        } else if (typeof axiosError.response.data === "string") {
-          errorMessage = axiosError.response.data;
-        }
-      }
-
-      console.error(`[apiRequest] Message d'erreur:`, errorMessage);
-      console.error(`[apiRequest] Détails d'erreur:`, errorDetails);
-
-      const error = new Error(errorMessage);
-      error.details = errorDetails;
-      error.status = axiosError.response.status;
-      error.success = false;
-
-      apiDebug(`${method} ${url} - Erreur`, error);
-      throw error;
-    }
+    const response = await axiosInstance(config);
+    return response.data;
   } catch (error) {
     console.error(
       `[apiRequest] Erreur lors de la requête ${method} ${url}:`,
-      error
+      error?.response?.data?.message || error.message
     );
-    apiDebug(`${method} ${url} - Erreur`, error);
     throw error;
   }
 };
