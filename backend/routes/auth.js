@@ -10,14 +10,61 @@ const {
   clearTokenCookies,
   verifyRefreshToken,
 } = require("../utils/tokenUtils");
-const { verifyCsrfToken } = require("../middleware/csrfMiddleware");
+const {
+  verifyCsrfToken,
+  logRequestDetails,
+} = require("../middleware/csrfMiddleware");
 const AuthLog = require("../models/AuthLog");
+const crypto = require("crypto");
 
 // Route pour obtenir un token CSRF
-router.get("/csrf-token", verifyCsrfToken, (req, res) => {
+router.get("/csrf-token", (req, res) => {
+  // Générer un token CSRF aléatoire
+  const csrfToken = crypto.randomBytes(32).toString("hex");
+
+  // Enregistrer le token dans la session si on utilise express-session
+  if (req.session) {
+    req.session.csrfToken = csrfToken;
+  }
+
+  // Envoyer le token dans un cookie non-HTTPOnly pour que JavaScript puisse y accéder
+  res.cookie("XSRF-TOKEN", csrfToken, {
+    secure: true,
+    sameSite: "None",
+    httpOnly: false,
+    path: "/",
+  });
+
+  // Journaliser l'opération pour le debug
+  console.log("🔐 [CSRF] Token généré:", csrfToken.substring(0, 10) + "...");
+
+  // Retourner également le token dans la réponse JSON
   res.json({
     success: true,
-    csrfToken: req.csrfToken,
+    csrfToken,
+  });
+});
+
+// Route pour déboguer les problèmes CSRF
+router.post("/debug-csrf", (req, res) => {
+  logRequestDetails(req);
+  res.json({
+    success: true,
+    message: "Détails de requête enregistrés dans la console du serveur",
+    headers: {
+      "x-csrf-token": req.headers["x-csrf-token"],
+      "csrf-token": req.headers["csrf-token"],
+      "xsrf-token": req.headers["xsrf-token"],
+    },
+    cookies: req.cookies,
+    sessionInfo: req.session
+      ? {
+          hasToken: !!req.session.csrfToken,
+          tokenPrefix: req.session.csrfToken
+            ? req.session.csrfToken.substring(0, 10) + "..."
+            : null,
+        }
+      : "Session non disponible",
   });
 });
 

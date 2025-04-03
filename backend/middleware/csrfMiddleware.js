@@ -51,55 +51,116 @@ const generateCsrfToken = (req, res, next) => {
 };
 
 /**
- * Vérifie que le token CSRF reçu est valide
+ * Affiche les détails complets d'une requête pour le debugging
+ * @param {Object} req - Objet de requête Express
+ */
+const logRequestDetails = (req) => {
+  console.log("\n📝 [CSRF DEBUG] Détails de la requête:");
+  console.log(`📍 URL: ${req.method} ${req.originalUrl}`);
+  console.log("🔑 En-têtes:");
+
+  // En-têtes pertinents pour le CSRF
+  const relevantHeaders = [
+    "x-csrf-token",
+    "csrf-token",
+    "xsrf-token",
+    "x-xsrf-token",
+    "cookie",
+    "origin",
+    "referer",
+  ];
+
+  relevantHeaders.forEach((header) => {
+    if (req.headers[header]) {
+      console.log(`  ${header}: ${req.headers[header]}`);
+    }
+  });
+
+  console.log("🍪 Cookies:", req.cookies);
+
+  // Session si disponible
+  if (req.session) {
+    console.log(
+      "🔐 Session CSRF Token:",
+      req.session.csrfToken
+        ? `${req.session.csrfToken.substring(0, 10)}...`
+        : "Non défini"
+    );
+  }
+
+  // Corps de la requête (pour debugging - attention aux données sensibles!)
+  if (req.body && Object.keys(req.body).length > 0) {
+    const sanitizedBody = { ...req.body };
+    // Masquer les données sensibles
+    if (sanitizedBody.password) sanitizedBody.password = "******";
+    if (sanitizedBody.token) sanitizedBody.token = "******";
+    console.log("📦 Corps:", sanitizedBody);
+  }
+
+  console.log("");
+};
+
+/**
+ * Middleware de vérification du token CSRF
  */
 const verifyCsrfToken = (req, res, next) => {
-  try {
-    const secret = req.cookies["_csrf_secret"];
-    const token = req.get("x-xsrf-token") || req.body._csrf;
-
-    if (!secret || !token) {
-      return res.status(403).json({ error: "Token CSRF manquant" });
-    }
-
-    // Extraire le timestamp du token
-    const [timestamp, receivedToken] = token.split(":");
-    if (!timestamp || !receivedToken) {
-      return res.status(403).json({ error: "Format de token invalide" });
-    }
-
-    // Vérifier l'expiration
-    const tokenAge = Date.now() - parseInt(timestamp);
-    if (tokenAge > CSRF_CONFIG.tokenExpiration) {
-      return res.status(403).json({ error: "Token CSRF expiré" });
-    }
-
-    // Vérifier la signature
-    const tokenData = `${timestamp}:${secret}`;
-    const expected = crypto
-      .createHmac("sha256", secret)
-      .update(tokenData)
-      .digest("hex");
-
-    if (receivedToken !== expected) {
-      return res.status(403).json({ error: "Token CSRF invalide" });
-    }
-
-    // Vérifier l'origine de la requête
-    const origin = req.get("origin");
-    const referer = req.get("referer");
-    if (origin && !origin.includes("smartplanning.fr")) {
-      return res.status(403).json({ error: "Origine non autorisée" });
-    }
-
-    next();
-  } catch (error) {
-    console.error("Erreur lors de la vérification du token CSRF:", error);
-    res.status(500).json({ error: "Erreur de sécurité" });
+  // Ne pas vérifier pour les méthodes GET, OPTIONS, HEAD
+  if (["GET", "OPTIONS", "HEAD"].includes(req.method)) {
+    return next();
   }
+
+  // Log détaillé pour debugging
+  logRequestDetails(req);
+
+  // Récupérer le token depuis les différents en-têtes possibles
+  const csrfToken =
+    req.headers["x-csrf-token"] ||
+    req.headers["csrf-token"] ||
+    req.headers["xsrf-token"] ||
+    req.headers["x-xsrf-token"];
+
+  // Récupérer le token stocké (en priorité dans la session, sinon dans les cookies)
+  const storedToken = req.session?.csrfToken || req.cookies["XSRF-TOKEN"];
+
+  // Si aucun token n'est fourni dans l'en-tête
+  if (!csrfToken) {
+    console.error("⛔ [CSRF] Token manquant dans les en-têtes");
+    return res.status(403).json({
+      success: false,
+      message: "Accès refusé - Token CSRF manquant",
+      error: "CSRF_TOKEN_MISSING",
+    });
+  }
+
+  // Si aucun token n'est stocké dans la session ou dans les cookies
+  if (!storedToken) {
+    console.error("⛔ [CSRF] Token non trouvé dans la session ou les cookies");
+    return res.status(403).json({
+      success: false,
+      message: "Accès refusé - Session invalide ou expirée",
+      error: "CSRF_SESSION_INVALID",
+    });
+  }
+
+  // Comparaison des tokens (sensible à la casse)
+  if (csrfToken !== storedToken) {
+    console.error("⛔ [CSRF] Token invalide");
+    console.error(`  Reçu: ${csrfToken}`);
+    console.error(`  Attendu: ${storedToken}`);
+    return res.status(403).json({
+      success: false,
+      message: "Accès refusé - Token CSRF invalide",
+      error: "CSRF_TOKEN_INVALID",
+    });
+  }
+
+  // Token valide, continuer
+  console.log("✅ [CSRF] Validation réussie");
+  next();
 };
 
 module.exports = {
   generateCsrfToken,
   verifyCsrfToken,
+  logRequestDetails,
 };

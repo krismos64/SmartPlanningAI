@@ -5,12 +5,13 @@ const router = express.Router();
 const { authMiddleware } = require("../middleware/authMiddleware");
 const { authLimiter } = require("../middleware/rateLimit");
 
+// Routes CSRF (accessibles sans authentification)
+router.use("/csrf", require("./csrfRoutes"));
+
 // Route CSRF token (pour la sécurité)
+// Cette route est conservée pour rétrocompatibilité
 router.get("/csrf-token", (req, res) => {
-  res.json({
-    success: true,
-    csrfToken: req.csrfToken,
-  });
+  return require("./csrfRoutes").handle(req, res);
 });
 
 // Import et utilisation des routes

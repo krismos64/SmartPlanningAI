@@ -54,6 +54,10 @@ if (process.env.NODE_ENV === "development") {
 // 📦 Routes API
 app.use("/api", routes);
 
+// Ajout de notre route CSRF pour les applications qui n'utilisent pas les routes principales
+const csrfRoutes = require("./routes/csrfRoutes");
+app.use("/api", csrfRoutes);
+
 // ✅ Route ping
 app.get("/ping", (req, res) => {
   res.status(200).json({ message: "API en ligne" });
