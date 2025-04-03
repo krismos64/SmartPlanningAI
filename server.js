@@ -48,26 +48,36 @@ app.use(
       httpOnly: true,
       sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000,
+      domain: ".smartplanning.fr",
+      path: "/",
     },
   })
 );
 
 // Configuration CSRF simplifiée
-const csrfProtection = csrf({ cookie: true });
+const csrfProtection = csrf({
+  cookie: {
+    key: "_csrf",
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    signed: true,
+    path: "/",
+    domain: ".smartplanning.fr",
+  },
+});
 
 // Route pour obtenir le token CSRF (sans protection CSRF)
 app.get("/api/csrf-token", (req, res) => {
-  // Générer un nouveau token CSRF
   const token = req.csrfToken ? req.csrfToken() : "default-token";
-
   console.log("CSRF Token généré:", token);
 
-  // Définir le cookie CSRF
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false,
     secure: true,
     sameSite: "none",
     path: "/",
+    domain: ".smartplanning.fr",
   });
 
   res.json({ csrfToken: token });

@@ -24,7 +24,6 @@ const csrfProtection = csrf({
  * @param {Function} next - Fonction suivante
  */
 const generateCsrfToken = (req, res, next) => {
-  // Vérifier si un token CSRF est déjà disponible
   if (!req.csrfToken) {
     console.error("Le middleware csrf n'est pas configuré correctement");
     return res.status(500).json({
@@ -33,21 +32,17 @@ const generateCsrfToken = (req, res, next) => {
     });
   }
 
-  // Générer le token CSRF
   const token = req.csrfToken();
 
-  // Ajouter le token à la réponse pour le client
   res.cookie("XSRF-TOKEN", token, {
-    httpOnly: false, // Accessible via JavaScript (nécessaire pour les apps client-side)
+    httpOnly: false,
     secure: true,
     sameSite: "none",
     path: "/",
     domain: ".smartplanning.fr",
   });
 
-  // Stocker le token dans l'objet req pour un accès facile
   req.csrfToken = token;
-
   next();
 };
 

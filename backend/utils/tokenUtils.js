@@ -244,8 +244,23 @@ function setTokenCookies(
  * @param {Object} res - Objet response Express
  */
 function clearTokenCookies(res) {
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken", { path: "/auth/refresh" });
+  const cookieConfig = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    domain: ".smartplanning.fr",
+  };
+
+  res.clearCookie("accessToken", { ...cookieConfig, path: "/" });
+  res.clearCookie("refreshToken", {
+    ...cookieConfig,
+    path: "/api/auth/refresh",
+  });
+  res.clearCookie("auth_token", {
+    ...cookieConfig,
+    httpOnly: false,
+    path: "/",
+  });
 }
 
 module.exports = {

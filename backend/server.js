@@ -235,18 +235,21 @@ const applyCsrfProtection = (req, res, next) => {
   }
 };
 
+// Configuration du proxy pour gérer les en-têtes X-Forwarded-For
+app.set("trust proxy", 1);
+
 // Route spécifique pour obtenir un token CSRF avant la protection CSRF
 app.get("/api/csrf-token", csrfProtection, (req, res) => {
   try {
     const token = req.csrfToken();
     console.log("CSRF Token généré:", token);
 
-    // Ajouter le token au cookie client avec des paramètres adaptés pour le cross-domain
     res.cookie("XSRF-TOKEN", token, {
-      httpOnly: false, // Accessible via JavaScript
+      httpOnly: false,
       secure: true,
       sameSite: "none",
-      path: "/", // Assurer que le cookie est disponible pour tout le domaine
+      path: "/",
+      domain: ".smartplanning.fr",
     });
 
     res.json({ success: true, message: "Token CSRF généré avec succès" });
