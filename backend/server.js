@@ -216,14 +216,25 @@ app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
     secure: true,
     sameSite: "None",
     path: "/",
+    domain:
+      process.env.NODE_ENV === "production" ? ".smartplanning.fr" : undefined,
+    maxAge: 24 * 60 * 60 * 1000, // 24 heures
   });
 
-  console.log(`[CSRF] Token envoyé : XSRF-TOKEN=${csrfToken}`);
+  console.log(
+    `[CSRF] Token envoyé : XSRF-TOKEN=${csrfToken.substring(0, 10)}...`
+  );
+  console.log(
+    `[CSRF] Domaine du cookie : ${
+      process.env.NODE_ENV === "production" ? ".smartplanning.fr" : "default"
+    }`
+  );
 
   // Retourner également le token dans la réponse JSON
   res.json({
     success: true,
     csrfToken,
+    message: "Token CSRF généré avec succès",
   });
 });
 

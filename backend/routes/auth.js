@@ -17,34 +17,6 @@ const {
 const AuthLog = require("../models/AuthLog");
 const crypto = require("crypto");
 
-// Route pour obtenir un token CSRF
-router.get("/csrf-token", (req, res) => {
-  // Générer un token CSRF aléatoire
-  const csrfToken = crypto.randomBytes(32).toString("hex");
-
-  // Enregistrer le token dans la session si on utilise express-session
-  if (req.session) {
-    req.session.csrfToken = csrfToken;
-  }
-
-  // Envoyer le token dans un cookie non-HTTPOnly pour que JavaScript puisse y accéder
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    secure: true,
-    sameSite: "None",
-    httpOnly: false,
-    path: "/",
-  });
-
-  // Journaliser l'opération pour le debug
-  console.log("🔐 [CSRF] Token généré:", csrfToken.substring(0, 10) + "...");
-
-  // Retourner également le token dans la réponse JSON
-  res.json({
-    success: true,
-    csrfToken,
-  });
-});
-
 // Route pour déboguer les problèmes CSRF
 router.post("/debug-csrf", (req, res) => {
   logRequestDetails(req);
@@ -69,7 +41,7 @@ router.post("/debug-csrf", (req, res) => {
 });
 
 // Route d'inscription
-router.post("/register", authLimiter, verifyCsrfToken, async (req, res) => {
+router.post("/register", authLimiter, async (req, res) => {
   try {
     const {
       email,
@@ -129,7 +101,7 @@ router.post("/register", authLimiter, verifyCsrfToken, async (req, res) => {
 });
 
 // Route pour s'authentifier
-router.post("/login", verifyCsrfToken, async (req, res) => {
+router.post("/login", async (req, res) => {
   console.log("=== DEMANDE DE CONNEXION REÇUE ===");
   console.log("Headers de requête:", req.headers);
   console.log("Body de requête:", {

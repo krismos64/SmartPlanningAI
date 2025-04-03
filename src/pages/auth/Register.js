@@ -4,9 +4,8 @@ import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import EnhancedLottie from "../../components/ui/EnhancedLottie";
 import { useNotification } from "../../components/ui/Notification";
-import { API_URL } from "../../config/api";
+import { apiRequest } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
-import { AuthService } from "../../services/api";
 
 // Animations
 const fadeInUp = keyframes`
@@ -192,18 +191,10 @@ const Register = () => {
           }
         });
 
-        const response = await fetch(`${API_URL}/api/csrf-token`, {
-          method: "GET",
-          credentials: "include", // Important pour recevoir et envoyer des cookies
-        });
-
-        if (response.ok) {
-          console.log("Token CSRF obtenu avec succès");
-          console.log("Cookies après obtention du token:", document.cookie);
-          // Le token est automatiquement stocké dans les cookies par le serveur
-        } else {
-          console.error("Échec de l'obtention du token CSRF:", response.status);
-        }
+        // Utiliser apiRequest qui gère les credentials correctement
+        await apiRequest("/api/csrf-token", "GET");
+        console.log("Token CSRF obtenu avec succès");
+        console.log("Cookies après obtention du token:", document.cookie);
       } catch (error) {
         console.error("Erreur lors de la récupération du token CSRF:", error);
       }
@@ -211,10 +202,7 @@ const Register = () => {
 
     fetchCsrfToken();
 
-    // Rafraîchir le token toutes les 10 secondes pendant que l'utilisateur est sur la page
-    const refreshInterval = setInterval(fetchCsrfToken, 10000);
-
-    return () => clearInterval(refreshInterval);
+    return () => {}; // Plus besoin du setInterval pour rafraîchir
   }, []);
 
   // Mise à jour du formulaire
@@ -319,32 +307,21 @@ const Register = () => {
 
     // Essayer d'obtenir un nouveau token CSRF juste avant l'inscription
     try {
-      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (csrfResponse.ok) {
-        console.log("Token CSRF rafraîchi avant inscription");
-      } else {
-        console.warn(
-          "Échec du rafraîchissement du token CSRF avant inscription"
-        );
-      }
+      await apiRequest("/api/csrf-token", "GET");
+      console.log("Token CSRF rafraîchi avant inscription");
     } catch (error) {
       console.error("Erreur lors du rafraîchissement du token CSRF:", error);
     }
-
-    // Attendre un peu pour s'assurer que le cookie est bien défini
-    await new Promise((resolve) => setTimeout(resolve, 100));
 
     setIsLoading(true);
 
     try {
       const { confirmPassword, ...registrationData } = formData;
-      const result = await AuthService.register(registrationData);
 
-      if (result.success) {
+      // Utiliser le register du contexte Auth qui a été corrigé
+      const result = await register(registrationData);
+
+      if (result) {
         showNotification({
           type: "success",
           message:
@@ -354,14 +331,15 @@ const Register = () => {
       } else {
         showNotification({
           type: "error",
-          message: result.message || "Erreur lors de l'inscription",
+          message: "Erreur lors de l'inscription",
         });
       }
     } catch (error) {
       console.error("Erreur lors de l'inscription:", error);
       showNotification({
         type: "error",
-        message: "Une erreur est survenue lors de l'inscription",
+        message:
+          error.message || "Une erreur est survenue lors de l'inscription",
       });
     } finally {
       setIsLoading(false);

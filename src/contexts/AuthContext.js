@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
-import { API_URL } from "../config/api";
+import { API_URL, apiRequest } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import { AuthService } from "../services/api";
 
@@ -463,22 +463,9 @@ export const AuthProvider = ({ children }) => {
           }/${retryCount})...`
         );
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout de 5 secondes
-
-        const response = await fetch(`${API_URL}/api/csrf-token`, {
-          method: "GET",
-          credentials: "include",
-          signal: controller.signal,
-          headers: {
-            Accept: "application/json",
-          },
-        });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const data = await response.json();
+        // Utiliser apiRequest pour garantir une cohérence dans la gestion des requêtes
+        try {
+          await apiRequest("/api/csrf-token", "GET");
           console.log("Nouveau token CSRF obtenu avec succès");
 
           // Vérifier si le token est bien défini dans les cookies après la réponse
@@ -487,25 +474,24 @@ export const AuthProvider = ({ children }) => {
             console.warn(
               "Le token CSRF n'a pas été correctement défini dans les cookies"
             );
+            if (attempt < retryCount - 1) {
+              console.log(`Nouvelle tentative dans ${delay}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              continue;
+            }
+          } else {
+            return true;
           }
-
-          return true;
-        } else {
-          console.error(
-            `Échec de l'obtention du token CSRF: ${response.status} - ${response.statusText}`
-          );
+        } catch (apiError) {
+          console.error("Erreur lors de l'appel à /api/csrf-token:", apiError);
           if (attempt < retryCount - 1) {
             console.log(`Nouvelle tentative dans ${delay}ms...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
           }
         }
       } catch (error) {
-        if (error.name === "AbortError") {
-          console.error("La requête de token CSRF a expiré");
-        } else {
-          console.error("Erreur lors de la récupération du token CSRF:", error);
-        }
-
+        console.error("Erreur lors de la récupération du token CSRF:", error);
         if (attempt < retryCount - 1) {
           console.log(`Nouvelle tentative dans ${delay}ms...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
@@ -577,36 +563,12 @@ export const AuthProvider = ({ children }) => {
 
       console.log("Token CSRF récupéré avec succès");
 
-      // Effectuer la requête de connexion
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 secondes
-
-      const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken,
-        },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-        signal: controller.signal,
+      // Utiliser apiRequest qui gère déjà les tokens CSRF et credentials
+      const data = await apiRequest("/api/auth/login", "POST", {
+        email,
+        password,
       });
 
-      clearTimeout(timeoutId);
-
-      console.log("Réponse login:", {
-        status: loginResponse.status,
-        ok: loginResponse.ok,
-      });
-
-      if (!loginResponse.ok) {
-        const errorData = await loginResponse.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Erreur de connexion (${loginResponse.status})`
-        );
-      }
-
-      const data = await loginResponse.json();
       console.log("Connexion réussie", data);
 
       // Stocker le token
@@ -645,14 +607,8 @@ export const AuthProvider = ({ children }) => {
 
       return true;
     } catch (error) {
-      if (error.name === "AbortError") {
-        setLoginError(
-          "Délai d'attente dépassé lors de la connexion. Veuillez réessayer."
-        );
-      } else {
-        console.error("Erreur lors de la connexion:", error);
-        setLoginError(error.message);
-      }
+      console.error("Erreur lors de la connexion:", error);
+      setLoginError(error.message || "Erreur de connexion");
       return false;
     } finally {
       setIsLoading(false);
@@ -680,50 +636,34 @@ export const AuthProvider = ({ children }) => {
           : 0,
       });
 
-      // Récupérer le token CSRF depuis les cookies
-      const csrfToken = getCsrfToken();
-      console.log(
-        "Token CSRF pour inscription trouvé:",
-        csrfToken ? "Oui" : "Non"
+      // Utiliser apiRequest qui gère déjà correctement le CSRF
+      const response = await apiRequest(
+        "/api/auth/register",
+        "POST",
+        sanitizedUserData
       );
 
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken || "", // Ajout du token CSRF dans l'en-tête
-        },
-        body: JSON.stringify(sanitizedUserData),
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Erreur d'inscription (${response.status})`
-        );
-      }
-
-      const data = await response.json();
       console.log("Données d'inscription reçues:", {
-        ...data,
-        token: data.token ? "***" : null,
-        profileImageLength: data.profileImage ? data.profileImage.length : 0,
+        ...response,
+        token: response.token ? "***" : null,
+        profileImageLength: response.profileImage
+          ? response.profileImage.length
+          : 0,
       });
 
       // Stocker le token si présent dans la réponse
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-        setToken(data.token);
+      if (response.token) {
+        localStorage.setItem("token", response.token);
+        setToken(response.token);
       }
 
       // Définir l'utilisateur comme admin
       const adminUser = setUserWithAdminRole({
-        ...data,
-        profileImage: data.profileImage || null,
-        company: data.company || null,
-        phone: data.phone || null,
-        jobTitle: data.jobTitle || null,
+        ...response,
+        profileImage: response.profileImage || null,
+        company: response.company || null,
+        phone: response.phone || null,
+        jobTitle: response.jobTitle || null,
       });
 
       setUser(adminUser);
@@ -732,7 +672,7 @@ export const AuthProvider = ({ children }) => {
       // Initialiser la connexion WebSocket avec le token
       try {
         const { initializeSocket } = require("../services/socket");
-        const socket = initializeSocket(data.token);
+        const socket = initializeSocket(response.token);
         if (socket) {
           console.log("Initialisation WebSocket après inscription réussie");
           // Connecter explicitement la socket - important pour éviter les connexions automatiques

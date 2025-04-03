@@ -266,11 +266,66 @@ export const API_DEBUG = process.env.NODE_ENV !== "production";
 
 // Fonction pour récupérer le token CSRF à partir des cookies
 export const getCsrfToken = () => {
+  try {
+    // Obtenir tous les cookies
+    const allCookies = document.cookie;
+
+    // Vérifier que nous avons des cookies
+    if (!allCookies || allCookies.trim() === "") {
+      console.warn("⚠️ Aucun cookie trouvé");
+      return null;
+    }
+
+    console.log("🔍 Recherche du token CSRF dans les cookies:", allCookies);
+
+    // Diviser les cookies
+    const cookies = allCookies.split(";");
+
+    // Chercher le cookie XSRF-TOKEN
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+
+      // Vérifier différentes variantes possibles du nom du cookie
+      if (cookie.startsWith("XSRF-TOKEN=")) {
+        const value = decodeURIComponent(
+          cookie.substring("XSRF-TOKEN=".length)
+        );
+        console.log("✅ Token CSRF trouvé:", value.substring(0, 10) + "...");
+        return value;
+      } else if (cookie.startsWith("xsrf-token=")) {
+        const value = decodeURIComponent(
+          cookie.substring("xsrf-token=".length)
+        );
+        console.log(
+          "✅ Token CSRF trouvé (minuscules):",
+          value.substring(0, 10) + "..."
+        );
+        return value;
+      } else if (cookie.startsWith("_csrf=")) {
+        const value = decodeURIComponent(cookie.substring("_csrf=".length));
+        console.log(
+          "✅ Token CSRF trouvé (_csrf):",
+          value.substring(0, 10) + "..."
+        );
+        return value;
+      }
+    }
+
+    console.warn("⚠️ Aucun token CSRF trouvé dans les cookies");
+    return null;
+  } catch (error) {
+    console.error("❌ Erreur lors de la récupération du token CSRF:", error);
+    return null;
+  }
+};
+
+// Fonction utilitaire générique pour récupérer n'importe quel cookie par son nom
+export const getCookie = (name) => {
   const cookies = document.cookie.split(";");
   for (let cookie of cookies) {
     cookie = cookie.trim();
-    if (cookie.startsWith("XSRF-TOKEN=")) {
-      return decodeURIComponent(cookie.substring("XSRF-TOKEN=".length));
+    if (cookie.startsWith(name + "=")) {
+      return decodeURIComponent(cookie.substring(name.length + 1));
     }
   }
   return null;
@@ -304,9 +359,65 @@ export const apiRequest = async (
 
   const url = endpoint.startsWith("/") ? endpoint : buildApiUrl(endpoint);
 
-  const csrfToken = getCsrfToken();
-  const csrfHeader =
-    csrfToken && method !== "GET" ? { "X-CSRF-Token": csrfToken } : {};
+  // Récupérer le token CSRF uniquement pour les méthodes non-GET
+  let csrfToken = method !== "GET" ? getCsrfToken() : null;
+
+  // Si on a besoin d'un token CSRF mais qu'il n'est pas disponible, essayer de le rafraîchir
+  if (method !== "GET" && !csrfToken && !endpoint.includes("csrf-token")) {
+    console.warn("⚠️ Token CSRF manquant, tentative de rafraîchissement...");
+    console.log("Cookies actuels:", document.cookie);
+    try {
+      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (csrfResponse.ok) {
+        const csrfData = await csrfResponse.json();
+        console.log("✅ Réponse CSRF reçue:", csrfData.message || "OK");
+
+        // Attendre un peu pour que le cookie soit défini
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Récupérer à nouveau le token
+        csrfToken = getCsrfToken();
+        console.log("Cookies après rafraîchissement:", document.cookie);
+        if (csrfToken) {
+          console.log(
+            "✅ Token CSRF récupéré avec succès:",
+            csrfToken.substring(0, 10) + "..."
+          );
+        } else {
+          console.error(
+            "❌ Le token CSRF n'a pas été défini dans les cookies après rafraîchissement"
+          );
+        }
+      } else {
+        console.error(
+          "❌ Échec de l'obtention du token CSRF:",
+          csrfResponse.status,
+          csrfResponse.statusText
+        );
+      }
+    } catch (error) {
+      console.error("❌ Erreur lors du rafraîchissement du token CSRF:", error);
+    }
+  }
+
+  // Utiliser le token récupéré ou fraîchement rafraîchi
+  const csrfHeader = csrfToken ? { "X-CSRF-Token": csrfToken } : {};
+
+  // Log du token CSRF utilisé
+  if (method !== "GET") {
+    if (csrfToken) {
+      console.log(`🔐 Envoi du token CSRF: ${csrfToken.substring(0, 10)}...`);
+    } else {
+      console.warn("⚠️ Aucun token CSRF disponible pour cette requête");
+    }
+  }
 
   const config = {
     method,
@@ -320,14 +431,43 @@ export const apiRequest = async (
     withCredentials: true, // indispensable pour envoyer les cookies
   };
 
+  console.log(
+    `📡 [API] ${method} ${url} ${
+      csrfToken ? "avec token CSRF" : "sans token CSRF"
+    }`
+  );
+
   try {
+    if (method !== "GET" && !csrfToken) {
+      console.warn(`⚠️ Requête ${method} sans token CSRF: ${url}`);
+    }
+
     const response = await axiosInstance(config);
     return response.data;
   } catch (error) {
-    console.error(
-      `[apiRequest] Erreur lors de la requête ${method} ${url}:`,
-      error?.response?.data?.message || error.message
-    );
+    // Vérifier s'il s'agit d'une erreur CSRF
+    const isCsrfError =
+      error.response?.status === 403 &&
+      (error.response?.data?.error?.includes("CSRF") ||
+        error.response?.data?.message?.includes("CSRF") ||
+        error.response?.data?.message?.includes("csrf"));
+
+    if (isCsrfError) {
+      console.error("🔒 Erreur CSRF détectée:");
+      console.error("- URL:", url);
+      console.error("- Méthode:", method);
+      console.error(
+        "- Token utilisé:",
+        csrfToken ? csrfToken.substring(0, 10) + "..." : "Aucun"
+      );
+      console.error("- Cookies disponibles:", document.cookie);
+      console.error("- Réponse d'erreur:", error.response?.data);
+    } else {
+      console.error(
+        `[apiRequest] Erreur lors de la requête ${method} ${url}:`,
+        error?.response?.data?.message || error.message
+      );
+    }
     throw error;
   }
 };

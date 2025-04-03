@@ -7,7 +7,7 @@ import Card from "../../components/ui/Card";
 import EnhancedLottie from "../../components/ui/EnhancedLottie";
 import { FormInput } from "../../components/ui/Form";
 import { useNotification } from "../../components/ui/Notification";
-import { API_URL } from "../../config/api";
+import { apiRequest, getCsrfToken } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Animations
@@ -205,18 +205,10 @@ const Login = () => {
           }
         });
 
-        const response = await fetch(`${API_URL}/api/csrf-token`, {
-          method: "GET",
-          credentials: "include", // Important pour recevoir et envoyer des cookies
-        });
-
-        if (response.ok) {
-          console.log("Token CSRF obtenu avec succès");
-          console.log("Cookies après obtention du token:", document.cookie);
-          // Le token est automatiquement stocké dans les cookies par le serveur
-        } else {
-          console.error("Échec de l'obtention du token CSRF:", response.status);
-        }
+        // Utiliser apiRequest qui gère les credentials correctement
+        await apiRequest("/api/csrf-token", "GET");
+        console.log("Token CSRF obtenu avec succès");
+        console.log("Cookies après obtention du token:", document.cookie);
       } catch (error) {
         console.error("Erreur lors de la récupération du token CSRF:", error);
       }
@@ -224,10 +216,7 @@ const Login = () => {
 
     fetchCsrfToken();
 
-    // Rafraîchir le token toutes les 10 secondes pendant que l'utilisateur est sur la page de connexion
-    const refreshInterval = setInterval(fetchCsrfToken, 10000);
-
-    return () => clearInterval(refreshInterval);
+    return () => {}; // Plus besoin du setInterval pour rafraîchir
   }, []);
 
   // Valider le formulaire
@@ -262,70 +251,28 @@ const Login = () => {
 
     // Essayer d'obtenir un nouveau token CSRF juste avant la connexion
     try {
-      const csrfResponse = await fetch(`${API_URL}/api/csrf-token`, {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (csrfResponse.ok) {
-        console.log("Token CSRF rafraîchi avant connexion");
-      } else {
-        console.warn("Échec du rafraîchissement du token CSRF avant connexion");
-      }
+      await apiRequest("/api/csrf-token", "GET");
+      console.log("Token CSRF rafraîchi avant connexion");
     } catch (error) {
       console.error("Erreur lors du rafraîchissement du token CSRF:", error);
     }
 
-    // Attendre un peu pour s'assurer que le cookie est bien défini
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Code de débogage pour vérifier le token CSRF
-    const getCsrfToken = () => {
-      const cookies = document.cookie.split(";");
-      console.log("Cookies disponibles:", document.cookie);
-      for (let cookie of cookies) {
-        cookie = cookie.trim();
-        console.log("Vérifiant cookie:", cookie);
-        if (cookie.startsWith("XSRF-TOKEN=")) {
-          return cookie.substring("XSRF-TOKEN=".length);
-        }
-      }
-      return null;
-    };
-
+    // Vérifier si le token CSRF est bien présent
     const csrfToken = getCsrfToken();
-    console.log("Token CSRF avant connexion:", csrfToken);
-    console.log("Tous les cookies:", document.cookie);
-
-    if (!csrfToken) {
-      console.log("Aucun token CSRF trouvé, on continue quand même");
-      // On continue sans token CSRF, car certaines configurations ne l'exigent pas
-    }
+    console.log(
+      "Token CSRF avant connexion:",
+      csrfToken ? "Présent" : "Absent"
+    );
 
     setIsLoading(true);
 
     try {
       console.log("Tentative de connexion avec:", { email, password: "***" });
-      console.log("Mot de passe brut pour connexion:", cleanPassword); // Utiliser la version nettoyée
 
-      // Utiliser la fonction login du contexte d'authentification avec le token CSRF
-      const success = await login(email, cleanPassword, csrfToken);
+      // Utiliser la fonction login du contexte d'authentification
+      const success = await login(email, cleanPassword);
 
       console.log("Résultat de la connexion:", success);
-
-      // Vérifier que le token a bien été enregistré
-      const storedToken = localStorage.getItem("token");
-      console.log(
-        "Token stocké:",
-        storedToken ? `${storedToken.substring(0, 20)}...` : "Aucun"
-      );
-
-      // Vérifier que les infos utilisateur ont été stockées
-      const storedUser = localStorage.getItem("user");
-      console.log(
-        "Utilisateur stocké:",
-        storedUser ? JSON.parse(storedUser) : "Aucun"
-      );
 
       if (success) {
         console.log("Connexion réussie, redirection vers le dashboard");
@@ -340,13 +287,13 @@ const Login = () => {
         // Pause plus longue pour s'assurer que tout est bien enregistré et que la notification s'affiche
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        // Forcer une actualisation complète plutôt qu'une redirection simple pour s'assurer que le contexte est réinitialisé
+        // Forcer une actualisation complète plutôt qu'une redirection simple
         console.log("Redirection vers le dashboard via window.location.href");
         window.location.href = redirectPath;
       } else {
         console.error("Connexion échouée sans exception", { loginError });
 
-        // Afficher une notification d'erreur si le login a échoué mais n'a pas lancé d'exception
+        // Afficher une notification d'erreur
         showNotification({
           type: "error",
           title: "Échec de connexion",

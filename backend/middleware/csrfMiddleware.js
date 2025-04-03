@@ -125,6 +125,19 @@ const verifyCsrfToken = (req, res, next) => {
   // Si aucun token n'est fourni dans l'en-tête
   if (!csrfToken) {
     console.error("⛔ [CSRF] Token manquant dans les en-têtes");
+    console.error("Cookies disponibles:", req.cookies);
+    console.error("Session disponible:", req.session ? "Oui" : "Non");
+    console.error("En-têtes de la requête:", req.headers);
+
+    // En mode DEBUG, on peut temporairement désactiver la vérification
+    if (
+      process.env.CSRF_DEBUG === "true" ||
+      process.env.NODE_ENV === "development"
+    ) {
+      console.warn("⚠️ [CSRF] Vérification CSRF ignorée en mode DEBUG");
+      return next();
+    }
+
     return res.status(403).json({
       success: false,
       message: "Accès refusé - Token CSRF manquant",
@@ -135,6 +148,18 @@ const verifyCsrfToken = (req, res, next) => {
   // Si aucun token n'est stocké dans la session ou dans les cookies
   if (!storedToken) {
     console.error("⛔ [CSRF] Token non trouvé dans la session ou les cookies");
+    console.error("Token reçu:", csrfToken);
+    console.error("Cookies:", req.cookies);
+
+    // En mode DEBUG, on peut temporairement désactiver la vérification
+    if (
+      process.env.CSRF_DEBUG === "true" ||
+      process.env.NODE_ENV === "development"
+    ) {
+      console.warn("⚠️ [CSRF] Vérification CSRF ignorée en mode DEBUG");
+      return next();
+    }
+
     return res.status(403).json({
       success: false,
       message: "Accès refusé - Session invalide ou expirée",
@@ -147,6 +172,18 @@ const verifyCsrfToken = (req, res, next) => {
     console.error("⛔ [CSRF] Token invalide");
     console.error(`  Reçu: ${csrfToken}`);
     console.error(`  Attendu: ${storedToken}`);
+
+    // En mode DEBUG, on peut temporairement désactiver la vérification
+    if (
+      process.env.CSRF_DEBUG === "true" ||
+      process.env.NODE_ENV === "development"
+    ) {
+      console.warn(
+        "⚠️ [CSRF] Vérification CSRF ignorée en mode DEBUG - tokens ne correspondent pas"
+      );
+      return next();
+    }
+
     return res.status(403).json({
       success: false,
       message: "Accès refusé - Token CSRF invalide",
