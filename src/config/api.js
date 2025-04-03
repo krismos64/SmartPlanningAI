@@ -1,19 +1,29 @@
-/**
- * Configuration et utilitaires pour les appels API
- */
+// src/config/api.js
 
 import axios from "axios";
 
-// URL de base de l'API en production
-const PROD_API_URL = "https://smartplanning.onrender.com";
+// URL de fallback si aucune variable n'est définie
+const DEFAULT_LOCAL_URL = "http://localhost:5001";
+const DEFAULT_PROD_URL = "https://smartplanning.onrender.com";
+const PROD_API_URL = DEFAULT_PROD_URL;
+
+// Fonction pour déterminer dynamiquement l'URL selon le hostname
+const resolveApiUrl = () => {
+  const hostname = window.location.hostname;
+
+  if (hostname.includes("localhost")) return DEFAULT_LOCAL_URL;
+  if (hostname.includes("smartplanning")) return DEFAULT_PROD_URL;
+
+  // fallback safe si on est sur un autre domaine
+  return process.env.REACT_APP_API_URL || DEFAULT_PROD_URL;
+};
 
 // URL de base de l'API
-export const API_URL =
-  process.env.NODE_ENV === "production"
-    ? PROD_API_URL
-    : process.env.REACT_APP_API_URL || "http://localhost:5001";
+export const API_URL = resolveApiUrl();
 
-// Création d'une instance Axios pour gérer les rafraîchissements de token
+console.log("🌐 [API] API_URL utilisé :", API_URL);
+
+// Création d'une instance Axios
 export const axiosInstance = axios.create({
   baseURL: API_URL,
   withCredentials: true,
