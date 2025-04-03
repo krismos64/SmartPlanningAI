@@ -1,15 +1,12 @@
-const csrf = require("csrf-csrf").default;
-const tokens = csrf();
+const crypto = require("crypto");
 
 /**
- * Middleware de protection CSRF
- * Utilise des cookies sécurisés pour stocker les tokens CSRF
+ * Génère et envoie un token CSRF sous forme de cookies
  */
-const csrfMiddleware = (req, res, next) => {
-  const secret = tokens.secretSync();
-  const token = tokens.create(secret);
+const generateCsrfToken = (req, res, next) => {
+  const secret = crypto.randomBytes(24).toString("hex");
+  const token = crypto.createHmac("sha256", secret).digest("hex");
 
-  // Stocke le secret côté serveur dans un cookie HTTPOnly
   res.cookie("_csrf_secret", secret, {
     httpOnly: true,
     secure: true,
@@ -18,7 +15,6 @@ const csrfMiddleware = (req, res, next) => {
     domain: ".smartplanning.fr",
   });
 
-  // Stocke le token accessible par le frontend
   res.cookie("XSRF-TOKEN", token, {
     httpOnly: false,
     secure: true,
@@ -32,34 +28,25 @@ const csrfMiddleware = (req, res, next) => {
 };
 
 /**
- * Handler d'erreur CSRF personnalisé
- * @param {Object} err - Erreur
- * @param {Object} req - Requête Express
- * @param {Object} res - Réponse Express
- * @param {Function} next - Fonction suivante
+ * Vérifie que le token CSRF reçu est valide
  */
-const handleCsrfError = (err, req, res, next) => {
-  if (err.code !== "EBADCSRFTOKEN") {
-    return next(err);
+const verifyCsrfToken = (req, res, next) => {
+  const secret = req.cookies["_csrf_secret"];
+  const token = req.get("x-xsrf-token") || req.body._csrf;
+
+  if (!secret || !token) {
+    return res.status(403).json({ error: "Token CSRF manquant" });
   }
 
-  // Journaliser la tentative potentielle d'attaque CSRF
-  console.error("Tentative CSRF détectée:", {
-    ip: req.ip,
-    method: req.method,
-    url: req.originalUrl,
-    headers: req.headers,
-    timestamp: new Date().toISOString(),
-  });
+  const expected = crypto.createHmac("sha256", secret).digest("hex");
+  if (token !== expected) {
+    return res.status(403).json({ error: "Token CSRF invalide" });
+  }
 
-  // Envoyer une réponse d'erreur
-  res.status(403).json({
-    success: false,
-    message: "Action rejetée: tentative d'attaque CSRF détectée",
-  });
+  next();
 };
 
 module.exports = {
-  csrfMiddleware,
-  handleCsrfError,
+  generateCsrfToken,
+  verifyCsrfToken,
 };

@@ -15,13 +15,15 @@ const http = require("http");
 const setupWebSocket = require("./config/websocket");
 const Activity = require("./models/Activity");
 const jwt = require("jsonwebtoken");
-const { csrfMiddleware } = require("./middleware/csrfMiddleware");
+const {
+  generateCsrfToken,
+  verifyCsrfToken,
+} = require("./middleware/csrfMiddleware");
 const { default: tokens } = require("csrf-csrf");
 
 // Configuration CSRF et gestionnaire d'erreurs
 const {
   csrfProtection,
-  generateCsrfToken,
   handleCsrfError,
 } = require("./middleware/csrfMiddleware");
 const { secureAuth } = require("./middleware/secureAuth");
@@ -101,10 +103,11 @@ const limiter = rateLimit({
 // Appliquer le limiteur à toutes les routes
 app.use("/api/", limiter);
 
-// Utiliser cookie-parser pour les cookies sécurisés avec une clé secrète
-const COOKIE_SECRET =
-  process.env.COOKIE_SECRET || "smartplanning_cookie_secret_key";
-app.use(cookieParser(COOKIE_SECRET));
+// Configuration du proxy pour gérer les en-têtes X-Forwarded-For
+app.set("trust proxy", 1);
+
+// Utiliser cookie-parser pour les cookies sécurisés
+app.use(cookieParser());
 
 // Configuration pour traiter les données JSON
 app.use(express.json({ limit: "50mb" }));
@@ -199,24 +202,12 @@ app.use((req, res, next) => {
 });
 
 // Route pour obtenir le token CSRF
-app.get("/api/csrf-token", csrfMiddleware, (req, res) => {
+app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
   res.json({ csrfToken: req.csrfToken });
 });
 
-// Middleware de vérification CSRF pour les routes protégées
-const verifyCsrf = (req, res, next) => {
-  const secret = req.cookies._csrf_secret;
-  const token = req.get("x-xsrf-token") || req.body._csrf;
-
-  if (!tokens.verify(secret, token)) {
-    return res.status(403).json({ error: "Token CSRF invalide" });
-  }
-
-  next();
-};
-
 // Appliquer la vérification CSRF aux routes protégées
-app.use("/api/auth", verifyCsrf, authRoutes);
+app.use("/api/auth", verifyCsrfToken, authRoutes);
 
 // Routes nécessitant une authentification
 app.use("/api/employees", secureAuth, employeesRoutes);
