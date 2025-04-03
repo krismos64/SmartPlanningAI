@@ -4,7 +4,8 @@
 
 import axios from "axios";
 
-const PROD_API_URL = "https://smartplanning.onrender.com/";
+// URL de base de l'API en production
+const PROD_API_URL = "https://smartplanning.onrender.com/api";
 
 // URL de base de l'API
 export const API_URL =
@@ -12,59 +13,7 @@ export const API_URL =
     ? PROD_API_URL
     : process.env.REACT_APP_API_URL || "http://localhost:5001";
 
-// Fonction pour vérifier si l'URL est correcte
-export const validateApiUrl = () => {
-  if (!API_URL) {
-    throw new Error(`
-⚠️ URL d'API non définie ⚠️
-L'URL de l'API n'est pas configurée. Impossible d'effectuer des requêtes.
-    `);
-  }
-
-  // En production, vérifier que l'URL est bien celle de Render
-  if (process.env.NODE_ENV === "production" && API_URL !== PROD_API_URL) {
-    throw new Error(`
-⚠️ Configuration invalide ⚠️
-L'URL de l'API en production doit être ${PROD_API_URL}
-URL actuelle: ${API_URL}
-    `);
-  }
-
-  return true;
-};
-
-// Fonction pour construire une URL d'API complète
-export const buildApiUrl = (endpoint) => {
-  validateApiUrl();
-
-  // Nettoyer l'endpoint
-  const cleanEndpoint = endpoint.replace(/^\/api\//, "/");
-
-  // Construire l'URL complète
-  const baseUrl = API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL;
-  const finalEndpoint = cleanEndpoint.startsWith("/")
-    ? cleanEndpoint
-    : `/${cleanEndpoint}`;
-
-  return `${baseUrl}${finalEndpoint}`;
-};
-
-// Constante pour activer/désactiver les logs de débogage API
-export const API_DEBUG = process.env.NODE_ENV !== "production";
-
-// Fonction utilitaire pour récupérer le token CSRF depuis les cookies
-export const getCsrfToken = () => {
-  const cookies = document.cookie.split(";");
-  for (let cookie of cookies) {
-    cookie = cookie.trim();
-    if (cookie.startsWith("XSRF-TOKEN=")) {
-      return cookie.substring("XSRF-TOKEN=".length);
-    }
-  }
-  return null;
-};
-
-// Routes de l'API
+// Endpoints de l'API
 export const API_ENDPOINTS = {
   LOGIN: "/api/auth/login",
   REGISTER: "/api/auth/register",
@@ -141,6 +90,66 @@ export const API_ENDPOINTS = {
   SCHEDULE: {
     AUTO_GENERATE: "/api/schedule/auto-generate",
   },
+  HEALTH: "", // Endpoint vide pour vérifier l'état de l'API
+};
+
+// Fonction pour vérifier si l'URL est correcte
+export const validateApiUrl = () => {
+  if (!API_URL) {
+    throw new Error(`
+⚠️ URL d'API non définie ⚠️
+L'URL de l'API n'est pas configurée. Impossible d'effectuer des requêtes.
+    `);
+  }
+
+  // En production, vérifier que l'URL est bien celle de Render
+  if (process.env.NODE_ENV === "production" && API_URL !== PROD_API_URL) {
+    throw new Error(`
+⚠️ Configuration invalide ⚠️
+L'URL de l'API en production doit être ${PROD_API_URL}
+URL actuelle: ${API_URL}
+    `);
+  }
+
+  return true;
+};
+
+// Fonction pour construire une URL d'API complète
+export const buildApiUrl = (endpoint) => {
+  validateApiUrl();
+
+  // Si l'endpoint est vide ou /, retourner l'URL de base
+  if (!endpoint || endpoint === "/") {
+    return API_URL;
+  }
+
+  // Si l'URL de base contient déjà /api, on retire /api/ de l'endpoint
+  const cleanEndpoint = API_URL.includes("/api")
+    ? endpoint.replace(/^\/api/, "")
+    : endpoint;
+
+  // Construire l'URL complète
+  const baseUrl = API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL;
+  const finalEndpoint = cleanEndpoint.startsWith("/")
+    ? cleanEndpoint
+    : `/${cleanEndpoint}`;
+
+  return `${baseUrl}${finalEndpoint}`;
+};
+
+// Constante pour activer/désactiver les logs de débogage API
+export const API_DEBUG = process.env.NODE_ENV !== "production";
+
+// Fonction utilitaire pour récupérer le token CSRF depuis les cookies
+export const getCsrfToken = () => {
+  const cookies = document.cookie.split(";");
+  for (let cookie of cookies) {
+    cookie = cookie.trim();
+    if (cookie.startsWith("XSRF-TOKEN=")) {
+      return cookie.substring("XSRF-TOKEN=".length);
+    }
+  }
+  return null;
 };
 
 // Fonction utilitaire pour logger les messages de débogage API

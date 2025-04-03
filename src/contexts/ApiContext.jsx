@@ -1,6 +1,6 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
-import { API_URL, validateApiUrl } from "../config/api";
+import { API_ENDPOINTS, API_URL, validateApiUrl } from "../config/api";
 import { formatError, handleApiError } from "../utils/errorHandling";
 import { useAuth } from "./AuthContext";
 
@@ -35,6 +35,11 @@ export const ApiProvider = ({ children }) => {
       // Intercepteur pour ajouter le token d'authentification à chaque requête
       instance.interceptors.request.use(
         async (config) => {
+          // Si c'est une requête à l'URL de base, utiliser l'endpoint de santé
+          if (config.url === "/" || !config.url) {
+            config.url = API_ENDPOINTS.HEALTH;
+          }
+
           console.log(
             `🔍 [API Request] ${config.method.toUpperCase()} vers ${
               config.baseURL
