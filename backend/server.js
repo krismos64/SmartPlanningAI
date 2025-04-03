@@ -8,23 +8,14 @@ const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
 // Utiliser db directement dans un commentaire pour indiquer son utilisation implicite
 // db est utilisé implicitement pour établir la connexion à la base de données au démarrage
-const db = require("./config/db");
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const setupWebSocket = require("./config/websocket");
 const Activity = require("./models/Activity");
-const jwt = require("jsonwebtoken");
 const {
   generateCsrfToken,
   verifyCsrfToken,
-} = require("./middleware/csrfMiddleware");
-const { default: tokens } = require("csrf-csrf");
-
-// Configuration CSRF et gestionnaire d'erreurs
-const {
-  csrfProtection,
-  handleCsrfError,
 } = require("./middleware/csrfMiddleware");
 const { secureAuth } = require("./middleware/secureAuth");
 
@@ -260,7 +251,7 @@ app.use((err, req, res, next) => {
 const lockFile = path.join(__dirname, "server.lock");
 
 // Fonction pour vérifier si le serveur est déjà en cours d'exécution
-const isServerRunning = () => {
+const checkServerRunning = () => {
   try {
     if (fs.existsSync(lockFile)) {
       const pid = parseInt(fs.readFileSync(lockFile, "utf8"));
@@ -279,7 +270,7 @@ const isServerRunning = () => {
 };
 
 // Fonction pour trouver un port disponible
-const findAvailablePort = async (startPort) => {
+const getAvailablePort = async (startPort) => {
   const net = require("net");
 
   const isPortAvailable = (port) => {
@@ -303,8 +294,14 @@ const findAvailablePort = async (startPort) => {
 
 const startServer = async () => {
   try {
-    // Utiliser le port fourni par Render ou 5001 comme fallback
-    const port = process.env.PORT || 5001;
+    // Vérifier si le serveur est déjà en cours d'exécution
+    if (checkServerRunning()) {
+      console.error("Le serveur est déjà en cours d'exécution");
+      process.exit(1);
+    }
+
+    // Utiliser le port fourni par Render ou trouver un port disponible
+    const port = process.env.PORT || (await getAvailablePort(5001));
     const server = http.createServer(app);
 
     // Configurer WebSocket
