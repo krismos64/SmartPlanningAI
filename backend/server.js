@@ -45,11 +45,18 @@ const app = express();
 // Configuration CORS
 const corsOptions = {
   origin: [
-    process.env.FRONTEND_URL || "https://smartplanning.onrender.com",
+    process.env.FRONTEND_URL || "https://smartplanning.fr",
+    "https://smartplanning.fr",
+    "https://www.smartplanning.fr",
     "https://smartplanning.onrender.com",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-CSRF-Token",
+    "x-xsrf-token",
+  ],
   credentials: true,
   maxAge: 86400, // 24 heures
 };

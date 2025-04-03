@@ -13,6 +13,120 @@ export const API_URL =
     ? PROD_API_URL
     : process.env.REACT_APP_API_URL || "http://localhost:5001";
 
+// Création d'une instance Axios pour gérer les rafraîchissements de token
+export const axiosInstance = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Variable pour suivre si un rafraîchissement de token est en cours
+let isRefreshing = false;
+// File d'attente pour stocker les requêtes en attente pendant le rafraîchissement
+let failedQueue = [];
+
+// Fonction pour traiter la file d'attente
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((promise) => {
+    if (error) {
+      promise.reject(error);
+    } else {
+      promise.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
+// Intercepteur pour gérer le rafraîchissement automatique des tokens
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Si l'erreur n'est pas 401 ou si la requête a déjà été retentée, rejeter directement
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    // Marquer cette requête comme ayant déjà été retentée
+    originalRequest._retry = true;
+
+    // Si un rafraîchissement est déjà en cours, mettre la requête en file d'attente
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      })
+        .then((token) => {
+          if (token) {
+            originalRequest.headers["Authorization"] = `Bearer ${token}`;
+          }
+          return axiosInstance(originalRequest);
+        })
+        .catch((err) => Promise.reject(err));
+    }
+
+    isRefreshing = true;
+
+    try {
+      // Tentative de rafraîchissement du token
+      const response = await axiosInstance.post(
+        "/api/auth/refresh",
+        {},
+        {
+          withCredentials: true,
+          _retry: true, // Marquer cette requête de rafraîchissement pour éviter les boucles infinies
+        }
+      );
+
+      if (response.data.success) {
+        // Stocker le nouveau token si retourné
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+          originalRequest.headers[
+            "Authorization"
+          ] = `Bearer ${response.data.token}`;
+        }
+
+        // Mettre à jour les informations utilisateur
+        if (response.data.user) {
+          localStorage.setItem("user", JSON.stringify(response.data.user));
+        }
+
+        processQueue(null, response.data.token);
+        return axiosInstance(originalRequest);
+      } else {
+        // Si le rafraîchissement échoue, vider la file d'attente et rejeter
+        processQueue(new Error("Rafraîchissement du token échoué"));
+
+        // Rediriger vers la page de connexion si nécessaire
+        if (window.location.pathname !== "/login") {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login?expired=true";
+        }
+
+        return Promise.reject(error);
+      }
+    } catch (refreshError) {
+      processQueue(refreshError);
+
+      // Rediriger vers la page de connexion si nécessaire
+      if (window.location.pathname !== "/login") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login?expired=true";
+      }
+
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
+  }
+);
+
 // Endpoints de l'API
 export const API_ENDPOINTS = {
   LOGIN: "/api/auth/login",
@@ -179,87 +293,28 @@ export const apiRequest = async (
   validateApiUrl();
 
   // Construire l'URL complète
-  const url = buildApiUrl(endpoint);
+  const url = endpoint.startsWith("/") ? endpoint : buildApiUrl(endpoint);
 
   apiDebug(`${method} ${url}`, data ? { payload: data } : null);
 
   try {
-    const token = localStorage.getItem("token");
-    console.log(
-      `[apiRequest] ${method} ${url} - Token:`,
-      token ? `Présent (${token.substring(0, 15)}...)` : "Manquant"
-    );
-
-    // Ajouter le token CSRF pour les routes d'authentification
+    // Récupérer le token CSRF pour toutes les requêtes
+    const csrfToken = getCsrfToken();
     let csrfHeader = {};
-    if (
-      url &&
-      (url.includes("/api/auth/") || endpoint.startsWith("/api/auth/"))
-    ) {
-      const csrfToken = getCsrfToken();
-      if (csrfToken) {
-        csrfHeader = { "X-CSRF-Token": csrfToken };
-        console.log(`[apiRequest] Token CSRF ajouté pour la route ${url}`);
-      } else {
-        console.warn(
-          `[apiRequest] Pas de token CSRF trouvé pour la route ${url}`
-        );
-      }
-    }
 
-    console.log(`[apiRequest] Préparation de la requête ${method} vers ${url}`);
-
-    // Vérification plus détaillée du token
-    if (token) {
-      try {
-        // Analyser le JWT pour voir s'il est bien formé
-        const tokenParts = token.split(".");
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(atob(tokenParts[1]));
-          console.log("[apiRequest] Payload du token JWT:", {
-            id: payload.id || "non défini",
-            userId: payload.userId || "non défini",
-            role: payload.role || "non défini",
-            exp: payload.exp
-              ? new Date(payload.exp * 1000).toISOString()
-              : "non défini",
-            iat: payload.iat
-              ? new Date(payload.iat * 1000).toISOString()
-              : "non défini",
-          });
-
-          // Vérifier si le token est expiré
-          if (payload.exp) {
-            const now = Math.floor(Date.now() / 1000);
-            if (payload.exp < now) {
-              console.warn("[apiRequest] Le token JWT est expiré!", {
-                expiration: new Date(payload.exp * 1000).toISOString(),
-                maintenant: new Date(now * 1000).toISOString(),
-              });
-            }
-          }
-        } else {
-          console.warn("[apiRequest] Format de token JWT invalide");
-        }
-      } catch (tokenError) {
-        console.error(
-          "[apiRequest] Erreur lors de l'analyse du token:",
-          tokenError.message
-        );
-      }
+    if (csrfToken && method !== "GET") {
+      csrfHeader = { "X-CSRF-Token": csrfToken };
+      console.log(`[apiRequest] Token CSRF ajouté pour la route ${url}`);
     }
 
     const config = {
       method,
       url,
       headers: {
-        "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
         ...csrfHeader,
         ...headers,
       },
       ...(data && { data }),
-      withCredentials: true,
     };
 
     console.log(`[apiRequest] Configuration:`, {
@@ -267,14 +322,14 @@ export const apiRequest = async (
       url: config.url,
       headers: Object.keys(config.headers),
       hasData: !!data,
-      authorization: token
-        ? `Bearer ${token.substring(0, 10)}...`
+      authorization: csrfToken
+        ? `CSRF Token: ${csrfToken.substring(0, 10)}...`
         : "Non fourni",
     });
 
     try {
       console.log(`[apiRequest] Envoi de la requête...`);
-      const response = await axios(config);
+      const response = await axiosInstance(config);
       console.log(`[apiRequest] Réponse reçue:`, {
         status: response.status,
         statusText: response.statusText,

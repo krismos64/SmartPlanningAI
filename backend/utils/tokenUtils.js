@@ -6,7 +6,7 @@ const ACCESS_TOKEN_SECRET =
   process.env.JWT_SECRET || "smartplanning_secret_key";
 const REFRESH_TOKEN_SECRET =
   process.env.JWT_REFRESH_SECRET || "smartplanning_refresh_secret_key";
-const ACCESS_TOKEN_EXPIRY = "1h"; // 1 heure
+const ACCESS_TOKEN_EXPIRY = "15m"; // 15 minutes
 const REFRESH_TOKEN_EXPIRY = "7d"; // 7 jours
 
 /**
@@ -251,14 +251,36 @@ function clearTokenCookies(res) {
     domain: ".smartplanning.fr",
   };
 
-  res.clearCookie("accessToken", { ...cookieConfig, path: "/" });
-  res.clearCookie("refreshToken", {
+  res.cookie("accessToken", "", {
     ...cookieConfig,
+    expires: new Date(0),
+    path: "/",
+  });
+
+  res.cookie("refreshToken", "", {
+    ...cookieConfig,
+    expires: new Date(0),
     path: "/api/auth/refresh",
   });
-  res.clearCookie("auth_token", {
+
+  res.cookie("auth_token", "", {
     ...cookieConfig,
     httpOnly: false,
+    expires: new Date(0),
+    path: "/",
+  });
+
+  // Supprimer également le cookie CSRF
+  res.cookie("_csrf_secret", "", {
+    ...cookieConfig,
+    expires: new Date(0),
+    path: "/",
+  });
+
+  res.cookie("XSRF-TOKEN", "", {
+    ...cookieConfig,
+    httpOnly: false,
+    expires: new Date(0),
     path: "/",
   });
 }

@@ -1,5 +1,6 @@
 const { createActivitiesTable } = require("./create_activities_table");
 const { createShiftsTable } = require("./create_shifts_table");
+const { createAuthLogsTable } = require("./create_auth_logs_table");
 
 async function runMigrations() {
   try {
@@ -10,6 +11,9 @@ async function runMigrations() {
 
     // Exécuter la migration pour la table des shifts
     await createShiftsTable();
+
+    // Exécuter la migration pour la table des logs d'authentification
+    await createAuthLogsTable();
 
     // Ajouter d'autres migrations ici si nécessaire
 

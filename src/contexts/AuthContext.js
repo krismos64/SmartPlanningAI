@@ -1,6 +1,55 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import styled from "styled-components";
 import useWebSocket from "../hooks/useWebSocket";
 import { AuthService } from "../services/api";
+
+// Style de la modale d'inactivité
+const StyledInactivityModal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+`;
+
+const StyledModalContent = styled.div`
+  background-color: white;
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  text-align: center;
+
+  h2 {
+    color: #e74c3c;
+    margin-bottom: 1rem;
+  }
+
+  p {
+    margin-bottom: 1rem;
+    color: #333;
+  }
+
+  button {
+    background-color: #3498db;
+    border: none;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #2980b9;
+    }
+  }
+`;
 
 // Modifier la fonction pour récupérer le token CSRF avec une meilleure gestion des erreurs
 const getCsrfToken = () => {
@@ -53,6 +102,144 @@ export const AuthProvider = ({ children }) => {
   const { notifyDataChange, disconnect } = useWebSocket();
 
   const API_URL = process.env.REACT_APP_API_URL;
+
+  // État pour gérer l'inactivité de l'utilisateur
+  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [showInactivityModal, setShowInactivityModal] = useState(false);
+  const [inactivityLogoutTimer, setInactivityLogoutTimer] = useState(null);
+  const [inactivityCheckTimer, setInactivityCheckTimer] = useState(null);
+
+  // Constantes pour les timeouts d'inactivité
+  const INACTIVITY_THRESHOLD = 15 * 60 * 1000; // 15 minutes en millisecondes
+  const LOGOUT_WARNING_DURATION = 60 * 1000; // 1 minute en millisecondes
+
+  // Fonction pour réinitialiser le timer d'inactivité
+  const resetInactivityTimer = () => {
+    setLastActivity(Date.now());
+    setShowInactivityModal(false);
+
+    // Effacer le timer de déconnexion s'il existe
+    if (inactivityLogoutTimer) {
+      clearTimeout(inactivityLogoutTimer);
+      setInactivityLogoutTimer(null);
+    }
+  };
+
+  // Fonction pour vérifier périodiquement l'inactivité
+  const checkInactivity = () => {
+    const now = Date.now();
+    const inactiveTime = now - lastActivity;
+
+    if (inactiveTime >= INACTIVITY_THRESHOLD && !showInactivityModal) {
+      // L'utilisateur est inactif depuis plus de 15 minutes, afficher la modale
+      setShowInactivityModal(true);
+
+      // Définir un timer pour déconnecter après 1 minute supplémentaire
+      const timer = setTimeout(() => {
+        // Déconnecter l'utilisateur si toujours inactif
+        if (
+          Date.now() - lastActivity >=
+          INACTIVITY_THRESHOLD + LOGOUT_WARNING_DURATION
+        ) {
+          console.log("Déconnexion automatique pour inactivité");
+          logout();
+          window.location.href = "/login?reason=inactivity";
+        }
+      }, LOGOUT_WARNING_DURATION);
+
+      setInactivityLogoutTimer(timer);
+    }
+  };
+
+  // Configurer les écouteurs d'événements pour suivre l'activité
+  useEffect(() => {
+    // Uniquement initialiser les écouteurs si l'utilisateur est authentifié
+    if (isAuthenticated) {
+      // Liste des événements à suivre pour l'activité de l'utilisateur
+      const activityEvents = [
+        "mousedown",
+        "mousemove",
+        "keypress",
+        "scroll",
+        "touchstart",
+        "click",
+        "keydown",
+      ];
+
+      // Fonction de gestionnaire pour réinitialiser le timer
+      const handleUserActivity = () => {
+        resetInactivityTimer();
+      };
+
+      // Ajouter les écouteurs d'événements
+      activityEvents.forEach((event) => {
+        window.addEventListener(event, handleUserActivity);
+      });
+
+      // Configurer une vérification périodique de l'inactivité (toutes les minutes)
+      const checkTimer = setInterval(checkInactivity, 60 * 1000);
+      setInactivityCheckTimer(checkTimer);
+
+      // Nettoyer les écouteurs et timers au démontage
+      return () => {
+        activityEvents.forEach((event) => {
+          window.removeEventListener(event, handleUserActivity);
+        });
+
+        if (inactivityLogoutTimer) {
+          clearTimeout(inactivityLogoutTimer);
+        }
+
+        if (checkTimer) {
+          clearInterval(checkTimer);
+        }
+      };
+    }
+  }, [isAuthenticated, lastActivity]);
+
+  // Configurer le rafraîchissement périodique du token
+  useEffect(() => {
+    // Uniquement initialiser si l'utilisateur est authentifié
+    if (isAuthenticated) {
+      // Fonction pour vérifier et rafraîchir le token si nécessaire
+      const checkTokenExpiration = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+          // Décoder le payload du token pour obtenir l'expiration
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          const expirationTime = payload.exp * 1000; // Convertir en millisecondes
+          const currentTime = Date.now();
+
+          // Si le token expire dans moins de 5 minutes, le rafraîchir
+          if (expirationTime - currentTime < 5 * 60 * 1000) {
+            console.log("Token proche de l'expiration, rafraîchissement...");
+            await refreshToken();
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la vérification de l'expiration du token:",
+            error
+          );
+        }
+      };
+
+      // Vérifier immédiatement au chargement
+      checkTokenExpiration();
+
+      // Puis vérifier toutes les 5 minutes
+      const tokenCheckInterval = setInterval(
+        checkTokenExpiration,
+        5 * 60 * 1000
+      );
+
+      // Nettoyer l'intervalle au démontage
+      return () => {
+        clearInterval(tokenCheckInterval);
+      };
+    }
+  }, [isAuthenticated]);
 
   // Fonction pour vérifier et renouveler le token si nécessaire
   const ensureValidToken = async () => {
@@ -128,151 +315,65 @@ export const AuthProvider = ({ children }) => {
   // Vérifier l'authentification au chargement
   useEffect(() => {
     const checkInitialAuth = async () => {
-      // Utiliser ensureValidToken pour s'assurer d'avoir le token le plus récent
-      const validToken = await ensureValidToken();
-
-      if (validToken) {
+      try {
         console.log("=== DEBUT RESTORATION DE SESSION ===");
-        console.log(
-          "Token valide trouvé:",
-          validToken.substring(0, 15) + "..."
-        );
 
-        try {
-          // Vérifier si le user a été sauvegardé en localStorage
-          const savedUser = localStorage.getItem("user");
-          if (savedUser) {
-            try {
-              console.log("Utilisateur trouvé dans localStorage");
-              const parsedUser = JSON.parse(savedUser);
-              console.log("Données utilisateur:", {
-                id: parsedUser.id,
-                email: parsedUser.email,
-                role: parsedUser.role,
-              });
-              setUser(parsedUser);
-              setIsAuthenticated(true);
+        // Tentative de récupération du token CSRF
+        await refreshCsrfToken();
 
-              // Récupérer les employés associés à cet utilisateur
-              try {
-                const response = await fetch(
-                  `${API_URL}/api/employees/by-user/${parsedUser.id}`,
-                  {
-                    method: "GET",
-                    headers: {
-                      Authorization: `Bearer ${validToken}`,
-                    },
-                  }
-                );
+        // Vérifier la session d'authentification actuelle avec le backend
+        const response = await fetch(`${API_URL}/api/auth/check`, {
+          method: "GET",
+          credentials: "include", // Envoyer les cookies avec la requête
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-                if (response.ok) {
-                  const employeesData = await response.json();
-                  if (
-                    employeesData.success &&
-                    Array.isArray(employeesData.data)
-                  ) {
-                    // Extraire les IDs des employés
-                    const employeeIds = employeesData.data.map((emp) => emp.id);
-                    console.log(
-                      "Employés associés à l'utilisateur:",
-                      employeeIds
-                    );
-                    localStorage.setItem(
-                      "userEmployees",
-                      JSON.stringify(employeeIds)
-                    );
-                  }
-                }
-              } catch (error) {
-                console.error(
-                  "Erreur lors de la récupération des employés associés:",
-                  error
-                );
-                // Fallback - stocker au moins l'ID de l'utilisateur comme employé
-                localStorage.setItem(
-                  "userEmployees",
-                  JSON.stringify([parsedUser.id])
-                );
-              }
-            } catch (e) {
-              console.error("Erreur lors du parsing de l'utilisateur:", e);
-              localStorage.removeItem("user");
-            }
-          }
+        if (response.ok) {
+          const data = await response.json();
 
-          // Faire une requête vers le backend pour obtenir les informations à jour
-          console.log("Tentative de récupération du profil depuis l'API");
-          const authEndpoints = ["/api/auth/profile", "/api/user/profile"];
-
-          let userData = null;
-          let success = false;
-
-          // Essayer les deux endpoints possibles
-          for (const endpoint of authEndpoints) {
-            try {
-              console.log(`Tentative avec l'endpoint: ${API_URL}${endpoint}`);
-
-              const response = await fetch(`${API_URL}${endpoint}`, {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${validToken}`,
-                },
-                credentials: "include",
-              });
-
-              console.log(`Réponse de ${endpoint}:`, {
-                status: response.status,
-                statusText: response.statusText,
-                ok: response.ok,
-              });
-
-              if (response.ok) {
-                userData = await response.json();
-                console.log("Données de profil reçues:", {
-                  id: userData.id,
-                  email: userData.email,
-                  role: userData.role,
-                  profileImage: userData.profileImage ? "présent" : "absent",
-                  company: userData.company || "non défini",
-                  phone: userData.phone || "non défini",
-                  jobTitle: userData.jobTitle || "non défini",
-                });
-
-                success = true;
-                break; // Sortir de la boucle si la requête réussit
-              }
-            } catch (endpointError) {
-              console.error(
-                `Erreur avec l'endpoint ${endpoint}:`,
-                endpointError
-              );
-            }
-          }
-
-          if (success && userData) {
-            // Mettre à jour l'état et le localStorage avec toutes les données du profil
-            setUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
+          if (data.success && data.isAuthenticated) {
+            console.log("Session valide trouvée", data);
+            // Mettre à jour les infos utilisateur depuis la réponse du serveur
+            setUser(data.user);
             setIsAuthenticated(true);
+
+            // Si la réponse contient un token, le mettre à jour également
+            if (data.token) {
+              localStorage.setItem("token", data.token);
+              setToken(data.token);
+            }
+
+            // Enregistrer l'utilisateur dans le localStorage
+            localStorage.setItem("user", JSON.stringify(data.user));
           } else {
-            console.error("Toutes les tentatives ont échoué, déconnexion");
-            // Si toutes les requêtes échouent, supprimer les infos d'authentification
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            setToken(null);
-            setUser(null);
+            console.log("Aucune session valide trouvée");
             setIsAuthenticated(false);
+            setUser(null);
           }
-        } catch (error) {
-          console.error("Erreur lors de la restauration de session:", error);
+        } else {
+          console.log(
+            "Erreur lors de la vérification de session:",
+            response.status
+          );
+          setIsAuthenticated(false);
+          setUser(null);
         }
+      } catch (error) {
+        console.error(
+          "Erreur lors de la vérification de l'authentification:",
+          error
+        );
+        setIsAuthenticated(false);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      console.log("=== FIN RESTORATION DE SESSION ===");
-      setIsLoading(false);
     };
 
     checkInitialAuth();
-  }, [API_URL]);
+  }, []);
 
   // Fonction pour mettre à jour le profil utilisateur
   const updateUserProfile = async (userData) => {
@@ -867,6 +968,10 @@ export const AuthProvider = ({ children }) => {
 
         setIsAuthenticated(true);
         setLoginError(null);
+
+        // Redémarrer le timer d'inactivité
+        resetInactivityTimer();
+
         return true;
       } else {
         console.error("Échec du rafraîchissement du token:", data.message);
@@ -924,6 +1029,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Ajouter le composant de modal d'inactivité
+  const InactivityModal = () => {
+    if (!showInactivityModal) return null;
+
+    return (
+      <StyledInactivityModal>
+        <StyledModalContent>
+          <h2>Session inactive</h2>
+          <p>Vous allez être déconnecté pour inactivité.</p>
+          <p>Cliquez n'importe où pour rester connecté.</p>
+          <button onClick={resetInactivityTimer}>Rester connecté</button>
+        </StyledModalContent>
+      </StyledInactivityModal>
+    );
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -942,7 +1063,14 @@ export const AuthProvider = ({ children }) => {
     preparePasswordChange,
     refreshToken,
     changePassword,
+    showInactivityModal,
+    resetInactivityTimer,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {showInactivityModal && <InactivityModal />}
+    </AuthContext.Provider>
+  );
 };

@@ -32,5 +32,6 @@ router.use("/work-hours", authMiddleware, require("./workHoursRoutes"));
 router.use("/activities", authMiddleware, require("./activities"));
 router.use("/notifications", authMiddleware, require("./notifications"));
 router.use("/chatbot", authMiddleware, require("./chatbotRoutes"));
+router.use("/admin", authMiddleware, require("./admin"));
 
 module.exports = router;

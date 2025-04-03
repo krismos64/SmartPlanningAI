@@ -11,6 +11,7 @@ const {
   verifyRefreshToken,
 } = require("../utils/tokenUtils");
 const { verifyCsrfToken } = require("../middleware/csrfMiddleware");
+const AuthLog = require("../models/AuthLog");
 
 // Route pour obtenir un token CSRF
 router.get("/csrf-token", verifyCsrfToken, (req, res) => {
@@ -89,11 +90,29 @@ router.post("/login", verifyCsrfToken, async (req, res) => {
     password: req.body.password ? "****" : "non fourni",
   });
 
+  // Récupérer l'adresse IP réelle derrière un proxy
+  const ipAddress =
+    req.headers["x-forwarded-for"] ||
+    req.headers["x-real-ip"] ||
+    req.connection.remoteAddress;
+
+  // Récupérer le user-agent
+  const userAgent = req.headers["user-agent"];
+
   try {
     const { email, password } = req.body;
 
     // Valider les champs requis
     if (!email || !password) {
+      // Enregistrer la tentative d'authentification échouée
+      await AuthLog.create({
+        email: email || "non fourni",
+        ip: ipAddress,
+        status: "failed",
+        message: "Email ou mot de passe non fourni",
+        user_agent: userAgent,
+      });
+
       return res.status(400).json({
         success: false,
         message: "Email et mot de passe requis",
@@ -102,12 +121,51 @@ router.post("/login", verifyCsrfToken, async (req, res) => {
 
     // Vérifier les identifiants
     const user = await User.findByEmail(email);
-    if (!user || !(await user.comparePassword(password))) {
+
+    // Si l'utilisateur n'existe pas
+    if (!user) {
+      // Enregistrer la tentative d'authentification échouée
+      await AuthLog.create({
+        email,
+        ip: ipAddress,
+        status: "failed",
+        message: "Email inconnu",
+        user_agent: userAgent,
+      });
+
       return res.status(401).json({
         success: false,
         message: "Email ou mot de passe incorrect",
       });
     }
+
+    // Vérifier le mot de passe
+    const isPasswordValid = await user.comparePassword(password);
+
+    if (!isPasswordValid) {
+      // Enregistrer la tentative d'authentification échouée
+      await AuthLog.create({
+        email,
+        ip: ipAddress,
+        status: "failed",
+        message: "Mot de passe incorrect",
+        user_agent: userAgent,
+      });
+
+      return res.status(401).json({
+        success: false,
+        message: "Email ou mot de passe incorrect",
+      });
+    }
+
+    // Authentification réussie - Enregistrer la tentative d'authentification réussie
+    await AuthLog.create({
+      email,
+      ip: ipAddress,
+      status: "success",
+      message: "Authentification réussie",
+      user_agent: userAgent,
+    });
 
     // Générer les tokens
     const tokens = generateTokens(user.id, user.role);
@@ -130,6 +188,20 @@ router.post("/login", verifyCsrfToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
+
+    // Enregistrer l'erreur interne
+    try {
+      await AuthLog.create({
+        email: req.body.email || "non fourni",
+        ip: ipAddress,
+        status: "failed",
+        message: `Erreur interne: ${error.message}`,
+        user_agent: userAgent,
+      });
+    } catch (logError) {
+      console.error("Erreur lors de l'enregistrement du log:", logError);
+    }
+
     res.status(500).json({
       success: false,
       message: "Erreur lors de la connexion",
@@ -282,12 +354,30 @@ router.put("/profile", secureAuth, async (req, res) => {
 // Route pour vérifier si un utilisateur est authentifié
 router.get("/check", secureAuth, async (req, res) => {
   try {
+    // Récupérer l'utilisateur complet
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+      });
+    }
+
+    // Renvoyer les informations utilisateur complètes
     res.json({
+      success: true,
       isAuthenticated: true,
       user: {
-        id: req.user.id,
-        email: req.user.email,
-        role: req.user.role,
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        profileImage: user.profileImage || null,
+        company: user.company || "",
+        phone: user.phone || "",
+        jobTitle: user.jobTitle || "",
       },
     });
   } catch (error) {
@@ -296,6 +386,7 @@ router.get("/check", secureAuth, async (req, res) => {
       error
     );
     res.status(500).json({
+      success: false,
       message: "Erreur lors de la vérification de l'authentification",
     });
   }
