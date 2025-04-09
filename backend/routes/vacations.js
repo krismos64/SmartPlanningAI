@@ -209,6 +209,14 @@ router.post("/", auth, async (req, res) => {
         });
       }
 
+      // SÉCURITÉ: Vérifier que l'employee_id fourni correspond à un employé appartenant à l'utilisateur connecté
+      if (employee.user_id !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          error: "Accès interdit à cette ressource.",
+        });
+      }
+
       // Filtrer les champs pour ne garder que ceux qui existent dans la table
       const vacationData = {
         employee_id: employeeId,
@@ -335,6 +343,18 @@ router.put("/:id", auth, async (req, res) => {
 
     if (!vacationRequest) {
       return res.status(404).json({ message: "Demande de congé non trouvée" });
+    }
+
+    // SÉCURITÉ: Vérifier que la demande ciblée appartient bien à un employé lié à l'utilisateur connecté
+    if (req.user.role !== "admin" && req.user.role !== "manager") {
+      // Récupérer l'employé associé à la demande
+      const employee = await Employee.findById(vacationRequest.employee_id);
+
+      if (!employee || employee.user_id !== req.user.id) {
+        return res
+          .status(403)
+          .json({ error: "Accès interdit à cette ressource." });
+      }
     }
 
     // Vérifier les permissions
@@ -516,6 +536,18 @@ router.delete("/:id", auth, async (req, res) => {
 
     if (!vacationRequest) {
       return res.status(404).json({ message: "Demande de congé non trouvée" });
+    }
+
+    // SÉCURITÉ: Vérifier que la demande ciblée appartient bien à un employé lié à l'utilisateur connecté
+    if (req.user.role !== "admin" && req.user.role !== "manager") {
+      // Récupérer l'employé associé à la demande
+      const employee = await Employee.findById(vacationRequest.employee_id);
+
+      if (!employee || employee.user_id !== req.user.id) {
+        return res
+          .status(403)
+          .json({ error: "Accès interdit à cette ressource." });
+      }
     }
 
     // Vérification des permissions (employés ne peuvent supprimer que leurs propres demandes en attente)
