@@ -33,17 +33,27 @@ router.get("/", auth, async (req, res) => {
 
     // Récupérer directement toutes les demandes de congés, sans filtrage
     // Cela nous permettra de vérifier si des données existent dans la BDD
-    console.log("Récupération SANS FILTRE de toutes les demandes de congés...");
-    const [allRequestsRaw] = await db.execute(`
+    console.log(
+      `Récupération des demandes de congés pour l'utilisateur ${req.user.id}...`
+    );
+
+    // SÉCURITÉ: Filtre sur user_id pour que chaque utilisateur ne puisse voir que
+    // les demandes de congés des employés qui lui sont rattachés
+    const [allRequestsRaw] = await db.execute(
+      `
       SELECT vr.*, 
              e.first_name as employee_first_name, 
              e.last_name as employee_last_name,
              CONCAT(e.first_name, ' ', e.last_name) as employee_name
       FROM vacation_requests vr
       LEFT JOIN employees e ON vr.employee_id = e.id
-    `);
+      WHERE e.user_id = ?  -- Restriction de sécurité: uniquement les employés rattachés à l'utilisateur connecté
+    `,
+      [req.user.id]
+    );
+
     console.log(
-      `${allRequestsRaw.length} demandes trouvées au total dans la BDD`
+      `${allRequestsRaw.length} demandes trouvées pour l'utilisateur ${req.user.id}`
     );
 
     // Traiter les données pour s'assurer que employee_name est défini
