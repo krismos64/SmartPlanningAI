@@ -519,10 +519,10 @@ const PrivacyPolicy = () => {
           <Paragraph>
             Pour exercer ces droits, veuillez nous contacter à{" "}
             <a
-              href="mailto:dpo@smartplanning.ai"
+              href="mailto:contact@smartplanning.fr"
               style={{ color: styledTheme.colors.primary }}
             >
-              dpo@smartplanning.ai
+              contact@smartplanning.fr
             </a>
             . Nous répondrons à votre demande dans un délai d'un mois, qui peut
             être prolongé de deux mois si nécessaire.
@@ -589,10 +589,10 @@ const PrivacyPolicy = () => {
           <Paragraph>
             <strong>Responsable de la protection des données :</strong>{" "}
             <a
-              href="mailto:dpo@smartplanning.ai"
+              href="mailto:contact@smartplanning.fr"
               style={{ color: styledTheme.colors.primary }}
             >
-              dpo@smartplanning.ai
+              contact@smartplanning.fr
             </a>
           </Paragraph>
           <Paragraph>
