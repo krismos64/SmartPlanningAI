@@ -18,6 +18,9 @@ router.get("/csrf-token", (req, res) => {
 // Routes d'authentification (login/register) - sans authMiddleware mais avec authLimiter
 router.use("/auth", require("./auth")); // authLimiter est géré dans le fichier auth.js lui-même
 
+// Route du formulaire de contact (publique)
+router.use("/contact", require("./contact"));
+
 // Toutes les autres routes nécessitent une authentification
 router.use("/employees", authMiddleware, require("./employees"));
 router.use("/departments", authMiddleware, require("./departments"));

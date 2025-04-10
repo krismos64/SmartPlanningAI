@@ -31,8 +31,13 @@
     "morgan": "^1.10.0",
     "mysql2": "^3.12.0",
     "node-fetch": "^3.3.2",
+    "nodemailer": "^6.10.0",
     "rotating-file-stream": "^3.2.6",
     "uuid": "^11.1.0",
     "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.1.0"
   }
 }
