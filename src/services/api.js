@@ -123,10 +123,30 @@ export const AuthService = {
     }
   },
 
-  logout: () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    return { success: true };
+  logout: async () => {
+    try {
+      // Appeler l'API de déconnexion
+      await apiRequest(API_ENDPOINTS.LOGOUT, "POST", {});
+
+      // Supprimer les cookies côté client
+      document.cookie =
+        "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+      document.cookie =
+        "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+      document.cookie =
+        "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+      document.cookie =
+        "connect.sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+
+      // Supprimer les informations locales
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      return { success: true };
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+      return { success: false, error: error.message };
+    }
   },
 
   getCurrentUser: () => {

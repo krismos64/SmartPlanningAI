@@ -286,20 +286,27 @@ function clearTokenCookies(res) {
     secure: true,
     sameSite: "None",
     httpOnly: true,
-    domain: "smartplanning.onrender.com",
+    path: "/",
   };
 
   // Effacer les cookies JWT
   res.cookie("accessToken", "", {
     ...cookieConfig,
     expires: new Date(0),
-    path: "/",
   });
 
   res.cookie("refreshToken", "", {
     ...cookieConfig,
     expires: new Date(0),
+  });
+
+  // Effacer également le cookie non-httpOnly
+  res.cookie("auth_token", "", {
+    secure: true,
+    sameSite: "None",
+    httpOnly: false,
     path: "/",
+    expires: new Date(0),
   });
 }
 

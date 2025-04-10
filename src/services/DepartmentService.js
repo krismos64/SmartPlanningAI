@@ -9,6 +9,7 @@ class DepartmentService {
         headers: {
           "X-CSRF-TOKEN": csrfToken,
         },
+        withCredentials: true,
       });
       return {
         ...response,
@@ -29,6 +30,7 @@ class DepartmentService {
         headers: {
           "X-CSRF-TOKEN": csrfToken,
         },
+        withCredentials: true,
       });
       return {
         ...response,
@@ -50,6 +52,7 @@ class DepartmentService {
           "Content-Type": "application/json",
           "X-CSRF-TOKEN": csrfToken,
         },
+        withCredentials: true,
       });
       return {
         ...response,
@@ -74,6 +77,7 @@ class DepartmentService {
             "Content-Type": "application/json",
             "X-CSRF-TOKEN": csrfToken,
           },
+          withCredentials: true,
         }
       );
       return {
@@ -95,6 +99,7 @@ class DepartmentService {
         headers: {
           "X-CSRF-TOKEN": csrfToken,
         },
+        withCredentials: true,
       });
       return {
         ...response,

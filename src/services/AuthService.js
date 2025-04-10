@@ -192,6 +192,16 @@ const AuthService = {
       localStorage.removeItem("user_info");
       AuthService.currentUser = null;
 
+      // Supprimer manuellement les cookies d'authentification côté client
+      document.cookie =
+        "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+      document.cookie =
+        "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+      document.cookie =
+        "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+      document.cookie =
+        "connect.sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+
       // Rediriger vers la page de connexion si nécessaire
       window.location.href = "/login";
     }

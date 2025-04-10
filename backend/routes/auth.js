@@ -691,6 +691,25 @@ router.post("/logout", (req, res) => {
   // Effacer les cookies de tokens
   clearTokenCookies(res);
 
+  // Détruire la session si elle existe
+  if (req.session) {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Erreur lors de la destruction de la session:", err);
+      } else {
+        console.log("Session détruite avec succès");
+      }
+    });
+
+    // Supprimer le cookie de session
+    res.clearCookie("connect.sid", {
+      path: "/",
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    });
+  }
+
   // Répondre avec succès
   res.json({
     success: true,
