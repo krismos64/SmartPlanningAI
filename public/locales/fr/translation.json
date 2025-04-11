@@ -250,7 +250,8 @@
     "emailAddress": "contact@smartplanning.fr",
     "form": {
       "title": "Envoyez-nous un message",
-      "name": "Nom et prénom",
+      "name": "Nom",
+      "firstName": "Prénom",
       "email": "Email",
       "subject": "Sujet",
       "message": "Message",

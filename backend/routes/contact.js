@@ -57,6 +57,44 @@ router.post("/", async (req, res) => {
     // Envoi de l'email
     await transporter.sendMail(mailOptions);
 
+    // Configuration de l'email de confirmation pour l'utilisateur
+    const confirmationMailOptions = {
+      from: process.env.SMARTPLANNING_MAIL_USER,
+      to: email,
+      subject: "📬 Confirmation de réception de votre message",
+      text: `
+        Bonjour ${prenom},
+        
+        Nous vous remercions pour votre message.
+        
+        Nous avons bien reçu votre demande :
+        "${message}"
+        
+        Notre équipe reviendra vers vous dans les plus brefs délais.
+        
+        Bien cordialement,
+        L'équipe SmartPlanningAI
+      `,
+      html: `
+        <p>Bonjour <strong>${prenom}</strong>,</p>
+        
+        <p>Nous vous remercions pour votre message.</p>
+        
+        <p>Nous avons bien reçu votre demande :</p>
+        <blockquote>${message.replace(/\n/g, "<br>")}</blockquote>
+        
+        <p>Notre équipe reviendra vers vous dans les plus brefs délais.</p>
+        
+        <p>
+        Bien cordialement,<br>
+        <strong>L'équipe SmartPlanningAI</strong>
+        </p>
+      `,
+    };
+
+    // Envoi de l'email de confirmation
+    await transporter.sendMail(confirmationMailOptions);
+
     return res.status(200).json({
       success: true,
     });

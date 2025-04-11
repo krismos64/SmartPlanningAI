@@ -616,7 +616,7 @@ const Contact = () => {
 
               <FormGroup>
                 <FormLabel htmlFor="prenom">
-                  {t("contact.form.prenom")}
+                  {t("contact.form.firstName")}
                 </FormLabel>
                 <FormInput
                   type="text"
@@ -624,7 +624,7 @@ const Contact = () => {
                   name="prenom"
                   value={formData.prenom}
                   onChange={handleChange}
-                  placeholder={t("contact.form.prenom")}
+                  placeholder={t("contact.form.firstName")}
                   required
                 />
               </FormGroup>

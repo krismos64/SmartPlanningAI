@@ -861,7 +861,7 @@ const WeeklySchedulePage = () => {
 
     // Traitement spécial pour l'utilisateur avec ID 13
     if (userIdStr === "13") {
-      // Associer le vrai nom et prénom de l'utilisateur
+      // Associer le vrai nom de l'utilisateur
       setUserCache((prev) => ({
         ...prev,
         13: "Kevin Planning",

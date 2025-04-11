@@ -261,7 +261,7 @@ const TermsOfService = () => {
     });
   };
 
-  const lastUpdate = "15 mars 2023";
+  const lastUpdate = "10 avril 2025";
 
   return (
     <PageContainer>
