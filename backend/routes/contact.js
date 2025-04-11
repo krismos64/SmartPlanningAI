@@ -21,10 +21,12 @@ router.post("/", async (req, res) => {
   try {
     // Configuration du transporteur nodemailer
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.hostinger.com",
+      port: 465,
+      secure: true, // true pour SSL (port 465)
       auth: {
-        user: process.env.SMARTPLANNING_MAIL_USER,
-        pass: process.env.SMARTPLANNING_MAIL_PASSWORD,
+        user: "contact@smartplanning.fr",
+        pass: "supersonicM1.",
       },
     });
 

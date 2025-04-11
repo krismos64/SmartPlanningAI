@@ -248,15 +248,10 @@ app.use("/api/activities/test", activitiesRoutes.testRouter);
 
 // Protéger les autres routes des activités
 app.use("/api/activities", secureAuth, activitiesRoutes);
-
-app.use("/api/schedule-stats", secureAuth, scheduleStatsRoutes);
-app.use("/api/work-hours", secureAuth, workHoursRoutes);
-app.use("/api/hour-balance", hourBalanceRoutes);
-app.use("/api/departments", secureAuth, departmentsRoutes);
 app.use("/api/notifications", secureAuth, notificationsRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/contact", contactRoutes);
-app.use("/api/user", secureAuth, authRoutes); // Exposer les routes d'authentification également sous /api/user
+app.use("/api/user", secureAuth, authRoutes);
 app.use("/api/users", secureAuth, usersRoutes); // Utiliser les routes utilisateurs spécifiques
 app.use("/api/schedule", secureAuth, autoScheduleRoutes); // Routes pour la génération automatique de planning
 
