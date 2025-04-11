@@ -493,7 +493,7 @@ const Contact = () => {
     }
 
     try {
-      const response = await axiosInstance.post("/contact", {
+      const response = await axiosInstance.post("/api/contact", {
         name: formData.name,
         email: formData.email,
         message: formData.message,
