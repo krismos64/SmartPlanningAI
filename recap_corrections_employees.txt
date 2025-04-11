@@ -13,7 +13,7 @@ Lors de la création d'un nouvel employé, une erreur 500 (Internal Server Error
 
 - **backend/models/Employee.js**
   - Modification du constructeur pour accepter les deux formats (`zipCode` et `zip_code`)
-  - Ajout de débogage détaillé pour identifier les problèmes de champs
+  - Ajout de débogage détaillé pour identifier les problèmes de champs.
 
 - **backend/routes/employees.js**
   - Normalisation des données dans la route POST (création)
