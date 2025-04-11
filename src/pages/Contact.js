@@ -460,6 +460,7 @@ const Contact = () => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: "",
+    prenom: "",
     email: "",
     subject: "",
     message: "",
@@ -483,7 +484,12 @@ const Contact = () => {
     setIsSubmitting(true);
 
     // Validation des champs requis par le backend
-    if (!formData.name || !formData.email || !formData.message) {
+    if (
+      !formData.name ||
+      !formData.prenom ||
+      !formData.email ||
+      !formData.message
+    ) {
       setFormStatus({
         status: "error",
         message: t("contact.form.missingFields"),
@@ -495,7 +501,9 @@ const Contact = () => {
     try {
       const response = await axiosInstance.post("/api/contact", {
         name: formData.name,
+        prenom: formData.prenom,
         email: formData.email,
+        subject: formData.subject,
         message: formData.message,
       });
 
@@ -509,6 +517,7 @@ const Contact = () => {
         });
         setFormData({
           name: "",
+          prenom: "",
           email: "",
           subject: "",
           message: "",
@@ -601,6 +610,21 @@ const Contact = () => {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder={t("contact.form.name")}
+                  required
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <FormLabel htmlFor="prenom">
+                  {t("contact.form.prenom")}
+                </FormLabel>
+                <FormInput
+                  type="text"
+                  id="prenom"
+                  name="prenom"
+                  value={formData.prenom}
+                  onChange={handleChange}
+                  placeholder={t("contact.form.prenom")}
                   required
                 />
               </FormGroup>

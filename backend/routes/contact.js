@@ -8,10 +8,10 @@ const nodemailer = require("nodemailer");
  * @access Public
  */
 router.post("/", async (req, res) => {
-  const { name, email, message } = req.body;
+  const { name, prenom, email, subject, message } = req.body;
 
   // Vérification des champs requis
-  if (!name || !email || !message) {
+  if (!name || !prenom || !email || !message) {
     return res.status(400).json({
       success: false,
       error: "Tous les champs sont obligatoires",
@@ -35,14 +35,18 @@ router.post("/", async (req, res) => {
       subject: `📩 Nouveau message de ${name}`,
       text: `
         Nom: ${name}
+        Prénom: ${prenom}
         Email: ${email}
+        Sujet: ${subject || "Non spécifié"}
         
         Message:
         ${message}
       `,
       html: `
         <p><strong>Nom:</strong> ${name}</p>
+        <p><strong>Prénom:</strong> ${prenom}</p>
         <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Sujet:</strong> ${subject || "Non spécifié"}</p>
         <p><strong>Message:</strong></p>
         <p>${message.replace(/\n/g, "<br>")}</p>
       `,
