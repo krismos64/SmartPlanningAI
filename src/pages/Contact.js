@@ -10,6 +10,7 @@ import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
 import EnhancedLottie from "../components/ui/EnhancedLottie";
 import { ThemeSwitch } from "../components/ui/ThemeSwitch";
+import { axiosInstance } from "../config/api";
 
 // Animations
 const fadeIn = keyframes`
@@ -477,32 +478,67 @@ const Contact = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simuler un appel API
-    setTimeout(() => {
-      setIsSubmitting(false);
+    // Validation des champs requis par le backend
+    if (!formData.name || !formData.email || !formData.message) {
       setFormStatus({
-        status: "success",
-        message: t("contact.form.success"),
+        status: "error",
+        message: t("contact.form.missingFields"),
       });
-      setFormData({
-        name: "",
-        email: "",
-        subject: "",
-        message: "",
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const response = await axiosInstance.post("/contact", {
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
       });
 
-      // Réinitialiser le message de statut après 5 secondes
-      setTimeout(() => {
+      const data = response.data;
+
+      if (response.status === 200 && data.success) {
+        // Succès - utiliser la logique existante
         setFormStatus({
-          status: null,
+          status: "success",
+          message: t("contact.form.success"),
+        });
+        setFormData({
+          name: "",
+          email: "",
+          subject: "",
           message: "",
         });
-      }, 5000);
-    }, 1500);
+
+        // Réinitialiser le message de statut après 5 secondes
+        setTimeout(() => {
+          setFormStatus({
+            status: null,
+            message: "",
+          });
+        }, 5000);
+      } else {
+        // Erreur de l'API
+        setFormStatus({
+          status: "error",
+          message: data.error || t("contact.form.error"),
+        });
+        console.error("Erreur lors de l'envoi du message:", data);
+      }
+    } catch (error) {
+      // Erreur de réseau/fetch
+      setFormStatus({
+        status: "error",
+        message: t("contact.form.error"),
+      });
+      console.error("Erreur lors de l'envoi du message:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -611,10 +647,13 @@ const Contact = () => {
                 />
               </FormGroup>
 
-              <FormButton type="submit" size="large" disabled={isSubmitting}>
-                {isSubmitting
-                  ? t("contact.form.sending")
-                  : t("contact.form.send")}
+              <FormButton
+                type="submit"
+                size="large"
+                disabled={isSubmitting}
+                loading={isSubmitting}
+              >
+                {t("contact.form.send")}
               </FormButton>
 
               <FormHint>{t("contact.form.hint")}</FormHint>
