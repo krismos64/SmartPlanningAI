@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/auth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 const AuthLog = require("../models/AuthLog");
 
 /**
@@ -8,7 +8,7 @@ const AuthLog = require("../models/AuthLog");
  * @desc Récupérer les logs d'authentification
  * @access Admin
  */
-router.get("/auth-logs", auth.verifyToken, auth.isAdmin, async (req, res) => {
+router.get("/auth-logs", verifyToken, isAdmin, async (req, res) => {
   try {
     // Paramètres de filtrage
     const { email, ip, limit = 100 } = req.query;

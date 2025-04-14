@@ -1,20 +1,37 @@
+// Charger les variables d'environnement en premier
+const path = require("path");
+const dotenv = require("dotenv");
+
+// Charger les variables d'environnement selon l'environnement
+const envFile =
+  process.env.NODE_ENV === "production"
+    ? ".env.production"
+    : ".env.development";
+
+console.log(`🔧 Chargement des variables d'environnement depuis ${envFile}`);
+dotenv.config({ path: path.resolve(__dirname, envFile) });
+
+// Afficher les variables d'environnement de la base de données pour débogage
+console.log("Variables d'environnement de la base de données:");
+console.log("- DB_HOST:", process.env.DB_HOST);
+console.log("- DB_USER:", process.env.DB_USER);
+console.log("- DB_NAME:", process.env.DB_NAME);
+
+// Ensuite, charger les autres dépendances
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
-const path = require("path");
 const fs = require("fs");
 const rfs = require("rotating-file-stream");
 const cookieParser = require("cookie-parser");
-const dotenv = require("dotenv");
-const routes = require("./routes");
 const { NlpManager } = require("node-nlp");
 const { changePassword } = require("./controllers/usersController");
 const passport = require("passport");
 const session = require("express-session");
 const helmet = require("helmet");
-const csrfRoutes = require("./routes/csrf");
 
-dotenv.config();
+// Maintenant on peut charger les routes
+const csrfRoutes = require("./routes/csrf");
 
 const app = express();
 
@@ -77,10 +94,10 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true, // Toujours sécurisé en production
+      secure: process.env.NODE_ENV === "production", // Sécurisé uniquement en production
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 heures
-      sameSite: "None", // Nécessaire pour cross-domain
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
     },
   })
 );
@@ -89,11 +106,67 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// 📦 Routes API
-app.use("/api", routes);
+// 📦 Routes CSRF
+app.use("/api/csrf", csrfRoutes);
 
-// Ajout de la route CSRF
-app.use("/api", csrfRoutes);
+// Route CSRF token
+app.get("/api/csrf-token", (req, res) => {
+  if (csrfRoutes.handle) {
+    return csrfRoutes.handle(req, res);
+  }
+  res
+    .status(500)
+    .json({ success: false, message: "CSRF handler not available" });
+});
+
+// Importer les routes individuelles au lieu du module complet
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/contact", require("./routes/contact"));
+
+// Routes protégées
+const { auth } = require("./middleware/auth");
+app.use("/api/employees", auth, require("./routes/employees"));
+app.use("/api/departments", auth, require("./routes/departments"));
+app.use("/api/planning", auth, require("./routes/shifts"));
+app.use("/api/vacations", auth, require("./routes/vacations"));
+app.use("/api/weekly-schedules", auth, require("./routes/weeklySchedules"));
+app.use("/api/schedule", auth, require("./routes/autoSchedule"));
+app.use("/api/stats", auth, require("./routes/stats"));
+app.use("/api/schedule-stats", auth, require("./routes/scheduleStats"));
+app.use("/api/users", auth, require("./routes/users"));
+app.use("/api/hour-balance", auth, require("./routes/hourBalance"));
+app.use("/api/work-hours", auth, require("./routes/workHoursRoutes"));
+app.use("/api/activities", auth, require("./routes/activities"));
+app.use("/api/notifications", auth, require("./routes/notifications"));
+
+// Essayer de charger les autres routes
+try {
+  const chatbotRoutes = require("./routes/chatbotRoutes");
+  if (typeof chatbotRoutes === "function" || chatbotRoutes.stack) {
+    app.use("/api/chatbot", auth, chatbotRoutes);
+  } else {
+    console.warn("⚠️ Le module chatbotRoutes n'est pas un middleware valide");
+  }
+} catch (error) {
+  console.warn(
+    "⚠️ Impossible de charger le module chatbotRoutes:",
+    error.message
+  );
+}
+
+try {
+  const adminRoutes = require("./routes/admin");
+  if (typeof adminRoutes === "function" || adminRoutes.stack) {
+    app.use("/api/admin", auth, adminRoutes);
+  } else {
+    console.warn("⚠️ Le module adminRoutes n'est pas un middleware valide");
+  }
+} catch (error) {
+  console.warn(
+    "⚠️ Impossible de charger le module adminRoutes:",
+    error.message
+  );
+}
 
 // ✅ Route ping
 app.get("/ping", (req, res) => {
@@ -196,7 +269,9 @@ async function initializeServer() {
       );
     }
 
+    // Utiliser explicitement le port 5001 (ou celui défini dans les variables d'environnement)
     const PORT = process.env.PORT || 5001;
+
     const server = app.listen(PORT, () => {
       console.log(`🚀 Serveur démarré sur le port ${PORT}`);
       console.log(`📝 Mode : ${process.env.NODE_ENV || "production"}`);

@@ -188,6 +188,9 @@ const getCurrentAdminId = (req) => {
 };
 
 module.exports = {
+  // Export individuel de chaque fonction
+  verifyToken: auth, // Alias pour compatibilité
+  isAdmin: checkRole(["admin"]), // Fonction middleware préconfgurée pour admin
   auth,
   checkRole,
   generateToken,
