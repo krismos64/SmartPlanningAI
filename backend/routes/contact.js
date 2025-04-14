@@ -61,35 +61,43 @@ router.post("/", async (req, res) => {
     const confirmationMailOptions = {
       from: process.env.SMARTPLANNING_MAIL_USER,
       to: email,
-      subject: "📬 Confirmation de réception de votre message",
+      subject: "🤖 Merci pour votre message, on s’en occupe !",
       text: `
-        Bonjour ${prenom},
-        
-        Nous vous remercions pour votre message.
-        
-        Nous avons bien reçu votre demande :
-        "${message}"
-        
-        Notre équipe reviendra vers vous dans les plus brefs délais.
-        
-        Bien cordialement,
-        L'équipe SmartPlanningAI
-      `,
+    Bonjour ${prenom} 👋,
+
+    Un grand merci pour votre message ! 📨
+
+    Voici un petit récap de ce que vous nous avez envoyé :
+    "${message}"
+
+    Notre équipe (composée de vrais humains 👨‍💻👩‍💻 et un peu d’IA 🤖) va prendre connaissance de votre demande très rapidement.
+
+    En attendant, prenez soin de vous et profitez de votre journée ☀️
+
+    Bien cordialement,
+
+    L'équipe SmartPlanning 🧠📅
+  `,
       html: `
-        <p>Bonjour <strong>${prenom}</strong>,</p>
-        
-        <p>Nous vous remercions pour votre message.</p>
-        
-        <p>Nous avons bien reçu votre demande :</p>
-        <blockquote>${message.replace(/\n/g, "<br>")}</blockquote>
-        
-        <p>Notre équipe reviendra vers vous dans les plus brefs délais.</p>
-        
-        <p>
-        Bien cordialement,<br>
-        <strong>L'équipe SmartPlanningAI</strong>
-        </p>
-      `,
+    <p>Bonjour <strong>${prenom}</strong> 👋,</p>
+
+    <p>Un grand merci pour votre message ! <span style="font-size: 1.2em;">📨</span></p>
+
+    <p>Voici un petit récap de ce que vous nous avez envoyé :</p>
+    <blockquote style="background-color: #f9f9f9; padding: 10px; border-left: 4px solid #00bcd4;">
+      ${message.replace(/\n/g, "<br>")}
+    </blockquote>
+
+    <p>Notre équipe (composée de vrais humains 👨‍💻👩‍💻 et un soupçon d’intelligence artificielle 🤖) va prendre connaissance de votre message très rapidement.</p>
+
+    <p>En attendant, prenez soin de vous et profitez de votre journée ☀️</p>
+
+    <p style="margin-top: 20px;">
+      Bien cordialement,<br>
+
+      <strong>L'équipe SmartPlanning</strong> 🧠📅
+    </p>
+  `,
     };
 
     // Envoi de l'email de confirmation
