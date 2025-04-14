@@ -32,6 +32,7 @@ const Login = lazy(() => import("./pages/auth/Login"));
 const Register = lazy(() => import("./pages/auth/Register"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
+const LoginSuccess = lazy(() => import("./pages/auth/LoginSuccess"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Employees = lazy(() => import("./pages/Employees"));
 const WeeklySchedule = lazy(() => import("./pages/WeeklySchedule"));
@@ -247,6 +248,7 @@ const AppContent = () => {
                   path="/reset-password/:token"
                   element={<ResetPassword />}
                 />
+                <Route path="/login-success" element={<LoginSuccess />} />
                 <Route
                   path="/account/delete-confirmation/:token"
                   element={<ConfirmDeletionPage />}

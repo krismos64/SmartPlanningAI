@@ -9,6 +9,9 @@ const dotenv = require("dotenv");
 const routes = require("./routes");
 const { NlpManager } = require("node-nlp");
 const { changePassword } = require("./controllers/usersController");
+const passport = require("passport");
+const session = require("express-session");
+const setupGoogleStrategy = require("./auth/google");
 
 dotenv.config();
 
@@ -18,9 +21,18 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Configuration CORS
+const corsOrigins =
+  process.env.NODE_ENV === "production"
+    ? ["https://smartplanning.fr", "https://www.smartplanning.fr"]
+    : [
+        "https://smartplanning.fr",
+        "https://www.smartplanning.fr",
+        "http://localhost:3000",
+      ];
+
 app.use(
   cors({
-    origin: ["https://smartplanning.fr", "https://www.smartplanning.fr"],
+    origin: corsOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
@@ -50,6 +62,27 @@ app.use(morgan("combined", { stream: accessLogStream }));
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+
+// Configuration de la session Express
+app.use(
+  session({
+    secret: process.env.JWT_SECRET || "smartplanningai_secret_key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production", // true en prod, false en dev
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 heures
+    },
+  })
+);
+
+// Initialisation de Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Configuration de la stratégie Google OAuth
+setupGoogleStrategy();
 
 // 📦 Routes API
 app.use("/api", routes);

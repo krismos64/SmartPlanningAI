@@ -1,16 +1,48 @@
-import { useState } from "react";
+import axios from "axios";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import CookieConsent from "../components/ui/CookieConsent";
+import GoogleLoginButton from "../components/ui/GoogleLoginButton";
 
 const LoginPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    // Vérifie si une erreur est présente dans l'URL
+    const searchParams = new URLSearchParams(location.search);
+    const errorParam = searchParams.get("error");
+
+    if (errorParam) {
+      switch (errorParam) {
+        case "google-auth-failed":
+          setError(
+            "L'authentification avec Google a échoué. Veuillez réessayer."
+          );
+          break;
+        case "no-token":
+          setError("Erreur lors de la connexion: token manquant");
+          break;
+        case "auth-failed":
+          setError("Échec de l'authentification. Veuillez réessayer.");
+          break;
+        case "server-error":
+          setError(
+            "Une erreur serveur est survenue. Veuillez réessayer plus tard."
+          );
+          break;
+        default:
+          setError("Une erreur est survenue lors de la connexion");
+      }
+    }
+  }, [location]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -18,23 +50,45 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      // Simuler une connexion
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Appel réel à l'API pour la connexion
+      const API_URL =
+        process.env.NODE_ENV === "production"
+          ? "https://smartplanning-api.onrender.com"
+          : "";
 
-      // Vérifier si l'utilisateur a déjà accepté les cookies
-      const cookieConsent = localStorage.getItem("cookieConsent");
+      const response = await axios.post(
+        `${API_URL}/api/auth/login`,
+        {
+          email,
+          password,
+        },
+        {
+          withCredentials: true,
+        }
+      );
 
-      if (!cookieConsent) {
-        // Si c'est la première connexion, afficher le consentement
-        setShowCookieConsent(true);
+      if (response.data && response.data.token) {
+        // Stocker le token dans localStorage
+        localStorage.setItem("auth_token", response.data.token);
+
+        // Vérifier si l'utilisateur a déjà accepté les cookies
+        const cookieConsent = localStorage.getItem("cookieConsent");
+
+        if (!cookieConsent) {
+          // Si c'est la première connexion, afficher le consentement
+          setShowCookieConsent(true);
+        } else {
+          // Sinon, rediriger directement vers le dashboard
+          navigate("/dashboard");
+        }
       } else {
-        // Sinon, rediriger directement vers le dashboard
-        navigate("/dashboard");
+        setError("Réponse du serveur invalide. Veuillez réessayer.");
       }
 
       setIsLoading(false);
     } catch (err) {
-      setError(t("login.error"));
+      console.error("Erreur de connexion:", err);
+      setError(err.response?.data?.message || t("login.error"));
       setIsLoading(false);
     }
   };
@@ -169,6 +223,23 @@ const LoginPage = () => {
               ) : null}
               {isLoading ? t("login.loading") : t("login.button")}
             </button>
+          </div>
+
+          <div className="mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                  {t("login.or")}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <GoogleLoginButton />
+            </div>
           </div>
         </form>
       </div>

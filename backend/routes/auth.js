@@ -16,6 +16,78 @@ const {
 } = require("../middleware/csrfMiddleware");
 const AuthLog = require("../models/AuthLog");
 const crypto = require("crypto");
+const passport = require("passport");
+
+// Routes d'authentification Google OAuth 2.0
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  })
+);
+
+// Callback après authentification Google
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: "/login?error=google-auth-failed",
+  }),
+  async (req, res) => {
+    try {
+      console.log("🔑 Callback Google OAuth reçu");
+
+      if (!req.user) {
+        console.error(
+          "❌ Authentification Google échouée: utilisateur non disponible"
+        );
+        return res.redirect(
+          process.env.FRONTEND_URL ||
+            "https://smartplanning.fr/login?error=auth-failed"
+        );
+      }
+
+      console.log(`✅ Utilisateur Google authentifié: ${req.user.email}`);
+
+      // Générer les tokens JWT
+      const tokens = generateTokens(req.user.id, req.user.role || "admin");
+
+      // Enregistrer la tentative d'authentification réussie
+      const ipAddress =
+        req.headers["x-forwarded-for"] ||
+        req.headers["x-real-ip"] ||
+        req.connection.remoteAddress;
+
+      await AuthLog.create({
+        email: req.user.email,
+        ip: ipAddress,
+        status: "success",
+        message: "Authentification Google réussie",
+        user_agent: req.headers["user-agent"],
+      });
+
+      // Rediriger vers le frontend avec le token JWT
+      const redirectUrl = `${
+        process.env.FRONTEND_URL || "https://smartplanning.fr"
+      }/login-success?token=${tokens.accessToken}`;
+      console.log(
+        `🔄 Redirection vers: ${redirectUrl.substring(
+          0,
+          redirectUrl.indexOf("?")
+        )}?token=...`
+      );
+
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error("❌ Erreur lors du callback Google:", error);
+      return res.redirect(
+        process.env.FRONTEND_URL ||
+          "https://smartplanning.fr/login?error=server-error"
+      );
+    }
+  }
+);
 
 // Route pour déboguer les problèmes CSRF
 router.post("/debug-csrf", (req, res) => {
