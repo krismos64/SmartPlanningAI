@@ -38,7 +38,7 @@ const setupGoogleStrategy = () => {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL:
           process.env.NODE_ENV === "production"
-            ? "https://smartplanning.fr/api/auth/google/callback"
+            ? "https://smartplanning-api.onrender.com/api/auth/google/callback"
             : "http://localhost:5001/api/auth/google/callback",
         scope: ["profile", "email"],
         state: true,

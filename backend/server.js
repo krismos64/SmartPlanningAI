@@ -63,10 +63,9 @@ const app = express();
 // Configuration CORS
 const corsOptions = {
   origin: [
-    process.env.FRONTEND_URL || "https://smartplanning.fr",
     "https://smartplanning.fr",
     "https://www.smartplanning.fr",
-    "https://smartplanning.onrender.com",
+    "https://smartplanning-api.onrender.com",
     "http://localhost:3000",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
