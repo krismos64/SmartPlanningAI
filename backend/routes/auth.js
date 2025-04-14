@@ -32,7 +32,10 @@ router.get(
   "/google/callback",
   passport.authenticate("google", {
     session: false,
-    failureRedirect: "/login?error=google-auth-failed",
+    failureRedirect:
+      process.env.NODE_ENV === "production"
+        ? "https://smartplanning.fr/login?error=google-auth-failed"
+        : "http://localhost:3000/login?error=google-auth-failed",
   }),
   async (req, res) => {
     try {
@@ -43,8 +46,9 @@ router.get(
           "❌ Authentification Google échouée: utilisateur non disponible"
         );
         return res.redirect(
-          process.env.FRONTEND_URL ||
-            "https://smartplanning.fr/login?error=auth-failed"
+          process.env.NODE_ENV === "production"
+            ? "https://smartplanning.fr/login?error=auth-failed"
+            : "http://localhost:3000/login?error=auth-failed"
         );
       }
 
@@ -69,7 +73,9 @@ router.get(
 
       // Rediriger vers le frontend avec le token JWT
       const redirectUrl = `${
-        process.env.FRONTEND_URL || "https://smartplanning.fr"
+        process.env.NODE_ENV === "production"
+          ? "https://smartplanning.fr"
+          : "http://localhost:3000"
       }/login-success?token=${tokens.accessToken}`;
       console.log(
         `🔄 Redirection vers: ${redirectUrl.substring(
@@ -82,8 +88,9 @@ router.get(
     } catch (error) {
       console.error("❌ Erreur lors du callback Google:", error);
       return res.redirect(
-        process.env.FRONTEND_URL ||
-          "https://smartplanning.fr/login?error=server-error"
+        process.env.NODE_ENV === "production"
+          ? "https://smartplanning.fr/login?error=server-error"
+          : "http://localhost:3000/login?error=server-error"
       );
     }
   }

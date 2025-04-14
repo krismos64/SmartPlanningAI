@@ -10,7 +10,7 @@ const GoogleSignupButton = () => {
     console.log("API URL utilisée:", API_URL);
 
     // URL correcte pour Google OAuth
-    const authUrl = `${API_URL}/api/auth/google`;
+    const authUrl = `${API_URL}/auth/google`;
 
     console.log(`Redirection vers l'inscription Google: ${authUrl}`);
     window.location.href = authUrl;

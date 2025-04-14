@@ -34,6 +34,7 @@ const {
 } = require("./middleware/csrfMiddleware");
 const { secureAuth } = require("./middleware/secureAuth");
 const crypto = require("crypto");
+const passport = require("passport");
 
 // Rendre le modèle Activity disponible globalement
 global.Activity = Activity;
@@ -66,17 +67,21 @@ const corsOptions = {
     "https://smartplanning.fr",
     "https://www.smartplanning.fr",
     "https://smartplanning.onrender.com",
-    "http://localhost:3000", // Ajouter localhost:3000 pour le développement
+    "http://localhost:3000",
   ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: [
     "Content-Type",
     "Authorization",
     "X-CSRF-Token",
     "x-xsrf-token",
+    "Origin",
+    "Accept",
+    "X-Requested-With",
   ],
-  credentials: true, // Important pour les cookies cross-domain
-  maxAge: 86400, // 24 heures
+  exposedHeaders: ["Set-Cookie", "Date", "ETag"],
+  credentials: true,
+  maxAge: 86400,
 };
 
 // Appliquer CORS avant toute autre configuration
@@ -250,135 +255,42 @@ app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
 
 // ===== CONFIGURATION DE PASSPORT =====
 // Configuration de Passport.js pour l'authentification
-const passport = require("passport");
 
-// Importer la stratégie Google
-const setupGoogleStrategy = require("./auth/google");
+// Initialiser Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
-const initializePassport = () => {
-  // Initialiser Passport après Express est lancé
-  app.use(passport.initialize());
-  app.use(passport.session());
+// Sérialisation et désérialisation de l'utilisateur pour les sessions
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
 
-  // Sérialisation et désérialisation de l'utilisateur pour les sessions
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
+passport.deserializeUser(async (id, done) => {
+  try {
+    const User = require("./models/User");
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
 
-  passport.deserializeUser(async (id, done) => {
-    try {
-      const User = require("./models/User");
-      const user = await User.findById(id);
-      done(null, user);
-    } catch (error) {
-      done(error, null);
-    }
-  });
-
-  // Initialiser la stratégie Google
-  setupGoogleStrategy();
-  console.log("✅ Stratégie Google initialisée dans server.js");
-};
-
-// Exécuter l'initialisation de Passport
-initializePassport();
+// Importer et configurer la stratégie Google
+require("./auth/google");
 
 // ===== ROUTES =====
-// Routes d'authentification Google (sans vérification CSRF)
-app.get(
-  "/api/auth/google",
+// Routes d'authentification avec gestion spéciale pour Google
+app.use(
+  "/api/auth",
   (req, res, next) => {
-    console.log("🔵 Route /api/auth/google appelée");
-    console.log("Headers:", JSON.stringify(req.headers, null, 2));
-    console.log("Session:", req.session ? "Disponible" : "Non disponible");
-
-    // Ajouter un gestionnaire d'erreur spécifique à cette route
-    try {
-      next();
-    } catch (error) {
-      console.error("❌ Erreur lors de l'authentification Google:", error);
-      res.status(500).json({
-        error: "Une erreur est survenue",
-        message: "Erreur lors de l'authentification Google: " + error.message,
-      });
+    // Exclure les routes Google de la vérification CSRF
+    if (req.path.startsWith("/google")) {
+      return next();
     }
+    verifyCsrfToken(req, res, next);
   },
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-    prompt: "select_account",
-    failWithError: true,
-  })
+  authRoutes
 );
-
-app.get(
-  "/api/auth/google/callback",
-  (req, res, next) => {
-    console.log("🔵 Route /api/auth/google/callback appelée");
-    next();
-  },
-  passport.authenticate("google", {
-    session: false,
-    failureRedirect: "/login?error=google-auth-failed",
-  }),
-  async (req, res) => {
-    try {
-      console.log("🔑 Callback Google OAuth reçu");
-
-      if (!req.user) {
-        console.error(
-          "❌ Authentification Google échouée: utilisateur non disponible"
-        );
-        return res.redirect(
-          process.env.FRONTEND_URL ||
-            "https://smartplanning.fr/login?error=auth-failed"
-        );
-      }
-
-      console.log(`✅ Utilisateur Google authentifié: ${req.user.email}`);
-
-      // Générer les tokens JWT
-      const { generateTokens } = require("./utils/tokenUtils");
-      const tokens = generateTokens(req.user.id, req.user.role || "admin");
-
-      // Enregistrer la tentative d'authentification réussie
-      const ipAddress =
-        req.headers["x-forwarded-for"] ||
-        req.headers["x-real-ip"] ||
-        req.connection.remoteAddress;
-
-      const AuthLog = require("./models/AuthLog");
-      await AuthLog.create({
-        email: req.user.email,
-        ip: ipAddress,
-        status: "success",
-        message: "Authentification Google réussie",
-        user_agent: req.headers["user-agent"],
-      });
-
-      // Rediriger vers le frontend avec le token JWT
-      const redirectUrl = `${
-        process.env.FRONTEND_URL || "https://smartplanning.fr"
-      }/login-success?token=${tokens.accessToken}`;
-      console.log(
-        `🔄 Redirection vers: ${redirectUrl.substring(
-          0,
-          redirectUrl.indexOf("?")
-        )}?token=...`
-      );
-
-      return res.redirect(redirectUrl);
-    } catch (error) {
-      console.error("❌ Erreur lors du callback Google:", error);
-      return res.redirect(
-        process.env.FRONTEND_URL ||
-          "https://smartplanning.fr/login?error=server-error"
-      );
-    }
-  }
-);
-
-// Toutes les autres routes d'authentification (avec vérification CSRF)
-app.use("/api/auth", verifyCsrfToken, authRoutes);
 
 // Routes nécessitant une authentification
 app.use("/api/employees", secureAuth, employeesRoutes);
