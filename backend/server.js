@@ -235,7 +235,88 @@ app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
   });
 });
 
-// Appliquer la vérification CSRF aux routes protégées
+// Configuration des routes d'authentification
+// Extraire les sous-routes Google OAuth pour les utiliser sans vérification CSRF
+const passport = require("passport");
+const googleAuthRouter = express.Router();
+
+// Routes Google OAuth
+googleAuthRouter.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  })
+);
+
+// Callback après authentification Google
+googleAuthRouter.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: "/login?error=google-auth-failed",
+  }),
+  async (req, res) => {
+    try {
+      console.log("🔑 Callback Google OAuth reçu");
+
+      if (!req.user) {
+        console.error(
+          "❌ Authentification Google échouée: utilisateur non disponible"
+        );
+        return res.redirect(
+          process.env.FRONTEND_URL ||
+            "https://smartplanning.fr/login?error=auth-failed"
+        );
+      }
+
+      console.log(`✅ Utilisateur Google authentifié: ${req.user.email}`);
+
+      // Générer les tokens JWT
+      const { generateTokens } = require("./utils/tokenUtils");
+      const tokens = generateTokens(req.user.id, req.user.role || "admin");
+
+      // Enregistrer la tentative d'authentification réussie
+      const ipAddress =
+        req.headers["x-forwarded-for"] ||
+        req.headers["x-real-ip"] ||
+        req.connection.remoteAddress;
+
+      const AuthLog = require("./models/AuthLog");
+      await AuthLog.create({
+        email: req.user.email,
+        ip: ipAddress,
+        status: "success",
+        message: "Authentification Google réussie",
+        user_agent: req.headers["user-agent"],
+      });
+
+      // Rediriger vers le frontend avec le token JWT
+      const redirectUrl = `${
+        process.env.FRONTEND_URL || "https://smartplanning.fr"
+      }/login-success?token=${tokens.accessToken}`;
+      console.log(
+        `🔄 Redirection vers: ${redirectUrl.substring(
+          0,
+          redirectUrl.indexOf("?")
+        )}?token=...`
+      );
+
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error("❌ Erreur lors du callback Google:", error);
+      return res.redirect(
+        process.env.FRONTEND_URL ||
+          "https://smartplanning.fr/login?error=server-error"
+      );
+    }
+  }
+);
+
+// Appliquer le routeur Google sans vérification CSRF
+app.use("/api/auth", googleAuthRouter);
+
+// Appliquer la vérification CSRF aux routes d'authentification normales
 app.use("/api/auth", verifyCsrfToken, authRoutes);
 
 // Routes nécessitant une authentification
