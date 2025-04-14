@@ -1,17 +1,16 @@
+/**
+ * Bouton d'inscription Google
+ * Redirige l'utilisateur vers l'API d'authentification Google pour l'inscription
+ */
 const GoogleSignupButton = () => {
   const handleGoogleSignup = () => {
-    // Rediriger vers le endpoint backend d'authentification Google
-    // En production, utiliser l'URL complète sans /api préfixe
-    const API_URL =
-      process.env.NODE_ENV === "production"
-        ? "https://smartplanning-api.onrender.com"
-        : "http://localhost:5001";
+    // Utiliser REACT_APP_API_URL défini dans les variables d'environnement
+    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
+
+    console.log("API URL utilisée:", API_URL);
 
     // URL correcte pour Google OAuth
-    const authUrl =
-      process.env.NODE_ENV === "production"
-        ? `${API_URL}/auth/google` // Sans /api en production
-        : `${API_URL}/api/auth/google`; // Avec /api en développement
+    const authUrl = `${API_URL}/auth/google`;
 
     console.log(`Redirection vers l'inscription Google: ${authUrl}`);
     window.location.href = authUrl;
