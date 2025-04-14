@@ -1,4 +1,17 @@
-require("dotenv").config();
+// Charger les variables d'environnement dès le début
+const dotenv = require("dotenv");
+const path = require("path");
+
+// Charger depuis le fichier .env à la racine du projet
+dotenv.config({ path: path.resolve(__dirname, ".env") });
+
+// Afficher un message de débogage pour les variables Google
+console.log("🔑 Variables Google OAuth:", {
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? "Défini" : "Non défini",
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET
+    ? "Défini"
+    : "Non défini",
+});
 
 const express = require("express");
 const cors = require("cors");
@@ -12,7 +25,6 @@ const MySQLStore = require("express-mysql-session")(session);
 // Utiliser db directement dans un commentaire pour indiquer son utilisation implicite
 // db est utilisé implicitement pour établir la connexion à la base de données au démarrage
 const fs = require("fs");
-const path = require("path");
 const http = require("http");
 const setupWebSocket = require("./config/websocket");
 const Activity = require("./models/Activity");
@@ -54,6 +66,7 @@ const corsOptions = {
     "https://smartplanning.fr",
     "https://www.smartplanning.fr",
     "https://smartplanning.onrender.com",
+    "http://localhost:3000", // Ajouter localhost:3000 pour le développement
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [
@@ -97,8 +110,8 @@ app.use(
     credentials: true, // Important pour la gestion des sessions cross-domain
     cookie: {
       httpOnly: true,
-      secure: true, // Cookies sécurisés (HTTPS)
-      sameSite: "None", // Permettre les cookies cross-domain
+      secure: process.env.NODE_ENV === "production", // Cookies sécurisés (HTTPS) seulement en production
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // Ajuster selon l'environnement
       maxAge: 24 * 60 * 60 * 1000, // 24 heures
     },
   })
@@ -235,23 +248,74 @@ app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
   });
 });
 
-// Configuration des routes d'authentification
-// Extraire les sous-routes Google OAuth pour les utiliser sans vérification CSRF
+// ===== CONFIGURATION DE PASSPORT =====
+// Configuration de Passport.js pour l'authentification
 const passport = require("passport");
-const googleAuthRouter = express.Router();
 
-// Routes Google OAuth
-googleAuthRouter.get(
-  "/google",
+// Importer la stratégie Google
+const setupGoogleStrategy = require("./auth/google");
+
+const initializePassport = () => {
+  // Initialiser Passport après Express est lancé
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // Sérialisation et désérialisation de l'utilisateur pour les sessions
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id, done) => {
+    try {
+      const User = require("./models/User");
+      const user = await User.findById(id);
+      done(null, user);
+    } catch (error) {
+      done(error, null);
+    }
+  });
+
+  // Initialiser la stratégie Google
+  setupGoogleStrategy();
+  console.log("✅ Stratégie Google initialisée dans server.js");
+};
+
+// Exécuter l'initialisation de Passport
+initializePassport();
+
+// ===== ROUTES =====
+// Routes d'authentification Google (sans vérification CSRF)
+app.get(
+  "/api/auth/google",
+  (req, res, next) => {
+    console.log("🔵 Route /api/auth/google appelée");
+    console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Session:", req.session ? "Disponible" : "Non disponible");
+
+    // Ajouter un gestionnaire d'erreur spécifique à cette route
+    try {
+      next();
+    } catch (error) {
+      console.error("❌ Erreur lors de l'authentification Google:", error);
+      res.status(500).json({
+        error: "Une erreur est survenue",
+        message: "Erreur lors de l'authentification Google: " + error.message,
+      });
+    }
+  },
   passport.authenticate("google", {
     scope: ["profile", "email"],
     prompt: "select_account",
+    failWithError: true,
   })
 );
 
-// Callback après authentification Google
-googleAuthRouter.get(
-  "/google/callback",
+app.get(
+  "/api/auth/google/callback",
+  (req, res, next) => {
+    console.log("🔵 Route /api/auth/google/callback appelée");
+    next();
+  },
   passport.authenticate("google", {
     session: false,
     failureRedirect: "/login?error=google-auth-failed",
@@ -313,10 +377,7 @@ googleAuthRouter.get(
   }
 );
 
-// Appliquer le routeur Google sans vérification CSRF
-app.use("/api/auth", googleAuthRouter);
-
-// Appliquer la vérification CSRF aux routes d'authentification normales
+// Toutes les autres routes d'authentification (avec vérification CSRF)
 app.use("/api/auth", verifyCsrfToken, authRoutes);
 
 // Routes nécessitant une authentification
@@ -339,6 +400,21 @@ app.use("/api/schedule", secureAuth, autoScheduleRoutes); // Routes pour la gén
 // Route de base
 app.get("/", (req, res) => {
   res.json({ message: "SmartPlanning API" });
+});
+
+// Route de test pour vérifier les variables d'environnement
+app.get("/api/env-check", (req, res) => {
+  res.json({
+    env: process.env.NODE_ENV || "non défini",
+    googleConfigured: !!(
+      process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ),
+    googleClientId: process.env.GOOGLE_CLIENT_ID
+      ? process.env.GOOGLE_CLIENT_ID.substring(0, 10) + "..."
+      : "non défini",
+    port: process.env.PORT || "défaut",
+    frontendUrl: process.env.FRONTEND_URL || "non défini",
+  });
 });
 
 // Route de test directe pour le changement de mot de passe

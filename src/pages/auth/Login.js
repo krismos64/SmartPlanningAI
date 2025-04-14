@@ -134,8 +134,9 @@ const Divider = styled.div`
 
 const SocialButtons = styled.div`
   display: flex;
+  flex-direction: column;
   gap: ${({ theme }) => theme.spacing.md};
-  justify-content: center;
+  margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
 const SocialButton = styled(Button)`

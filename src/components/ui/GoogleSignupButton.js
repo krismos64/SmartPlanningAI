@@ -1,24 +1,17 @@
-/**
- * Bouton de connexion Google
- * Redirige l'utilisateur vers l'API d'authentification Google
- */
-const GoogleLoginButton = () => {
-  const handleGoogleLogin = () => {
+const GoogleSignupButton = () => {
+  const handleGoogleSignup = () => {
     const API_URL =
       process.env.NODE_ENV === "production"
         ? "https://smartplanning-api.onrender.com"
         : "http://localhost:5001";
 
-    console.log(
-      `Redirection vers l'authentification Google: ${API_URL}/api/auth/google`
-    );
     window.location.href = `${API_URL}/api/auth/google`;
   };
 
   return (
     <button
       type="button"
-      onClick={handleGoogleLogin}
+      onClick={handleGoogleSignup}
       style={{
         width: "100%",
         display: "flex",
@@ -42,16 +35,16 @@ const GoogleLoginButton = () => {
       onMouseLeave={(e) =>
         (e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.1)")
       }
-      aria-label="Se connecter avec Google"
+      aria-label="S'inscrire avec Google"
     >
       <img
         src="https://www.svgrepo.com/show/475656/google-color.svg"
         alt="Logo Google"
         style={{ width: "24px", height: "24px" }}
       />
-      <span>Se connecter avec Google</span>
+      <span>S'inscrire avec Google</span>
     </button>
   );
 };
 
-export default GoogleLoginButton;
+export default GoogleSignupButton;

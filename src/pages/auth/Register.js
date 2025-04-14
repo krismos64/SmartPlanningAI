@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import planningAnimation from "../../assets/animations/planning-animation.json";
 import EnhancedLottie from "../../components/ui/EnhancedLottie";
-import GoogleLoginButton from "../../components/ui/GoogleLoginButton";
+import GoogleSignupButton from "../../components/ui/GoogleSignupButton";
 import { useNotification } from "../../components/ui/Notification";
 import { apiRequest } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
@@ -140,6 +140,10 @@ const Divider = styled.div`
     padding: 0 10px;
     background-color: ${({ theme }) => theme.colors.surface};
   }
+`;
+
+const GoogleButtonContainer = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
 // Composant Register
@@ -541,7 +545,9 @@ const Register = () => {
           <span>Ou</span>
         </Divider>
 
-        <GoogleLoginButton />
+        <GoogleButtonContainer>
+          <GoogleSignupButton />
+        </GoogleButtonContainer>
 
         <LinkContainer>
           Vous avez déjà un compte ? <Link to="/login">Se connecter</Link>

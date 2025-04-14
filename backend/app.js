@@ -11,7 +11,7 @@ const { NlpManager } = require("node-nlp");
 const { changePassword } = require("./controllers/usersController");
 const passport = require("passport");
 const session = require("express-session");
-const setupGoogleStrategy = require("./auth/google");
+const helmet = require("helmet");
 
 dotenv.config();
 
@@ -47,9 +47,12 @@ app.use(
   })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+
+// Configuration pour servir les fichiers statiques
+app.use(express.static(path.join(__dirname, "public")));
 
 // 📂 Logs
 const logDirectory = path.join(__dirname, "logs");
@@ -80,9 +83,6 @@ app.use(
 // Initialisation de Passport
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Configuration de la stratégie Google OAuth
-setupGoogleStrategy();
 
 // 📦 Routes API
 app.use("/api", routes);
@@ -224,6 +224,12 @@ async function initializeServer() {
     process.exit(1);
   }
 }
+
+// Servir le favicon.ico
+app.use(
+  "/favicon.ico",
+  express.static(path.join(__dirname, "public", "favicon.ico"))
+);
 
 initializeServer();
 module.exports = app;
