@@ -57,6 +57,32 @@ router.get(
       // Générer les tokens JWT
       const tokens = generateTokens(req.user.id, req.user.role || "admin");
 
+      // Définir les cookies avec la configuration sécurisée pour cross-domain
+      res.cookie("accessToken", tokens.accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+        path: "/",
+        expires: tokens.accessExpires,
+      });
+
+      res.cookie("refreshToken", tokens.refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+        path: "/",
+        expires: tokens.refreshExpires,
+      });
+
+      // Cookie non-httpOnly pour le client JavaScript
+      res.cookie("auth_token", tokens.accessToken, {
+        secure: true,
+        sameSite: "None",
+        path: "/",
+        httpOnly: false,
+        expires: tokens.accessExpires,
+      });
+
       // Enregistrer la tentative d'authentification réussie
       const ipAddress =
         req.headers["x-forwarded-for"] ||

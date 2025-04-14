@@ -183,4 +183,6 @@ module.exports = {
   generateCsrfToken,
   verifyCsrfToken,
   logRequestDetails,
+  // Alias pour assurer la compatibilité avec les nouveaux appels
+  generateCSRFToken: generateCsrfToken,
 };

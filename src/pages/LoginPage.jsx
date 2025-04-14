@@ -53,7 +53,7 @@ const LoginPage = () => {
       // Appel réel à l'API pour la connexion
       const API_URL =
         process.env.NODE_ENV === "production"
-          ? "https://smartplanning-api.onrender.com"
+          ? "https://smartplanning.onrender.com/api "
           : "";
 
       const response = await axios.post(

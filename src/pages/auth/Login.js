@@ -308,7 +308,7 @@ const Login = () => {
     // Rediriger vers l'endpoint d'authentification Google
     window.location.href = `${
       process.env.NODE_ENV === "production"
-        ? "https://smartplanning-api.onrender.com"
+        ? "https://smartplanning.onrender.com/api "
         : ""
     }/api/auth/google`;
   };

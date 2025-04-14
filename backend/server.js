@@ -2,8 +2,12 @@
 const dotenv = require("dotenv");
 const path = require("path");
 
-// Charger depuis le fichier .env à la racine du projet
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+// Charger le fichier .env approprié selon l'environnement
+const envFile =
+  process.env.NODE_ENV === "production"
+    ? ".env.production"
+    : ".env.development";
+dotenv.config({ path: path.resolve(__dirname, envFile) });
 
 // Afficher un message de débogage pour les variables Google
 console.log("🔑 Variables Google OAuth:", {
@@ -65,7 +69,7 @@ const corsOptions = {
   origin: [
     "https://smartplanning.fr",
     "https://www.smartplanning.fr",
-    "https://smartplanning-api.onrender.com",
+    "https://smartplanning.onrender.com/api ",
     "http://localhost:3000",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],

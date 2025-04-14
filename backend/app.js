@@ -12,6 +12,7 @@ const { changePassword } = require("./controllers/usersController");
 const passport = require("passport");
 const session = require("express-session");
 const helmet = require("helmet");
+const csrfRoutes = require("./routes/csrf");
 
 dotenv.config();
 
@@ -32,7 +33,10 @@ const corsOrigins =
 
 app.use(
   cors({
-    origin: corsOrigins,
+    origin:
+      process.env.NODE_ENV === "production"
+        ? "https://smartplanning.fr"
+        : corsOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
@@ -73,9 +77,10 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // true en prod, false en dev
+      secure: true, // Toujours sécurisé en production
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 heures
+      sameSite: "None", // Nécessaire pour cross-domain
     },
   })
 );
@@ -87,8 +92,7 @@ app.use(passport.session());
 // 📦 Routes API
 app.use("/api", routes);
 
-// Ajout de notre route CSRF pour les applications qui n'utilisent pas les routes principales
-const csrfRoutes = require("./routes/csrfRoutes");
+// Ajout de la route CSRF
 app.use("/api", csrfRoutes);
 
 // ✅ Route ping

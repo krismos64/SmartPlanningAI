@@ -15,7 +15,7 @@ module.exports = {
       });
     },
     env: {
-      apiUrl: "https://smartplanning-api.onrender.com",
+      apiUrl: "https://smartplanning.onrender.com/api ",
     },
   },
 };
