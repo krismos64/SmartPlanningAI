@@ -36,8 +36,11 @@ const setupGoogleStrategy = () => {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        // Pour les tests locaux en mode production: toujours utiliser l'URL localhost
         callbackURL:
-          process.env.NODE_ENV === "production"
+          process.env.TEST_LOCAL_PROD === "true"
+            ? "http://localhost:5001/api/auth/google/callback"
+            : process.env.NODE_ENV === "production"
             ? "https://smartplanning-api.onrender.com/api/auth/google/callback"
             : "http://localhost:5001/api/auth/google/callback",
         scope: ["profile", "email"],
@@ -56,10 +59,12 @@ const setupGoogleStrategy = () => {
           let user = await User.findByEmail(email);
 
           if (user) {
+            console.log(`👤 Utilisateur Google existant trouvé: ${email}`);
             return done(null, user);
           }
 
           // Création d'un nouvel utilisateur
+          console.log(`🔰 Création d'un nouvel utilisateur Google: ${email}`);
           const newUser = await User.create({
             email: email,
             first_name: profile.name.givenName,
@@ -70,8 +75,10 @@ const setupGoogleStrategy = () => {
             profileImage: profile.photos?.[0]?.value || null,
           });
 
+          console.log(`✅ Nouvel utilisateur Google créé: ${email}`);
           return done(null, newUser);
         } catch (error) {
+          console.error(`❌ Erreur lors de l'authentification Google:`, error);
           return done(error, null);
         }
       }

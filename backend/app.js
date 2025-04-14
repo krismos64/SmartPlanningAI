@@ -33,6 +33,9 @@ const helmet = require("helmet");
 // Maintenant on peut charger les routes
 const csrfRoutes = require("./routes/csrf");
 
+// Importer la stratégie Google
+require("./auth/google");
+
 const app = express();
 
 // Configuration du proxy pour gérer les en-têtes X-Forwarded-For
