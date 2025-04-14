@@ -4,7 +4,7 @@ import axios from "axios";
 
 // URL de fallback si aucune variable n'est définie
 const DEFAULT_LOCAL_URL = "http://localhost:5001";
-const DEFAULT_PROD_URL = "https://smartplanning.onrender.com";
+const DEFAULT_PROD_URL = "https://smartplanning-api.onrender.com";
 const PROD_API_URL = DEFAULT_PROD_URL;
 
 // Fonction pour déterminer dynamiquement l'URL selon le hostname
