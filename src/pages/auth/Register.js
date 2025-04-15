@@ -184,7 +184,7 @@ const Register = () => {
       try {
         console.log("Demande de token CSRF...");
         // Appeler l'API pour récupérer un token CSRF
-        await apiRequest("/api/csrf-token", "GET");
+        await apiRequest("/csrf-token", "GET");
         console.log("Token CSRF obtenu avec succès");
       } catch (error) {
         console.error("Erreur lors de la récupération du token CSRF:", error);
@@ -298,7 +298,7 @@ const Register = () => {
 
     // Essayer d'obtenir un nouveau token CSRF juste avant l'inscription
     try {
-      await apiRequest("/api/csrf-token", "GET");
+      await apiRequest("/csrf-token", "GET");
       console.log("Token CSRF rafraîchi avant inscription");
     } catch (error) {
       console.error("Erreur lors du rafraîchissement du token CSRF:", error);

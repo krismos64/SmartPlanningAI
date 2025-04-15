@@ -235,7 +235,7 @@ app.use((req, res, next) => {
 });
 
 // Route pour obtenir le token CSRF
-app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
+app.get("/csrf-token", generateCsrfToken, (req, res) => {
   // Générer un token CSRF aléatoire
   const csrfToken = crypto.randomBytes(32).toString("hex");
 

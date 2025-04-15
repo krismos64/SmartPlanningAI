@@ -240,7 +240,7 @@ export const API_ENDPOINTS = {
   },
   HEALTH: "", // Endpoint vide pour vérifier l'état de l'API
   CSRF: {
-    TOKEN: "/api/csrf-token",
+    TOKEN: "/csrf-token",
   },
 };
 

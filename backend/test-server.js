@@ -159,7 +159,7 @@ function verifyCSRFToken(req, res, next) {
 
 // Routes
 // 1. Route CSRF-token
-app.get("/api/csrf-token", generateCSRFToken, (req, res) => {
+app.get("/csrf-token", generateCSRFToken, (req, res) => {
   const csrfToken = res.locals.csrfToken;
 
   console.log(

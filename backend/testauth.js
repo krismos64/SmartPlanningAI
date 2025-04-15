@@ -66,7 +66,7 @@ async function runTests() {
 
     // 1. Obtenir un token CSRF
     console.log("\n--- 1. Récupération du token CSRF ---");
-    const csrfResponse = await request("GET", "/api/csrf-token");
+    const csrfResponse = await request("GET", "/csrf-token");
     if (!csrfResponse.data || !csrfResponse.data.csrfToken) {
       throw new Error("Impossible d'obtenir un token CSRF");
     }

@@ -110,7 +110,7 @@ app.use(passport.session());
 app.use("/api/csrf", csrfRoutes);
 
 // Route CSRF token
-app.get("/api/csrf-token", (req, res) => {
+app.get("/csrf-token", (req, res) => {
   if (csrfRoutes.handle) {
     return csrfRoutes.handle(req, res);
   }

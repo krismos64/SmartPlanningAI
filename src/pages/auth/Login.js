@@ -195,7 +195,7 @@ const Login = () => {
       try {
         console.log("Demande de token CSRF...");
         // Appeler l'API pour récupérer un token CSRF
-        await apiRequest("/api/csrf-token", "GET");
+        await apiRequest("/csrf-token", "GET");
         console.log("Token CSRF obtenu avec succès");
       } catch (error) {
         console.error("Erreur lors de la récupération du token CSRF:", error);
@@ -239,7 +239,7 @@ const Login = () => {
 
     // Essayer d'obtenir un nouveau token CSRF juste avant la connexion
     try {
-      await apiRequest("/api/csrf-token", "GET");
+      await apiRequest("/csrf-token", "GET");
       console.log("Token CSRF rafraîchi avant connexion");
     } catch (error) {
       console.error("Erreur lors du rafraîchissement du token CSRF:", error);
