@@ -1,4 +1,5 @@
 import io from "socket.io-client";
+import { getApiUrl } from "../utils/api";
 
 let socket = null;
 let userToken = null; // Stocker le token utilisé pour l'initialisation
@@ -27,7 +28,7 @@ export const initializeSocket = (token) => {
   userToken = token;
 
   try {
-    const API_URL = process.env.REACT_APP_API_URL;
+    const API_URL = getApiUrl();
     console.log(`Initialisation de la connexion WebSocket vers ${API_URL}...`);
 
     // Configuration de la socket avec authentification et gestion des erreurs améliorée

@@ -92,6 +92,11 @@ function generateTokens(userId, role = "admin") {
  */
 function verifyAccessToken(token) {
   try {
+    if (!token) {
+      console.error("ERREUR: Token non fourni à verifyAccessToken");
+      return null;
+    }
+
     console.log(
       `Vérification du token (longueur: ${token.length}): ${token.substring(
         0,
@@ -126,6 +131,7 @@ function verifyAccessToken(token) {
         }
       } else {
         console.log("Format de token invalide (pas 3 parties)");
+        return null;
       }
     } catch (e) {
       console.log("Impossible de décoder l'en-tête du token:", e.message);
@@ -133,6 +139,7 @@ function verifyAccessToken(token) {
       if (e.message.includes("userId manquant")) {
         throw e;
       }
+      return null;
     }
 
     const decoded = jwt.verify(cleanToken, ACCESS_TOKEN_SECRET);
@@ -150,6 +157,7 @@ function verifyAccessToken(token) {
     // Vérification supplémentaire que userId est bien présent
     if (!decoded.userId) {
       console.error("ERREUR: Le token ne contient pas d'ID utilisateur");
+      return null;
     }
 
     return decoded;
@@ -206,11 +214,14 @@ function setTokenCookies(
   res,
   { accessToken, refreshToken, accessExpires, refreshExpires }
 ) {
+  // Configuration différente selon l'environnement
+  const isProduction = process.env.NODE_ENV === "production";
+
   // Configuration commune pour tous les cookies
   const cookieConfig = {
     httpOnly: true,
-    secure: true, // Cookies sécurisés
-    sameSite: "None", // Important pour le cross-domain
+    secure: isProduction, // Cookies sécurisés uniquement en production
+    sameSite: isProduction ? "None" : "Lax", // Cross-domain en production, Lax en développement
     path: "/",
   };
 
@@ -222,6 +233,7 @@ function setTokenCookies(
   console.log("- accessExpires:", accessExpires);
   console.log("- refreshExpires:", refreshExpires);
   console.log("- cookieConfig:", JSON.stringify(cookieConfig));
+  console.log("- Environment:", process.env.NODE_ENV);
 
   // Configurer le cookie pour le token d'accès
   res.cookie("accessToken", accessToken, {
@@ -239,8 +251,8 @@ function setTokenCookies(
 
   // Cookie non-httpOnly pour le client JavaScript
   res.cookie("auth_token", accessToken, {
-    secure: true,
-    sameSite: "None",
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
     path: "/",
     httpOnly: false,
     expires: accessExpires,
@@ -281,10 +293,13 @@ function setTokenCookies(
  * @param {Object} res - Objet response Express
  */
 function clearTokenCookies(res) {
+  // Déterminer l'environnement
+  const isProduction = process.env.NODE_ENV === "production";
+
   // Configuration des cookies commune
   const cookieConfig = {
-    secure: true,
-    sameSite: "None",
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
     httpOnly: true,
     path: "/",
   };
@@ -302,8 +317,8 @@ function clearTokenCookies(res) {
 
   // Effacer également le cookie non-httpOnly
   res.cookie("auth_token", "", {
-    secure: true,
-    sameSite: "None",
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
     httpOnly: false,
     path: "/",
     expires: new Date(0),

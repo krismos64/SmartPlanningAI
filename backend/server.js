@@ -1,6 +1,12 @@
 // Charger les variables d'environnement dès le début
 const dotenv = require("dotenv");
 const path = require("path");
+
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = "development";
+  console.log("🛠️ NODE_ENV par défaut défini à 'development'");
+}
+
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const http = require("http");
@@ -258,6 +264,30 @@ app.get("/csrf-token", generateCsrfToken, (req, res) => {
   });
 });
 
+// Route pour obtenir le token CSRF avec préfixe /api
+app.get("/api/csrf-token", generateCsrfToken, (req, res) => {
+  // Générer un token CSRF aléatoire
+  const csrfToken = crypto.randomBytes(32).toString("hex");
+
+  // Stocker le token dans la session si elle existe
+  if (req.session) {
+    req.session.csrfToken = csrfToken;
+    console.log(
+      "🔐 [CSRF] Token généré et stocké en session (route /api):",
+      csrfToken.substring(0, 10) + "..."
+    );
+  } else {
+    console.warn("⚠️ [CSRF] Session non disponible pour stocker le token");
+  }
+
+  // Retourner le token dans la réponse JSON
+  res.json({
+    success: true,
+    csrfToken,
+    message: "Token CSRF généré avec succès",
+  });
+});
+
 // ===== CONFIGURATION DE PASSPORT =====
 // Configuration de Passport.js pour l'authentification
 
@@ -416,6 +446,9 @@ const startServer = async () => {
 
     // Configurer WebSocket
     setupWebSocket(server);
+
+    // Afficher l'environnement détecté
+    console.log(`🌍 Environnement détecté: ${process.env.NODE_ENV}`);
 
     // Démarrer le serveur
     server.listen(port, () => {

@@ -25,10 +25,16 @@ jobs:
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.PROJECT_PATH }} && \
           git pull origin main && \
-          docker-compose build && \
-          docker-compose up -d"
+          npm install && \
+          npm run build"
+
+      - name: Restart services
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.PROJECT_PATH }} && \
+          cd backend && npm install && \
+          pm2 restart server.js || pm2 start server.js"
 
       - name: Verify deployment
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.PROJECT_PATH }} && \
-          docker-compose ps"
+          pm2 status"

@@ -354,7 +354,7 @@ npm run dev
 
 ## 📄 Licence
 
-Distribué sous la licence MIT. Voir `LICENSE` pour plus d'informations.
+Ce projet est sous licence MIT - voir le fichier [LICENSE.md](LICENSE.md) pour plus de détails.
 
 ## 📝 Bonnes pratiques d'utilisation
 
@@ -478,146 +478,8 @@ npm run dev
 npm run build
 ```
 
-## Licence
+## 🙏 Remerciements
 
-Ce projet est sous licence propriétaire. Tous droits réservés.
-
-## Déploiement avec Docker
-
-smartplanningai peut être facilement déployé en utilisant Docker et Docker Compose.
-
-### Prérequis
-
-- Docker (version 20.10.0 ou plus récente)
-- Docker Compose (version 2.0.0 ou plus récente)
-- Git
-
-### Installation et déploiement
-
-1. Clonez le dépôt :
-
-   ```bash
-   git clone https://github.com/votre-utilisateur/SmartPlanningA4.git
-   cd SmartPlanningA4
-   ```
-
-2. Démarrez l'application avec Docker Compose :
-
-   ```bash
-   docker-compose up -d
-   ```
-
-3. Accédez à l'application :
-   - Frontend : http://localhost:8080
-   - Backend API : http://localhost:5001
-
-### Configuration
-
-Toutes les variables d'environnement sont configurées dans le fichier `docker-compose.yml`. Vous pouvez les modifier selon vos besoins avant le démarrage des conteneurs.
-
-### Gestion des volumes
-
-L'application utilise trois volumes Docker pour la persistance des données :
-
-- `frontend-build` : Stocke les fichiers statiques du frontend
-- `backend-data` : Stocke les logs du backend
-- `db-data` : Stocke les données MySQL
-
-### Déploiement continu
-
-L'application est configurée avec Watchtower pour mettre à jour automatiquement les conteneurs lorsque de nouvelles images sont disponibles. Les conteneurs sont vérifiés toutes les 30 secondes.
-
-Pour un déploiement automatique depuis GitHub :
-
-1. Configurez les secrets GitHub suivants dans votre dépôt :
-
-   - `SSH_PRIVATE_KEY` : Clé SSH privée pour se connecter au serveur
-   - `SSH_HOST` : Adresse IP ou nom d'hôte du serveur
-   - `SSH_USER` : Nom d'utilisateur SSH
-   - `PROJECT_PATH` : Chemin vers le projet sur le serveur
-
-2. Chaque push sur la branche `main` déclenchera un déploiement automatique via GitHub Actions.
-
-### Commandes utiles
-
-- Reconstruire les conteneurs : `docker-compose build`
-- Démarrer les conteneurs : `docker-compose up -d`
-- Arrêter les conteneurs : `docker-compose down`
-- Voir les logs : `docker-compose logs -f`
-- Redémarrer un service spécifique : `docker-compose restart [service]`
-
-## 📂 Structure du projet
-
-### Frontend (React)
-
-```
-src/
-├── animations/    # Animations et transitions
-├── assets/        # Images, icônes et autres fichiers statiques
-├── components/    # Composants réutilisables
-├── config/        # Configuration du frontend
-├── contexts/      # Context API pour la gestion d'état global
-├── hooks/         # Custom hooks React
-├── layouts/       # Layouts de page
-├── pages/         # Composants de page
-├── services/      # Services d'API
-├── styles/        # Fichiers CSS et styles
-├── utils/         # Fonctions utilitaires
-├── App.js         # Composant racine
-├── i18n.js        # Configuration internationalisation
-├── index.js       # Point d'entrée
-├── setupProxy.js  # Configuration du proxy pour le développement
-└── theme.js       # Thème et styles globaux
-```
-
-### Backend (Node.js)
-
-```
-backend/
-├── config/        # Configuration du serveur
-├── controllers/   # Contrôleurs pour les routes
-├── database/      # Scripts et migrations de base de données
-├── middleware/    # Middlewares Express
-├── migrations/    # Fichiers de migration de la base de données
-├── models/        # Modèles de données
-├── routes/        # Définitions des routes API
-├── scripts/       # Scripts utilitaires
-├── services/      # Services métier
-├── utils/         # Fonctions utilitaires
-├── app.js         # Configuration de l'application Express
-└── server.js      # Point d'entrée du serveur
-```
-
-## Test du Chatbot SmartPlanningAI
-
-Le système intègre un chatbot intelligent capable de répondre à deux types de questions :
-
-1. **Questions standards (FAQ interne)** - Réponses prédéfinies sur l'utilisation de l'application
-2. **Questions personnalisées** - Réponses dynamiques basées sur des données de la base MySQL
-
-### Pour tester le chatbot
-
-1. **Installer les dépendances**
-
-   ```bash
-   npm install node-fetch@2
-   ```
-
-2. **Exécuter le script de test manuel**
-
-   ```bash
-   node __tests__/manuel-test-chatbot.js
-   ```
-
-3. **Se connecter avec un compte utilisateur valide**
-
-   - Utilisez un compte administrateur pour tester toutes les fonctionnalités
-   - Utilisez un compte employé pour tester les requêtes personnelles
-
-4. **Exemples de questions à tester**:
-   - Standards: "Bonjour", "Comment créer un planning ?", "Comment poser un congé ?"
-   - Données dynamiques: "Qui travaille aujourd'hui ?", "Quel est mon solde de congés ?"
-
-## Introduction
-
-SmartPlanning est une application web de gestion de planning, congés et personnel pour les petites et moyennes entreprises.
+- Tous les contributeurs qui participent à l'amélioration de ce projet.
+- Les utilisateurs qui fournissent des retours précieux pour améliorer l'application.
+- La communauté des développeurs open-source pour leurs outils et bibliothèques remarquables.

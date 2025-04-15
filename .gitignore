@@ -18,9 +18,6 @@ yarn-error.log*
 .env
 .env.development
 backend/.env.development
-# Fichiers Docker
-.docker
-docker-volumes
 
 # Dépendances
 /.pnp

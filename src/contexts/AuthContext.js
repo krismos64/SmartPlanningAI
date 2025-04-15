@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
 import { apiRequest, fetchCsrfToken } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
-import { buildApiUrl } from "../utils/apiHelpers";
+import { getApiUrl } from "../utils/api";
 
 // Style de la modale d'inactivité
 const StyledInactivityModal = styled.div`
@@ -300,7 +300,7 @@ export const AuthProvider = ({ children }) => {
     try {
       // Vérifier la validité du token auprès du serveur
       console.log("Vérification du token stocké...");
-      const response = await apiRequest("/api/auth/verify", "GET");
+      const response = await apiRequest("/auth/verify", "GET");
 
       if (response && response.success) {
         console.log("Token valide, utilisateur authentifié");
@@ -331,7 +331,7 @@ export const AuthProvider = ({ children }) => {
   // Fonction pour mettre à jour le profil utilisateur
   const updateUserProfile = async (userData) => {
     try {
-      const response = await apiRequest("/api/user/profile", "PUT", userData);
+      const response = await apiRequest("/user/profile", "PUT", userData);
 
       if (response && response.success) {
         // Mettre à jour les informations utilisateur localement
@@ -407,32 +407,61 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       // Effectuer la requête de connexion
-      const response = await apiRequest("/api/auth/login", "POST", {
+      const response = await apiRequest("/auth/login", "POST", {
         email,
         password,
       });
-      console.log("Réponse de connexion reçue:", response);
 
-      if (response && response.success) {
+      // Log complet de la réponse de login
+      console.log("Réponse login:", response);
+
+      if (
+        response &&
+        (response.success === true || response.token || response.accessToken)
+      ) {
+        // Afficher un message de connexion réussie
+        console.log("✅ Connexion réussie");
+
         // Récupérer le token et les informations utilisateur
         const userToken = response.token || response.accessToken;
         const refreshToken = response.refreshToken;
         const userInfo = response.user;
 
-        console.log("Token reçu:", userToken ? "Oui" : "Non");
+        console.log(
+          "Token reçu:",
+          userToken ? "Oui, longueur: " + userToken.length : "Non"
+        );
         console.log("RefreshToken reçu:", refreshToken ? "Oui" : "Non");
         console.log("User info reçues:", userInfo ? "Oui" : "Non");
 
         // Stocker le token dans localStorage
         if (userToken) {
           localStorage.setItem("token", userToken);
+          localStorage.setItem("auth_token", userToken); // Stockage redondant pour la compatibilité
           setToken(userToken);
+          console.log("✅ Token stocké dans localStorage avec succès");
+        } else {
+          console.error("❌ Pas de token reçu dans la réponse");
+        }
+
+        // Vérifier les cookies reçus
+        const tokenFromCookie = document.cookie
+          .split(";")
+          .find((cookie) => cookie.trim().startsWith("auth_token="));
+
+        if (tokenFromCookie) {
+          console.log("✅ Cookie auth_token détecté");
+        } else {
+          console.warn("⚠️ Cookie auth_token non trouvé");
         }
 
         // Mettre à jour les informations utilisateur
         if (userInfo) {
           updateUser(userInfo);
         }
+
+        // Afficher les cookies reçus
+        console.log("🔐 Cookies reçus :", document.cookie);
 
         setIsAuthenticated(true);
         setLoginError(null);
@@ -481,7 +510,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       // Effectuer la requête d'inscription
-      const response = await apiRequest("/api/auth/register", "POST", userData);
+      const response = await apiRequest("/auth/register", "POST", userData);
       console.log("Réponse d'inscription reçue:", response);
 
       if (response && response.success) {
@@ -550,7 +579,7 @@ export const AuthProvider = ({ children }) => {
       setToken(null);
 
       // Effectuer une requête de déconnexion au backend (sans attendre la réponse)
-      apiRequest("/api/auth/logout", "POST").catch((error) => {
+      apiRequest("/auth/logout", "POST").catch((error) => {
         console.error("Erreur lors de la déconnexion:", error);
       });
 
@@ -570,7 +599,7 @@ export const AuthProvider = ({ children }) => {
   // Fonction pour se connecter avec Google (redirection)
   const loginWithGoogle = async () => {
     try {
-      window.location.href = buildApiUrl("/api/auth/google");
+      window.location.href = getApiUrl("/auth/google");
       return { success: true };
     } catch (error) {
       console.error("Erreur lors de la redirection vers Google:", error);
@@ -588,7 +617,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       const response = await apiRequest(
-        "/api/auth/request-account-deletion",
+        "/auth/request-account-deletion",
         "POST"
       );
 
@@ -613,7 +642,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       const response = await apiRequest(
-        "/api/auth/confirm-account-deletion",
+        "/auth/confirm-account-deletion",
         "POST",
         { token }
       );
@@ -646,7 +675,7 @@ export const AuthProvider = ({ children }) => {
       // Rafraîchir d'abord le token CSRF
       await refreshCsrfToken();
 
-      const response = await apiRequest("/api/auth/refresh", "POST");
+      const response = await apiRequest("/auth/refresh", "POST");
       console.log("Réponse de rafraîchissement reçue:", response);
 
       if (response && response.success) {
@@ -696,7 +725,7 @@ export const AuthProvider = ({ children }) => {
       // Rafraîchir le token CSRF avant le changement de mot de passe
       await refreshCsrfToken();
 
-      const response = await apiRequest("/api/users/change-password", "POST", {
+      const response = await apiRequest("/users/change-password", "POST", {
         currentPassword,
         newPassword,
       });

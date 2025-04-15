@@ -10,6 +10,7 @@ import GoogleLoginButton from "../../components/ui/GoogleLoginButton";
 import { useNotification } from "../../components/ui/Notification";
 import { apiRequest, getCsrfToken } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
+import { getApiUrl } from "../../utils/api";
 
 // Animations
 const fadeInUp = keyframes`
@@ -306,11 +307,7 @@ const Login = () => {
   // Gérer la connexion avec Google
   const handleGoogleLogin = async () => {
     // Rediriger vers l'endpoint d'authentification Google
-    window.location.href = `${
-      process.env.NODE_ENV === "production"
-        ? "https://smartplanning.onrender.com/api "
-        : ""
-    }/api/auth/google`;
+    window.location.href = getApiUrl("/auth/google");
   };
 
   return (

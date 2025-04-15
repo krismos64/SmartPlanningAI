@@ -21,7 +21,9 @@ class ActivityLogger {
       };
 
       // Envoyer les données à l'API
-      const response = await axios.post(API_ENDPOINTS.ACTIVITIES.LOG, data);
+      const response = await axios.post(API_ENDPOINTS.ACTIVITIES.LOG, data, {
+        withCredentials: true,
+      });
 
       // Créer une notification pour cette activité
       await this.createNotificationForActivity(activityData);
@@ -202,7 +204,9 @@ class ActivityLogger {
    */
   static async getIpAddress() {
     try {
-      const response = await axios.get("https://api.ipify.org?format=json");
+      const response = await axios.get("https://api.ipify.org?format=json", {
+        withCredentials: true,
+      });
       return response.data.ip;
     } catch (error) {
       console.error("Erreur lors de la récupération de l'adresse IP:", error);

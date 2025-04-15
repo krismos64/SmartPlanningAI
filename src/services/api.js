@@ -88,7 +88,7 @@ export const AuthService = {
   me: async (token) => {
     try {
       console.log("🔍 Récupération des infos du profil utilisateur");
-      const response = await apiRequest("/api/user/profile", "GET");
+      const response = await apiRequest("/user/profile", "GET");
       if (response.error) {
         return { success: false, message: response.error };
       }
@@ -1309,7 +1309,7 @@ export const UserService = {
   getAll: async () => {
     try {
       console.log("Récupération de la liste des utilisateurs");
-      const response = await apiRequest("/api/users", "GET");
+      const response = await apiRequest("/users", "GET");
 
       return normalizeResponse(response);
     } catch (error) {

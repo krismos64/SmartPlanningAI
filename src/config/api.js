@@ -1,10 +1,11 @@
 // src/config/api.js
 
 import axios from "axios";
+import { getApiUrl } from "../utils/api";
 
 // URL de fallback si aucune variable n'est définie
 const DEFAULT_LOCAL_URL = "http://localhost:5001";
-const DEFAULT_PROD_URL = "https://smartplanning.onrender.com/api";
+const DEFAULT_PROD_URL = "https://smartplanning.onrender.com";
 const PROD_API_URL = DEFAULT_PROD_URL;
 
 // Fonction pour déterminer dynamiquement l'URL selon le hostname
@@ -15,7 +16,7 @@ const resolveApiUrl = () => {
   if (hostname.includes("smartplanning")) return DEFAULT_PROD_URL;
 
   // fallback safe si on est sur un autre domaine
-  return process.env.REACT_APP_API_URL || DEFAULT_PROD_URL;
+  return getApiUrl() || DEFAULT_PROD_URL;
 };
 
 // URL de base de l'API
@@ -163,80 +164,80 @@ axiosInstance.interceptors.request.use(
 
 // Endpoints de l'API
 export const API_ENDPOINTS = {
-  LOGIN: "/api/auth/login",
-  REGISTER: "/api/auth/register",
-  LOGOUT: "/api/auth/logout",
+  LOGIN: "/auth/login",
+  REGISTER: "/auth/register",
+  LOGOUT: "/auth/logout",
   EMPLOYEES: {
-    BASE: "/api/employees",
-    BY_ID: (id) => `/api/employees/${id}`,
-    SCHEDULES: (id) => `/api/employees/${id}/schedules`,
-    VACATIONS: (id) => `/api/employees/${id}/vacations`,
+    BASE: "/employees",
+    BY_ID: (id) => `/employees/${id}`,
+    SCHEDULES: (id) => `/employees/${id}/schedules`,
+    VACATIONS: (id) => `/employees/${id}/vacations`,
   },
-  WEEKLY_SCHEDULES: "/api/weekly-schedules",
+  WEEKLY_SCHEDULES: "/weekly-schedules",
   VACATIONS: {
-    BASE: "/api/vacations",
-    BY_ID: (id) => `/api/vacations/${id}`,
-    UPDATE_STATUS: (id) => `/api/vacations/${id}/status`,
+    BASE: "/vacations",
+    BY_ID: (id) => `/vacations/${id}`,
+    UPDATE_STATUS: (id) => `/vacations/${id}/status`,
   },
-  VACATIONS_MANAGER: "/api/vacations?manager=true",
+  VACATIONS_MANAGER: "/vacations?manager=true",
   SHIFTS: {
-    BASE: "/api/shifts",
-    BY_ID: (id) => `/api/shifts/${id}`,
+    BASE: "/shifts",
+    BY_ID: (id) => `/shifts/${id}`,
   },
   ACTIVITIES: {
-    BASE: "/api/activities",
-    BY_ID: (id) => `/api/activities/${id}`,
-    LOG: "/api/activities/log",
-    BY_USER: (userId) => `/api/activities/user/${userId}`,
-    LIST: "/api/activities",
-    CREATE: "/api/activities",
-    UPDATE: (id) => `/api/activities/${id}`,
-    DELETE: (id) => `/api/activities/${id}`,
+    BASE: "/activities",
+    BY_ID: (id) => `/activities/${id}`,
+    LOG: "/activities/log",
+    BY_USER: (userId) => `/activities/user/${userId}`,
+    LIST: "/activities",
+    CREATE: "/activities",
+    UPDATE: (id) => `/activities/${id}`,
+    DELETE: (id) => `/activities/${id}`,
   },
   WORK_HOURS: {
-    BASE: "/api/work-hours",
-    BY_ID: (id) => `/api/work-hours/${id}`,
-    BY_EMPLOYEE: (employeeId) => `/api/work-hours/employee/${employeeId}`,
+    BASE: "/work-hours",
+    BY_ID: (id) => `/work-hours/${id}`,
+    BY_EMPLOYEE: (employeeId) => `/work-hours/employee/${employeeId}`,
   },
   HOUR_BALANCE: {
-    BY_EMPLOYEE: (employeeId) => `/api/hour-balance/${employeeId}`,
+    BY_EMPLOYEE: (employeeId) => `/hour-balance/${employeeId}`,
   },
   AUTH: {
-    LOGIN: "/api/auth/login",
-    REGISTER: "/api/auth/register",
-    LOGOUT: "/api/auth/logout",
-    REFRESH: "/api/auth/refresh",
-    VERIFY: "/api/auth/verify",
-    RESET_PASSWORD: "/api/auth/reset-password",
-    FORGOT_PASSWORD: "/api/auth/forgot-password",
-    DELETE_ACCOUNT: "/api/auth/delete-account",
-    REQUEST_ACCOUNT_DELETION: "/api/auth/request-account-deletion",
-    CONFIRM_ACCOUNT_DELETION: "/api/auth/confirm-account-deletion",
-    PROFILE: "/api/user/profile",
-    UPDATE_PROFILE: "/api/user/profile",
-    CHANGE_PASSWORD: "/api/users/change-password",
+    LOGIN: "/auth/login",
+    REGISTER: "/auth/register",
+    LOGOUT: "/auth/logout",
+    REFRESH: "/auth/refresh",
+    VERIFY: "/auth/verify",
+    RESET_PASSWORD: "/auth/reset-password",
+    FORGOT_PASSWORD: "/auth/forgot-password",
+    DELETE_ACCOUNT: "/auth/delete-account",
+    REQUEST_ACCOUNT_DELETION: "/auth/request-account-deletion",
+    CONFIRM_ACCOUNT_DELETION: "/auth/confirm-account-deletion",
+    PROFILE: "/user/profile",
+    UPDATE_PROFILE: "/user/profile",
+    CHANGE_PASSWORD: "/users/change-password",
   },
   DEPARTMENTS: {
-    BASE: "/api/departments",
-    BY_ID: (id) => `/api/departments/${id}`,
-    EMPLOYEES: (id) => `/api/departments/${id}/employees`,
+    BASE: "/departments",
+    BY_ID: (id) => `/departments/${id}`,
+    EMPLOYEES: (id) => `/departments/${id}/employees`,
   },
   ROLES: {
-    BASE: "/api/roles",
-    BY_ID: (id) => `/api/roles/${id}`,
+    BASE: "/roles",
+    BY_ID: (id) => `/roles/${id}`,
   },
   SETTINGS: {
-    BASE: "/api/settings",
-    BY_KEY: (key) => `/api/settings/${key}`,
+    BASE: "/settings",
+    BY_KEY: (key) => `/settings/${key}`,
   },
   NOTIFICATIONS: {
-    BASE: "/api/notifications",
-    BY_ID: (id) => `/api/notifications/${id}`,
-    MARK_READ: (id) => `/api/notifications/${id}/read`,
-    MARK_ALL_READ: "/api/notifications/mark-all-read",
+    BASE: "/notifications",
+    BY_ID: (id) => `/notifications/${id}`,
+    MARK_READ: (id) => `/notifications/${id}/read`,
+    MARK_ALL_READ: "/notifications/mark-all-read",
   },
   SCHEDULE: {
-    AUTO_GENERATE: "/api/schedule/auto-generate",
+    AUTO_GENERATE: "/schedule/auto-generate",
   },
   HEALTH: "", // Endpoint vide pour vérifier l'état de l'API
   CSRF: {
@@ -412,6 +413,7 @@ export const apiRequest = async (
     url,
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
       ...csrfHeader,
       ...headers,
     },

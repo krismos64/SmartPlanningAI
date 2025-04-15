@@ -12,7 +12,7 @@ mkdir -p $BACKUP_DIR
 
 # Sauvegarder la base de données
 echo "Création de la sauvegarde de la base de données..."
-docker exec smartplanning-db mysqldump -u root -p"root_password" smartplanningai > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
+mysqldump -u root -p smartplanningai > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
 
 # Compresser la sauvegarde
 echo "Compression de la sauvegarde..."

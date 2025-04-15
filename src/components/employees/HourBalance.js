@@ -100,7 +100,9 @@ const HourBalance = ({ employeeId }) => {
       setLoading(true);
       setError(null);
 
-      const response = await axios.get(`/api/hour-balance/${employeeId}`);
+      const response = await axios.get(`/api/hour-balance/${employeeId}`, {
+        withCredentials: true,
+      });
       setHourBalance(parseFloat(response.data.hour_balance));
 
       setLoading(false);

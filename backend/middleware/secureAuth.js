@@ -9,8 +9,66 @@ const secureAuth = async (req, res, next) => {
   try {
     console.log("Middleware d'authentification appelé pour", req.path);
 
+    // Mode de développement simplifié pour les tests (à n'utiliser qu'en DEV)
+    if (
+      process.env.NODE_ENV !== "production" &&
+      req.headers["x-dev-bypass-auth"]
+    ) {
+      console.log("⚠️ Mode développement: Authentification bypass activée");
+
+      // Récupérer l'ID utilisateur du header de dev ou utiliser un ID par défaut
+      const devUserId = req.headers["x-dev-user-id"] || "1";
+      console.log("🔧 Utilisation de l'ID utilisateur de test:", devUserId);
+
+      // Récupérer les informations de l'utilisateur
+      try {
+        const user = await User.findById(devUserId);
+
+        if (user) {
+          console.log("✅ Utilisateur de test trouvé:", user.email);
+
+          const safeUser = {
+            id: user.id,
+            email: user.email,
+            role: user.role || "admin",
+            first_name: user.first_name,
+            last_name: user.last_name,
+            fullName:
+              `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+              "Administrateur",
+            profileImage: user.profileImage || null,
+            company: user.company || "",
+            phone: user.phone || "",
+            jobTitle: user.jobTitle || "",
+          };
+
+          req.user = safeUser;
+          req.userId = user.id;
+
+          return next();
+        } else {
+          console.warn(
+            "⚠️ Utilisateur de test non trouvé en mode développement"
+          );
+        }
+      } catch (devError) {
+        console.error(
+          "Erreur lors de la recherche de l'utilisateur de test:",
+          devError
+        );
+      }
+    }
+
     // Récupérer le token depuis les cookies ou depuis le header Authorization
     let token = req.cookies?.accessToken;
+    let tokenSource = "cookie-httpOnly";
+
+    // Si pas de token dans les cookies sécurisés, essayer le cookie non-httpOnly
+    if (!token && req.cookies?.auth_token) {
+      token = req.cookies.auth_token;
+      tokenSource = "cookie-auth_token";
+      console.log("Token trouvé dans cookie auth_token non-httpOnly");
+    }
 
     // Si pas de token dans les cookies, essayer dans les headers
     if (!token && req.headers.authorization) {
@@ -18,6 +76,7 @@ const secureAuth = async (req, res, next) => {
       const authHeader = req.headers.authorization;
       if (authHeader.startsWith("Bearer ")) {
         token = authHeader.substring(7);
+        tokenSource = "header-authorization";
         console.log(
           "Token extrait du header:",
           token ? token.substring(0, 10) + "..." : "undefined..."
@@ -25,14 +84,25 @@ const secureAuth = async (req, res, next) => {
       }
     }
 
+    // Enfin, vérifier le body s'il s'agit d'une application frontend
+    if (!token && req.body?.token) {
+      token = req.body.token;
+      tokenSource = "body-token";
+      console.log("Token extrait du body de la requête");
+    }
+
     if (!token) {
-      console.log("Aucun token trouvé");
+      console.log("Aucun token trouvé dans les cookies, headers, ou body");
       return res.status(401).json({
         success: false,
         message: "Authentification requise",
         code: "AUTH_REQUIRED",
       });
     }
+
+    console.log(
+      `Token trouvé (source: ${tokenSource}). Longueur: ${token.length}`
+    );
 
     // Vérifier et décoder le token
     console.log("Tentative de vérification du token...");

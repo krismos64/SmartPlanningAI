@@ -150,6 +150,10 @@ const AuthService = {
         },
         {
           withCredentials: true, // Important pour stocker les cookies
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
         }
       );
 

@@ -7,6 +7,7 @@ import GoogleSignupButton from "../../components/ui/GoogleSignupButton";
 import { useNotification } from "../../components/ui/Notification";
 import { apiRequest } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
+import { getApiUrl } from "../../utils/api";
 
 // Animations
 const fadeInUp = keyframes`
@@ -340,11 +341,7 @@ const Register = () => {
   // Gérer l'inscription avec Google
   const handleGoogleSignup = async () => {
     // Rediriger vers l'endpoint d'authentification Google
-    window.location.href = `${
-      process.env.NODE_ENV === "production"
-        ? "https://smartplanning.onrender.com/api "
-        : ""
-    }/api/auth/google`;
+    window.location.href = getApiUrl("/auth/google");
   };
 
   return (

@@ -22,8 +22,8 @@ backup_database() {
   print_step "Création d'une sauvegarde de la base de données..."
   mkdir -p $BACKUP_DIR
   
-  # Utiliser le conteneur MySQL pour faire une sauvegarde
-  docker exec smartplanning-db mysqldump -u root -p"root_password" smartplanningai > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
+  # Sauvegarde MySQL locale
+  mysqldump -u root -p smartplanningai > "$BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
   
   echo "Sauvegarde créée : $BACKUP_DIR/smartplanning_backup_$TIMESTAMP.sql"
 }
@@ -42,18 +42,27 @@ deploy() {
     git pull origin main
   fi
   
-  print_step "Construction et démarrage des conteneurs Docker..."
-  docker-compose build
-  docker-compose up -d
+  print_step "Installation des dépendances et build de l'application..."
+  npm install
+  npm run build
   
-  print_step "Vérification de l'état des conteneurs..."
-  docker-compose ps
+  print_step "Installation des dépendances du backend..."
+  cd backend
+  npm install
+  
+  print_step "Redémarrage du service backend..."
+  # Si vous utilisez PM2 pour gérer les processus Node.js
+  pm2 restart server.js || pm2 start server.js
+  
+  print_step "Vérification de l'état des services..."
+  pm2 status
 }
 
 # Exécution
 print_step "Début du déploiement de smartplanningai"
 
-if docker-compose ps | grep -q "smartplanning-db"; then
+# Vérifier si MySQL est en cours d'exécution
+if systemctl is-active --quiet mysql; then
   backup_database
 fi
 

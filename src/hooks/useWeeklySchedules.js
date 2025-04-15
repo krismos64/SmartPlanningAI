@@ -32,6 +32,7 @@ const getSchedulesByWeek = async (formattedDate) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
       }
     );
 

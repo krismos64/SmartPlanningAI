@@ -408,7 +408,8 @@ const WorkHoursManager = ({ employeeId, employeeName }) => {
       setError(null);
 
       const response = await axios.get(
-        API_ENDPOINTS.WORK_HOURS.BY_EMPLOYEE(employeeId)
+        API_ENDPOINTS.WORK_HOURS.BY_EMPLOYEE(employeeId),
+        { withCredentials: true }
       );
       setWorkHours(response.data);
 
@@ -480,19 +481,23 @@ const WorkHoursManager = ({ employeeId, employeeName }) => {
 
   const handleSubmit = async () => {
     try {
-      await axios.post(API_ENDPOINTS.WORK_HOURS.BASE, {
-        employee_id: employeeId,
-        date: formData.date,
-        expected_hours: formData.expected_hours,
-        actual_hours: Math.abs(formData.actual_hours), // Toujours enregistrer la valeur absolue
-        // Si les heures sont négatives, on inverse expected_hours et actual_hours
-        ...(formData.actual_hours < 0
-          ? {
-              expected_hours: Math.abs(formData.actual_hours),
-              actual_hours: 0,
-            }
-          : {}),
-      });
+      await axios.post(
+        API_ENDPOINTS.WORK_HOURS.BASE,
+        {
+          employee_id: employeeId,
+          date: formData.date,
+          expected_hours: formData.expected_hours,
+          actual_hours: Math.abs(formData.actual_hours), // Toujours enregistrer la valeur absolue
+          // Si les heures sont négatives, on inverse expected_hours et actual_hours
+          ...(formData.actual_hours < 0
+            ? {
+                expected_hours: Math.abs(formData.actual_hours),
+                actual_hours: 0,
+              }
+            : {}),
+        },
+        { withCredentials: true }
+      );
 
       // Réinitialiser le formulaire
       setFormData({
@@ -524,9 +529,13 @@ const WorkHoursManager = ({ employeeId, employeeName }) => {
 
   const saveEdit = async (id) => {
     try {
-      await axios.put(API_ENDPOINTS.WORK_HOURS.BY_ID(id), {
-        ...editData,
-      });
+      await axios.put(
+        API_ENDPOINTS.WORK_HOURS.BY_ID(id),
+        {
+          ...editData,
+        },
+        { withCredentials: true }
+      );
 
       setEditingId(null);
       setEditData({});
@@ -544,7 +553,9 @@ const WorkHoursManager = ({ employeeId, employeeName }) => {
 
   const deleteWorkHour = async (id) => {
     try {
-      await axios.delete(API_ENDPOINTS.WORK_HOURS.BY_ID(id));
+      await axios.delete(API_ENDPOINTS.WORK_HOURS.BY_ID(id), {
+        withCredentials: true,
+      });
 
       // Rafraîchir les données
       fetchWorkHours();

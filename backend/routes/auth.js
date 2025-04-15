@@ -299,7 +299,7 @@ router.post("/register", authLimiter, async (req, res) => {
         });
       } else {
         // Redirection pour le formulaire standard
-        return res.redirect("https://smartplanning.fr/dashboard");
+        return res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
       }
     } catch (dbError) {
       // Erreurs spécifiques à la base de données
@@ -452,7 +452,7 @@ router.post("/login", async (req, res) => {
     } else {
       // Le client peut gérer une redirection (formulaire standard)
       console.log("🔄 Redirection vers le dashboard après connexion réussie");
-      return res.redirect("https://smartplanning.fr/dashboard");
+      return res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
     }
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
