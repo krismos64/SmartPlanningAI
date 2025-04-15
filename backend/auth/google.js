@@ -41,7 +41,7 @@ const setupGoogleStrategy = () => {
           process.env.TEST_LOCAL_PROD === "true"
             ? "http://localhost:5001/api/auth/google/callback"
             : process.env.NODE_ENV === "production"
-            ? "  https://smartplanning.onrender.com/api/auth/google/callback"
+            ? "https://smartplanning.onrender.com/api/auth/google/callback"
             : "http://localhost:5001/api/auth/google/callback",
         scope: ["profile", "email"],
         state: true,
