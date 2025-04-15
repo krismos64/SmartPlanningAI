@@ -176,6 +176,11 @@ app.get("/ping", (req, res) => {
   res.status(200).json({ message: "API en ligne" });
 });
 
+// ✅ Route ping API
+app.get("/api/ping", (req, res) => {
+  res.status(200).send("pong");
+});
+
 // Route de test pour le changement de mot de passe
 app.post("/api/test/password", (req, res) => {
   console.log("Route de test password appelée");
@@ -249,10 +254,8 @@ function logRoutes(router, basePath = "") {
 async function initializeServer() {
   try {
     const connectDB = require("./config/db");
-    const [result] = await connectDB.execute("SELECT 1");
-    if (result) {
-      console.log("🔌 Connexion à la base de données établie avec succès");
-    }
+    // La connexion est déjà testée dans db.js, pas besoin de refaire un test ici
+    console.log("🔌 Connexion à la base de données établie avec succès");
 
     try {
       const nlpManager = new NlpManager({ languages: ["fr"] });

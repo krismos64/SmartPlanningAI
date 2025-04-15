@@ -416,25 +416,13 @@ const startServer = async () => {
     // Démarrer le serveur
     server.listen(port, () => {
       console.log(`✅ Serveur démarré sur le port ${port}`);
+      console.log(`📝 Mode: ${process.env.NODE_ENV || "development"}`);
+      console.log(
+        `🔌 Base de données: ${process.env.DB_NAME} sur ${process.env.DB_HOST}`
+      );
+      console.log(`🌐 API accessible à http://localhost:${port}/api`);
 
-      // Log de l'activité avec tous les paramètres requis
-      Activity.logActivity(
-        "system", // type
-        "server", // entity_type
-        0, // entity_id
-        `Serveur démarré sur le port ${port}`, // description
-        null, // user_id
-        JSON.stringify({
-          port,
-          pid: process.pid,
-          nodeVersion: process.version,
-          environment: process.env.NODE_ENV || "development",
-          host: process.env.DB_HOST,
-          database: process.env.DB_NAME,
-        })
-      ).catch((err) => {
-        console.error("Erreur lors du log d'activité:", err);
-      });
+      // Le log d'activité n'est pas essentiel au démarrage et peut ralentir le cold start
     });
 
     // Gérer les erreurs de serveur

@@ -11,47 +11,29 @@ const CSRF_CONFIG = {
  * @param {Object} req - Objet de requête Express
  */
 const logRequestDetails = (req) => {
-  console.log("\n📝 [CSRF DEBUG] Détails de la requête:");
-  console.log(`📍 URL: ${req.method} ${req.originalUrl}`);
-  console.log("🔑 En-têtes:");
+  // Logs détaillés activés uniquement en mode debug explicite
+  if (process.env.CSRF_DEBUG === "true") {
+    console.log(`[CSRF DEBUG] ${req.method} ${req.originalUrl}`);
 
-  // En-têtes pertinents pour le CSRF
-  const relevantHeaders = [
-    "x-csrf-token",
-    "csrf-token",
-    "xsrf-token",
-    "x-xsrf-token",
-    "cookie",
-    "origin",
-    "referer",
-  ];
+    // En-têtes pertinents pour le CSRF
+    const relevantHeaders = [
+      "x-csrf-token",
+      "csrf-token",
+      "xsrf-token",
+      "x-xsrf-token",
+    ];
 
-  relevantHeaders.forEach((header) => {
-    if (req.headers[header]) {
-      console.log(`  ${header}: ${req.headers[header]}`);
+    const headers = {};
+    relevantHeaders.forEach((header) => {
+      if (req.headers[header]) {
+        headers[header] = req.headers[header];
+      }
+    });
+
+    if (Object.keys(headers).length > 0) {
+      console.log("CSRF Headers:", headers);
     }
-  });
-
-  // Session si disponible
-  if (req.session) {
-    console.log(
-      "🔐 Session CSRF Token:",
-      req.session.csrfToken
-        ? `${req.session.csrfToken.substring(0, 10)}...`
-        : "Non défini"
-    );
   }
-
-  // Corps de la requête (pour debugging - attention aux données sensibles!)
-  if (req.body && Object.keys(req.body).length > 0) {
-    const sanitizedBody = { ...req.body };
-    // Masquer les données sensibles
-    if (sanitizedBody.password) sanitizedBody.password = "******";
-    if (sanitizedBody.token) sanitizedBody.token = "******";
-    console.log("📦 Corps:", sanitizedBody);
-  }
-
-  console.log("");
 };
 
 /**
@@ -67,14 +49,16 @@ const generateCsrfToken = (req, res, next) => {
     // Stocker le token dans la session
     if (req.session) {
       req.session.csrfToken = csrfToken;
-      console.log(
-        "✅ [CSRF] Token stocké dans la session:",
-        csrfToken.substring(0, 10) + "..."
-      );
+      // Log uniquement en mode développement
+      if (
+        process.env.NODE_ENV === "development" &&
+        process.env.CSRF_DEBUG === "true"
+      ) {
+        console.log("CSRF token généré");
+      }
     } else {
-      console.error(
-        "❌ [CSRF] Session non disponible pour stocker le token CSRF"
-      );
+      // Conserver uniquement les logs d'erreur critiques
+      console.error("Session non disponible pour stocker le token CSRF");
     }
 
     // Exposer le token dans la réponse
@@ -95,8 +79,10 @@ const verifyCsrfToken = (req, res, next) => {
     return next();
   }
 
-  // Log détaillé pour debugging
-  logRequestDetails(req);
+  // Log détaillé uniquement si CSRF_DEBUG est activé
+  if (process.env.CSRF_DEBUG === "true") {
+    logRequestDetails(req);
+  }
 
   // Récupérer le token depuis les différents en-têtes possibles
   const csrfToken =
@@ -110,15 +96,16 @@ const verifyCsrfToken = (req, res, next) => {
 
   // Si aucun token n'est fourni dans l'en-tête
   if (!csrfToken) {
-    console.error("⛔ [CSRF] Token manquant dans les en-têtes");
-    console.error("En-têtes de la requête:", req.headers);
+    // Log d'erreur simplifié
+    if (process.env.NODE_ENV === "production") {
+      console.error("CSRF token manquant");
+    }
 
     // En mode DEBUG, on peut temporairement désactiver la vérification
     if (
       process.env.CSRF_DEBUG === "true" ||
       process.env.NODE_ENV === "development"
     ) {
-      console.warn("⚠️ [CSRF] Vérification CSRF ignorée en mode DEBUG");
       return next();
     }
 
@@ -131,15 +118,16 @@ const verifyCsrfToken = (req, res, next) => {
 
   // Si aucun token n'est stocké dans la session
   if (!storedToken) {
-    console.error("⛔ [CSRF] Token non trouvé dans la session");
-    console.error("Token reçu:", csrfToken);
+    // Log d'erreur simplifié
+    if (process.env.NODE_ENV === "production") {
+      console.error("CSRF token non trouvé en session");
+    }
 
     // En mode DEBUG, on peut temporairement désactiver la vérification
     if (
       process.env.CSRF_DEBUG === "true" ||
       process.env.NODE_ENV === "development"
     ) {
-      console.warn("⚠️ [CSRF] Vérification CSRF ignorée en mode DEBUG");
       return next();
     }
 
@@ -152,18 +140,16 @@ const verifyCsrfToken = (req, res, next) => {
 
   // Comparaison des tokens (sensible à la casse)
   if (csrfToken !== storedToken) {
-    console.error("⛔ [CSRF] Token invalide");
-    console.error(`  Reçu: ${csrfToken}`);
-    console.error(`  Attendu: ${storedToken}`);
+    // Log d'erreur simplifié
+    if (process.env.NODE_ENV === "production") {
+      console.error("CSRF token invalide");
+    }
 
     // En mode DEBUG, on peut temporairement désactiver la vérification
     if (
       process.env.CSRF_DEBUG === "true" ||
       process.env.NODE_ENV === "development"
     ) {
-      console.warn(
-        "⚠️ [CSRF] Vérification CSRF ignorée en mode DEBUG - tokens ne correspondent pas"
-      );
       return next();
     }
 
@@ -174,8 +160,7 @@ const verifyCsrfToken = (req, res, next) => {
     });
   }
 
-  // Token valide, continuer
-  console.log("✅ [CSRF] Validation réussie");
+  // Token valide, continuer sans log
   next();
 };
 

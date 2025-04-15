@@ -146,7 +146,7 @@ class User {
     try {
       // Hash du mot de passe si celui-ci est fourni et a été modifié
       if (this.password && !this.password.startsWith("$2")) {
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(8);
         this.password = await bcrypt.hash(this.password, salt);
       }
 

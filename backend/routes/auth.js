@@ -17,6 +17,7 @@ const {
 const AuthLog = require("../models/AuthLog");
 const crypto = require("crypto");
 const passport = require("passport");
+const connectDB = require("../config/db");
 
 // Routes d'authentification Google OAuth 2.0
 router.get(
@@ -147,7 +148,12 @@ router.post("/debug-csrf", (req, res) => {
 
 // Route d'inscription
 router.post("/register", authLimiter, async (req, res) => {
+  // Initialiser un timer pour mesurer les performances
+  const startTime = Date.now();
+  let timingLog = { validation: 0, dbCheck: 0, userCreation: 0, tokenGen: 0 };
+
   try {
+    // Extraction des données avec validation minimale
     const {
       email,
       password,
@@ -159,70 +165,166 @@ router.post("/register", authLimiter, async (req, res) => {
       jobTitle,
     } = req.body;
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await User.findByEmail(email);
-    if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "Un utilisateur avec cet email existe déjà." });
-    }
-
-    // Créer un nouvel utilisateur (toujours avec le rôle admin)
-    const user = await User.create({
-      email,
-      password,
-      role: "admin",
-      first_name,
-      last_name,
-      profileImage,
-      company,
-      phone,
-      jobTitle,
-    });
-
-    // Générer des tokens JWT et les définir comme cookies sécurisés
-    const tokens = generateTokens(user.id, user.role || "admin");
-    setTokenCookies(res, tokens);
-
-    // Stocker l'ID utilisateur dans la session
-    if (req.session) {
-      req.session.userId = user.id;
-      console.log(`✅ Session utilisateur créée - ID: ${user.id}`);
-    } else {
-      console.warn(
-        "⚠️ Session non disponible - Impossible de sauvegarder l'ID utilisateur"
-      );
-    }
-
-    // Vérifier si le client attend une réponse JSON ou peut accepter une redirection
-    if (req.headers.accept && req.headers.accept.includes("application/json")) {
-      // Le client attend une réponse JSON (API fetch)
-      console.log("📤 Envoi de la réponse JSON après inscription réussie");
-      return res.status(201).json({
-        success: true,
-        token: tokens.accessToken, // Pour la rétrocompatibilité
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          profileImage: user.profileImage,
-          company: user.company,
-          phone: user.phone,
-          jobTitle: user.jobTitle,
-        },
+    // Validation de base des données requises
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email et mot de passe requis pour l'inscription",
       });
-    } else {
-      // Le client peut gérer une redirection (formulaire standard)
-      console.log("🔄 Redirection vers le dashboard après inscription réussie");
-      return res.redirect("https://smartplanning.fr/dashboard");
+    }
+
+    timingLog.validation = Date.now() - startTime;
+    const dbCheckStart = Date.now();
+
+    try {
+      // Vérification directe avec une simple requête SQL, sans SELECT DATABASE()
+      const [existingUsers] = await connectDB.execute(
+        "SELECT id FROM users WHERE email = ? LIMIT 1",
+        [email]
+      );
+
+      if (existingUsers.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Un utilisateur avec cet email existe déjà",
+        });
+      }
+
+      timingLog.dbCheck = Date.now() - dbCheckStart;
+      const userCreationStart = Date.now();
+
+      // Préparation des données utilisateur
+      const userData = {
+        email,
+        password,
+        role: "admin",
+        first_name: first_name || null,
+        last_name: last_name || null,
+        profileImage: profileImage || null,
+        company: company || null,
+        phone: phone || null,
+        jobTitle: jobTitle || null,
+      };
+
+      // Création de l'utilisateur avec un timeout de 15 secondes pour éviter un blocage sur Render
+      let user;
+      try {
+        const createUserWithTimeout = async () => {
+          // Créer une promesse pour la création d'utilisateur
+          const createUserPromise = User.create(userData);
+
+          // Créer une promesse de timeout de 15 secondes
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(
+                new Error(
+                  "Délai d'attente dépassé lors de la création de l'utilisateur (15s)"
+                )
+              );
+            }, 15000); // 15 secondes
+          });
+
+          // Utiliser Promise.race pour terminer soit par succès soit par timeout
+          return await Promise.race([createUserPromise, timeoutPromise]);
+        };
+
+        // Exécuter la création avec timeout
+        user = await createUserWithTimeout();
+      } catch (createError) {
+        // Capture spécifique des erreurs de création d'utilisateur
+        if (createError.code === "ER_DUP_ENTRY") {
+          return res.status(400).json({
+            success: false,
+            message: "Cet email est déjà utilisé par un autre compte",
+          });
+        }
+
+        // Erreur de timeout
+        if (
+          createError.message &&
+          createError.message.includes("Délai d'attente dépassé")
+        ) {
+          console.error(
+            "TIMEOUT: Création d'utilisateur trop longue",
+            createError
+          );
+          return res.status(504).json({
+            success: false,
+            message:
+              "Le serveur a mis trop de temps à répondre. Veuillez réessayer.",
+            error: "TIMEOUT_ERROR",
+          });
+        }
+
+        throw createError; // Remonter d'autres erreurs pour le catch global
+      }
+
+      timingLog.userCreation = Date.now() - userCreationStart;
+      const tokenGenStart = Date.now();
+
+      // Génération des tokens JWT
+      const tokens = generateTokens(user.id, user.role || "admin");
+      setTokenCookies(res, tokens);
+
+      timingLog.tokenGen = Date.now() - tokenGenStart;
+
+      // Stocker l'ID utilisateur dans la session (non-bloquant)
+      if (req.session) {
+        req.session.userId = user.id;
+      }
+
+      // Réponse JSON pour l'API
+      if (
+        req.headers.accept &&
+        req.headers.accept.includes("application/json")
+      ) {
+        return res.status(201).json({
+          success: true,
+          token: tokens.accessToken,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            first_name: user.first_name || "",
+            last_name: user.last_name || "",
+            profileImage: user.profileImage || null,
+            company: user.company || "",
+            phone: user.phone || "",
+            jobTitle: user.jobTitle || "",
+          },
+          timingInfo:
+            process.env.NODE_ENV === "development" ? timingLog : undefined,
+        });
+      } else {
+        // Redirection pour le formulaire standard
+        return res.redirect("https://smartplanning.fr/dashboard");
+      }
+    } catch (dbError) {
+      // Erreurs spécifiques à la base de données
+      console.error(
+        "Erreur de base de données lors de l'inscription:",
+        dbError
+      );
+      return res.status(500).json({
+        success: false,
+        message: "Erreur de connexion à la base de données",
+        error:
+          process.env.NODE_ENV === "development" ? dbError.message : undefined,
+      });
     }
   } catch (error) {
+    // Traiter toutes les autres erreurs
     console.error("Erreur lors de l'inscription:", error);
-    res.status(500).json({ message: "Erreur lors de l'inscription." });
+    const totalTime = Date.now() - startTime;
+    console.error(`Échec après ${totalTime}ms. Timings partiels:`, timingLog);
+
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'inscription",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 
