@@ -8,6 +8,7 @@
     "start:all": "./start.sh",
     "start:backend": "node backend/server.js",
     "build": "craco build",
+    "build:render": "npm install && npm install socket.io && craco build",
     "test": "craco test",
     "eject": "react-scripts eject",
     "cleanup": "./cleanup-script/cleanup.sh"

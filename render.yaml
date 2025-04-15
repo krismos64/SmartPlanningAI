@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: smartplanning-app
+    env: node
+    buildCommand: ./.render/build.sh
+    startCommand: ./.render/prestart.sh && node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5001
+    buildFilter:
+      paths:
+        - src/**
+        - backend/**
+        - public/**
+        - server.js
+        - package.json
+        - package-lock.json
+        - .render/**

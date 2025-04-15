@@ -1,3 +1,23 @@
+// Vérifier que socket.io est disponible au démarrage
+try {
+  require("socket.io");
+  console.log("✅ Socket.io est correctement chargé");
+} catch (error) {
+  console.error("❌ ERREUR: Socket.io n'est pas disponible:", error.message);
+  console.error("Tentative d'installation...");
+  const { execSync } = require("child_process");
+  try {
+    execSync("npm install socket.io --save", { stdio: "inherit" });
+    console.log("✅ Socket.io installé avec succès");
+  } catch (installError) {
+    console.error(
+      "❌ Échec de l'installation de socket.io:",
+      installError.message
+    );
+  }
+}
+
+// Modules requis
 const express = require("express");
 const mysql = require("mysql2/promise");
 const cors = require("cors");
@@ -5,6 +25,10 @@ const csrf = require("csurf");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const crypto = require("crypto");
+const path = require("path");
+const dotenv = require("dotenv");
+const helmet = require("helmet");
+const http = require("http");
 require("dotenv").config();
 
 // Import des routes
