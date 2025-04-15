@@ -10,7 +10,7 @@ const config = {
   port: process.env.PORT || 5000,
 
   // URL du frontend
-  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5002",
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5001",
 
   // Base de données
   database: {
@@ -30,7 +30,7 @@ const config = {
   // CORS
   cors: {
     origins: [
-      process.env.FRONTEND_URL || "http://localhost:5002",
+      process.env.FRONTEND_URL || "http://localhost:5001",
       "http://localhost:3000",
       "http://localhost:5004",
       "http://localhost:5005",

@@ -126,7 +126,7 @@ DB_USER=root
 DB_PASSWORD=votre_mot_de_passe
 DB_NAME=smartplanningai
 PORT=5001
-FRONTEND_URL=http://localhost:5002
+FRONTEND_URL=http://localhost:5001
 ```
 
 4. **Configuration de MySQL**

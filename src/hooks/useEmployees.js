@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_ENDPOINTS, API_URL } from "../config/api";
 import { EmployeeService } from "../services/api";
+import { buildApiUrl } from "../utils/apiHelpers";
 import { formatError } from "../utils/errorHandling";
 import useApi from "./useApi";
 
@@ -142,7 +143,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${API_URL}/api/employees/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/employees/${id}`), {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -224,7 +225,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${API_URL}/api/employees`, {
+      const response = await fetch(buildApiUrl("/api/employees"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -308,7 +309,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${API_URL}/api/employees/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/employees/${id}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -374,7 +375,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(`${API_URL}/api/employees/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/employees/${id}`), {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -442,7 +443,7 @@ const useEmployees = () => {
         const randomDelay = Math.floor(Math.random() * 200);
         await new Promise((resolve) => setTimeout(resolve, randomDelay));
 
-        const response = await api.get(`/api/hour-balance/${id}`);
+        const response = await api.get(buildApiUrl(`/api/hour-balance/${id}`));
 
         // Vérifier si la réponse contient hour_balance ou balance
         if (

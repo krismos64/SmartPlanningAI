@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import CookieConsent from "../components/ui/CookieConsent";
 import GoogleLoginButton from "../components/ui/GoogleLoginButton";
+import { buildApiUrl } from "../utils/apiHelpers";
 
 const LoginPage = () => {
   const { t } = useTranslation();
@@ -51,13 +52,8 @@ const LoginPage = () => {
 
     try {
       // Appel réel à l'API pour la connexion
-      const API_URL =
-        process.env.NODE_ENV === "production"
-          ? "https://smartplanning.onrender.com/api "
-          : "";
-
       const response = await axios.post(
-        `${API_URL}/api/auth/login`,
+        buildApiUrl("/api/auth/login"),
         {
           email,
           password,

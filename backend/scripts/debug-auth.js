@@ -190,8 +190,8 @@ const findAvailablePort = (startPort, maxAttempts = 10) => {
     // Tester la connexion à la base de données
     await connectDB();
 
-    // Trouver un port disponible en commençant par 5002
-    const PORT = await findAvailablePort(5002);
+    // Trouver un port disponible en commençant par 5001
+    const PORT = await findAvailablePort(5001);
 
     // Créer un utilisateur de test
     const testUser = {

@@ -164,7 +164,7 @@ const ResetPassword = () => {
         }, 1000);
 
         // Code réel à implémenter:
-        // const response = await fetch(`${API_URL}/api/auth/verify-reset-token/${token}`);
+        // const response = await fetch(buildApiUrl(`/api/auth/verify-reset-token/${token}`));
         // if (response.ok) {
         //   setIsTokenValid(true);
         // } else {
@@ -230,7 +230,7 @@ const ResetPassword = () => {
       }, 1500);
 
       // Code réel à implémenter:
-      // const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+      // const response = await fetch(buildApiUrl('/api/auth/reset-password'), {
       //   method: 'POST',
       //   headers: {
       //     'Content-Type': 'application/json',

@@ -12,6 +12,7 @@ echo -e "${YELLOW}Nettoyage complet des processus existants...${NC}"
 pkill -f "node backend/server.js" || true
 pkill -f "react-scripts start" || true
 pkill -f "node.*Planning/node_modules" || true
+pkill -f "node server.js" || true
 
 # Attendre que les processus soient complètement arrêtés
 sleep 3
@@ -97,8 +98,9 @@ fi
 
 echo -e "${GREEN}Démarrage du frontend sur le port $FRONTEND_PORT...${NC}"
 echo -e "${YELLOW}Si une question sur le port apparaît, répondez 'y' pour continuer${NC}"
-# Démarrer le frontend avec la variable PORT explicite
-PORT=$FRONTEND_PORT npm start
+# Démarrer le frontend avec la variable PORT explicite 
+# Modifier cette ligne pour éviter d'exécuter le server.js qui tente d'utiliser le même port
+PORT=$FRONTEND_PORT npm run dev
 
 # Cette partie ne sera exécutée que si le frontend est arrêté
 echo -e "${YELLOW}Arrêt du backend...${NC}"

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { API_URL, fetchCsrfToken, getStoredCsrfToken } from "../config/api.js";
+import { buildApiUrl } from "../utils/apiHelpers";
 
 /**
  * Hook personnalisé pour effectuer des appels API
@@ -128,7 +129,7 @@ const useApi = () => {
           ...(token && { Authorization: `Bearer ${token}` }),
         };
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(buildApiUrl(endpoint), {
           method: "GET",
           headers,
           credentials: "include",
@@ -259,7 +260,7 @@ const useApi = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(buildApiUrl(endpoint), {
           method: "POST",
           headers,
           body: JSON.stringify(snakeCaseData),
@@ -341,7 +342,7 @@ const useApi = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(buildApiUrl(endpoint), {
           method: "PUT",
           headers,
           body: JSON.stringify(snakeCaseData),
@@ -393,7 +394,7 @@ const useApi = () => {
           },
         });
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(buildApiUrl(endpoint), {
           method: "DELETE",
           headers,
           credentials: "include",

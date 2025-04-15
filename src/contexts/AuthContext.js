@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
-import { API_URL, apiRequest, fetchCsrfToken } from "../config/api";
+import { apiRequest, fetchCsrfToken } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
+import { buildApiUrl } from "../utils/apiHelpers";
 
 // Style de la modale d'inactivité
 const StyledInactivityModal = styled.div`
@@ -569,7 +570,7 @@ export const AuthProvider = ({ children }) => {
   // Fonction pour se connecter avec Google (redirection)
   const loginWithGoogle = async () => {
     try {
-      window.location.href = `${API_URL}/api/auth/google`;
+      window.location.href = buildApiUrl("/api/auth/google");
       return { success: true };
     } catch (error) {
       console.error("Erreur lors de la redirection vers Google:", error);

@@ -1,3 +1,5 @@
+import { buildApiUrl } from "../../src/utils/apiHelpers";
+
 describe("Tests du cycle d'authentification SmartPlanning", () => {
   const API_URL = "https://smartplanning-api.onrender.com";
   const FRONTEND_URL = "https://smartplanning.fr";
@@ -196,7 +198,7 @@ describe("Tests du cycle d'authentification SmartPlanning", () => {
     // Se connecter en utilisant l'API directement pour avoir plus de contrôle
     cy.request({
       method: "POST",
-      url: `${API_URL}/api/auth/login`,
+      url: buildApiUrl("/api/auth/login"),
       body: {
         email: TEST_USER.email,
         password: TEST_USER.validPassword,
@@ -225,7 +227,7 @@ describe("Tests du cycle d'authentification SmartPlanning", () => {
       // Faisons une requête vers une route protégée
       cy.request({
         method: "GET",
-        url: `${API_URL}/api/auth/check`,
+        url: buildApiUrl("/api/auth/check"),
         failOnStatusCode: false,
       }).then((checkResponse) => {
         expect(checkResponse.status).to.eq(200);
@@ -239,7 +241,7 @@ describe("Tests du cycle d'authentification SmartPlanning", () => {
       cy.log("📍 Déconnexion via API");
       cy.request({
         method: "POST",
-        url: `${API_URL}/api/auth/logout`,
+        url: buildApiUrl("/api/auth/logout"),
         failOnStatusCode: false,
       }).then((logoutResponse) => {
         expect(logoutResponse.status).to.eq(200);

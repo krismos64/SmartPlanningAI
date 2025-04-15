@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { useNotification } from "../components/ui/Notification";
-import { API_URL } from "../config/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserName } from "../hooks/useUserName";
+import { buildApiUrl } from "../utils/apiHelpers";
 
 // Composants stylisés
 const ProfileContainer = styled.div`
@@ -423,8 +423,8 @@ const Profile = () => {
       let errorMessage = "Erreur lors de la mise à jour du profil";
 
       const endpoints = [
-        `${API_URL}/api/user/profile`,
-        `${API_URL}/api/auth/profile`,
+        buildApiUrl("/api/user/profile"),
+        buildApiUrl("/api/auth/profile"),
       ];
 
       for (const endpoint of endpoints) {

@@ -10,15 +10,13 @@
     "start": "node server.js",
     "start:all": "./start.sh",
     "start:backend": "node backend/server.js",
-    "build": "npm install && npm run install:socketio && craco build",
-    "install:socketio": "npm install socket.io --no-save",
-    "build:render": "npm install && npm install socket.io --no-save && craco build",
+    "dev": "react-scripts start",
+    "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject",
     "cleanup": "./cleanup-script/cleanup.sh"
   },
   "dependencies": {
-    "@craco/craco": "^7.1.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fullcalendar/core": "^6.1.15",
@@ -52,7 +50,7 @@
     "helmet": "^8.1.0",
     "html2canvas": "^1.4.1",
     "http-proxy-middleware": "^3.0.3",
-    "i18next": "^24.2.3",
+    "i18next": "21.10.0",
     "i18next-browser-languagedetector": "^8.0.4",
     "i18next-http-backend": "^3.0.2",
     "joi": "^17.13.3",
@@ -74,7 +72,7 @@
     "react-helmet-async": "^2.0.5",
     "react-hook-form": "^7.54.2",
     "react-hot-toast": "^2.5.2",
-    "react-i18next": "^15.4.1",
+    "react-i18next": "11.18.6",
     "react-icons": "^5.5.0",
     "react-lottie": "^1.2.10",
     "react-router-dom": "^6.16.0",
@@ -93,6 +91,7 @@
     "cookie": "0.6.0"
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^14.6.1",
