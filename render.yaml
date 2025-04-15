@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: smartplanning-app
+    name: smartplanning
     env: node
-    buildCommand: ./.render/build.sh
-    startCommand: ./.render/prestart.sh && node server.js
+    buildCommand: npm install && npm install socket.io --save
+    startCommand: node server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -17,5 +17,5 @@ services:
         - public/**
         - server.js
         - package.json
-        - package-lock.json
-        - .render/**
+        - .env
+        - .env.production

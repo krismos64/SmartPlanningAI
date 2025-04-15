@@ -2,13 +2,17 @@
   "name": "smartplanning",
   "version": "1.0.0",
   "private": true,
-  "main": "index.js",
+  "main": "server.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "scripts": {
-    "start": "craco start",
+    "start": "node server.js",
     "start:all": "./start.sh",
     "start:backend": "node backend/server.js",
-    "build": "craco build",
-    "build:render": "npm install && npm install socket.io && craco build",
+    "build": "npm install && npm run install:socketio && craco build",
+    "install:socketio": "npm install socket.io --no-save",
+    "build:render": "npm install && npm install socket.io --no-save && craco build",
     "test": "craco test",
     "eject": "react-scripts eject",
     "cleanup": "./cleanup-script/cleanup.sh"

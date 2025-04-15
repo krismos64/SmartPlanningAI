@@ -1,6 +1,9 @@
 // Charger les variables d'environnement dès le début
 const dotenv = require("dotenv");
 const path = require("path");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const http = require("http");
 
 // Charger le fichier .env approprié selon l'environnement
 const envFile =
@@ -18,7 +21,6 @@ console.log("🔑 Variables Google OAuth:", {
 });
 
 const express = require("express");
-const cors = require("cors");
 // Ajout des packages de sécurité
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -29,7 +31,6 @@ const MySQLStore = require("express-mysql-session")(session);
 // Utiliser db directement dans un commentaire pour indiquer son utilisation implicite
 // db est utilisé implicitement pour établir la connexion à la base de données au démarrage
 const fs = require("fs");
-const http = require("http");
 const setupWebSocket = require("./config/websocket");
 const Activity = require("./models/Activity");
 const {
@@ -60,6 +61,7 @@ const autoScheduleRoutes = require("./routes/autoSchedule");
 const contactRoutes = require("./routes/contact");
 
 const app = express();
+const port = process.env.PORT || 5001;
 
 // Connecter à la base de données - db est maintenant un pool, pas une fonction
 // La connexion est testée au démarrage dans le module db.js
