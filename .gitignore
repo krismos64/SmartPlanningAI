@@ -16,9 +16,8 @@ yarn-error.log*
 
 # Fichiers d'environnement (sauf les exemples)
 .env
-.env.development.local
-.env.test.local
-.env.production.local
+.env.development
+.env.production
 
 # Fichiers Docker
 .docker
