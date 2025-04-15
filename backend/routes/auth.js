@@ -9,6 +9,7 @@ const {
   setTokenCookies,
   clearTokenCookies,
   verifyRefreshToken,
+  verifyAccessToken,
 } = require("../utils/tokenUtils");
 const {
   verifyCsrfToken,
@@ -432,6 +433,11 @@ router.post("/login", async (req, res) => {
     if (req.headers.accept && req.headers.accept.includes("application/json")) {
       // Le client attend une réponse JSON (API fetch)
       console.log("📤 Envoi de la réponse JSON après authentification réussie");
+
+      // Logs pour diagnostiquer les problèmes de session
+      console.log("🎯 Session après login:", req.session);
+      console.log("🎯 Session ID:", req.sessionID);
+
       return res.json({
         success: true,
         token: tokens.accessToken, // Pour la rétrocompatibilité
@@ -1035,6 +1041,84 @@ router.get("/current-admin", auth, async (req, res) => {
   } catch (error) {
     console.error("Erreur lors de la récupération de l'admin:", error);
     res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+// Route pour vérifier la validité du token JWT
+router.get("/verify", async (req, res) => {
+  try {
+    console.log("🔍 Vérification du token JWT");
+
+    // Récupérer le token depuis les cookies ou depuis le header Authorization
+    let token = req.cookies?.accessToken;
+
+    // Si pas de token dans les cookies, essayer dans les headers
+    if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    if (!token) {
+      console.log("❌ Aucun token trouvé");
+      return res.status(401).json({
+        success: false,
+        message: "Authentification requise",
+        code: "AUTH_REQUIRED",
+      });
+    }
+
+    // Vérifier et décoder le token
+    const decoded = verifyAccessToken(token);
+
+    if (!decoded) {
+      console.log("❌ Token invalide ou expiré");
+      return res.status(401).json({
+        success: false,
+        message: "Session invalide ou expirée",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+    // Récupérer les informations de l'utilisateur
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      console.log("❌ Utilisateur non trouvé avec ID:", decoded.userId);
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+        code: "USER_NOT_FOUND",
+      });
+    }
+
+    // Renvoyer les informations de l'utilisateur sans les données sensibles
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      role: user.role || "admin",
+      first_name: user.first_name,
+      last_name: user.last_name,
+      fullName:
+        `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+        "Administrateur",
+    };
+
+    console.log("✅ Token valide pour l'utilisateur:", safeUser.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Token valide",
+      user: safeUser,
+    });
+  } catch (error) {
+    console.error("❌ Erreur lors de la vérification du token:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la vérification du token",
+      error: error.message,
+    });
   }
 });
 

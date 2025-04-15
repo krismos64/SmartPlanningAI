@@ -27,7 +27,7 @@ console.log("🌐 [API] API_URL utilisé :", API_URL);
 // Variable globale pour stocker le token CSRF
 let globalCsrfToken = null;
 
-// Création d'une instance Axios
+// Création d'une instance Axios - Utiliser directement l'URL de base sans modification
 export const axiosInstance = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -42,6 +42,28 @@ axiosInstance.interceptors.request.use((config) => {
     console.warn("🚨 Requête axiosInstance détectée sans endpoint :", config);
     console.trace(); // pour voir l'origine exacte dans la console navigateur
   }
+
+  // Liste des endpoints qui fonctionnent sans préfixe /api
+  const noApiPrefixEndpoints = ["/csrf-token", "/ping"];
+
+  // Vérifier si l'URL est déjà absolue (commence par http ou https)
+  if (config.url.startsWith("http")) {
+    return config;
+  }
+
+  // Déterminer si nous devons ajouter le préfixe /api
+  const useApiPrefix =
+    !config.url.startsWith("/api") &&
+    !noApiPrefixEndpoints.includes(config.url);
+
+  // S'assurer que l'URL commence par /api si nécessaire
+  if (useApiPrefix) {
+    console.log(`Ajout du préfixe /api à l'URL: ${config.url}`);
+    config.url = `/api${
+      config.url.startsWith("/") ? config.url : `/${config.url}`
+    }`;
+  }
+
   return config;
 });
 
@@ -96,7 +118,7 @@ axiosInstance.interceptors.response.use(
     try {
       // Tentative de rafraîchissement du token
       const response = await axiosInstance.post(
-        "/api/auth/refresh",
+        "/auth/refresh",
         {},
         {
           withCredentials: true,
@@ -279,18 +301,25 @@ export const buildApiUrl = (endpoint) => {
     return API_URL;
   }
 
-  // Si l'URL de base contient déjà /api, on retire /api/ de l'endpoint
-  const cleanEndpoint = API_URL.includes("/api")
-    ? endpoint.replace(/^\/api/, "")
-    : endpoint;
+  // Liste des endpoints qui fonctionnent sans préfixe /api
+  const noApiPrefixEndpoints = ["/csrf-token", "/ping"];
 
-  // Construire l'URL complète
+  // Si l'endpoint est déjà une URL complète, la retourner telle quelle
+  if (endpoint.startsWith("http")) {
+    return endpoint;
+  }
+
+  // Déterminer si on doit ajouter le préfixe /api
+  const needsApiPrefix =
+    !endpoint.startsWith("/api") && !noApiPrefixEndpoints.includes(endpoint);
+
+  // Construire l'URL
   const baseUrl = API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL;
-  const finalEndpoint = cleanEndpoint.startsWith("/")
-    ? cleanEndpoint
-    : `/${cleanEndpoint}`;
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-  return `${baseUrl}${finalEndpoint}`;
+  return needsApiPrefix
+    ? `${baseUrl}/api${cleanEndpoint}`
+    : `${baseUrl}${cleanEndpoint}`;
 };
 
 // Constante pour activer/désactiver les logs de débogage API
@@ -303,7 +332,12 @@ export const API_DEBUG = process.env.NODE_ENV !== "production";
 export const fetchCsrfToken = async () => {
   try {
     console.log("🔒 Demande d'un nouveau token CSRF");
-    const response = await axiosInstance.get(API_ENDPOINTS.CSRF.TOKEN);
+
+    // Utiliser directement l'URL du token CSRF
+    const csrfUrl = "/csrf-token";
+    console.log("URL du token CSRF:", csrfUrl);
+
+    const response = await axiosInstance.get(csrfUrl);
 
     if (response.data && response.data.csrfToken) {
       globalCsrfToken = response.data.csrfToken;
@@ -317,7 +351,37 @@ export const fetchCsrfToken = async () => {
       return null;
     }
   } catch (error) {
-    console.error("❌ Erreur lors de la récupération du token CSRF:", error);
+    console.error(
+      "❌ Erreur lors de la récupération du token CSRF avec axiosInstance:",
+      error
+    );
+    console.error("Détails de l'erreur:", error.message);
+
+    // En cas d'échec, essayer avec l'URL alternative
+    try {
+      console.log("🔄 Tentative avec URL alternative pour le token CSRF");
+
+      // Essayer avec le préfixe /api
+      const alternativeUrl = "/api/csrf-token";
+      console.log("URL alternative:", alternativeUrl);
+
+      const response = await axiosInstance.get(alternativeUrl);
+
+      if (response.data && response.data.csrfToken) {
+        globalCsrfToken = response.data.csrfToken;
+        console.log(
+          "✅ Token CSRF reçu (2ème tentative):",
+          globalCsrfToken.substring(0, 10) + "..."
+        );
+        return globalCsrfToken;
+      }
+    } catch (retryError) {
+      console.error(
+        "❌ Échec de toutes les tentatives de récupération du token CSRF:",
+        retryError.message
+      );
+    }
+
     return null;
   }
 };
@@ -327,17 +391,58 @@ export const fetchCsrfToken = async () => {
  * @returns {Promise<string>} Le token CSRF
  */
 export const getCsrfToken = async () => {
+  // Si nous avons déjà un token, le retourner
   if (globalCsrfToken) {
+    console.log("✅ Token CSRF existant utilisé");
     return globalCsrfToken;
   }
-  return fetchCsrfToken();
+
+  // Sinon, demander un nouveau token avec plusieurs tentatives
+  let retries = 0;
+  const maxRetries = 3;
+
+  while (retries < maxRetries) {
+    try {
+      console.log(`🔄 Tentative #${retries + 1} de récupération du token CSRF`);
+      const token = await fetchCsrfToken();
+
+      if (token) {
+        console.log(`✅ Token CSRF obtenu après ${retries + 1} tentative(s)`);
+        return token;
+      }
+
+      retries++;
+      if (retries < maxRetries) {
+        console.log(`⏱️ Attente avant tentative #${retries + 1}...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Attendre 1s entre les tentatives
+      }
+    } catch (error) {
+      console.error(`❌ Erreur lors de la tentative #${retries + 1}:`, error);
+      retries++;
+
+      if (retries < maxRetries) {
+        console.log(`⏱️ Attente avant tentative #${retries + 1}...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Attendre 1s entre les tentatives
+      }
+    }
+  }
+
+  console.error(
+    `❌ Échec après ${maxRetries} tentatives de récupération du token CSRF`
+  );
+  return null;
 };
 
 /**
  * Récupère immédiatement le token CSRF stocké globalement sans appel API
+ * @param {string|null} [newToken] - Si fourni, définit le token CSRF global
  * @returns {string|null} Le token CSRF ou null s'il n'existe pas
  */
-export const getStoredCsrfToken = () => {
+export const getStoredCsrfToken = (newToken = null) => {
+  if (newToken !== null) {
+    globalCsrfToken = newToken;
+    console.log(`✅ Token CSRF défini: ${newToken.substring(0, 10)}...`);
+  }
   return globalCsrfToken;
 };
 
@@ -379,7 +484,9 @@ export const apiRequest = async (
 ) => {
   validateApiUrl();
 
-  const url = endpoint.startsWith("/") ? endpoint : buildApiUrl(endpoint);
+  // Construire l'URL
+  const url = endpoint.startsWith("http") ? endpoint : buildApiUrl(endpoint);
+  console.log(`📡 [apiRequest] URL construite: ${url}`);
 
   // Pour les méthodes non-GET, s'assurer d'avoir un token CSRF
   if (
@@ -388,7 +495,11 @@ export const apiRequest = async (
     !endpoint.includes("csrf-token")
   ) {
     console.log("🔒 Récupération du token CSRF avant requête", method);
-    await fetchCsrfToken();
+    try {
+      await getCsrfToken(); // Utiliser getCsrfToken qui inclut des tentatives multiples
+    } catch (csrfError) {
+      console.error("❌ Impossible d'obtenir un token CSRF:", csrfError);
+    }
   }
 
   // Ajouter le token CSRF aux en-têtes pour les méthodes non-GET
@@ -446,7 +557,8 @@ export const apiRequest = async (
       console.warn("🔄 Erreur CSRF, tentative de rafraîchissement du token");
 
       try {
-        await fetchCsrfToken();
+        globalCsrfToken = null; // Réinitialiser pour forcer une nouvelle demande
+        await getCsrfToken();
 
         if (globalCsrfToken) {
           // Marquer cette requête pour éviter les boucles infinies
@@ -547,6 +659,57 @@ export const normalizeApiError = (error) => {
   };
 
   return normalizedError;
+};
+
+/**
+ * Vérifie proactivement la disponibilité de l'API et du token CSRF
+ * @returns {Promise<{apiAvailable: boolean, csrfAvailable: boolean, error: string|null}>}
+ */
+export const checkApiHealth = async () => {
+  try {
+    console.log(`Vérification de la santé de l'API sur ${API_URL}`);
+
+    // Essayer d'abord avec l'endpoint /api/auth/verify
+    try {
+      const verifyResponse = await axiosInstance.get("/api/auth/verify", {
+        timeout: 5000,
+      });
+
+      if (verifyResponse && verifyResponse.status === 200) {
+        console.log("API en bonne santé via /api/auth/verify");
+        return { isHealthy: true, endpoint: "/api/auth/verify" };
+      }
+    } catch (verifyError) {
+      console.log(
+        "Échec avec /api/auth/verify, tentative avec l'endpoint /api/employees"
+      );
+    }
+
+    // Si verify échoue, essayer avec endpoint /api/employees comme fallback
+    const response = await axiosInstance.get("/api/employees", {
+      timeout: 5000,
+    });
+
+    console.log("Réponse du serveur:", {
+      url: response.config.url,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+
+    return { isHealthy: true, endpoint: "/api/employees" };
+  } catch (error) {
+    console.error("❌ API non disponible:", error);
+    console.error("Statut:", error.response?.status);
+    console.error("Message:", error.response?.data?.message || error.message);
+
+    return {
+      isHealthy: false,
+      error: error.message,
+      status: error.response?.status,
+      endpoint: "/api/employees",
+    };
+  }
 };
 
 export default apiRequest;

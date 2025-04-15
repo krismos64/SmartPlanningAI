@@ -1,6 +1,6 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
-import { API_ENDPOINTS, API_URL, validateApiUrl } from "../config/api";
+import { API_URL, validateApiUrl } from "../config/api";
 import { formatError, handleApiError } from "../utils/errorHandling";
 import { useAuth } from "./AuthContext";
 
@@ -23,6 +23,7 @@ export const ApiProvider = ({ children }) => {
 
       // Création d'une instance axios avec des configurations par défaut
       const instance = axios.create({
+        // Utiliser directement l'URL de base sans ajouter /api
         baseURL: API_URL,
         headers: {
           "Content-Type": "application/json",
@@ -30,6 +31,7 @@ export const ApiProvider = ({ children }) => {
         },
         // Timeout plus long en production
         timeout: process.env.NODE_ENV === "production" ? 30000 : 10000,
+        withCredentials: true, // Toujours envoyer les cookies
       });
 
       // Intercepteur pour ajouter le token d'authentification à chaque requête
@@ -37,7 +39,22 @@ export const ApiProvider = ({ children }) => {
         async (config) => {
           // Si c'est une requête à l'URL de base, utiliser l'endpoint de santé
           if (config.url === "/" || !config.url) {
-            config.url = API_ENDPOINTS.HEALTH;
+            // Utiliser un endpoint qui existe, comme /csrf-token
+            config.url = "/csrf-token";
+          }
+
+          // Liste des endpoints qui ne nécessitent pas le préfixe /api
+          const noApiPrefixEndpoints = ["/csrf-token", "/ping"];
+
+          // Déterminer si nous devons ajouter le préfixe /api
+          if (
+            !config.url.startsWith("/api") &&
+            !config.url.startsWith("http") &&
+            !noApiPrefixEndpoints.includes(config.url)
+          ) {
+            config.url = `/api${
+              config.url.startsWith("/") ? config.url : `/${config.url}`
+            }`;
           }
 
           console.log(
@@ -45,7 +62,13 @@ export const ApiProvider = ({ children }) => {
               config.baseURL
             }${config.url}`
           );
-          console.log(`🌐 [API Base URL] ${API_URL}`);
+
+          // Utiliser l'URL de base correcte pour le logging
+          console.log(
+            `🌐 [API Base URL] ${API_URL}${
+              config.url.startsWith("/api") ? "" : "/api"
+            }`
+          );
 
           const token = await getToken();
           if (token) {

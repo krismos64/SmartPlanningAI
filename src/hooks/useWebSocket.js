@@ -8,15 +8,36 @@ import {
 
 /**
  * Hook pour gérer les connexions WebSocket
+ * @param {string} namespace Namespace à utiliser pour la connexion (optionnel)
  * @returns {Object} État et méthodes liés au WebSocket
  */
-const useWebSocket = () => {
+const useWebSocket = (namespace = "") => {
   const [activities, setActivities] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [fallbackMode, setFallbackMode] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState(null);
   const { user, getToken } = useAuth();
   const socketInitializedRef = useRef(false);
+  const namespaceRef = useRef(namespace);
+
+  // Mettre à jour la référence du namespace si elle change
+  useEffect(() => {
+    if (namespaceRef.current !== namespace) {
+      console.log(
+        `Changement de namespace WebSocket: ${namespaceRef.current} -> ${namespace}`
+      );
+      namespaceRef.current = namespace;
+
+      // Réinitialiser la connexion si le namespace change et qu'une connexion existait
+      if (socketInitializedRef.current) {
+        disconnect();
+        socketInitializedRef.current = false;
+        setIsConnected(false);
+        // La reconnexion sera gérée par l'effet principal
+      }
+    }
+  }, [namespace]);
 
   // Initialiser la connexion WebSocket seulement si l'utilisateur est connecté
   useEffect(() => {
@@ -24,26 +45,37 @@ const useWebSocket = () => {
       // Vérifier si l'utilisateur est authentifié et a un ID valide
       if (user && user.id && !socketInitializedRef.current) {
         try {
+          setConnectionError(null);
+
           // Obtenir le token le plus récent
           const token = await getToken();
 
           if (!token) {
-            console.error(
-              "Token non disponible pour l'initialisation du WebSocket"
-            );
+            const error =
+              "Token non disponible pour l'initialisation du WebSocket";
+            console.error(error);
+            setConnectionError(error);
             return;
           }
 
-          console.log("Initialisation du WebSocket avec token valide...");
+          // Important: n'utiliser aucun namespace par défaut (namespace vide)
+          // Le namespace '/api' n'existe pas côté serveur
+          const socketNamespace = "";
+
+          console.log(
+            `Initialisation du WebSocket avec token valide${
+              socketNamespace ? ` et namespace ${socketNamespace}` : ""
+            }...`
+          );
 
           // Obtenir la socket existante ou en créer une nouvelle avec le token valide
           let socket = getSocket();
 
           if (!socket) {
-            socket = initializeSocket(token);
+            socket = initializeSocket(token, socketNamespace);
           } else if (!socket.connected) {
             // Réinitialiser la socket avec le nouveau token si elle existe mais n'est pas connectée
-            socket = reinitializeSocket(token);
+            socket = reinitializeSocket(token, socketNamespace);
           }
 
           if (socket) {
@@ -54,9 +86,32 @@ const useWebSocket = () => {
             if (!socket.connected) {
               socket.connect();
             }
+
+            // Écouter les événements de connexion pour mettre à jour l'état
+            socket.on("connect", () => {
+              console.log("WebSocket connecté dans useWebSocket");
+              setIsConnected(true);
+              setConnectionError(null);
+            });
+
+            socket.on("disconnect", (reason) => {
+              console.log(`WebSocket déconnecté dans useWebSocket: ${reason}`);
+              setIsConnected(false);
+              setConnectionError(`Déconnecté: ${reason}`);
+            });
+
+            socket.on("connect_error", (error) => {
+              console.error(
+                "Erreur de connexion WebSocket dans useWebSocket:",
+                error.message
+              );
+              setIsConnected(false);
+              setConnectionError(error.message);
+            });
           }
         } catch (error) {
           console.error("Erreur lors de l'initialisation du WebSocket:", error);
+          setConnectionError(error.message);
         }
       }
     };
@@ -67,7 +122,7 @@ const useWebSocket = () => {
     return () => {
       // Ne rien faire, la déconnexion est gérée au niveau du service
     };
-  }, [user, getToken]);
+  }, [user, getToken, namespace]);
 
   // Fonction pour envoyer une notification de changement de données
   const notifyDataChange = useCallback(
@@ -172,6 +227,31 @@ const useWebSocket = () => {
     }
   }, []);
 
+  // Fonction pour forcer la reconnexion du WebSocket
+  const reconnect = useCallback(async () => {
+    try {
+      console.log("Tentative de reconnexion WebSocket...");
+      disconnect();
+
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Token non disponible pour la reconnexion");
+      }
+
+      const socket = initializeSocket(token, namespaceRef.current);
+      if (socket) {
+        socket.connect();
+        socketInitializedRef.current = true;
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Erreur lors de la reconnexion WebSocket:", error);
+      setConnectionError(error.message);
+      return false;
+    }
+  }, [getToken, disconnect]);
+
   return {
     isConnected,
     activities,
@@ -180,6 +260,8 @@ const useWebSocket = () => {
     handleNotification,
     handleActivityUpdate,
     disconnect,
+    reconnect,
+    connectionError,
   };
 };
 

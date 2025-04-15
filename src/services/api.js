@@ -351,40 +351,24 @@ export const VacationService = {
         token ? token.substring(0, 15) + "..." : "non défini"
       );
 
-      // Appel direct à l'API pour accéder aux détails complets de la réponse
-      const response = await fetch(API_URL + API_ENDPOINTS.VACATIONS.BASE, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      // Utiliser apiRequest au lieu de fetch direct pour garantir la construction d'URL correcte
+      const response = await apiRequest(
+        API_ENDPOINTS.VACATIONS.BASE,
+        "GET",
+        null,
+        {
           Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-      });
-
-      console.log("VacationService.getAll - Réponse status:", response.status);
-      console.log("VacationService.getAll - Headers:", [
-        ...response.headers.entries(),
-      ]);
-
-      // Obtenir le corps de la réponse
-      const responseText = await response.text();
-      console.log(
-        "VacationService.getAll - Texte brut de la réponse:",
-        responseText
+        }
       );
 
-      // Tenter de parser la réponse en JSON
-      let data;
-      try {
-        data = responseText ? JSON.parse(responseText) : null;
-        console.log("VacationService.getAll - Données JSON:", data);
-      } catch (e) {
-        console.error("VacationService.getAll - Erreur parsing JSON:", e);
-        return { success: false, message: "Erreur de format dans la réponse" };
+      // Si la réponse est directement du JSON, la normaliser et la retourner
+      if (response) {
+        console.log("VacationService.getAll - Données JSON:", response);
+        return normalizeResponse(response);
+      } else {
+        console.error("VacationService.getAll - Aucune donnée reçue");
+        return { success: false, message: "Aucune donnée reçue" };
       }
-
-      // Normaliser et retourner la réponse
-      return normalizeResponse(data);
     } catch (error) {
       console.error("VacationService.getAll - Erreur:", error);
       return {

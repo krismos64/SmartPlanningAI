@@ -18,17 +18,13 @@ export const buildApiUrl = (path) => {
   if (!path || path === "/") {
     console.warn("⚠️ Appel détecté avec un chemin vide ou '/' !");
     console.trace(); // affiche la pile d'appels pour localiser l'origine
-    return API_URL;
+    return `${API_URL}/api`;
   }
-
-  // Si l'URL de base contient déjà /api, on retire /api/ du chemin
-  const cleanPath = API_URL.includes("/api")
-    ? path.replace(/^\/api/, "")
-    : path;
 
   // Construire l'URL complète
   const baseUrl = API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL;
+  const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
   const finalPath = cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`;
 
-  return `${baseUrl}${finalPath}`;
+  return `${baseUrl}/api${finalPath}`;
 };

@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import { API_URL, fetchCsrfToken, getStoredCsrfToken } from "../config/api.js";
+import {
+  API_URL,
+  checkApiHealth,
+  fetchCsrfToken,
+  getCsrfToken,
+  getStoredCsrfToken,
+} from "../config/api.js";
 import { buildApiUrl } from "../utils/apiHelpers";
 
 /**
@@ -8,16 +14,101 @@ import { buildApiUrl } from "../utils/apiHelpers";
  * @returns {Object} Méthodes pour effectuer des requêtes API
  */
 const useApi = () => {
+  const [apiStatus, setApiStatus] = useState({
+    checked: false,
+    isApiAvailable: false,
+    isCsrfAvailable: false,
+    error: null,
+  });
+
+  // Fonction pour vérifier l'état de l'API
+  const checkApiStatus = useCallback(async () => {
+    try {
+      console.log("🔍 Vérification manuelle de la santé de l'API...");
+      const healthStatus = await checkApiHealth();
+
+      setApiStatus({
+        checked: true,
+        isApiAvailable: healthStatus.apiAvailable,
+        isCsrfAvailable: healthStatus.csrfAvailable,
+        error: healthStatus.error,
+      });
+
+      return healthStatus;
+    } catch (error) {
+      console.error(
+        "❌ Erreur lors de la vérification manuelle de l'API:",
+        error
+      );
+
+      const status = {
+        apiAvailable: false,
+        csrfAvailable: false,
+        error: error.message,
+      };
+
+      setApiStatus({
+        checked: true,
+        isApiAvailable: false,
+        isCsrfAvailable: false,
+        error: error.message,
+      });
+
+      return status;
+    }
+  }, []);
+
   // Récupérer le token CSRF au chargement du hook
   useEffect(() => {
-    const initCsrf = async () => {
-      const csrfToken = getStoredCsrfToken();
-      if (!csrfToken) {
-        await fetchCsrfToken();
+    const initApi = async () => {
+      try {
+        // Vérifier l'état de l'API et du CSRF
+        const healthStatus = await checkApiHealth();
+        setApiStatus({
+          checked: true,
+          isApiAvailable: healthStatus.apiAvailable,
+          isCsrfAvailable: healthStatus.csrfAvailable,
+          error: healthStatus.error,
+        });
+
+        if (!healthStatus.apiAvailable) {
+          console.error("❌ API indisponible, les requêtes peuvent échouer");
+        }
+
+        // Si la vérification de santé n'a pas pu récupérer le token CSRF, essayer une dernière fois
+        if (!healthStatus.csrfAvailable) {
+          console.log(
+            "🔄 Tentative supplémentaire de récupération du token CSRF"
+          );
+          const csrfToken = getStoredCsrfToken();
+
+          if (!csrfToken) {
+            await fetchCsrfToken();
+
+            // Vérifier si le token a bien été récupéré
+            const tokenAfterFetch = getStoredCsrfToken();
+            if (!tokenAfterFetch) {
+              console.warn(
+                "⚠️ Échec de la récupération initiale du token CSRF, tentative avec getCsrfToken"
+              );
+              await getCsrfToken(); // Utilise la logique de retry intégrée
+            }
+          } else {
+            console.log("✅ Token CSRF déjà présent dans useApi");
+          }
+        }
+      } catch (error) {
+        console.error("❌ Erreur lors de l'initialisation de l'API:", error);
+        setApiStatus({
+          checked: true,
+          isApiAvailable: false,
+          isCsrfAvailable: false,
+          error: error.message,
+        });
       }
     };
 
-    initCsrf();
+    initApi();
   }, []);
 
   const handleResponse = useCallback(async (response) => {
@@ -115,68 +206,97 @@ const useApi = () => {
   }, []);
 
   const api = useMemo(() => {
-    const get = async (endpoint) => {
-      try {
-        // Vérifier que l'URL est correcte
-        console.log(`[API] GET ${API_URL}${endpoint}`);
+    const get = async (endpoint, options = {}) => {
+      const { retries = 2, retryDelay = 1000 } = options;
+      let attempt = 0;
 
-        // Gestion spéciale pour les départements - ne pas afficher d'erreurs
-        const isDepartmentsEndpoint = endpoint.includes("/departments");
-
-        const token = localStorage.getItem("token");
-        const headers = {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        };
-
-        const response = await fetch(buildApiUrl(endpoint), {
-          method: "GET",
-          headers,
-          credentials: "include",
-        });
-
-        // Pour les requêtes autres que les départements, vérifier si la réponse est OK
-        if (!isDepartmentsEndpoint && !response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message || `Erreur lors de la requête GET ${endpoint}`
+      const attemptRequest = async () => {
+        attempt++;
+        try {
+          // Vérifier que l'URL est correcte
+          const apiBaseUrl = API_URL.includes("/api")
+            ? API_URL
+            : `${API_URL}/api`;
+          console.log(
+            `[API] GET ${apiBaseUrl}${
+              endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+            } (tentative ${attempt}/${retries + 1})`
           );
-        }
 
-        const result = await handleResponse(response);
+          // Gestion spéciale pour les départements - ne pas afficher d'erreurs
+          const isDepartmentsEndpoint = endpoint.includes("/departments");
 
-        // Pour les départements, on retourne un objet structuré
-        if (isDepartmentsEndpoint) {
-          return {
-            ok: response.ok,
-            status: response.status,
-            data: result,
-            headers: response.headers,
+          const token = localStorage.getItem("token");
+          const headers = {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
           };
+
+          const response = await fetch(buildApiUrl(endpoint), {
+            method: "GET",
+            headers,
+            credentials: "include",
+          });
+
+          // Pour les requêtes autres que les départements, vérifier si la réponse est OK
+          if (!isDepartmentsEndpoint && !response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.message || `Erreur lors de la requête GET ${endpoint}`
+            );
+          }
+
+          const result = await handleResponse(response);
+
+          // Pour les départements, on retourne un objet structuré
+          if (isDepartmentsEndpoint) {
+            return {
+              ok: response.ok,
+              status: response.status,
+              data: result,
+              headers: response.headers,
+            };
+          }
+
+          // Pour les autres requêtes, on retourne directement les données
+          return result;
+        } catch (error) {
+          console.error(
+            `[API] GET ${endpoint} Error (tentative ${attempt}/${
+              retries + 1
+            }):`,
+            error
+          );
+
+          // Si ce n'est pas la dernière tentative, réessayer après un délai
+          if (attempt <= retries) {
+            console.log(`⏱️ Nouvelle tentative dans ${retryDelay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            return attemptRequest();
+          }
+
+          // Vérifier si c'est une requête pour les départements
+          const isDepartmentsEndpoint = endpoint.includes("/departments");
+
+          // Si c'est une requête pour les départements, retourner un objet structuré
+          if (isDepartmentsEndpoint) {
+            console.log("Erreur silencieuse pour les départements");
+            return {
+              ok: false,
+              status: error.status || 0,
+              data: {
+                message: error.message || "Erreur lors de la requête GET",
+              },
+              headers: new Headers(),
+            };
+          }
+
+          // Pour les autres requêtes, propager l'erreur
+          throw error;
         }
+      };
 
-        // Pour les autres requêtes, on retourne directement les données
-        return result;
-      } catch (error) {
-        console.error(`[API] GET ${endpoint} Error:`, error);
-
-        // Vérifier si c'est une requête pour les départements
-        const isDepartmentsEndpoint = endpoint.includes("/departments");
-
-        // Si c'est une requête pour les départements, retourner un objet structuré
-        if (isDepartmentsEndpoint) {
-          console.log("Erreur silencieuse pour les départements");
-          return {
-            ok: false,
-            status: error.status || 0,
-            data: { message: error.message || "Erreur lors de la requête GET" },
-            headers: new Headers(),
-          };
-        }
-
-        // Pour les autres requêtes, propager l'erreur
-        throw error;
-      }
+      return attemptRequest();
     };
 
     // Fonction utilitaire pour convertir camelCase en snake_case
@@ -205,7 +325,14 @@ const useApi = () => {
         }
 
         // Vérifier que l'URL est correcte
-        console.log(`[API] POST ${API_URL}${endpoint}`);
+        const apiBaseUrl = API_URL.includes("/api")
+          ? API_URL
+          : `${API_URL}/api`;
+        console.log(
+          `[API] POST ${apiBaseUrl}${
+            endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+          }`
+        );
 
         // Vérifier si le token est présent
         const token = localStorage.getItem("token");
@@ -256,20 +383,13 @@ const useApi = () => {
           },
         });
 
-        // Effectuer la requête avec un timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
-
+        // Effectuer la requête avec fetch
         const response = await fetch(buildApiUrl(endpoint), {
           method: "POST",
           headers,
           body: JSON.stringify(snakeCaseData),
-          signal: controller.signal,
-          credentials: "include",
+          credentials: "include", // indispensable pour envoyer les cookies
         });
-
-        // Annuler le timeout
-        clearTimeout(timeoutId);
 
         return await handleResponse(response);
       } catch (error) {
@@ -287,7 +407,14 @@ const useApi = () => {
         }
 
         // Vérifier que l'URL est correcte
-        console.log(`[API] PUT ${API_URL}${endpoint}`);
+        const apiBaseUrl = API_URL.includes("/api")
+          ? API_URL
+          : `${API_URL}/api`;
+        console.log(
+          `[API] PUT ${apiBaseUrl}${
+            endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+          }`
+        );
 
         // Vérifier si le token est présent
         const token = localStorage.getItem("token");
@@ -338,20 +465,13 @@ const useApi = () => {
           },
         });
 
-        // Effectuer la requête avec un timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
-
+        // Effectuer la requête avec fetch
         const response = await fetch(buildApiUrl(endpoint), {
           method: "PUT",
           headers,
           body: JSON.stringify(snakeCaseData),
-          signal: controller.signal,
-          credentials: "include",
+          credentials: "include", // indispensable pour envoyer les cookies
         });
-
-        // Annuler le timeout
-        clearTimeout(timeoutId);
 
         return await handleResponse(response);
       } catch (error) {
@@ -363,7 +483,14 @@ const useApi = () => {
     const del = async (endpoint) => {
       try {
         // Vérifier que l'URL est correcte
-        console.log(`[API] DELETE ${API_URL}${endpoint}`);
+        const apiBaseUrl = API_URL.includes("/api")
+          ? API_URL
+          : `${API_URL}/api`;
+        console.log(
+          `[API] DELETE ${apiBaseUrl}${
+            endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+          }`
+        );
 
         // Vérifier si le token est présent
         const token = localStorage.getItem("token");
@@ -397,7 +524,7 @@ const useApi = () => {
         const response = await fetch(buildApiUrl(endpoint), {
           method: "DELETE",
           headers,
-          credentials: "include",
+          credentials: "include", // indispensable pour envoyer les cookies
         });
 
         return await handleResponse(response);
@@ -412,8 +539,10 @@ const useApi = () => {
       post,
       put,
       delete: del,
+      apiStatus,
+      checkApiStatus, // Exposer la fonction de vérification manuelle
     };
-  }, [handleResponse]);
+  }, [handleResponse, apiStatus, checkApiStatus]);
 
   return api;
 };

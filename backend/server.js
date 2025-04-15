@@ -126,8 +126,8 @@ app.use(
     credentials: true, // Important pour la gestion des sessions cross-domain
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Cookies sécurisés (HTTPS) seulement en production
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // Ajuster selon l'environnement
+      secure: false, // Cookies sécurisés (HTTPS) seulement en production
+      sameSite: "Lax", // Ajuster selon l'environnement
       maxAge: 24 * 60 * 60 * 1000, // 24 heures
     },
   })

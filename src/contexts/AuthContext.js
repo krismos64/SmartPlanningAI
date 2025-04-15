@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
-import { apiRequest, fetchCsrfToken } from "../config/api";
+import { apiRequest, fetchCsrfToken, getStoredCsrfToken } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import { getApiUrl } from "../utils/api";
 
@@ -237,6 +237,183 @@ export const AuthProvider = ({ children }) => {
     initApp();
   }, []);
 
+  // Vérifier l'authentification initiale
+  const checkInitialAuth = async () => {
+    console.log("🔍 Vérification de l'authentification initiale");
+    setIsLoading(true);
+
+    try {
+      // Récupérer le token depuis localStorage
+      const authToken = localStorage.getItem("token");
+      console.log(`🔑 Token stocké: ${authToken ? "Présent" : "Absent"}`);
+
+      if (!authToken) {
+        console.log("❌ Aucun token trouvé, déconnexion de l'utilisateur");
+        setIsAuthenticated(false);
+        setUser(null);
+        localStorage.removeItem("user");
+        setIsLoading(false);
+        return;
+      }
+
+      // Si l'utilisateur est déjà dans localStorage, l'utiliser temporairement
+      // pendant que nous vérifions l'authentification pour éviter un flash de déconnexion
+      const localUser = JSON.parse(localStorage.getItem("user") || "null");
+      if (localUser) {
+        console.log("👤 Utilisateur local trouvé temporairement:", localUser);
+        setUser(localUser);
+        setIsAuthenticated(true);
+      }
+
+      // Vérifier le token avec le serveur - on utilise directement apiRequest sans vérification préliminaire
+      console.log("🔐 Vérification du token avec le serveur");
+      try {
+        const response = await apiRequest("/api/auth/verify", "GET");
+        console.log("📥 Réponse de vérification:", response);
+
+        if (response && response.isAuthenticated === true) {
+          console.log("✅ Authentification validée par le serveur");
+          setIsAuthenticated(true);
+
+          if (response.user) {
+            console.log("👤 Informations utilisateur reçues:", response.user);
+            setUser(response.user);
+            localStorage.setItem("user", JSON.stringify(response.user));
+          } else if (localUser) {
+            console.log(
+              "🔄 Utilisation des données utilisateur existantes du localStorage"
+            );
+            // On garde l'utilisateur du localStorage si le serveur n'en a pas fourni
+            setUser(localUser);
+          } else {
+            console.warn(
+              "⚠️ Authentifié mais aucune information utilisateur reçue"
+            );
+            // On tente quand même de continuer la session sans déconnecter l'utilisateur
+            // car le token est valide mais le serveur n'a pas retourné de données utilisateur
+            console.log(
+              "⚠️ Tentative de récupération des données utilisateur via une route alternative"
+            );
+            try {
+              const userResponse = await apiRequest("/api/user/profile", "GET");
+              if (userResponse && userResponse.user) {
+                console.log(
+                  "👤 Informations utilisateur récupérées via profil:",
+                  userResponse.user
+                );
+                setUser(userResponse.user);
+                localStorage.setItem("user", JSON.stringify(userResponse.user));
+              }
+            } catch (profileError) {
+              console.error(
+                "❌ Échec de récupération du profil:",
+                profileError
+              );
+              // On ne déconnecte pas l'utilisateur si le token est valide mais qu'on n'a pas
+              // pu récupérer les données utilisateur
+            }
+          }
+        } else if (response && response.success === true) {
+          // Certaines APIs peuvent retourner success au lieu de isAuthenticated
+          console.log(
+            "✅ Authentification validée par le serveur (format success)"
+          );
+          setIsAuthenticated(true);
+
+          if (response.user) {
+            console.log("👤 Informations utilisateur reçues:", response.user);
+            setUser(response.user);
+            localStorage.setItem("user", JSON.stringify(response.user));
+          } else if (localUser) {
+            // Garder l'utilisateur du localStorage
+            console.log("🔄 Conservation des données utilisateur locales");
+          }
+        } else {
+          console.log(
+            "🚫 Token invalide selon le serveur, tentative de rafraîchissement"
+          );
+
+          // Tenter de rafraîchir le token avant de déconnecter
+          try {
+            const refreshResponse = await refreshToken();
+            if (refreshResponse && refreshResponse.success) {
+              console.log("✅ Token rafraîchi avec succès");
+              // Si le rafraîchissement a réussi, on garde l'authentification
+              setIsAuthenticated(true);
+              return;
+            } else {
+              console.log("❌ Échec du rafraîchissement, déconnexion");
+              setIsAuthenticated(false);
+              setUser(null);
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+            }
+          } catch (refreshError) {
+            console.error("❌ Erreur lors du rafraîchissement:", refreshError);
+            setIsAuthenticated(false);
+            setUser(null);
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+          }
+        }
+      } catch (verifyError) {
+        console.error(
+          "❌ Erreur lors de la vérification du token:",
+          verifyError
+        );
+
+        // Vérifier si l'erreur est liée à une API inaccessible ou à un problème réseau
+        if (
+          verifyError.message &&
+          (verifyError.message.includes("Network Error") ||
+            verifyError.message.includes("Failed to fetch") ||
+            verifyError.message.includes("404"))
+        ) {
+          console.log(
+            "🌐 Problème réseau détecté, conservation de la session locale"
+          );
+          // En cas de problème réseau, on garde l'utilisateur connecté avec les données locales
+          // plutôt que de le déconnecter immédiatement
+          if (localUser) {
+            console.log(
+              "👤 Conservation des données utilisateur locales en attendant le rétablissement du réseau"
+            );
+            setUser(localUser);
+            setIsAuthenticated(true);
+          } else {
+            setIsAuthenticated(false);
+            setUser(null);
+            localStorage.removeItem("token");
+          }
+        } else {
+          // Pour d'autres types d'erreurs, on déconnecte
+          setIsAuthenticated(false);
+          setUser(null);
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+        }
+      }
+    } catch (error) {
+      console.error("❌ Erreur générale lors de la vérification:", error);
+      // Ne pas déconnecter automatiquement en cas d'erreur générale
+      // car cela pourrait être dû à un problème temporaire
+
+      const localUser = JSON.parse(localStorage.getItem("user") || "null");
+      if (localUser) {
+        console.log("🔄 Conservation de la session locale malgré l'erreur");
+        setUser(localUser);
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+        localStorage.removeItem("token");
+      }
+    } finally {
+      setIsLoading(false);
+      console.log("✅ Vérification d'authentification terminée");
+    }
+  };
+
   // Fonction pour vérifier et renouveler le token si nécessaire
   const ensureValidToken = async () => {
     // Récupérer le token du localStorage
@@ -290,44 +467,6 @@ export const AuthProvider = ({ children }) => {
     return updatedUser;
   };
 
-  // Vérifier si l'utilisateur est déjà authentifié au chargement
-  const checkInitialAuth = async () => {
-    if (!localStorageToken) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      // Vérifier la validité du token auprès du serveur
-      console.log("Vérification du token stocké...");
-      const response = await apiRequest("/auth/verify", "GET");
-
-      if (response && response.success) {
-        console.log("Token valide, utilisateur authentifié");
-
-        // Mettre à jour les informations utilisateur si disponibles
-        if (response.user) {
-          updateUser(response.user);
-        }
-
-        setIsAuthenticated(true);
-        setToken(localStorageToken);
-      } else {
-        console.warn("Token invalide, déconnexion");
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        setIsAuthenticated(false);
-        setUser(null);
-        setToken(null);
-      }
-    } catch (error) {
-      console.error("Erreur lors de la vérification du token:", error);
-      // Ne pas supprimer le token - peut-être un problème de connexion réseau
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Fonction pour mettre à jour le profil utilisateur
   const updateUserProfile = async (userData) => {
     try {
@@ -362,15 +501,106 @@ export const AuthProvider = ({ children }) => {
 
   // Fonction pour rafraîchir le token CSRF
   const refreshCsrfToken = async () => {
-    try {
-      console.log("Rafraîchissement du token CSRF...");
-      await fetchCsrfToken();
-      console.log("Token CSRF rafraîchi avec succès");
-      return true;
-    } catch (error) {
-      console.error("Erreur lors du rafraîchissement du token CSRF:", error);
+    console.log("🔄 Tentative de rafraîchissement du token CSRF");
+
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
+    let success = false;
+
+    while (retryCount < MAX_RETRIES && !success) {
+      try {
+        if (retryCount > 0) {
+          console.log(
+            `🔁 Nouvelle tentative (${retryCount}/${MAX_RETRIES}) de récupération du token CSRF`
+          );
+          // Attendre un délai progressif avant de réessayer (1s, 2s, 3s)
+          await new Promise((resolve) =>
+            setTimeout(resolve, retryCount * 1000)
+          );
+        }
+
+        // Vérifier le cookie CSRF existant
+        const existingCsrf = document.cookie
+          .split(";")
+          .find((cookie) => cookie.trim().startsWith("XSRF-TOKEN="));
+
+        console.log(
+          `🔍 Cookie CSRF existant: ${existingCsrf ? "Présent" : "Absent"}`
+        );
+
+        // Construire l'URL complète pour le token CSRF
+        const csrfUrl = getApiUrl("/csrf-token");
+        console.log(`📡 URL de la requête CSRF: ${csrfUrl}`);
+
+        // Effectuer la requête pour obtenir un nouveau token CSRF
+        // Utiliser fetch directement pour contourner les problèmes potentiels avec axios
+        const response = await fetch(csrfUrl, {
+          method: "GET",
+          credentials: "include", // Important pour les cookies
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Erreur HTTP lors de la récupération du CSRF: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+        console.log("📥 Réponse CSRF reçue:", data);
+
+        // Vérifier si la réponse contient le token CSRF
+        if (data && data.csrfToken) {
+          console.log("✅ Nouveau token CSRF reçu dans la réponse");
+          // Stocker le token si présent dans la réponse
+          getStoredCsrfToken(data.csrfToken);
+        }
+
+        // Vérifier le cookie après la requête
+        const newCsrf = document.cookie
+          .split(";")
+          .find((cookie) => cookie.trim().startsWith("XSRF-TOKEN="));
+
+        if (newCsrf) {
+          console.log("✅ Cookie CSRF bien mis à jour");
+          // Extraire et stocker la valeur du cookie
+          const csrfValue = newCsrf.split("=")[1];
+          console.log(
+            `🔑 Nouvelle valeur du cookie CSRF: ${csrfValue.substring(
+              0,
+              10
+            )}...`
+          );
+          success = true;
+          return true;
+        } else {
+          console.warn("⚠️ Cookie CSRF non trouvé après la requête");
+          retryCount++;
+        }
+      } catch (error) {
+        console.error(
+          `❌ Erreur lors de la tentative ${
+            retryCount + 1
+          }/${MAX_RETRIES} de récupération du token CSRF:`,
+          error
+        );
+        retryCount++;
+
+        // Si c'est la dernière tentative, propager l'erreur
+        if (retryCount >= MAX_RETRIES) {
+          return false;
+        }
+      }
+    }
+
+    // Si toutes les tentatives ont échoué
+    if (!success) {
+      console.error(
+        "❌ Échec de récupération du token CSRF après plusieurs tentatives"
+      );
       return false;
     }
+
+    return true;
   };
 
   // Fonction pour préparer le changement de mot de passe
@@ -403,17 +633,18 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       setLoginError(null);
 
-      // Rafraîchir le token CSRF avant la connexion
-      await refreshCsrfToken();
+      console.log("🔐 Tentative de connexion pour:", email);
 
-      // Effectuer la requête de connexion
+      // Effectuer la requête de connexion directement
+      console.log("📡 Envoi de la requête de connexion au serveur");
       const response = await apiRequest("/auth/login", "POST", {
         email,
         password,
       });
 
       // Log complet de la réponse de login
-      console.log("Réponse login:", response);
+      console.log("📥 Réponse login reçue:", response);
+      console.log("🧪 document.cookie après login:", document.cookie);
 
       if (
         response &&
@@ -425,43 +656,97 @@ export const AuthProvider = ({ children }) => {
         // Récupérer le token et les informations utilisateur
         const userToken = response.token || response.accessToken;
         const refreshToken = response.refreshToken;
-        const userInfo = response.user;
+        const userInfo = response.user || response.data || response;
 
         console.log(
-          "Token reçu:",
+          "🔑 Token reçu:",
           userToken ? "Oui, longueur: " + userToken.length : "Non"
         );
-        console.log("RefreshToken reçu:", refreshToken ? "Oui" : "Non");
-        console.log("User info reçues:", userInfo ? "Oui" : "Non");
+        console.log("🔄 RefreshToken reçu:", refreshToken ? "Oui" : "Non");
+        console.log("👤 User info reçues:", userInfo ? "Oui" : "Non");
 
         // Stocker le token dans localStorage
         if (userToken) {
           localStorage.setItem("token", userToken);
-          localStorage.setItem("auth_token", userToken); // Stockage redondant pour la compatibilité
           setToken(userToken);
           console.log("✅ Token stocké dans localStorage avec succès");
         } else {
           console.error("❌ Pas de token reçu dans la réponse");
+          setLoginError("Authentification échouée: token non reçu");
+          return {
+            success: false,
+            message: "Pas de token reçu du serveur",
+          };
         }
 
-        // Vérifier les cookies reçus
-        const tokenFromCookie = document.cookie
-          .split(";")
-          .find((cookie) => cookie.trim().startsWith("auth_token="));
-
-        if (tokenFromCookie) {
-          console.log("✅ Cookie auth_token détecté");
-        } else {
-          console.warn("⚠️ Cookie auth_token non trouvé");
-        }
-
-        // Mettre à jour les informations utilisateur
+        // S'assurer que nous avons des informations utilisateur
         if (userInfo) {
-          updateUser(userInfo);
-        }
+          // Normaliser les données utilisateur pour garantir une structure cohérente
+          const normalizedUser = {
+            id: userInfo.id || userInfo.userId || userInfo._id,
+            email: userInfo.email,
+            username: userInfo.username || userInfo.email,
+            first_name: userInfo.first_name || userInfo.firstName || "",
+            last_name: userInfo.last_name || userInfo.lastName || "",
+            role: userInfo.role || "user",
+            // autres propriétés utiles...
+          };
 
-        // Afficher les cookies reçus
-        console.log("🔐 Cookies reçus :", document.cookie);
+          // Mettre à jour l'utilisateur et la session
+          setUser(normalizedUser);
+          localStorage.setItem("user", JSON.stringify(normalizedUser));
+          console.log("👤 Informations utilisateur normalisées et stockées");
+        } else {
+          console.warn(
+            "⚠️ Pas d'informations utilisateur dans la réponse, tentative alternative"
+          );
+
+          // Tenter de récupérer les informations utilisateur séparément
+          try {
+            const userResponse = await apiRequest("/api/user/profile", "GET");
+            if (userResponse && (userResponse.user || userResponse.data)) {
+              const profileData = userResponse.user || userResponse.data;
+              console.log(
+                "👤 Profil utilisateur récupéré séparément:",
+                profileData
+              );
+              setUser(profileData);
+              localStorage.setItem("user", JSON.stringify(profileData));
+            } else {
+              // Si on ne peut pas obtenir les infos utilisateur, créer un utilisateur minimal
+              const minimalUser = {
+                id: Date.now(), // ID temporaire
+                email: email,
+                username: email.split("@")[0],
+                role: "user",
+              };
+              console.log(
+                "⚠️ Création d'un profil utilisateur minimal:",
+                minimalUser
+              );
+              setUser(minimalUser);
+              localStorage.setItem("user", JSON.stringify(minimalUser));
+            }
+          } catch (profileError) {
+            console.error(
+              "❌ Erreur lors de la récupération du profil:",
+              profileError
+            );
+            // Créer un utilisateur minimal en cas d'échec
+            const fallbackUser = {
+              id: Date.now(),
+              email: email,
+              username: email.split("@")[0],
+              role: "user",
+            };
+            console.log(
+              "⚠️ Utilisation d'un profil utilisateur de secours:",
+              fallbackUser
+            );
+            setUser(fallbackUser);
+            localStorage.setItem("user", JSON.stringify(fallbackUser));
+          }
+        }
 
         setIsAuthenticated(true);
         setLoginError(null);
@@ -478,6 +763,7 @@ export const AuthProvider = ({ children }) => {
         };
       } else {
         const errorMsg = response?.message || "Erreur lors de la connexion";
+        console.error("❌ Échec de connexion:", errorMsg);
         setLoginError(errorMsg);
         return {
           success: false,
@@ -485,18 +771,29 @@ export const AuthProvider = ({ children }) => {
         };
       }
     } catch (error) {
-      console.error("Erreur lors de la connexion:", error);
-      const errorMsg =
-        error.message ||
-        error.response?.data?.message ||
-        "Erreur lors de la connexion";
+      console.error("❌ Exception lors de la connexion:", error);
+
+      let errorMsg = "Erreur lors de la connexion";
+
+      // Extraire le message d'erreur le plus précis possible
+      if (error.message) {
+        errorMsg = error.message;
+      } else if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      } else if (error.response?.statusText) {
+        errorMsg = `${error.response.statusText} (${error.response.status})`;
+      }
+
+      console.error(`❌ Message d'erreur: ${errorMsg}`);
       setLoginError(errorMsg);
+
       return {
         success: false,
         message: errorMsg,
       };
     } finally {
       setIsLoading(false);
+      console.log("🏁 Fin du processus de connexion");
     }
   };
 
