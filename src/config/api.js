@@ -262,6 +262,10 @@ export const buildApiUrl = (endpoint) => {
 
   // Si l'endpoint est vide ou /, retourner l'URL de base
   if (!endpoint || endpoint === "/") {
+    console.warn(
+      "⚠️ [apiRequest] Appel détecté avec un endpoint vide ou '/' !"
+    );
+    console.trace(); // affiche la pile d'appels pour localiser l'origine
     return API_URL;
   }
 
