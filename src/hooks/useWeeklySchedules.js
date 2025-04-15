@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 import { WeeklyScheduleService } from "../services/api";
+import { getApiUrl } from "../utils/api";
 import {
   parseScheduleFromApi,
   prepareScheduleForApi,
@@ -24,7 +25,7 @@ const getSchedulesByWeek = async (formattedDate) => {
 
     // Utiliser la bonne URL d'API pour récupérer les plannings par semaine
     const response = await fetch(
-      `${process.env.REACT_APP_API_URL}/weekly-schedules/week/${formattedDate}`,
+      getApiUrl(`/weekly-schedules/week/${formattedDate}`),
       {
         method: "GET",
         headers: {

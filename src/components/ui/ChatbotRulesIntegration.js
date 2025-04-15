@@ -1,4 +1,5 @@
 import { CHATBOT_TOPICS } from "../../config/chatbotTopics";
+import { getApiUrl } from "../../utils/api";
 
 /**
  * Classe d'intégration des règles et logiques du chatbot
@@ -401,9 +402,7 @@ class ChatbotRulesIntegration {
       }
 
       // Utiliser l'URL complète au lieu du chemin relatif pour éviter les problèmes de proxy
-      const CHATBOT_API_URL = process.env.REACT_APP_API_URL
-        ? `${process.env.REACT_APP_API_URL}/chatbot/query`
-        : `${process.env.REACT_APP_API_URL}/chatbot/query`;
+      const CHATBOT_API_URL = getApiUrl("/chatbot/query");
 
       this.log("URL de l'API utilisée:", CHATBOT_API_URL);
 

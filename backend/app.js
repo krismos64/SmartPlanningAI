@@ -53,10 +53,7 @@ const corsOrigins =
 
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? "https://smartplanning.fr"
-        : corsOrigins,
+    origin: "https://smartplanning.fr",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
@@ -278,8 +275,8 @@ async function initializeServer() {
     // Utiliser explicitement le port 5001 (ou celui défini dans les variables d'environnement)
     const PORT = process.env.PORT || 5001;
 
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`✅ Backend lancé sur http://0.0.0.0:${PORT}`);
       console.log(`📝 Mode : ${process.env.NODE_ENV || "production"}`);
       console.log(`🌐 API accessible à http://localhost:${PORT}/api`);
 

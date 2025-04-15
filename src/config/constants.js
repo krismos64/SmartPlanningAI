@@ -1,4 +1,6 @@
 // Constantes pour les employés
+// URL de l'API
+
 export const EMPLOYEE_DEPARTMENTS = [
   { value: "Marketing", label: "Marketing" },
   { value: "Développement", label: "Développement" },
@@ -214,6 +216,4 @@ export const VACATION_TABLE_COLUMNS = [
     type: "status",
   },
 ];
-
-// URL de l'API
 export const API_URL = process.env.REACT_APP_API_URL;

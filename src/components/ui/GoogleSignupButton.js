@@ -2,15 +2,15 @@
  * Bouton d'inscription Google
  * Redirige l'utilisateur vers l'API d'authentification Google pour l'inscription
  */
+import { getApiUrl } from "../../utils/api";
+
 const GoogleSignupButton = () => {
   const handleGoogleSignup = () => {
-    // Utiliser REACT_APP_API_URL défini dans les variables d'environnement
-    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
-
-    console.log("API URL utilisée:", API_URL);
+    // Utiliser la fonction getApiUrl
+    console.log("API URL utilisée:", getApiUrl());
 
     // URL correcte pour Google OAuth
-    const authUrl = `${API_URL}/auth/google`;
+    const authUrl = getApiUrl("/auth/google");
 
     console.log(`Redirection vers l'inscription Google: ${authUrl}`);
     window.location.href = authUrl;
