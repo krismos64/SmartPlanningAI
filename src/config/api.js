@@ -35,6 +35,15 @@ export const axiosInstance = axios.create({
   },
 });
 
+// Intercepteur pour détecter les appels à axiosInstance sans endpoint
+axiosInstance.interceptors.request.use((config) => {
+  if (!config.url || config.url === "/" || config.url === "") {
+    console.warn("🚨 Requête axiosInstance détectée sans endpoint :", config);
+    console.trace(); // pour voir l'origine exacte dans la console navigateur
+  }
+  return config;
+});
+
 // Variable pour suivre si un rafraîchissement de token est en cours
 let isRefreshing = false;
 // File d'attente pour stocker les requêtes en attente pendant le rafraîchissement
@@ -231,7 +240,7 @@ export const API_ENDPOINTS = {
   },
   HEALTH: "", // Endpoint vide pour vérifier l'état de l'API
   CSRF: {
-    TOKEN: "/csrf-token",
+    TOKEN: "/api/csrf-token",
   },
 };
 

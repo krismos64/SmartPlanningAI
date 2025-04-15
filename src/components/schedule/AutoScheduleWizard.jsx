@@ -8,10 +8,9 @@ import {
   FiArrowLeft,
   FiArrowRight,
   FiFilter,
+  FiLoader,
   FiX,
 } from "react-icons/fi";
-import Lottie from "react-lottie";
-import robotAnimation from "../../animations/robot.json";
 import { API_ENDPOINTS, API_URL } from "../../config/api";
 
 // Initialiser moment en français
@@ -47,15 +46,12 @@ const shimmer = `
   }
 `;
 
-// Options pour l'animation Lottie
-const robotOptions = {
-  loop: true,
-  autoplay: true,
-  animationData: robotAnimation,
-  rendererSettings: {
-    preserveAspectRatio: "xMidYMid slice",
-  },
-};
+const rotate = `
+  @keyframes rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
 
 /**
  * Composant AutoScheduleWizard - Assistant de génération automatique de planning avec IA
@@ -596,11 +592,13 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
                     gridColumn: "1 / -1",
                   }}
                 >
-                  <Lottie
-                    options={robotOptions}
-                    height={100}
-                    width={100}
-                    style={{ margin: "0 auto" }}
+                  <FiLoader
+                    size={60}
+                    style={{
+                      margin: "0 auto",
+                      color: "#3B82F6",
+                      animation: "rotate 1.5s linear infinite",
+                    }}
                   />
                   <p
                     style={{
@@ -1362,7 +1360,14 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
                 marginBottom: "20px",
               }}
             >
-              <Lottie options={robotOptions} />
+              <FiLoader
+                size={60}
+                style={{
+                  margin: "0 auto",
+                  color: "#3B82F6",
+                  animation: "rotate 1.5s linear infinite",
+                }}
+              />
             </div>
 
             <p
@@ -1631,7 +1636,14 @@ const AutoScheduleWizard = ({ isOpen, onClose, onSave, weekStart }) => {
             }}
           >
             <div style={{ width: "150px", height: "150px" }}>
-              <Lottie options={robotOptions} />
+              <FiLoader
+                size={60}
+                style={{
+                  margin: "0 auto",
+                  color: "#3B82F6",
+                  animation: "rotate 1.5s linear infinite",
+                }}
+              />
             </div>
             <p
               style={{ color: "#3B82F6", marginTop: "15px", fontWeight: "500" }}

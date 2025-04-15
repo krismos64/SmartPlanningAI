@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import "moment/locale/fr";
-import Lottie from "react-lottie";
-import successAnimation from "../../../animations/success.json";
+import { FiCheckCircle } from "react-icons/fi";
 
 // Animations
 const containerVariants = {
@@ -52,17 +51,23 @@ const statsVariants = {
   },
 };
 
-const StepFive = ({ generatedSchedule, onClose }) => {
-  // Animation options
-  const defaultOptions = {
-    loop: false,
-    autoplay: true,
-    animationData: successAnimation,
-    rendererSettings: {
-      preserveAspectRatio: "xMidYMid slice",
-    },
-  };
+// Animation de pulsation pour l'icône
+const pulseAnimation = `
+  @keyframes pulsate {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+`;
 
+// Injecter l'animation CSS dans le document
+if (typeof document !== "undefined") {
+  const styleElement = document.createElement("style");
+  styleElement.innerHTML = pulseAnimation;
+  document.head.appendChild(styleElement);
+}
+
+const StepFive = ({ generatedSchedule, onClose }) => {
   // Fonction pour formater l'horaire d'un employé
   const formatTime = (time) => {
     if (!time) return "";
@@ -125,8 +130,15 @@ const StepFive = ({ generatedSchedule, onClose }) => {
       exit="exit"
     >
       <div className="flex flex-col items-center mb-10">
-        <div className="w-32 h-32 mb-4">
-          <Lottie options={defaultOptions} />
+        <div className="w-32 h-32 mb-4 flex items-center justify-center">
+          <FiCheckCircle
+            size={80}
+            color="#10B981"
+            style={{
+              animation: "pulsate 2s ease-in-out infinite",
+              filter: "drop-shadow(0 0 8px rgba(16, 185, 129, 0.5))",
+            }}
+          />
         </div>
         <motion.h2
           className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2 text-center"

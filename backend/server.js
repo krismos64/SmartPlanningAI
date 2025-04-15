@@ -311,6 +311,8 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/user", secureAuth, authRoutes);
 app.use("/api/users", secureAuth, usersRoutes); // Utiliser les routes utilisateurs spécifiques
 app.use("/api/schedule", secureAuth, autoScheduleRoutes); // Routes pour la génération automatique de planning
+app.use("/api/hour-balance", secureAuth, hourBalanceRoutes); // Routes pour le solde d'heures
+app.use("/api/work-hours", secureAuth, workHoursRoutes); // Routes pour les heures de travail
 
 // Route de base
 app.get("/", (req, res) => {

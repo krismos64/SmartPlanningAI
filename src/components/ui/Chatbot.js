@@ -17,9 +17,8 @@ import {
 } from "@mui/material";
 
 // Import des composants personnalisés
-import robotAnimation from "../../assets/animations/robot.json";
+import ChatbotLottieAnimation from "./ChatbotLottieAnimation";
 import ChatbotRulesIntegration from "./ChatbotRulesIntegration";
-import EnhancedLottie from "./EnhancedLottie";
 
 // CSS
 import "../../styles/Chatbot.css";
@@ -33,56 +32,8 @@ const HIDDEN_ROUTES = [
   "/feedback", // Page de feedback
 ];
 
-/**
- * Composant d'animation optimisé pour éviter les problèmes de cycle de vie
- */
-const ChatbotLottieAnimation = ({
-  isHovered,
-  onClick,
-  onMouseEnter,
-  onMouseLeave,
-}) => {
-  const options = {
-    loop: true,
-    autoplay: true,
-    animationData: robotAnimation,
-    rendererSettings: {
-      preserveAspectRatio: "xMidYMid slice",
-    },
-  };
-
-  return (
-    <div
-      className="chatbot-toggle-lottie"
-      onClick={onClick}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      aria-label="Ouvrir l'assistant"
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        zIndex: 1000,
-        cursor: "pointer",
-        transition: "all 0.3s ease",
-        width: isHovered ? "100px" : "80px",
-        height: isHovered ? "100px" : "80px",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <EnhancedLottie
-        options={options}
-        height="100%"
-        width="100%"
-        isStopped={false}
-        isPaused={false}
-        animationData={robotAnimation}
-      />
-    </div>
-  );
-};
+// Clé pour l'événement global d'ouverture du chatbot
+const OPEN_CHATBOT_EVENT = "openChatbot";
 
 /**
  * Composant de chatbot intégré à l'application
@@ -90,6 +41,11 @@ const ChatbotLottieAnimation = ({
  * @returns {JSX.Element} Composant Chatbot
  */
 const Chatbot = ({ onGenerate, onClose }) => {
+  console.log("Rendu du composant Chatbot avec props:", {
+    onGenerate,
+    onClose,
+  });
+
   const location = useLocation();
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -97,6 +53,12 @@ const Chatbot = ({ onGenerate, onClose }) => {
   const [isRobotHovered, setIsRobotHovered] = useState(false);
   const messagesEndRef = useRef(null);
   const chatbotIntegration = useRef(null);
+
+  // Fonction pour l'API externe d'ouverture du chatbot
+  const forceChatbotOpen = useCallback(() => {
+    console.log("Forcer l'ouverture du chatbot via événement global");
+    setIsOpen(true);
+  }, []);
 
   /**
    * Ajoute un message à la conversation
@@ -164,8 +126,43 @@ const Chatbot = ({ onGenerate, onClose }) => {
 
   // Fonction pour ouvrir/fermer le chatbot
   const toggleChatbot = useCallback(() => {
-    setIsOpen(!isOpen);
-  }, [isOpen]);
+    console.log("toggleChatbot appelé, état actuel:", isOpen);
+
+    try {
+      // Utiliser une fonction de mise à jour pour garantir que nous avons la dernière valeur
+      setIsOpen((prevIsOpen) => {
+        const newState = !prevIsOpen;
+        console.log(`État changé de ${prevIsOpen} à ${newState}`);
+
+        // Si le chatbot est fermé, notifier le parent
+        if (prevIsOpen && onClose) {
+          console.log("Appel de onClose");
+          onClose();
+        }
+
+        return newState;
+      });
+
+      console.log("Chatbot basculé");
+    } catch (error) {
+      console.error("Erreur dans toggleChatbot:", error);
+    }
+  }, [isOpen, onClose]);
+
+  // Fonction pour forcer l'ouverture du chatbot
+  const openChatbot = useCallback(() => {
+    console.log("Forcer l'ouverture du chatbot");
+    setIsOpen(true);
+  }, []);
+
+  // Fonction pour forcer la fermeture du chatbot
+  const closeChatbot = useCallback(() => {
+    console.log("Forcer la fermeture du chatbot");
+    setIsOpen(false);
+    if (onClose) {
+      onClose();
+    }
+  }, [onClose]);
 
   // Créer une nouvelle conversation
   const startNewConversation = useCallback(() => {
@@ -219,6 +216,17 @@ const Chatbot = ({ onGenerate, onClose }) => {
     },
     [addMessage, handleActionResult]
   );
+
+  // Effet pour écouter l'événement global d'ouverture du chatbot
+  useEffect(() => {
+    // Ajouter l'écouteur d'événement pour l'API externe
+    document.addEventListener(OPEN_CHATBOT_EVENT, forceChatbotOpen);
+
+    // Nettoyer lors du démontage
+    return () => {
+      document.removeEventListener(OPEN_CHATBOT_EVENT, forceChatbotOpen);
+    };
+  }, [forceChatbotOpen]);
 
   // Effet d'initialisation
   useEffect(() => {
@@ -282,18 +290,85 @@ const Chatbot = ({ onGenerate, onClose }) => {
 
   // Vérifier si le chatbot doit être masqué sur la route actuelle
   if (HIDDEN_ROUTES.includes(location.pathname)) {
+    console.log("Chatbot masqué sur la route actuelle:", location.pathname);
     return null;
   }
 
+  console.log("État du chatbot avant rendu:", { isOpen, isRobotHovered });
+
   return (
-    <div className="chatbot-container">
+    <div
+      className="chatbot-container"
+      onClick={(e) => {
+        console.log("Clic sur le conteneur principal du chatbot");
+        if (e.target.className === "chatbot-container") {
+          console.log("Clic direct sur le conteneur");
+        }
+      }}
+    >
       {!isOpen && (
-        <ChatbotLottieAnimation
-          isHovered={isRobotHovered}
-          onClick={toggleChatbot}
-          onMouseEnter={() => setIsRobotHovered(true)}
-          onMouseLeave={() => setIsRobotHovered(false)}
-        />
+        <div
+          className="chatbot-toggle-wrapper"
+          onClick={(e) => {
+            console.log("Clic sur le wrapper du toggle");
+            toggleChatbot();
+            e.stopPropagation();
+          }}
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            width: "100px",
+            height: "100px",
+            zIndex: 9998,
+            cursor: "pointer",
+          }}
+        >
+          {/* Ajouter un bouton visible pour déblocage d'urgence */}
+          <button
+            onClick={(e) => {
+              console.log("BOUTON DE DÉBLOCAGE CLIQUÉ");
+              toggleChatbot();
+              e.stopPropagation();
+            }}
+            style={{
+              position: "absolute",
+              top: "-20px",
+              right: "-20px",
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              backgroundColor: "#ff4081",
+              color: "white",
+              border: "none",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+              cursor: "pointer",
+              fontSize: "20px",
+              zIndex: 10001,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            ?
+          </button>
+          <ChatbotLottieAnimation
+            isHovered={isRobotHovered}
+            onClick={(e) => {
+              console.log("CLIC DIRECT SUR ANIMATION");
+              setIsOpen(true); // Forcer directement l'état ouvert
+              e.stopPropagation();
+            }}
+            onMouseEnter={() => {
+              console.log("Souris sur l'animation");
+              setIsRobotHovered(true);
+            }}
+            onMouseLeave={() => {
+              console.log("Souris quitte l'animation");
+              setIsRobotHovered(false);
+            }}
+          />
+        </div>
       )}
 
       {isOpen && (
@@ -449,6 +524,12 @@ const Chatbot = ({ onGenerate, onClose }) => {
       )}
     </div>
   );
+};
+
+// Exposer une API externe pour ouvrir le chatbot
+export const triggerChatbotOpen = () => {
+  console.log("Déclenchement de l'ouverture externe du chatbot");
+  document.dispatchEvent(new Event(OPEN_CHATBOT_EVENT));
 };
 
 Chatbot.propTypes = {

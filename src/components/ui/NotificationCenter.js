@@ -355,6 +355,115 @@ const ViewAllLink = styled.div`
   }
 `;
 
+// Amélioration du bouton de suppression
+const DeleteButton = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${({ theme }) => theme.colors.text?.tertiary || "#888"};
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  opacity: 0;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  transform: translateY(0);
+
+  ${NotificationItem}:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    color: #ef4444;
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+`;
+
+// Ajouter un bouton de marquer comme lu
+const MarkAsReadButton = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${({ theme }) => theme.colors.text?.tertiary || "#888"};
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  opacity: 0;
+  position: absolute;
+  right: 45px;
+  top: 10px;
+  transform: translateY(0);
+
+  ${NotificationItem}:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    color: #10b981;
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+`;
+
+// Amélioration des styles pour les états vides
+const EmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: ${({ theme }) => theme.colors.text?.secondary || "#666"};
+  text-align: center;
+`;
+
+const EmptyStateTitle = styled.h4`
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.text?.primary || "#333"};
+`;
+
+const EmptyStateText = styled.p`
+  margin: 0;
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.text?.secondary || "#666"};
+  max-width: 80%;
+`;
+
+const StyledNotificationPanel = styled.div`
+  position: absolute;
+  z-index: 1000;
+  top: 45px;
+  right: 0;
+  width: 380px;
+  max-height: 450px;
+  background-color: ${({ theme }) => theme.colors.surface || "#ffffff"};
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+`;
+
+const ViewAllContainer = styled.div`
+  cursor: pointer;
+  border-top: 1px solid ${({ theme }) => theme.colors.border || "#eee"};
+`;
+
 // Amélioration du rendu du NotificationCenter
 const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -541,95 +650,6 @@ const NotificationCenter = () => {
     );
   };
 
-  // Amélioration du bouton de suppression
-  const DeleteButton = styled.button`
-    background: none;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: ${({ theme }) => theme.colors.text?.tertiary || "#888"};
-    padding: 8px;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-    opacity: 0;
-    position: absolute;
-    right: 10px;
-    top: 10px;
-    transform: translateY(0);
-
-    ${NotificationItem}:hover & {
-      opacity: 1;
-    }
-
-    &:hover {
-      color: #ef4444;
-      transform: scale(1.1);
-    }
-
-    &:active {
-      transform: scale(0.9);
-    }
-  `;
-
-  // Ajouter un bouton de marquer comme lu
-  const MarkAsReadButton = styled.button`
-    background: none;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: ${({ theme }) => theme.colors.text?.tertiary || "#888"};
-    padding: 8px;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-    opacity: 0;
-    position: absolute;
-    right: 45px;
-    top: 10px;
-    transform: translateY(0);
-
-    ${NotificationItem}:hover & {
-      opacity: 1;
-    }
-
-    &:hover {
-      color: #10b981;
-      transform: scale(1.1);
-    }
-
-    &:active {
-      transform: scale(0.9);
-    }
-  `;
-
-  // Amélioration des styles pour les états vides
-  const EmptyState = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem 1rem;
-    color: ${({ theme }) => theme.colors.text?.secondary || "#666"};
-    text-align: center;
-  `;
-
-  const EmptyStateTitle = styled.h4`
-    margin: 1rem 0 0.5rem;
-    font-size: 1rem;
-    font-weight: 500;
-    color: ${({ theme }) => theme.colors.text?.primary || "#333"};
-  `;
-
-  const EmptyStateText = styled.p`
-    margin: 0;
-    font-size: 0.875rem;
-    color: ${({ theme }) => theme.colors.text?.secondary || "#666"};
-    max-width: 80%;
-  `;
-
   // Amélioration des actions de notification
   const enhancedMarkAllAsRead = async () => {
     setMarkingAllAsRead(true);
@@ -714,26 +734,5 @@ const NotificationCenter = () => {
     </div>
   );
 };
-
-// Ajouter ces composants styled supplémentaires après le composant DeleteButton
-const StyledNotificationPanel = styled.div`
-  position: absolute;
-  z-index: 1000;
-  top: 45px;
-  right: 0;
-  width: 380px;
-  max-height: 450px;
-  background-color: ${({ theme }) => theme.colors.surface || "#ffffff"};
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-`;
-
-const ViewAllContainer = styled.div`
-  cursor: pointer;
-  border-top: 1px solid ${({ theme }) => theme.colors.border || "#eee"};
-`;
 
 export default NotificationCenter;

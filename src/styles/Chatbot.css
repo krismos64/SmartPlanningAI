@@ -48,15 +48,59 @@
   right: 20px;
   z-index: 1000;
   font-family: "Poppins", sans-serif;
+  pointer-events: auto !important;
 }
 
 /* Animation du robot */
 .chatbot-toggle-lottie {
-  cursor: pointer;
-  z-index: 1001;
+  cursor: pointer !important;
+  z-index: 9999 !important;
   transition: transform 0.3s ease;
   animation: float 6s ease-in-out infinite;
-  overflow: hidden;
+  overflow: visible !important;
+  pointer-events: auto !important;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.1
+  ); /* Fond légèrement visible pour aider au débogage */
+  border-radius: 50%;
+  width: 100px !important; /* Forcer la taille */
+  height: 100px !important; /* Forcer la taille */
+  display: block !important;
+  touch-action: manipulation;
+}
+
+/* Assurer que le conteneur de l'animation est cliquable */
+.chatbot-toggle-lottie * {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Assurer que l'animation SVG est cliquable */
+.lottie-animation {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 10000 !important;
+  touch-action: manipulation;
+}
+
+/* Ajouter un pseudo-élément pour augmenter la zone cliquable */
+.chatbot-toggle-lottie::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  z-index: 9998;
+  cursor: pointer;
+  border-radius: 50%;
 }
 
 @keyframes float {

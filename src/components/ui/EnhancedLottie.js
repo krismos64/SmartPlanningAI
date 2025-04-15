@@ -17,6 +17,26 @@ const EnhancedLottie = ({
   const containerRef = useRef(null);
   const animationRef = useRef(null);
 
+  // Log des props pour débogage
+  console.log("EnhancedLottie rendu avec:", {
+    hasAnimationData: !!animationData,
+    hasOptions: !!options,
+    optionsHasAnimationData: !!options?.animationData,
+    width,
+    height,
+    className,
+    hasClickHandler: !!onClick,
+  });
+
+  // Gestionnaire de clic simplifié et direct
+  const handleClick = (e) => {
+    console.log("► CLIC SUR ENHANCED LOTTIE DETECTÉ ◄");
+    if (typeof onClick === "function") {
+      console.log("► EXECUTION DU HANDLER ONCLICK ◄");
+      onClick(e);
+    }
+  };
+
   useEffect(() => {
     let animInstance = null;
 
@@ -53,14 +73,14 @@ const EnhancedLottie = ({
 
     // Fonction de nettoyage
     return () => {
-      if (animInstance) {
+      if (animationRef.current) {
         try {
           // Protection contre les erreurs de destroy
           if (
-            animInstance.destroy &&
-            typeof animInstance.destroy === "function"
+            animationRef.current.destroy &&
+            typeof animationRef.current.destroy === "function"
           ) {
-            animInstance.destroy();
+            animationRef.current.destroy();
           }
         } catch (err) {
           console.warn("Erreur lors de la destruction de l'animation:", err);
@@ -75,9 +95,15 @@ const EnhancedLottie = ({
   return (
     <div
       ref={containerRef}
-      style={{ width, height }}
-      className={className}
-      onClick={onClick}
+      style={{
+        width,
+        height,
+        cursor: "pointer",
+        pointerEvents: "auto",
+        backgroundColor: "rgba(0,0,0,0.05)",
+      }}
+      className={className || "enhanced-lottie-container"}
+      onClick={handleClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     />

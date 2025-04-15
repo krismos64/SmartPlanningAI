@@ -1,3 +1,4 @@
+import { alpha, Box } from "@mui/material";
 import DOMPurify from "dompurify";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -13,15 +14,15 @@ import {
   FaTimes,
   FaUsers,
 } from "react-icons/fa";
+import { FiCalendar } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import thinkingAnimation from "../assets/animations/thinking.json";
 import AutoScheduleWizard from "../components/schedule/AutoScheduleWizard";
 import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
 import WeeklyScheduleGrid from "../components/schedule/WeeklyScheduleGrid";
+import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
 import Card, { CardContent, CardHeader } from "../components/ui/Card";
-import EnhancedLottie from "../components/ui/EnhancedLottie";
 import { FormInput, FormSelect } from "../components/ui/Form";
 import Spinner from "../components/ui/Spinner";
 import { API_URL } from "../config/api";
@@ -363,11 +364,41 @@ const HeaderLeft = styled.div`
   gap: 1.5rem;
 `;
 
-const AnimationContainer = styled.div`
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
-`;
+// Icône stylisée pour le planning
+const StyledIcon = styled(Box)(({ theme }) => {
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = themeMode === "dark";
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: isDarkMode
+      ? `linear-gradient(135deg, ${alpha("#3B82F6", 0.2)}, ${alpha(
+          "#60A5FA",
+          0.4
+        )})`
+      : `linear-gradient(135deg, ${alpha("#3B82F6", 0.1)}, ${alpha(
+          "#60A5FA",
+          0.3
+        )})`,
+    boxShadow: isDarkMode
+      ? `0 4px 20px ${alpha("#000", 0.25)}`
+      : `0 4px 15px ${alpha("#000", 0.08)}`,
+    color: isDarkMode ? "#93C5FD" : "#1D4ED8",
+    flexShrink: 0,
+    transition: "all 0.3s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: 40,
+    },
+    "& svg": {
+      fontSize: 40,
+    },
+  };
+});
 
 const TitleContainer = styled.div`
   display: flex;
@@ -2249,18 +2280,9 @@ const WeeklySchedulePage = () => {
       <ScheduleContainer>
         <ScheduleHeader>
           <HeaderLeft>
-            <AnimationContainer>
-              <EnhancedLottie
-                animationData={thinkingAnimation}
-                loop={true}
-                autoplay={true}
-                height={80}
-                width={80}
-                rendererSettings={{
-                  preserveAspectRatio: "xMidYMid slice",
-                }}
-              />
-            </AnimationContainer>
+            <StyledIcon>
+              <FiCalendar />
+            </StyledIcon>
             <TitleContainer>
               <PageTitle>Planning Hebdomadaire</PageTitle>
               <PageDescription>

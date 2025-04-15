@@ -1,13 +1,14 @@
+import { alpha, Box } from "@mui/material";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FiUsers } from "react-icons/fi";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import employeesAnimation from "../assets/animations/employees.json";
 import EmployeeCard from "../components/employees/EmployeeCard";
 import EmployeeExport from "../components/employees/EmployeeExport";
 import EmployeeForm from "../components/employees/EmployeeForm";
 import HourBalanceManager from "../components/employees/HourBalanceManager";
+import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import { Button, DataTable, Modal, PlusIcon } from "../components/ui";
-import EnhancedLottie from "../components/ui/EnhancedLottie";
 import { FormSelect } from "../components/ui/Form";
 import { useNotification } from "../components/ui/Notification";
 import { EMPLOYEE_STATUSES, EMPLOYEE_TABLE_COLUMNS } from "../config/constants";
@@ -43,6 +44,42 @@ const AnimationContainer = styled.div`
   height: 80px;
   flex-shrink: 0;
 `;
+
+// Icône stylisée pour les employés
+const StyledIcon = styled(Box)(({ theme }) => {
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = themeMode === "dark";
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: isDarkMode
+      ? `linear-gradient(135deg, ${alpha("#10B981", 0.2)}, ${alpha(
+          "#34D399",
+          0.4
+        )})`
+      : `linear-gradient(135deg, ${alpha("#10B981", 0.1)}, ${alpha(
+          "#34D399",
+          0.3
+        )})`,
+    boxShadow: isDarkMode
+      ? `0 4px 20px ${alpha("#000", 0.25)}`
+      : `0 4px 15px ${alpha("#000", 0.08)}`,
+    color: isDarkMode ? "#A7F3D0" : "#059669",
+    flexShrink: 0,
+    transition: "all 0.3s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: 40,
+    },
+    "& svg": {
+      fontSize: 40,
+    },
+  };
+});
 
 const HeaderRight = styled.div`
   display: flex;
@@ -448,18 +485,9 @@ const Employees = () => {
     <PageContainer>
       <PageHeader>
         <HeaderLeft>
-          <AnimationContainer>
-            <EnhancedLottie
-              animationData={employeesAnimation}
-              loop={true}
-              autoplay={true}
-              width={80}
-              height={80}
-              rendererSettings={{
-                preserveAspectRatio: "xMidYMid slice",
-              }}
-            />
-          </AnimationContainer>
+          <StyledIcon>
+            <FiUsers />
+          </StyledIcon>
           <div>
             <PageTitle>Gestion des employés</PageTitle>
             <PageDescription>

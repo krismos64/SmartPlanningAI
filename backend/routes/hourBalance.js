@@ -1,13 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const Employee = require("../models/Employee");
-const { authMiddleware } = require("../middleware/authMiddleware");
+const { secureAuth } = require("../middleware/secureAuth");
 const WorkHours = require("../models/WorkHours");
 
 // @route   GET /api/hour-balance/:employeeId
 // @desc    Obtenir le solde d'heures d'un employé
 // @access  Private
-router.get("/:employeeId", authMiddleware, async (req, res) => {
+router.get("/:employeeId", secureAuth, async (req, res) => {
   try {
     const { employeeId } = req.params;
 
@@ -36,7 +36,7 @@ router.get("/:employeeId", authMiddleware, async (req, res) => {
 // @route   PUT /api/hour-balance/:employeeId
 // @desc    Mettre à jour le solde d'heures d'un employé
 // @access  Private
-router.put("/:employeeId", authMiddleware, async (req, res) => {
+router.put("/:employeeId", secureAuth, async (req, res) => {
   try {
     const { employeeId } = req.params;
     const hourData = req.body;

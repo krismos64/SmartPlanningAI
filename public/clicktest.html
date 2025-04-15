@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test de clic sur Lottie</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #3f51b5;
+      }
+      .test-area {
+        margin-top: 20px;
+        padding: 20px;
+        border: 2px dashed #ccc;
+        text-align: center;
+      }
+      .btn {
+        background-color: #3f51b5;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px;
+      }
+      .btn:hover {
+        background-color: #303f9f;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #e8f5e9;
+        border-radius: 4px;
+        border-left: 4px solid #4caf50;
+      }
+      .counter {
+        font-size: 24px;
+        font-weight: bold;
+        color: #3f51b5;
+      }
+      .clickable-div {
+        width: 100px;
+        height: 100px;
+        background-color: #ff4081;
+        margin: 20px auto;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        user-select: none;
+        transition: transform 0.2s;
+      }
+      .clickable-div:hover {
+        transform: scale(1.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Test de clic sur différents éléments</h1>
+
+      <div class="test-area">
+        <h2>Test 1: Bouton standard</h2>
+        <p>
+          Cliquez sur le bouton ci-dessous pour voir si les clics sont détectés
+        </p>
+        <button id="test-button" class="btn">Cliquez-moi</button>
+        <div class="result">
+          Nombre de clics: <span id="button-counter" class="counter">0</span>
+        </div>
+      </div>
+
+      <div class="test-area">
+        <h2>Test 2: Div cliquable</h2>
+        <p>
+          Cliquez sur le cercle ci-dessous pour voir si les clics sont détectés
+        </p>
+        <div id="test-div" class="clickable-div">CLIC</div>
+        <div class="result">
+          Nombre de clics: <span id="div-counter" class="counter">0</span>
+        </div>
+      </div>
+
+      <div class="test-area" id="lottie-container">
+        <h2>Test 3: Animation Lottie</h2>
+        <p>Une animation sera chargée ici. Essayez de cliquer dessus.</p>
+        <div
+          id="lottie-animation"
+          style="
+            width: 100px;
+            height: 100px;
+            margin: 20px auto;
+            cursor: pointer;
+          "
+        ></div>
+        <div class="result">
+          Nombre de clics: <span id="lottie-counter" class="counter">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charger Lottie -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+
+    <script>
+      // Compteurs
+      let buttonClicks = 0;
+      let divClicks = 0;
+      let lottieClicks = 0;
+
+      // Éléments DOM
+      const buttonCounter = document.getElementById("button-counter");
+      const divCounter = document.getElementById("div-counter");
+      const lottieCounter = document.getElementById("lottie-counter");
+
+      // Event listeners
+      document.getElementById("test-button").addEventListener("click", () => {
+        buttonClicks++;
+        buttonCounter.textContent = buttonClicks;
+        console.log("Bouton cliqué:", buttonClicks);
+      });
+
+      document.getElementById("test-div").addEventListener("click", () => {
+        divClicks++;
+        divCounter.textContent = divClicks;
+        console.log("Div cliquée:", divClicks);
+      });
+
+      // Charger l'animation Lottie
+      fetch("/static/media/robot.json")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Animation non trouvée");
+          }
+          return response.json();
+        })
+        .then((animationData) => {
+          const lottieElement = document.getElementById("lottie-animation");
+
+          // Charger l'animation
+          const anim = lottie.loadAnimation({
+            container: lottieElement,
+            renderer: "svg",
+            loop: true,
+            autoplay: true,
+            animationData: animationData,
+          });
+
+          // Ajouter un écouteur de clic
+          lottieElement.addEventListener("click", (e) => {
+            lottieClicks++;
+            lottieCounter.textContent = lottieClicks;
+            console.log("Animation Lottie cliquée:", lottieClicks);
+          });
+
+          // Ajouter un écouteur de clic directement sur l'élément SVG
+          lottieElement.querySelector("svg")?.addEventListener("click", (e) => {
+            console.log("SVG de Lottie cliqué directement");
+          });
+
+          console.log("Animation Lottie chargée avec succès");
+        })
+        .catch((error) => {
+          console.error("Erreur lors du chargement de l'animation:", error);
+          document.getElementById(
+            "lottie-animation"
+          ).innerHTML = `<div style="color: red; text-align: center;">Erreur: ${error.message}</div>`;
+        });
+    </script>
+  </body>
+</html>

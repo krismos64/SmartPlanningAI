@@ -1,3 +1,4 @@
+import { alpha, Box } from "@mui/material";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
@@ -5,15 +6,15 @@ import {
   FiBarChart2,
   FiCalendar,
   FiClock,
+  FiCommand,
   FiPieChart,
   FiSun,
   FiUsers,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import robotAnimation from "../assets/animations/robot.json";
 import RecentActivities from "../components/dashboard/RecentActivities";
-import EnhancedLottie from "../components/ui/EnhancedLottie";
+import { useTheme as useThemeProvider } from "../components/ThemeProvider";
 import SearchBar from "../components/ui/SearchBar";
 import { useAuth } from "../contexts/AuthContext";
 import useEmployees from "../hooks/useEmployees";
@@ -52,6 +53,42 @@ const AnimationContainer = styled.div`
   height: 80px;
   flex-shrink: 0;
 `;
+
+// Icône stylisée pour le dashboard
+const StyledIcon = styled(Box)(({ theme }) => {
+  const { theme: themeMode } = useThemeProvider();
+  const isDarkMode = themeMode === "dark";
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: isDarkMode
+      ? `linear-gradient(135deg, ${alpha("#4F46E5", 0.2)}, ${alpha(
+          "#6366F1",
+          0.4
+        )})`
+      : `linear-gradient(135deg, ${alpha("#4F46E5", 0.1)}, ${alpha(
+          "#6366F1",
+          0.3
+        )})`,
+    boxShadow: isDarkMode
+      ? `0 4px 20px ${alpha("#000", 0.25)}`
+      : `0 4px 15px ${alpha("#000", 0.08)}`,
+    color: isDarkMode ? "#C4B5FD" : "#4F46E5",
+    flexShrink: 0,
+    transition: "all 0.3s ease",
+    "& .MuiSvgIcon-root": {
+      fontSize: 40,
+    },
+    "& svg": {
+      fontSize: 40,
+    },
+  };
+});
 
 const TitleContainer = styled.div`
   display: flex;
@@ -546,13 +583,9 @@ const Dashboard = () => {
     <DashboardContainer>
       <DashboardHeader>
         <HeaderLeft>
-          <AnimationContainer>
-            <EnhancedLottie
-              animationData={robotAnimation}
-              loop={true}
-              style={{ width: "100%", height: "100%" }}
-            />
-          </AnimationContainer>
+          <StyledIcon>
+            <FiCommand />
+          </StyledIcon>
           <TitleContainer>
             <PageTitle>Tableau de bord</PageTitle>
             <PageDescription>
