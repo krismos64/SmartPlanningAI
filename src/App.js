@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "react-hot-toast";
 import {
+  Navigate,
   Route,
   BrowserRouter as Router,
   Routes,
@@ -49,6 +50,9 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Contact = lazy(() => import("./pages/Contact"));
 const ConfirmDeletionPage = lazy(() =>
   import("./components/modals/ConfirmDeletionPage")
+);
+const CsrfDebugExample = lazy(() =>
+  import("./components/dev/CsrfDebugExample")
 );
 
 // Composant de chargement
@@ -177,18 +181,18 @@ const MainContent = styled.div`
 const App = () => {
   return (
     <ErrorBoundary>
-      <NotificationProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <ApiProvider>
-              <Router>
+      <Router>
+        <NotificationProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <ApiProvider>
                 <AppContent />
-              </Router>
-            </ApiProvider>
-          </AuthProvider>
-        </ThemeProvider>
-        <ToastContainer />
-      </NotificationProvider>
+              </ApiProvider>
+            </AuthProvider>
+          </ThemeProvider>
+          <ToastContainer />
+        </NotificationProvider>
+      </Router>
     </ErrorBoundary>
   );
 };
@@ -325,6 +329,18 @@ const AppContent = () => {
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
+
+              {/* Route de debug CSRF - uniquement en développement */}
+              <Route
+                path="/debug-csrf"
+                element={
+                  process.env.NODE_ENV === "development" ? (
+                    <CsrfDebugExample />
+                  ) : (
+                    <Navigate to="/" />
+                  )
+                }
+              />
 
               {/* Page 404 */}
               <Route path="*" element={<NotFound />} />

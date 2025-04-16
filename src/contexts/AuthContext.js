@@ -1,9 +1,13 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
-import { apiRequest, fetchCsrfToken, getStoredCsrfToken } from "../config/api";
+import { apiRequest } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
-import { getApiUrl } from "../utils/api";
+import {
+  fetchCsrfTokenRobust as fetchCsrfToken,
+  getApiUrl,
+  getStoredCsrfToken,
+} from "../utils/api";
 
 // Définir l'URL de l'API
 const API_URL = getApiUrl();

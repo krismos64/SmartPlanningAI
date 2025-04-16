@@ -1,5 +1,5 @@
 import { toast } from "react-hot-toast";
-import { API_URL } from "../config/api";
+import { API_URL, axiosInstance } from "../config/api";
 import { formatDateForAPI } from "../utils/dateUtils";
 
 /**
@@ -644,6 +644,80 @@ class WeeklyScheduleService {
         message: error.message || "Erreur lors de la génération du planning",
         error,
       };
+    }
+  }
+
+  /**
+   * Récupère les plannings pour une semaine spécifique
+   * @param {string} weekStartDate - Date de début de semaine au format YYYY-MM-DD
+   * @returns {Promise<Object>} Réponse API avec les plannings de la semaine
+   */
+  static async getByWeek(weekStartDate) {
+    try {
+      const response = await axiosInstance.get(
+        `/api/weekly-schedules?week=${weekStartDate}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        "Erreur lors de la récupération des plannings par semaine:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Crée un nouveau planning hebdomadaire
+   * @param {Object} scheduleData - Données du planning à créer
+   * @returns {Promise<Object>} Réponse API avec le planning créé
+   */
+  static async createSchedule(scheduleData) {
+    try {
+      const response = await axiosInstance.post(
+        "/api/weekly-schedules",
+        scheduleData
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Erreur lors de la création du planning:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Met à jour un planning existant
+   * @param {string|number} id - Identifiant du planning à mettre à jour
+   * @param {Object} scheduleData - Nouvelles données du planning
+   * @returns {Promise<Object>} Réponse API avec le planning mis à jour
+   */
+  static async updateSchedule(id, scheduleData) {
+    try {
+      const response = await axiosInstance.put(
+        `/api/weekly-schedules/${id}`,
+        scheduleData
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors de la mise à jour du planning #${id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Supprime un planning
+   * @param {string|number} id - Identifiant du planning à supprimer
+   * @returns {Promise<Object>} Réponse API confirmant la suppression
+   */
+  static async deleteSchedule(id) {
+    try {
+      const response = await axiosInstance.delete(
+        `/api/weekly-schedules/${id}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors de la suppression du planning #${id}:`, error);
+      throw error;
     }
   }
 }

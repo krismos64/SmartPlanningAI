@@ -2,11 +2,11 @@ import { format } from "date-fns";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { fetchCsrfTokenRobust } from "../config/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotifications } from "../contexts/NotificationContext";
 import AuthService from "../services/AuthService";
 import WeeklyScheduleService from "../services/WeeklyScheduleService";
+import { fetchCsrfTokenRobust } from "../utils/api";
 import useWebSocket from "./useWebSocket";
 
 /**
@@ -1022,6 +1022,24 @@ const useWeeklySchedules = () => {
     [ensureValidAuth, prepareScheduleForApi, parseScheduleFromApi, navigate]
   );
 
+  /**
+   * Récupère les plannings pour une semaine spécifique
+   * @param {string} week - Date de début de semaine au format YYYY-MM-DD
+   */
+  const fetchSchedules = useCallback(async (week) => {
+    setSchedulesLoading(true);
+    try {
+      const response = await WeeklyScheduleService.getByWeek(week);
+      setSchedules(response);
+      setSchedulesError(null);
+    } catch (error) {
+      setSchedulesError("Erreur lors du chargement des plannings.");
+      console.error(error);
+    } finally {
+      setSchedulesLoading(false);
+    }
+  }, []);
+
   return {
     schedules,
     schedulesLoading,
@@ -1032,6 +1050,7 @@ const useWeeklySchedules = () => {
     scheduleError,
     currentWeek,
     fetchSchedulesByWeek,
+    fetchSchedules,
     saveSchedule,
     deleteSchedule,
     setWeek,

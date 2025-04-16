@@ -1,7 +1,19 @@
 import axios from "axios";
-import { createContext, useContext, useEffect, useState } from "react";
-import { API_URL, validateApiUrl } from "../config/api";
-import { formatError, handleApiError } from "../utils/errorHandling";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+import {
+  fetchCsrfTokenRobust,
+  getApiUrl,
+  getStoredCsrfToken,
+} from "../utils/api";
 import { useAuth } from "./AuthContext";
 
 // Création du contexte
@@ -11,224 +23,339 @@ const ApiContext = createContext();
 export const useApi = () => useContext(ApiContext);
 
 // Fournisseur du contexte API
-export const ApiProvider = ({ children }) => {
+export function ApiProvider({ children }) {
   const { getToken, logout } = useAuth();
-  const [axiosInstance, setAxiosInstance] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [requestCount, setRequestCount] = useState(0);
+  const navigate = useNavigate();
 
+  // Référence pour éviter les appels multiples au CSRF
+  const csrfFetchedOnce = useRef(false);
+
+  // Effet pour initialiser le token CSRF une seule fois au démarrage
   useEffect(() => {
-    try {
-      // Valider l'URL de l'API avant de créer l'instance
-      validateApiUrl();
+    const fetchOnce = async () => {
+      if (csrfFetchedOnce.current) return;
+      const token = await fetchCsrfTokenRobust();
+      if (token) {
+        csrfFetchedOnce.current = true;
+        console.log("🎯 [CSRF] Token initialisé dans ApiContext");
+      }
+    };
+    fetchOnce();
+  }, []);
 
-      // Création d'une instance axios avec des configurations par défaut
-      const instance = axios.create({
-        // Utiliser directement l'URL de base sans ajouter /api
-        baseURL: API_URL,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        // Timeout plus long en production
-        timeout: process.env.NODE_ENV === "production" ? 30000 : 10000,
-        withCredentials: true, // Toujours envoyer les cookies
-      });
+  const axiosInstance = useMemo(() => {
+    const instance = axios.create({
+      baseURL: getApiUrl(),
+      withCredentials: true,
+      timeout: 20000, // Timeout après 20 secondes
+    });
 
-      // Intercepteur pour ajouter le token d'authentification à chaque requête
-      instance.interceptors.request.use(
-        async (config) => {
-          // Si c'est une requête à l'URL de base, utiliser l'endpoint de santé
-          if (config.url === "/" || !config.url) {
-            // Utiliser un endpoint qui existe, comme /csrf-token
-            config.url = "/csrf-token";
-          }
+    // Ajout d'un intercepteur de requête pour ajouter les headers d'authentification
+    instance.interceptors.request.use(
+      async (config) => {
+        // Incrémenter le compteur de requêtes
+        setRequestCount((prev) => prev + 1);
 
-          // Liste des endpoints qui ne nécessitent pas le préfixe /api
-          const noApiPrefixEndpoints = ["/csrf-token", "/ping"];
-
-          // Déterminer si nous devons ajouter le préfixe /api
-          if (
-            !config.url.startsWith("/api") &&
-            !config.url.startsWith("http") &&
-            !noApiPrefixEndpoints.includes(config.url)
-          ) {
-            config.url = `/api${
-              config.url.startsWith("/") ? config.url : `/${config.url}`
-            }`;
-          }
-
-          console.log(
-            `🔍 [API Request] ${config.method.toUpperCase()} vers ${
-              config.baseURL
-            }${config.url}`
-          );
-
-          // Utiliser l'URL de base correcte pour le logging
-          console.log(
-            `🌐 [API Base URL] ${API_URL}${
-              config.url.startsWith("/api") ? "" : "/api"
-            }`
-          );
-
-          const token = await getToken();
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-            console.log(`🔑 [API Auth] Token présent`);
-          } else {
-            console.log(`⚠️ [API Auth] Pas de token`);
-          }
-          return config;
-        },
-        (error) => {
-          console.error("❌ [API Error] Erreur de préparation:", error);
-          return Promise.reject(error);
+        // Ajouter le token CSRF si disponible (sans appel API systématique)
+        const csrfToken = getStoredCsrfToken();
+        if (csrfToken) {
+          config.headers["X-CSRF-Token"] = csrfToken;
         }
-      );
 
-      // Intercepteur pour gérer les réponses et les erreurs
-      instance.interceptors.response.use(
-        (response) => {
-          console.log(
-            `✅ [API Response] ${response.config.method.toUpperCase()} ${
-              response.config.url
-            } - Status: ${response.status}`
-          );
-          const data = response.data;
-
-          if (data.success === undefined) {
-            return {
-              success: true,
-              data: data,
-              message: "Opération réussie",
-            };
-          }
-
-          return data;
-        },
-        (error) => {
-          console.error("❌ [API Error] Erreur API reçue:", error);
-
-          // Gérer les erreurs d'authentification
-          if (error.response?.status === 401) {
-            logout();
-            return Promise.reject({
-              success: false,
-              message: "Session expirée. Veuillez vous reconnecter.",
-              error: true,
-              status: 401,
-            });
-          }
-
-          // Gérer les erreurs de timeout
-          if (error.code === "ECONNABORTED") {
-            return Promise.reject({
-              success: false,
-              message: "La requête a pris trop de temps. Veuillez réessayer.",
-              error: true,
-              status: 408,
-            });
-          }
-
-          // Gérer les erreurs de connexion
-          if (!error.response) {
-            return Promise.reject({
-              success: false,
-              message:
-                "Impossible de se connecter au serveur. Vérifiez votre connexion.",
-              error: true,
-              status: 0,
-            });
-          }
-
-          const formattedError = handleApiError(error);
-          return Promise.reject(formattedError);
+        // Ajouter le token d'authentification si disponible
+        const token = localStorage.getItem("token");
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
         }
-      );
 
-      setAxiosInstance(instance);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-      console.error("Erreur lors de l'initialisation de l'API:", err);
-    }
-  }, [getToken, logout]);
+        // Détection du format de données pour Content-Type approprié
+        if (config.data instanceof FormData) {
+          config.headers["Content-Type"] = "multipart/form-data";
+        } else if (config.headers["Content-Type"] === undefined) {
+          config.headers["Content-Type"] = "application/json";
+        }
+
+        // Logger uniquement en développement
+        if (process.env.NODE_ENV === "development") {
+          console.debug(
+            `🚀 API Request [${config.method?.toUpperCase()}]:`,
+            config.url
+          );
+        }
+
+        return config;
+      },
+      (error) => {
+        setRequestCount((prev) => Math.max(0, prev - 1));
+        console.error("Erreur dans l'intercepteur de requête:", error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Intercepteur de réponse pour gérer les erreurs de manière centralisée
+    instance.interceptors.response.use(
+      (response) => {
+        setRequestCount((prev) => Math.max(0, prev - 1));
+
+        // Logger uniquement en développement
+        if (process.env.NODE_ENV === "development") {
+          console.debug(
+            `✅ API Response [${response.status}]:`,
+            response.config.url
+          );
+        }
+
+        return response;
+      },
+      async (error) => {
+        setRequestCount((prev) => Math.max(0, prev - 1));
+
+        // Extraire les informations d'erreur
+        const { response, request, config } = error;
+
+        // Logger les erreurs
+        console.error(`❌ API Error:`, {
+          url: config?.url,
+          method: config?.method?.toUpperCase(),
+          status: response?.status,
+          data: response?.data,
+        });
+
+        // Gestion spécifique selon le code d'erreur
+        if (response) {
+          // Erreur de réponse du serveur
+          switch (response.status) {
+            case 401: // Non authentifié
+              localStorage.removeItem("token");
+              setIsLoggedIn(false);
+
+              // Redirection vers login sauf si déjà sur la page de login
+              if (!window.location.pathname.includes("/login")) {
+                toast.error(
+                  "Votre session a expiré. Veuillez vous reconnecter."
+                );
+                navigate("/login", { replace: true });
+              }
+              break;
+
+            case 403: // Accès interdit
+              toast.error(
+                "Vous n'avez pas les droits suffisants pour effectuer cette action."
+              );
+              break;
+
+            case 419: // Token CSRF expiré (Laravel)
+            case 422: // Erreur de validation (potentiellement CSRF)
+              if (
+                response.data?.message?.includes("CSRF") ||
+                response.data?.message?.includes("csrf")
+              ) {
+                // Tentative de récupération d'un nouveau token CSRF
+                localStorage.removeItem("csrfToken");
+                try {
+                  await fetchCsrfTokenRobust(3, 500);
+
+                  // Réessayer la requête originale si possible
+                  if (config) {
+                    return instance(config);
+                  }
+                } catch (e) {
+                  console.error(
+                    "Échec de récupération d'un nouveau token CSRF:",
+                    e
+                  );
+                }
+              }
+              break;
+
+            case 429: // Too Many Requests
+              toast.warning(
+                "Vous avez effectué trop de requêtes. Veuillez patienter quelques instants."
+              );
+              break;
+
+            case 500: // Erreur serveur
+            case 502: // Bad Gateway
+            case 503: // Service Unavailable
+            case 504: // Gateway Timeout
+              toast.error(
+                "Le serveur rencontre des difficultés. Veuillez réessayer plus tard."
+              );
+              break;
+          }
+
+          // Retourner un format d'erreur standardisé
+          return Promise.reject({
+            status: response.status,
+            message: response.data?.message || "Une erreur est survenue",
+            errors: response.data?.errors || {},
+            originalError: error,
+          });
+        } else if (request) {
+          // La requête a été envoyée mais aucune réponse n'a été reçue
+          toast.error(
+            "Impossible de contacter le serveur. Vérifiez votre connexion internet."
+          );
+          return Promise.reject({
+            status: 0,
+            message: "Erreur de connexion au serveur",
+            originalError: error,
+          });
+        } else {
+          // Une erreur s'est produite lors de la configuration de la requête
+          return Promise.reject({
+            status: 0,
+            message: "Erreur de configuration de la requête",
+            originalError: error,
+          });
+        }
+      }
+    );
+
+    return instance;
+  }, [navigate]);
+
+  const apiMethods = useMemo(
+    () => ({
+      async get(endpoint, config = {}) {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const response = await axiosInstance.get(endpoint, config);
+          return { success: true, data: response.data };
+        } catch (err) {
+          setError(err);
+          return {
+            success: false,
+            error: err.message || "Une erreur est survenue",
+            status: err.status,
+            errors: err.errors,
+          };
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      async post(endpoint, data, config = {}) {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const response = await axiosInstance.post(endpoint, data, config);
+          return { success: true, data: response.data };
+        } catch (err) {
+          setError(err);
+          return {
+            success: false,
+            error: err.message || "Une erreur est survenue",
+            status: err.status,
+            errors: err.errors,
+          };
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      async put(endpoint, data, config = {}) {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const response = await axiosInstance.put(endpoint, data, config);
+          return { success: true, data: response.data };
+        } catch (err) {
+          setError(err);
+          return {
+            success: false,
+            error: err.message || "Une erreur est survenue",
+            status: err.status,
+            errors: err.errors,
+          };
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      async delete(endpoint, config = {}) {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const response = await axiosInstance.delete(endpoint, config);
+          return { success: true, data: response.data };
+        } catch (err) {
+          setError(err);
+          return {
+            success: false,
+            error: err.message || "Une erreur est survenue",
+            status: err.status,
+            errors: err.errors,
+          };
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      // Nouvelle méthode d'upload de fichiers
+      async upload(endpoint, files, additionalData = {}, config = {}) {
+        setIsLoading(true);
+        setError(null);
+
+        const formData = new FormData();
+
+        // Ajouter les fichiers à FormData
+        if (Array.isArray(files)) {
+          files.forEach((file, index) => {
+            formData.append(`file[${index}]`, file);
+          });
+        } else {
+          formData.append("file", files);
+        }
+
+        // Ajouter les données supplémentaires
+        Object.entries(additionalData).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
+
+        try {
+          const response = await axiosInstance.post(endpoint, formData, {
+            ...config,
+            headers: {
+              ...config.headers,
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          return { success: true, data: response.data };
+        } catch (err) {
+          setError(err);
+          return {
+            success: false,
+            error:
+              err.message ||
+              "Une erreur s'est produite lors de l'upload du fichier",
+            status: err.status,
+            errors: err.errors,
+          };
+        } finally {
+          setIsLoading(false);
+        }
+      },
+    }),
+    [axiosInstance]
+  );
 
   // Si une erreur de configuration est détectée
   if (error) {
     return (
-      <div className="api-error">Erreur de configuration API: {error}</div>
+      <div className="api-error">
+        <h3>Erreur de configuration API</h3>
+        <p>{error}</p>
+      </div>
     );
   }
 
-  // Méthodes HTTP principales exposées par le contexte
-  const api = {
-    get: async (url, config = {}) => {
-      if (!axiosInstance) return null;
-      try {
-        const response = await axiosInstance.get(url, config);
-        return response;
-      } catch (error) {
-        console.log("GET Error:", error);
-        return {
-          success: false,
-          error: formatError(error),
-          message: formatError(error),
-          data: null,
-        };
-      }
-    },
-    post: async (url, data = {}, config = {}) => {
-      if (!axiosInstance) return null;
-      try {
-        const response = await axiosInstance.post(url, data, config);
-        return response;
-      } catch (error) {
-        console.log("POST Error:", error);
-        return {
-          success: false,
-          error: formatError(error),
-          message: formatError(error),
-          data: null,
-        };
-      }
-    },
-    put: async (url, data = {}, config = {}) => {
-      if (!axiosInstance) return null;
-      try {
-        const response = await axiosInstance.put(url, data, config);
-        return response;
-      } catch (error) {
-        console.log("PUT Error:", error);
-        return {
-          success: false,
-          error: formatError(error),
-          message: formatError(error),
-          data: null,
-        };
-      }
-    },
-    delete: async (url, config = {}) => {
-      if (!axiosInstance) return null;
-      try {
-        const response = await axiosInstance.delete(url, config);
-        return response;
-      } catch (error) {
-        console.log("DELETE Error:", error);
-        return {
-          success: false,
-          error: formatError(error),
-          message: formatError(error),
-          data: null,
-        };
-      }
-    },
-  };
-
   return (
-    <ApiContext.Provider value={{ api, axiosInstance }}>
+    <ApiContext.Provider value={{ api: apiMethods, axiosInstance }}>
       {children}
     </ApiContext.Provider>
   );
-};
+}
 
 export default ApiProvider;

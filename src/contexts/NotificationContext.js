@@ -1,4 +1,4 @@
-import { createContext, useCallback, useState } from "react";
+import { createContext, useCallback, useContext, useState } from "react";
 import { toast } from "react-toastify";
 
 export const NotificationContext = createContext();
@@ -49,3 +49,6 @@ export const NotificationProvider = ({ children }) => {
     </NotificationContext.Provider>
   );
 };
+
+// Export du hook useNotifications pour faciliter l'utilisation du contexte
+export const useNotifications = () => useContext(NotificationContext);

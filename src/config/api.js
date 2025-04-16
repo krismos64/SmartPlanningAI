@@ -374,7 +374,7 @@ export const fetchCsrfTokenRobust = async (
       }
 
       // Sinon on fait la requête pour en obtenir un nouveau
-      const response = await axios.get(`${API_URL}/sanctum/csrf-cookie`, {
+      const response = await axios.get(`${API_URL}/api/csrf-token`, {
         withCredentials: true,
       });
 

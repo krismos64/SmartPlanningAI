@@ -28,7 +28,9 @@ const { NlpManager } = require("node-nlp");
 const { changePassword } = require("./controllers/usersController");
 const passport = require("passport");
 const session = require("express-session");
+const MySQLStore = require("express-mysql-session")(session);
 const helmet = require("helmet");
+const chalk = require("chalk");
 
 // Maintenant on peut charger les routes
 const csrfRoutes = require("./routes/csrf");
@@ -49,13 +51,30 @@ const corsOrigins =
         "https://smartplanning.fr",
         "https://www.smartplanning.fr",
         "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
       ];
 
+// Middleware CORS amélioré avec fonction d'origine dynamique
 app.use(
   cors({
-    origin: "https://smartplanning.fr",
+    origin: function (origin, callback) {
+      // Permettre les requêtes sans origine (comme les appels API directs)
+      if (!origin) return callback(null, true);
+
+      // Vérifier si l'origine est dans la liste des origines autorisées
+      if (
+        corsOrigins.indexOf(origin) !== -1 ||
+        process.env.NODE_ENV === "development"
+      ) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️ [CORS] Origine refusée: ${origin}`);
+        callback(new Error("Origine non autorisée par CORS"));
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -63,8 +82,18 @@ app.use(
       "CSRF-Token",
       "csrf-token",
       "xsrf-token",
+      "X-Requested-With",
+      "Accept",
     ],
-    exposedHeaders: ["X-CSRF-Token", "CSRF-Token", "csrf-token", "xsrf-token"],
+    exposedHeaders: [
+      "X-CSRF-Token",
+      "CSRF-Token",
+      "csrf-token",
+      "xsrf-token",
+      "Set-Cookie",
+    ],
+    optionsSuccessStatus: 200,
+    maxAge: 86400, // 24 heures en secondes (préflighting cache)
   })
 );
 
@@ -88,35 +117,89 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Configuration de la session Express
+const dbConfig = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306,
+  // Ajout des paramètres de connection pour éviter les déconnexions
+  connectionLimit: 10,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 30000, // 30s
+};
+
+// Options pour la session MySQL
+const sessionStoreOptions = {
+  schema: {
+    tableName: "sessions",
+    columnNames: {
+      session_id: "session_id",
+      expires: "expires",
+      data: "data",
+    },
+  },
+  createDatabaseTable: true, // Créer la table si elle n'existe pas
+  clearExpired: true, // Nettoyer automatiquement les sessions expirées
+  checkExpirationInterval: 900000, // 15 minutes
+};
+
+const sessionStore = new MySQLStore(sessionStoreOptions, dbConfig);
+
+// Options globales de la session
+const ONE_DAY = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+const isProd = process.env.NODE_ENV === "production";
+
 app.use(
   session({
+    name: "sid", // Nom du cookie de session (plus court que connect.sid par défaut)
     secret: process.env.JWT_SECRET || "smartplanningai_secret_key",
-    resave: false,
-    saveUninitialized: false,
+    resave: false, // Ne pas sauvegarder la session si elle n'est pas modifiée
+    saveUninitialized: true, // Créer une session même si l'utilisateur n'est pas connecté
+    store: sessionStore,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // Sécurisé uniquement en production
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 heures
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+      secure: isProd, // true en HTTPS, false en dev HTTP
+      httpOnly: true, // Protection XSS - pas d'accès via JavaScript
+      maxAge: ONE_DAY, // Durée de vie du cookie
+      sameSite: isProd ? "none" : "lax", // Important pour les requêtes cross-site en prod
+      path: "/", // Disponible sur tout le site
+      domain: isProd ? "smartplanning.fr" : undefined, // Domaine en production
     },
+    unset: "destroy", // Détruire la session plutôt que de la conserver vide
   })
 );
+
+// Gestion d'erreur pour sessionStore
+sessionStore.on("error", function (error) {
+  console.error(chalk.red("❌ [SessionStore] Erreur de session MySQL:"), error);
+});
+
+// Middleware global pour déboguer les sessions
+app.use((req, res, next) => {
+  console.log("\n🔍 [Session Middleware] URL:", req.url);
+
+  if (!req.session) {
+    console.error("❌ [Session Middleware] req.session est undefined!");
+    console.trace("🔎 Stack trace pour session manquante");
+  } else {
+    console.log("✅ [Session Middleware] Session ID:", req.sessionID);
+    console.log("🧠 [Session Middleware] Session:", req.session);
+    console.log("🍪 [Session Middleware] Cookies reçus:", req.cookies);
+  }
+
+  next();
+});
 
 // Initialisation de Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
 // 📦 Routes CSRF
-app.use("/api/csrf", csrfRoutes);
+app.use("/api", csrfRoutes);
 
-// Route CSRF token
+// Route de redirection CSRF (pour compatibilité avec d'anciens clients)
 app.get("/csrf-token", (req, res) => {
-  if (csrfRoutes.handle) {
-    return csrfRoutes.handle(req, res);
-  }
-  res
-    .status(500)
-    .json({ success: false, message: "CSRF handler not available" });
+  res.redirect(301, "/api/csrf-token");
 });
 
 // Importer les routes individuelles au lieu du module complet
