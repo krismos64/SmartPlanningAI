@@ -15,6 +15,7 @@ class User {
     this.company = data.company;
     this.phone = data.phone;
     this.jobTitle = data.jobTitle;
+    this.isActive = data.isActive !== undefined ? data.isActive : true; // Par défaut, les comptes sont actifs
   }
 
   static async find() {
@@ -61,7 +62,7 @@ class User {
 
       // Exécuter la requête SQL avec l'ID converti en entier
       const sqlQuery =
-        "SELECT id, email, password, role, first_name, last_name, created_at, profileImage, company, phone, jobTitle FROM users WHERE id = ?";
+        "SELECT id, email, password, role, first_name, last_name, created_at, profileImage, company, phone, jobTitle, isActive FROM users WHERE id = ?";
       console.log(
         `[User.findById] Exécution de la requête SQL préparée: ${sqlQuery}`
       );
@@ -153,6 +154,9 @@ class User {
       // S'assurer que le rôle est 'admin'
       this.role = "admin";
 
+      // S'assurer que isActive est défini (par défaut true)
+      this.isActive = this.isActive !== undefined ? this.isActive : true;
+
       // Pour debug
       console.log(`Sauvegarde de l'utilisateur:`, {
         id: this.id,
@@ -160,6 +164,7 @@ class User {
         role: this.role,
         name: `${this.first_name} ${this.last_name}`,
         hasPassword: !!this.password,
+        isActive: this.isActive,
       });
 
       // Préparer les paramètres en remplaçant undefined par null
@@ -177,7 +182,8 @@ class User {
           company = ?,
           phone = ?,
           jobTitle = ?,
-          profileImage = ?
+          profileImage = ?,
+          isActive = ?
           WHERE id = ?`;
 
         const params = [
@@ -190,6 +196,7 @@ class User {
           prepareParam(this.phone),
           prepareParam(this.jobTitle),
           prepareParam(this.profileImage),
+          prepareParam(this.isActive),
           this.id,
         ];
 
@@ -199,8 +206,8 @@ class User {
       } else {
         // Sinon, créer un nouvel utilisateur
         const query = `INSERT INTO users 
-          (email, password, role, first_name, last_name, created_at, updated_at, company, phone, jobTitle, profileImage) 
-          VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?)`;
+          (email, password, role, first_name, last_name, created_at, updated_at, company, phone, jobTitle, profileImage, isActive) 
+          VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?)`;
 
         const params = [
           prepareParam(this.email),
@@ -212,6 +219,7 @@ class User {
           prepareParam(this.phone),
           prepareParam(this.jobTitle),
           prepareParam(this.profileImage),
+          prepareParam(this.isActive),
         ];
 
         const [result] = await connectDB.execute(query, params);
@@ -288,20 +296,11 @@ class User {
         "Comparaison du mot de passe pour l'utilisateur:",
         this.email
       );
-      console.log("Mot de passe haché stocké:", this.password);
 
       if (!candidatePassword) {
         console.error("Mot de passe candidat manquant");
         return false;
       }
-
-      // Nettoyer le candidatePassword (supprimer les espaces et points éventuels)
-      const cleanCandidatePassword = candidatePassword
-        .trim()
-        .replace(/[.\s]+$/, "");
-      console.log(
-        `Mot de passe candidat: "${candidatePassword}" => nettoyé: "${cleanCandidatePassword}"`
-      );
 
       if (!this.password) {
         console.error(
@@ -311,52 +310,65 @@ class User {
         return false;
       }
 
-      // Pour le débogage, on va comparer directement avec le mot de passe attendu
-      if (
-        (cleanCandidatePassword === "Mostefaoui1" ||
-          candidatePassword === "Mostefaoui1") &&
-        (this.email === "c.mostefaoui@yahoo.fr" ||
-          this.email === "kplanning@gmail.com")
-      ) {
-        console.log(
-          "Authentification forcée pour l'utilisateur admin:",
-          this.email
-        );
-        console.log("Mot de passe attendu trouvé pour l'administrateur");
-        return true;
-      }
+      // Nettoyer le candidatePassword (supprimer les espaces et points éventuels)
+      const cleanCandidatePassword = candidatePassword.trim();
 
       // Vérifier si le mot de passe est au format bcrypt
       const isBcrypt =
         this.password.startsWith("$2b$") || this.password.startsWith("$2a$");
 
-      if (!isBcrypt) {
-        console.log(
-          "Le mot de passe n'est pas au format bcrypt, comparaison directe"
-        );
-        // Si le format n'est pas bcrypt, fallback sur une comparaison directe
-        // Sécurisée pour les tests mais à déprécier
-        return this.password === cleanCandidatePassword;
-      }
-
-      // Debug - analyser le mot de passe candidat
+      // Log sécurisé (ne pas journaliser les mots de passe)
       console.log(`Vérification du mot de passe pour ${this.email}:`, {
-        candidatePassword: cleanCandidatePassword
-          ? `${cleanCandidatePassword.length} caractères`
-          : "non défini",
+        candidatePasswordLength: cleanCandidatePassword
+          ? cleanCandidatePassword.length
+          : 0,
         storedPasswordType: typeof this.password,
-        storedPasswordFormat: isBcrypt ? "bcrypt" : "format non-bcrypt",
+        storedPasswordFormat: isBcrypt ? "bcrypt" : "autre format",
+        authenticationMethod: isBcrypt
+          ? "bcrypt.compare"
+          : "comparaison directe",
       });
 
+      if (!isBcrypt) {
+        console.warn(
+          `⚠️ AVERTISSEMENT: Le mot de passe stocké pour ${this.email} n'est pas au format bcrypt. Une mise à jour est recommandée.`
+        );
+
+        // Comparaison directe si ce n'est pas un hash bcrypt (à utiliser uniquement en développement)
+        return (
+          process.env.NODE_ENV !== "production" &&
+          this.password === cleanCandidatePassword
+        );
+      }
+
+      // Utiliser bcrypt pour comparer le mot de passe
+      const startTime = Date.now();
       const isMatch = await bcrypt.compare(
         cleanCandidatePassword,
         this.password
       );
-      console.log("Résultat de la comparaison bcrypt:", isMatch);
+      const duration = Date.now() - startTime;
+
+      console.log(
+        `Résultat de la comparaison bcrypt pour ${this.email}: ${
+          isMatch ? "succès" : "échec"
+        } (${duration}ms)`
+      );
+
       return isMatch;
     } catch (error) {
       console.error("Erreur lors de la comparaison des mots de passe:", error);
       console.error("Stack trace:", error.stack);
+
+      // Log plus détaillé pour faciliter le débogage
+      console.error("Détails:", {
+        userId: this.id,
+        email: this.email,
+        errorName: error.name,
+        errorMessage: error.message,
+        timestamp: new Date().toISOString(),
+      });
+
       throw error;
     }
   }

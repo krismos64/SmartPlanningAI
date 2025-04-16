@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Activity = require("../models/Activity");
-const { auth } = require("../middleware/auth");
+const { verifyToken } = require("../middleware/auth");
 const jwt = require("jsonwebtoken");
 const WebSocket = require("ws");
 const Notification = require("../models/Notification");
@@ -81,11 +81,46 @@ router.get("/", async (req, res) => {
 });
 
 /**
+ * @route GET /api/activities/stats
+ * @desc Récupérer les statistiques d'activités
+ * @access Private (Admin)
+ */
+router.get("/stats", verifyToken, async (req, res) => {
+  try {
+    // Vérifier si l'utilisateur est admin
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Accès non autorisé. Seuls les administrateurs peuvent accéder aux statistiques.",
+      });
+    }
+
+    const stats = await Activity.getStats();
+
+    res.json({
+      success: true,
+      stats,
+    });
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des statistiques d'activités:",
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques d'activités",
+      error: error.message,
+    });
+  }
+});
+
+/**
  * @route GET /api/activities/user/:userId
  * @desc Récupérer toutes les activités d'un utilisateur spécifique
  * @access Privé
  */
-router.get("/user/:userId", auth, async (req, res) => {
+router.get("/user/:userId", verifyToken, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
 
@@ -135,6 +170,48 @@ router.get("/user/:userId", auth, async (req, res) => {
 });
 
 /**
+ * @route DELETE /api/activities/cleanup
+ * @desc Nettoyer les anciennes activités
+ * @access Private (Admin)
+ */
+router.delete("/cleanup", verifyToken, async (req, res) => {
+  try {
+    // Vérifier si l'utilisateur est admin
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Accès non autorisé. Seuls les administrateurs peuvent nettoyer les activités.",
+      });
+    }
+
+    const days = parseInt(req.query.days) || 90;
+
+    if (days < 30) {
+      return res.status(400).json({
+        success: false,
+        message: "La période de conservation minimale est de 30 jours",
+      });
+    }
+
+    const deletedCount = await Activity.cleanupOldActivities(days);
+
+    res.json({
+      success: true,
+      message: `${deletedCount} activités plus anciennes que ${days} jours ont été supprimées`,
+      deletedCount,
+    });
+  } catch (error) {
+    console.error("Erreur lors du nettoyage des anciennes activités:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors du nettoyage des anciennes activités",
+      error: error.message,
+    });
+  }
+});
+
+/**
  * @route GET /api/activities/:id
  * @desc Récupérer une activité par son ID
  * @access Public
@@ -172,7 +249,7 @@ router.get("/:id", async (req, res) => {
  * @desc Créer une nouvelle activité
  * @access Privé (nécessite authentification)
  */
-router.post("/", auth, async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     // Valider les champs obligatoires
     const { type, entity_type, description } = req.body;
@@ -322,83 +399,6 @@ router.post("/", auth, async (req, res) => {
 });
 
 /**
- * @route GET /api/activities/stats
- * @desc Récupérer les statistiques d'activités
- * @access Private (Admin)
- */
-router.get("/stats", auth, async (req, res) => {
-  try {
-    // Vérifier si l'utilisateur est admin
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Accès non autorisé. Seuls les administrateurs peuvent accéder aux statistiques.",
-      });
-    }
-
-    const stats = await Activity.getStats();
-
-    res.json({
-      success: true,
-      stats,
-    });
-  } catch (error) {
-    console.error(
-      "Erreur lors de la récupération des statistiques d'activités:",
-      error
-    );
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des statistiques d'activités",
-      error: error.message,
-    });
-  }
-});
-
-/**
- * @route DELETE /api/activities/cleanup
- * @desc Nettoyer les anciennes activités
- * @access Private (Admin)
- */
-router.delete("/cleanup", auth, async (req, res) => {
-  try {
-    // Vérifier si l'utilisateur est admin
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Accès non autorisé. Seuls les administrateurs peuvent nettoyer les activités.",
-      });
-    }
-
-    const days = parseInt(req.query.days) || 90;
-
-    if (days < 30) {
-      return res.status(400).json({
-        success: false,
-        message: "La période de conservation minimale est de 30 jours",
-      });
-    }
-
-    const deletedCount = await Activity.cleanupOldActivities(days);
-
-    res.json({
-      success: true,
-      message: `${deletedCount} activités plus anciennes que ${days} jours ont été supprimées`,
-      deletedCount,
-    });
-  } catch (error) {
-    console.error("Erreur lors du nettoyage des anciennes activités:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors du nettoyage des anciennes activités",
-      error: error.message,
-    });
-  }
-});
-
-/**
  * @route POST /api/activities/log
  * @desc Enregistrer une activité depuis le frontend
  * @access Public (avec token optionnel)
@@ -443,6 +443,18 @@ router.post("/log", async (req, res) => {
       }
     }
 
+    // Récupérer les détails de la requête
+    let details = req.body.details || {};
+
+    // Si les détails sont une chaîne, essayer de les parser en JSON
+    if (typeof details === "string") {
+      try {
+        details = JSON.parse(details);
+      } catch (error) {
+        console.error("Erreur lors du parsing des détails:", error);
+      }
+    }
+
     // Créer l'objet activité
     const activity = {
       type,
@@ -451,7 +463,7 @@ router.post("/log", async (req, res) => {
       description,
       userId,
       userName,
-      details: req.body.details || {},
+      details,
       ipAddress: req.body.ipAddress || req.ip,
       userAgent: req.body.userAgent || req.headers["user-agent"],
       timestamp: new Date().toISOString(),

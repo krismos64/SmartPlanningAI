@@ -2,12 +2,12 @@ const express = require("express");
 const router = express.Router();
 const WorkHours = require("../models/WorkHours");
 const Employee = require("../models/Employee");
-const { auth } = require("../middleware/auth");
+const { verifyToken } = require("../middleware/auth");
 
 // @route   GET /api/work-hours/balance/:employeeId
 // @desc    Obtenir le solde d'heures d'un employé
 // @access  Private
-router.get("/balance/:employeeId", auth, async (req, res) => {
+router.get("/balance/:employeeId", verifyToken, async (req, res) => {
   try {
     const { employeeId } = req.params;
 
@@ -30,7 +30,7 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
 // @route   GET /api/work-hours/employee/:employeeId
 // @desc    Obtenir toutes les heures travaillées d'un employé (appartenant à l'utilisateur connecté)
 // @access  Private
-router.get("/employee/:employeeId", auth, async (req, res) => {
+router.get("/employee/:employeeId", verifyToken, async (req, res) => {
   try {
     const { employeeId } = req.params;
     const { startDate, endDate } = req.query;
@@ -72,7 +72,7 @@ router.get("/employee/:employeeId", auth, async (req, res) => {
 // @route   GET /api/work-hours/:id
 // @desc    Obtenir un enregistrement d'heures travaillées par ID (appartenant à l'utilisateur connecté)
 // @access  Private
-router.get("/:id", auth, async (req, res) => {
+router.get("/:id", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const workHoursId = req.params.id;
@@ -108,7 +108,7 @@ router.get("/:id", auth, async (req, res) => {
 // @route   POST /api/work-hours
 // @desc    Créer un nouvel enregistrement d'heures travaillées
 // @access  Private
-router.post("/", auth, async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { employee_id, date, expected_hours, actual_hours, description } =
@@ -159,7 +159,7 @@ router.post("/", auth, async (req, res) => {
 // @route   PUT /api/work-hours/:id
 // @desc    Mettre à jour un enregistrement d'heures travaillées
 // @access  Private
-router.put("/:id", auth, async (req, res) => {
+router.put("/:id", verifyToken, async (req, res) => {
   try {
     const { employee_id, date, expected_hours, actual_hours } = req.body;
 
@@ -201,17 +201,19 @@ router.put("/:id", auth, async (req, res) => {
 // @route   DELETE /api/work-hours/:id
 // @desc    Supprimer un enregistrement d'heures travaillées
 // @access  Private
-router.delete("/:id", auth, async (req, res) => {
+router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const success = await WorkHours.delete(req.params.id);
 
     if (!success) {
-      return res
-        .status(404)
-        .json({ message: "Enregistrement d'heures non trouvé" });
+      return res.status(404).json({
+        message: "Enregistrement d'heures non trouvé ou déjà supprimé",
+      });
     }
 
-    res.json({ message: "Heures travaillées supprimées avec succès" });
+    res.json({
+      message: "Heures travaillées supprimées avec succès",
+    });
   } catch (error) {
     console.error(
       `Erreur lors de la suppression des heures avec l'ID ${req.params.id}:`,

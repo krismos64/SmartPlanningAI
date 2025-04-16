@@ -5,7 +5,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { auth } = require("../middleware/auth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 const { findMatchingRule } = require("../services/chatbotRules");
 const scheduleOptimizer = require("../services/scheduleOptimizer");
 
@@ -31,10 +31,10 @@ router.get("/ping", (req, res) => {
 
 /**
  * @route   POST /api/chatbot/process
- * @desc    Traiter un message utilisateur avec le système de règles
+ * @desc    Traiter un message utilisateur
  * @access  Private
  */
-router.post("/process", auth, async (req, res) => {
+router.post("/process", verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
     const userId = req.user.id;
@@ -301,7 +301,7 @@ async function handlePersonalDataQuery(message, userId, userRole) {
  * @desc    Générer un planning optimisé
  * @access  Private
  */
-router.post("/generate-schedule", auth, async (req, res) => {
+router.post("/generate-schedule", verifyToken, async (req, res) => {
   try {
     const {
       week_start,
@@ -376,7 +376,7 @@ router.post("/generate-schedule", auth, async (req, res) => {
  * @desc    Obtenir des statistiques personnalisées pour l'utilisateur
  * @access  Private
  */
-router.get("/user-stats", auth, async (req, res) => {
+router.get("/user-stats", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const connectDB = require("../config/db");
@@ -431,23 +431,12 @@ router.get("/user-stats", auth, async (req, res) => {
   }
 });
 
-// Middleware pour vérifier si l'utilisateur est admin
-const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Accès restreint aux administrateurs",
-    });
-  }
-  next();
-};
-
 /**
  * @route   GET /api/chatbot/absences/today
- * @desc    Obtenir la liste des personnes qui ne travaillent pas aujourd'hui
- * @access  Admin only
+ * @desc    Récupérer les absences du jour
+ * @access  Private (Admin)
  */
-router.get("/absences/today", adminOnly, async (req, res) => {
+router.get("/absences/today", isAdmin, async (req, res) => {
   try {
     console.log(
       "Requête pour les personnes qui ne travaillent pas aujourd'hui"
@@ -563,10 +552,10 @@ router.get("/absences/today", adminOnly, async (req, res) => {
 
 /**
  * @route   GET /api/chatbot/vacations/upcoming
- * @desc    Obtenir la liste des prochains congés
- * @access  Admin only
+ * @desc    Récupérer les prochains congés
+ * @access  Private (Admin)
  */
-router.get("/vacations/upcoming", adminOnly, async (req, res) => {
+router.get("/vacations/upcoming", isAdmin, async (req, res) => {
   try {
     console.log("Requête pour les prochains congés");
     const connectDB = require("../config/db");
@@ -626,10 +615,10 @@ router.get("/vacations/upcoming", adminOnly, async (req, res) => {
 
 /**
  * @route   GET /api/chatbot/schedules/missing
- * @desc    Obtenir la liste des départements sans planning pour la semaine prochaine
- * @access  Private
+ * @desc    Récupérer les plannings manquants
+ * @access  Private (Admin)
  */
-router.get("/schedules/missing", adminOnly, async (req, res) => {
+router.get("/schedules/missing", isAdmin, async (req, res) => {
   try {
     console.log("Requête pour les plannings manquants");
     const connectDB = require("../config/db");
@@ -694,10 +683,10 @@ router.get("/schedules/missing", adminOnly, async (req, res) => {
 
 /**
  * @route   GET /api/chatbot/hours/positive
- * @desc    Obtenir la liste des employés avec un solde d'heures positif
- * @access  Admin only
+ * @desc    Récupérer les employés avec un solde horaire positif
+ * @access  Private (Admin)
  */
-router.get("/hours/positive", adminOnly, async (req, res) => {
+router.get("/hours/positive", isAdmin, async (req, res) => {
   try {
     console.log("Requête pour les soldes d'heures positifs");
     const connectDB = require("../config/db");
@@ -745,10 +734,10 @@ router.get("/hours/positive", adminOnly, async (req, res) => {
 
 /**
  * @route   GET /api/chatbot/hours/negative
- * @desc    Obtenir la liste des employés avec un solde d'heures négatif
- * @access  Admin only
+ * @desc    Récupérer les employés avec un solde horaire négatif
+ * @access  Private (Admin)
  */
-router.get("/hours/negative", adminOnly, async (req, res) => {
+router.get("/hours/negative", isAdmin, async (req, res) => {
   try {
     console.log("Requête pour les soldes d'heures négatifs");
     const connectDB = require("../config/db");
@@ -796,12 +785,10 @@ router.get("/hours/negative", adminOnly, async (req, res) => {
 
 /**
  * @route   GET /api/chatbot/employees/working-today
- * @desc    Obtenir la liste des employés qui travaillent aujourd'hui
- * @access  Admin only
+ * @desc    Récupérer les employés travaillant aujourd'hui
+ * @access  Private (Admin)
  */
-// Cette route est commentée car elle est remplacée par l'action "get_working_today" dans la route POST /api/chatbot/query
-/*
-router.get("/employees/working-today", adminOnly, async (req, res) => {
+router.get("/employees/working-today", isAdmin, async (req, res) => {
   try {
     console.log(
       "Récupération des employés qui travaillent aujourd'hui (admin)"
@@ -931,16 +918,13 @@ router.get("/employees/working-today", adminOnly, async (req, res) => {
     });
   }
 });
-*/
 
 /**
  * @route   GET /api/chatbot/employees/hours-today
- * @desc    Obtenir les horaires des employés aujourd'hui
- * @access  Admin only
+ * @desc    Récupérer les horaires des employés pour aujourd'hui
+ * @access  Private (Admin)
  */
-// Cette route est commentée car elle est remplacée par l'action "get_working_today" dans la route POST /api/chatbot/query
-/*
-router.get("/employees/hours-today", adminOnly, async (req, res) => {
+router.get("/employees/hours-today", isAdmin, async (req, res) => {
   try {
     console.log("Requête pour les horaires des employés aujourd'hui");
     const connectDB = require("../config/db");
@@ -1051,7 +1035,6 @@ router.get("/employees/hours-today", adminOnly, async (req, res) => {
     });
   }
 });
-*/
 
 /**
  * @route   POST /api/chatbot/query

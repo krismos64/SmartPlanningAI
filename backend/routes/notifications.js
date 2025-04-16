@@ -1,13 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const Notification = require("../models/Notification");
-const { auth } = require("../middleware/auth");
-
-// Middleware d'authentification pour toutes les routes
-router.use(auth);
+const { verifyToken } = require("../middleware/auth");
 
 // Créer une nouvelle notification
-router.post("/", async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     const { title, message, type, link, entity_type, entity_id, user_id } =
       req.body;
@@ -58,7 +55,7 @@ router.post("/", async (req, res) => {
 });
 
 // Récupérer les notifications de l'utilisateur connecté
-router.get("/", async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { limit = 20, offset = 0, unreadOnly = false } = req.query;
@@ -92,7 +89,7 @@ router.get("/", async (req, res) => {
 });
 
 // Récupérer le nombre de notifications non lues
-router.get("/unread-count", async (req, res) => {
+router.get("/unread-count", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await Notification.getUnreadCount(userId);
@@ -120,7 +117,7 @@ router.get("/unread-count", async (req, res) => {
 });
 
 // Marquer une notification comme lue
-router.put("/:id/read", async (req, res) => {
+router.put("/:id/read", verifyToken, async (req, res) => {
   try {
     const notificationId = req.params.id;
     const result = await Notification.markAsRead(notificationId);
@@ -151,7 +148,7 @@ router.put("/:id/read", async (req, res) => {
 });
 
 // Marquer toutes les notifications comme lues
-router.put("/mark-all-read", async (req, res) => {
+router.put("/mark-all-read", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await Notification.markAllAsRead(userId);

@@ -1,199 +1,219 @@
 const jwt = require("jsonwebtoken");
+const config = require("../config/config");
 const User = require("../models/User");
-const { verifyAccessToken } = require("../utils/tokenUtils");
+const logger = require("../utils/logger");
+const { ACCESS_TOKEN_SECRET } = require("../utils/tokenUtils");
 
-// Clé secrète pour signer les tokens JWT
-const JWT_SECRET = process.env.JWT_SECRET || "smartplanningai_secret_key";
-
-// Middleware pour vérifier le token JWT - adapté pour fonctionner avec secureAuth
-const auth = async (req, res, next) => {
+/**
+ * Middleware pour vérifier le token d'accès JWT
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ * @param {Function} next - Fonction next d'Express
+ */
+const verifyToken = async (req, res, next) => {
   try {
-    console.log("Middleware d'authentification appelé pour", req.path);
+    logger.debug("Vérification du token d'authentification", {
+      path: req.path,
+      method: req.method,
+    });
 
-    // Récupérer le token depuis les cookies ou depuis le header Authorization
-    let token = req.cookies?.accessToken;
+    // Récupérer le token depuis les cookies ou l'en-tête
+    let token = req.cookies.accessToken;
 
-    // Si pas de token dans les cookies, essayer dans les headers
+    // Si pas de token dans les cookies, vérifier l'en-tête Authorization
     if (!token && req.headers.authorization) {
-      console.log("En-tête Authorization: Présent");
       const authHeader = req.headers.authorization;
+      // Format attendu: "Bearer [token]"
       if (authHeader.startsWith("Bearer ")) {
         token = authHeader.substring(7);
-        console.log(
-          "Token extrait du header:",
-          token ? token.substring(0, 10) + "..." : "undefined..."
-        );
       }
     }
 
+    // Vérifier si le token existe
     if (!token) {
-      console.log("Aucun token trouvé");
+      // Journaliser la tentative d'authentification échouée
+      logAuthAttempt(req, null, false, "Token manquant");
+
+      logger.debug("Authentification refusée: token manquant", {
+        path: req.path,
+        ipAddress: req.ip,
+      });
+
       return res.status(401).json({
         success: false,
-        message: "Authentification requise",
-        code: "AUTH_REQUIRED",
+        message: "Accès refusé - Token d'authentification manquant",
       });
     }
 
-    // Vérifier et décoder le token
-    const decoded = verifyAccessToken(token);
+    // Vérifier le token
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
 
-    if (!decoded) {
-      console.log("Token invalide ou expiré");
-      return res.status(401).json({
-        success: false,
-        message: "Session invalide ou expirée",
-        code: "INVALID_TOKEN",
-      });
-    }
-
-    // Récupérer les informations de l'utilisateur
+    // Vérifier si l'utilisateur existe toujours
     const user = await User.findById(decoded.userId);
 
     if (!user) {
+      // Journaliser la tentative d'authentification échouée
+      logAuthAttempt(req, decoded.userId, false, "Utilisateur non trouvé");
+
+      logger.warn("Authentification refusée: utilisateur non trouvé", {
+        userId: decoded.userId,
+        path: req.path,
+        ipAddress: req.ip,
+      });
+
       return res.status(401).json({
         success: false,
         message: "Utilisateur non trouvé",
-        code: "USER_NOT_FOUND",
       });
     }
 
-    // Ajouter les informations de l'utilisateur à la requête sans exposer de données sensibles
-    const safeUser = {
-      id: user.id,
-      email: user.email,
-      role: user.role || "admin",
-      first_name: user.first_name,
-      last_name: user.last_name,
-      fullName:
-        `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-        "Administrateur",
-    };
+    // Si l'utilisateur est désactivé
+    if (user.isActive === false) {
+      // Journaliser la tentative d'authentification échouée
+      logAuthAttempt(req, user._id, false, "Compte désactivé");
 
-    // Vérifier explicitement que l'ID utilisateur est défini
-    if (!user.id) {
-      console.error(
-        "ERREUR CRITIQUE: L'ID utilisateur est manquant dans les données de l'utilisateur"
-      );
-      return res.status(401).json({
+      logger.warn("Authentification refusée: compte désactivé", {
+        userId: user._id,
+        email: user.email,
+        path: req.path,
+        ipAddress: req.ip,
+      });
+
+      return res.status(403).json({
         success: false,
-        message: "Erreur d'authentification: identifiant utilisateur manquant",
-        code: "MISSING_USER_ID",
+        message: "Votre compte a été désactivé",
       });
     }
 
-    // Debug logs
-    console.log("=== AUTH MIDDLEWARE ===");
-    console.log("Auth successful for user ID:", user.id);
-    console.log("User info:", safeUser);
-    console.log("User ID from token:", decoded.userId);
-    console.log("User ID from database:", user.id);
-    console.log("=====================");
+    // Ajouter l'utilisateur et l'ID à la requête
+    req.user = user;
+    req.userId = decoded.userId;
 
-    req.user = safeUser;
-    req.userId = user.id;
-    req.tokenInfo = {
-      jti: decoded.jti,
-      iat: decoded.iat,
-      exp: decoded.exp,
-    };
+    // Journaliser la tentative d'authentification réussie
+    logAuthAttempt(req, user._id, true);
 
-    // Continuer avec la requête
+    logger.debug("Authentification réussie", {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      path: req.path,
+    });
+
     next();
   } catch (error) {
-    console.error("Erreur d'authentification:", error.message);
+    // Journaliser l'erreur
+    logAuthAttempt(req, null, false, error.message);
 
-    // Journalisation sécurisée de l'erreur
-    const logInfo = {
-      timestamp: new Date().toISOString(),
-      ip: req.ip,
+    logger.error("Erreur lors de la vérification du token", {
+      error: error.message,
       path: req.path,
-      method: req.method,
-      errorType: error.name,
-      errorMessage: error.message,
-    };
+      ipAddress: req.ip,
+      stack: error.stack,
+    });
 
-    console.error("Auth failure details:", JSON.stringify(logInfo));
-
-    // Réponse appropriée selon le type d'erreur
+    // Gérer les erreurs spécifiques de JWT
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,
-        message: "Session expirée, veuillez vous reconnecter",
-        code: "TOKEN_EXPIRED",
+        message: "Le token d'authentification a expiré",
       });
     }
 
-    return res.status(401).json({
-      success: false,
-      message: "Authentification invalide",
-      code: "AUTH_FAILED",
-    });
-  }
-};
-
-// Middleware pour vérifier les rôles (maintenant tous les utilisateurs sont admin)
-const checkRole = (roles = ["admin"]) => {
-  return (req, res, next) => {
-    if (!req.user) {
+    if (error.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
-        message: "Authentification requise",
-        code: "AUTH_REQUIRED",
+        message: "Token d'authentification invalide",
       });
     }
 
-    // Vérifier si l'utilisateur a l'un des rôles requis
-    if (roles.includes(req.user.role)) {
-      return next();
-    }
-
-    // Journaliser la tentative d'accès non autorisé
-    console.warn("Tentative d'accès non autorisé:", {
-      userId: req.user.id,
-      userRole: req.user.role,
-      requiredRoles: roles,
-      path: req.path,
-      method: req.method,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Renvoyer une erreur 403 si l'utilisateur n'a pas les rôles requis
-    return res.status(403).json({
+    // Erreur générique
+    return res.status(500).json({
       success: false,
-      message: "Accès refusé: autorisation insuffisante",
-      code: "INSUFFICIENT_PERMISSIONS",
+      message: "Erreur lors de l'authentification",
     });
-  };
-};
-
-// Fonction pour générer un token JWT
-const generateToken = (userId) => {
-  return jwt.sign(
-    { userId },
-    JWT_SECRET,
-    { expiresIn: "7d" } // Le token expire après 7 jours
-  );
-};
-
-// Fonction pour récupérer l'ID de l'admin connecté
-const getCurrentAdminId = (req) => {
-  if (!req.user || !req.user.id) {
-    console.error(
-      "getCurrentAdminId: Aucun utilisateur connecté ou ID manquant"
-    );
-    return null;
   }
-  return req.user.id;
+};
+
+/**
+ * Journalise une tentative d'authentification
+ * @param {Object} req - Requête Express
+ * @param {String} userId - ID de l'utilisateur (si disponible)
+ * @param {Boolean} success - Si l'authentification a réussi
+ * @param {String} reason - Raison de l'échec (si applicable)
+ */
+const logAuthAttempt = (req, userId, success, reason = null) => {
+  const level = success ? "INFO" : "WARN";
+  const message = success
+    ? "Authentification réussie"
+    : `Authentification échouée: ${reason}`;
+
+  const details = {
+    userId: userId || "anonyme",
+    ipAddress: req.ip,
+    userAgent: req.headers["user-agent"],
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    success,
+  };
+
+  // Si échec, ajouter la raison
+  if (!success && reason) {
+    details.reason = reason;
+  }
+
+  // Utiliser la fonction de journalisation d'authentification
+  logger.auth(level, message, details);
+};
+
+/**
+ * Middleware pour vérifier si l'utilisateur est administrateur
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ * @param {Function} next - Fonction next d'Express
+ */
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
+    return next();
+  }
+
+  logger.warn("Accès admin refusé", {
+    userId: req.userId,
+    path: req.path,
+    ipAddress: req.ip,
+  });
+
+  return res.status(403).json({
+    success: false,
+    message: "Accès refusé - Droits d'administrateur requis",
+  });
+};
+
+/**
+ * Middleware pour vérifier si l'utilisateur est employé
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ * @param {Function} next - Fonction next d'Express
+ */
+const isEmployee = (req, res, next) => {
+  if (req.user && (req.user.role === "admin" || req.user.role === "employee")) {
+    return next();
+  }
+
+  logger.warn("Accès employé refusé", {
+    userId: req.userId,
+    path: req.path,
+    ipAddress: req.ip,
+  });
+
+  return res.status(403).json({
+    success: false,
+    message: "Accès refusé - Droits d'employé requis",
+  });
 };
 
 module.exports = {
-  // Export individuel de chaque fonction
-  verifyToken: auth, // Alias pour compatibilité
-  isAdmin: checkRole(["admin"]), // Fonction middleware préconfgurée pour admin
-  auth,
-  checkRole,
-  generateToken,
-  JWT_SECRET,
-  getCurrentAdminId,
+  verifyToken,
+  isAdmin,
+  isEmployee,
 };

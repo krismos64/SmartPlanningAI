@@ -309,6 +309,11 @@ export const buildApiUrl = (endpoint) => {
     return endpoint;
   }
 
+  // LOGIQUE STANDARDISÉE:
+  // 1. Si l'endpoint commence déjà par /api/, on ne touche à rien
+  // 2. Si l'endpoint est dans la liste des exceptions spéciales, pas de préfixe
+  // 3. Dans tous les autres cas, on ajoute /api/ de façon standardisée
+
   // Déterminer si on doit ajouter le préfixe /api
   const needsApiPrefix =
     !endpoint.startsWith("/api") && !noApiPrefixEndpoints.includes(endpoint);
@@ -317,9 +322,13 @@ export const buildApiUrl = (endpoint) => {
   const baseUrl = API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL;
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-  return needsApiPrefix
+  const finalUrl = needsApiPrefix
     ? `${baseUrl}/api${cleanEndpoint}`
     : `${baseUrl}${cleanEndpoint}`;
+
+  console.log(`🔧 URL API construite: ${endpoint} → ${finalUrl}`);
+
+  return finalUrl;
 };
 
 // Constante pour activer/désactiver les logs de débogage API
@@ -484,9 +493,22 @@ export const apiRequest = async (
 ) => {
   validateApiUrl();
 
-  // Construire l'URL
+  // Vérification pour une utilisation cohérente des préfixes
+  // On privilégie l'utilisation explicite de /api/ dans les routes pour éviter les confusions
+  if (
+    !endpoint.startsWith("/api") &&
+    !endpoint.startsWith("http") &&
+    !["/csrf-token", "/ping"].includes(endpoint)
+  ) {
+    console.warn(`⚠️ Route sans préfixe /api/ explicite détectée: ${endpoint}`);
+    console.warn(
+      "Pour une meilleure cohérence, préférez utiliser le format: /api/xxxx"
+    );
+  }
+
+  // Construire l'URL en utilisant la fonction standardisée
   const url = endpoint.startsWith("http") ? endpoint : buildApiUrl(endpoint);
-  console.log(`📡 [apiRequest] URL construite: ${url}`);
+  console.log(`📡 [apiRequest] ${method} → ${url}`);
 
   // Pour les méthodes non-GET, s'assurer d'avoir un token CSRF
   if (
@@ -539,10 +561,6 @@ export const apiRequest = async (
   );
 
   try {
-    if (method !== "GET" && !globalCsrfToken) {
-      console.warn(`⚠️ Requête ${method} sans token CSRF: ${url}`);
-    }
-
     const response = await axiosInstance(config);
     return response.data;
   } catch (error) {
@@ -579,6 +597,15 @@ export const apiRequest = async (
         );
       }
     }
+
+    // Amélioration de la journalisation des erreurs
+    console.error("❌ Erreur API:", {
+      url: config.url,
+      method: config.method,
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message,
+      data: error.response?.data,
+    });
 
     // Propager l'erreur
     throw handleApiError(error);

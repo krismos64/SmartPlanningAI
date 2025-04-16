@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const { generateToken, auth, checkRole } = require("../middleware/auth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 const { secureAuth } = require("../middleware/secureAuth");
 const { authLimiter } = require("../middleware/rateLimit");
 const {
@@ -19,6 +19,9 @@ const AuthLog = require("../models/AuthLog");
 const crypto = require("crypto");
 const passport = require("passport");
 const connectDB = require("../config/db");
+const jwt = require("jsonwebtoken");
+const config = require("../config/config");
+const logger = require("../utils/logger");
 
 // Routes d'authentification Google OAuth 2.0
 router.get(
@@ -786,39 +789,34 @@ router.put("/users/:id", secureAuth, async (req, res) => {
 });
 
 // Route pour supprimer un utilisateur (admin seulement)
-router.delete(
-  "/users/:id",
-  secureAuth,
-  checkRole(["admin"]),
-  async (req, res) => {
-    try {
-      const userId = req.params.id;
+router.delete("/users/:id", secureAuth, isAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
 
-      // Vérifier si l'utilisateur existe
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "Utilisateur non trouvé." });
-      }
-
-      // Empêcher la suppression de son propre compte
-      if (parseInt(userId) === req.user.id) {
-        return res.status(400).json({
-          message: "Vous ne pouvez pas supprimer votre propre compte.",
-        });
-      }
-
-      // Supprimer l'utilisateur
-      await User.delete(userId);
-
-      res.json({ message: "Utilisateur supprimé avec succès." });
-    } catch (error) {
-      console.error("Erreur lors de la suppression de l'utilisateur:", error);
-      res
-        .status(500)
-        .json({ message: "Erreur lors de la suppression de l'utilisateur." });
+    // Vérifier si l'utilisateur existe
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé." });
     }
+
+    // Empêcher la suppression de son propre compte
+    if (parseInt(userId) === req.user.id) {
+      return res.status(400).json({
+        message: "Vous ne pouvez pas supprimer votre propre compte.",
+      });
+    }
+
+    // Supprimer l'utilisateur
+    await User.delete(userId);
+
+    res.json({ message: "Utilisateur supprimé avec succès." });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de l'utilisateur:", error);
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la suppression de l'utilisateur." });
   }
-);
+});
 
 // Route de test pour l'authentification
 router.post("/test-login", async (req, res) => {
@@ -833,14 +831,14 @@ router.post("/test-login", async (req, res) => {
     };
 
     // Générer un token JWT
-    const token = generateToken(testUser.id);
-    console.log("Token de test généré:", token);
+    const { accessToken } = generateTokens(testUser.id);
+    console.log("Token de test généré:", accessToken);
 
     // Retourner les informations de l'utilisateur avec le token
     res.json({
       success: true,
       user: testUser,
-      token,
+      token: accessToken,
     });
   } catch (error) {
     console.error("Erreur lors de la génération du token de test:", error);
@@ -889,12 +887,20 @@ router.post("/refresh", async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
+      console.error(
+        "Demande de rafraîchissement de token sans refreshToken dans les cookies"
+      );
+      // Pour le débogage - logging des cookies
+      console.log("Cookies disponibles:", req.cookies);
+
       return res.status(401).json({
         success: false,
         message: "Token de rafraîchissement manquant",
         code: "REFRESH_TOKEN_MISSING",
       });
     }
+
+    console.log("RefreshToken trouvé:", refreshToken.substring(0, 20) + "...");
 
     // Vérifier le refresh token
     const decoded = verifyRefreshToken(refreshToken);
@@ -926,6 +932,16 @@ router.post("/refresh", async (req, res) => {
     // Générer de nouveaux tokens
     const tokens = generateTokens(user.id, user.role || "admin");
     setTokenCookies(res, tokens);
+
+    console.log("Nouveaux tokens générés avec succès");
+    console.log(
+      "Nouveau access token:",
+      tokens.accessToken.substring(0, 20) + "..."
+    );
+    console.log(
+      "Nouveau refresh token:",
+      tokens.refreshToken.substring(0, 20) + "..."
+    );
 
     // Renvoyer les informations utilisateur mises à jour
     return res.json({
@@ -960,7 +976,7 @@ router.post("/refresh", async (req, res) => {
  * @desc    Récupérer l'ID et les informations de l'admin connecté
  * @access  Private
  */
-router.get("/current-admin", auth, async (req, res) => {
+router.get("/current-admin", verifyToken, async (req, res) => {
   try {
     // Récupérer l'ID de l'admin connecté
     const adminId = req.user.id;
@@ -996,30 +1012,151 @@ router.get("/current-admin", auth, async (req, res) => {
   }
 });
 
-// Route pour vérifier l'authentification via le token JWT
-router.get("/verify", verifyAccessToken, async (req, res) => {
+// Route pour vérifier l'authenticité du token
+router.get("/verify", async (req, res) => {
   try {
-    // Récupérer l'ID utilisateur depuis le token décodé
-    const userId = req.user.id;
+    logger.debug("Appel de la route /auth/verify");
 
-    // Chercher l'utilisateur dans la base de données
-    const user = await User.findById(userId);
+    // Récupérer le token
+    let token = req.cookies.accessToken;
 
-    // Si l'utilisateur n'est pas trouvé
-    if (!user) {
-      return res.status(404).json({
+    // Si pas de token dans les cookies, vérifier l'en-tête
+    if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    if (!token) {
+      // Journaliser la tentative échouée
+      logger.auth("WARN", "Vérification du token échouée: token manquant", {
+        ipAddress: req.ip,
+        path: req.path,
+        method: req.method,
+        userAgent: req.headers["user-agent"],
         success: false,
-        message: "Utilisateur introuvable",
+        reason: "Token manquant",
+      });
+
+      return res.status(200).json({
+        isAuthenticated: false,
+        message: "Aucun token d'authentification fourni",
       });
     }
 
-    // Retourner les informations de l'utilisateur
-    return res.status(200).json({ user });
+    // Vérifier et décoder le token
+    const decoded = jwt.verify(token, config.jwtAccessSecret);
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      // Journaliser la tentative échouée
+      logger.auth(
+        "WARN",
+        "Vérification du token échouée: utilisateur non trouvé",
+        {
+          userId: decoded.userId,
+          ipAddress: req.ip,
+          path: req.path,
+          method: req.method,
+          userAgent: req.headers["user-agent"],
+          success: false,
+          reason: "Utilisateur non trouvé",
+        }
+      );
+
+      return res.status(200).json({
+        isAuthenticated: false,
+        message: "Utilisateur non trouvé",
+      });
+    }
+
+    // Si l'utilisateur est désactivé (explicitement défini comme false)
+    if (user.isActive === false) {
+      // Journaliser la tentative échouée
+      logger.auth("WARN", "Vérification du token échouée: compte désactivé", {
+        userId: user._id || user.id,
+        email: user.email,
+        ipAddress: req.ip,
+        path: req.path,
+        method: req.method,
+        userAgent: req.headers["user-agent"],
+        success: false,
+        reason: "Compte désactivé",
+      });
+
+      return res.status(200).json({
+        isAuthenticated: false,
+        message: "Votre compte a été désactivé",
+      });
+    }
+
+    // Préparer l'objet utilisateur sécurisé (sans données sensibles)
+    const userResponse = {
+      _id: user._id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: user.role,
+      photoUrl: user.photoUrl || null,
+    };
+
+    // Journaliser la vérification réussie
+    logger.auth("INFO", "Vérification du token réussie", {
+      userId: user._id,
+      email: user.email,
+      ipAddress: req.ip,
+      path: req.path,
+      method: req.method,
+      userAgent: req.headers["user-agent"],
+      success: true,
+    });
+
+    // Renvoyer les informations de l'utilisateur
+    return res.status(200).json({
+      isAuthenticated: true,
+      user: userResponse,
+    });
   } catch (error) {
-    console.error("Erreur lors de la vérification du token:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Erreur serveur lors de la vérification de l'authentification",
+    // Journaliser l'erreur
+    logger.auth(
+      "ERROR",
+      `Erreur lors de la vérification du token: ${error.message}`,
+      {
+        ipAddress: req.ip,
+        path: req.path,
+        method: req.method,
+        userAgent: req.headers["user-agent"],
+        success: false,
+        reason:
+          error.name === "TokenExpiredError"
+            ? "Token expiré"
+            : error.name === "JsonWebTokenError"
+            ? "Token invalide"
+            : "Erreur interne",
+      }
+    );
+
+    logger.error("Erreur lors de la vérification du token", {
+      error: error.message,
+      stack: error.stack,
+      path: req.path,
+    });
+
+    // Déterminer le message d'erreur spécifique
+    let message = "Erreur lors de la vérification du token";
+
+    if (error.name === "TokenExpiredError") {
+      message = "Le token d'authentification a expiré";
+    } else if (error.name === "JsonWebTokenError") {
+      message = "Token d'authentification invalide";
+    }
+
+    return res.status(200).json({
+      isAuthenticated: false,
+      message: message,
     });
   }
 });

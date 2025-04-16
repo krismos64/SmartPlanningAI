@@ -1,11 +1,16 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const config = require("../config/config");
 
 // Configuration
 const ACCESS_TOKEN_SECRET =
-  process.env.JWT_SECRET || "smartplanning_secret_key";
+  config.jwtAccessSecret ||
+  process.env.JWT_SECRET ||
+  "smartplanning_secret_key";
 const REFRESH_TOKEN_SECRET =
-  process.env.JWT_REFRESH_SECRET || "smartplanning_refresh_secret_key";
+  config.jwtRefreshSecret ||
+  process.env.JWT_REFRESH_SECRET ||
+  "smartplanning_refresh_secret_key";
 const ACCESS_TOKEN_EXPIRY = "15m"; // 15 minutes
 const REFRESH_TOKEN_EXPIRY = "7d"; // 7 jours
 
@@ -87,120 +92,101 @@ function generateTokens(userId, role = "admin") {
 
 /**
  * Vérifie un token d'accès JWT
- * @param {string} token - Token à vérifier
- * @returns {Object|null} - Données décodées du token ou null si invalide
+ * @param {string} token - Le token JWT à vérifier
+ * @returns {object|null} - Le contenu décodé du token ou null si invalide
  */
-function verifyAccessToken(token) {
+const verifyAccessToken = (token) => {
+  if (!token) {
+    console.error("Tentative de vérification d'un token null ou undefined");
+    return null;
+  }
+
   try {
-    if (!token) {
-      console.error("ERREUR: Token non fourni à verifyAccessToken");
-      return null;
-    }
+    console.log(`Vérification du token (${token.substring(0, 15)}...)`);
 
-    console.log(
-      `Vérification du token (longueur: ${token.length}): ${token.substring(
-        0,
-        10
-      )}...`
-    );
+    // Vérification du token avec la clé secrète
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
 
-    // Une petite sécurité pour traiter différents formats possibles de token
-    let cleanToken = token;
-    if (token.startsWith("Bearer ")) {
-      cleanToken = token.substring(7);
-      console.log("Token corrigé - format Bearer détecté");
-    }
-
-    // Quelques informations sur le token
-    try {
-      const parts = cleanToken.split(".");
-      if (parts.length === 3) {
-        const header = JSON.parse(Buffer.from(parts[0], "base64").toString());
-        console.log("Token header:", header);
-
-        // Debug du payload
-        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
-        console.log("Token payload:", payload);
-
-        // Vérifier si userId est présent dans le payload - BLOCAGE si absent
-        if (!payload.userId) {
-          console.error(
-            "ERREUR CRITIQUE: Le payload du token ne contient pas d'userId!"
-          );
-          throw new Error("Token invalide: userId manquant dans le payload");
-        }
-      } else {
-        console.log("Format de token invalide (pas 3 parties)");
-        return null;
-      }
-    } catch (e) {
-      console.log("Impossible de décoder l'en-tête du token:", e.message);
-      // Remonter l'erreur pour faire échouer la vérification du token
-      if (e.message.includes("userId manquant")) {
-        throw e;
-      }
-      return null;
-    }
-
-    const decoded = jwt.verify(cleanToken, ACCESS_TOKEN_SECRET);
-    console.log("Token décodé avec succès:", {
-      userId: decoded.userId,
-      role: decoded.role,
-      exp: decoded.exp
-        ? new Date(decoded.exp * 1000).toISOString()
-        : "non défini",
-      iat: decoded.iat
-        ? new Date(decoded.iat * 1000).toISOString()
-        : "non défini",
-    });
-
-    // Vérification supplémentaire que userId est bien présent
+    // Validation basique du contenu du token
     if (!decoded.userId) {
-      console.error("ERREUR: Le token ne contient pas d'ID utilisateur");
+      console.error("Token malformé: userId manquant dans le token décodé");
       return null;
     }
+
+    // Log de succès avec informations importantes
+    console.log(
+      `✅ Token valide pour l'utilisateur ${decoded.userId} (expire: ${new Date(
+        decoded.exp * 1000
+      ).toISOString()})`
+    );
 
     return decoded;
   } catch (error) {
-    console.error(
-      "Erreur lors de la vérification du token d'accès:",
-      error.message
-    );
-    // Ajouter plus d'informations de débogage
-    console.error("Type d'erreur:", error.name);
-
-    if (error.name === "JsonWebTokenError") {
-      console.error("Détails supplémentaires:", error.message);
-    } else if (error.name === "TokenExpiredError") {
-      console.error("Token expiré à:", new Date(error.expiredAt).toISOString());
+    // Gestion spécifique selon le type d'erreur
+    if (error.name === "TokenExpiredError") {
+      console.error(`Token expiré: ${error.expiredAt}`);
+    } else if (error.name === "JsonWebTokenError") {
+      console.error(`Erreur de vérification JWT: ${error.message}`);
+    } else {
+      console.error(
+        `Erreur inattendue lors de la vérification du token: ${error.name} - ${error.message}`
+      );
     }
 
     return null;
   }
-}
+};
 
 /**
  * Vérifie un refresh token JWT
- * @param {string} token - Refresh token à vérifier
- * @returns {Object|null} - Données décodées du token ou null si invalide
+ * @param {string} token - Le refresh token JWT à vérifier
+ * @returns {object|null} - Le contenu décodé du token ou null si invalide
  */
-function verifyRefreshToken(token) {
-  try {
-    const decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
-    // Vérifier que c'est bien un refresh token
-    if (decoded.type !== "refresh") {
-      console.error("Type de token invalide:", decoded.type);
-      return null;
-    }
-    return decoded;
-  } catch (error) {
+const verifyRefreshToken = (token) => {
+  if (!token) {
     console.error(
-      "Erreur lors de la vérification du refresh token:",
-      error.message
+      "Tentative de vérification d'un refresh token null ou undefined"
     );
     return null;
   }
-}
+
+  try {
+    console.log(`Vérification du refresh token (${token.substring(0, 15)}...)`);
+
+    // Vérification du token avec la clé secrète
+    const decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
+
+    // Validation basique du contenu du token
+    if (!decoded.userId) {
+      console.error(
+        "Refresh token malformé: userId manquant dans le token décodé"
+      );
+      return null;
+    }
+
+    // Log de succès avec informations importantes
+    console.log(
+      `✅ Refresh token valide pour l'utilisateur ${
+        decoded.userId
+      } (expire: ${new Date(decoded.exp * 1000).toISOString()})`
+    );
+
+    return decoded;
+  } catch (error) {
+    // Gestion spécifique selon le type d'erreur
+    if (error.name === "TokenExpiredError") {
+      console.error(`Refresh token expiré: ${error.expiredAt}`);
+    } else if (error.name === "JsonWebTokenError") {
+      console.error(`Erreur de vérification JWT refresh: ${error.message}`);
+    } else {
+      console.error(
+        `Erreur inattendue lors de la vérification du refresh token: ${error.name} - ${error.message}`
+      );
+    }
+
+    return null;
+  }
+};
 
 /**
  * Définit les cookies sécurisés pour les tokens JWT
@@ -242,9 +228,11 @@ function setTokenCookies(
   });
   console.log("✅ Cookie accessToken défini, expire:", accessExpires);
 
-  // Configurer le cookie pour le refresh token
+  // Configurer le cookie pour le refresh token - s'assurer qu'il est accessible pour /api/auth/refresh
   res.cookie("refreshToken", refreshToken, {
     ...cookieConfig,
+    // Assurer que le cookie est accessible à la route de rafraîchissement
+    path: "/",
     expires: refreshExpires,
   });
   console.log("✅ Cookie refreshToken défini, expire:", refreshExpires);
@@ -325,6 +313,87 @@ function clearTokenCookies(res) {
   });
 }
 
+/**
+ * Crée un refresh token JWT pour un utilisateur
+ * @param {object} user - L'utilisateur pour lequel créer le token
+ * @returns {string} - Le refresh token généré
+ */
+const createRefreshToken = (user) => {
+  if (!user || !user._id) {
+    console.error(
+      "Tentative de création d'un refresh token avec un utilisateur invalide"
+    );
+    throw new Error(
+      "Données utilisateur invalides pour la création du refresh token"
+    );
+  }
+
+  try {
+    const payload = {
+      userId: user._id,
+      role: user.role || "user",
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + REFRESH_TOKEN_EXPIRY,
+    };
+
+    const token = jwt.sign(payload, REFRESH_TOKEN_SECRET);
+
+    console.log(
+      `✅ Refresh token créé pour l'utilisateur ${user._id} (expire dans ${
+        REFRESH_TOKEN_EXPIRY / 86400
+      } jours)`
+    );
+
+    return token;
+  } catch (error) {
+    console.error(
+      `❌ Erreur lors de la création du refresh token: ${error.message}`
+    );
+    throw new Error(`Échec de la création du refresh token: ${error.message}`);
+  }
+};
+
+/**
+ * Crée un access token JWT pour un utilisateur
+ * @param {object} user - L'utilisateur pour lequel créer le token
+ * @returns {string} - L'access token généré
+ */
+const createAccessToken = (user) => {
+  if (!user || !user._id) {
+    console.error(
+      "Tentative de création d'un access token avec un utilisateur invalide"
+    );
+    throw new Error(
+      "Données utilisateur invalides pour la création de l'access token"
+    );
+  }
+
+  try {
+    const payload = {
+      userId: user._id,
+      email: user.email,
+      role: user.role || "user",
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY,
+    };
+
+    const token = jwt.sign(payload, ACCESS_TOKEN_SECRET);
+
+    console.log(
+      `✅ Access token créé pour l'utilisateur ${user._id} (expire dans ${
+        ACCESS_TOKEN_EXPIRY / 60
+      } minutes)`
+    );
+
+    return token;
+  } catch (error) {
+    console.error(
+      `❌ Erreur lors de la création de l'access token: ${error.message}`
+    );
+    throw new Error(`Échec de la création de l'access token: ${error.message}`);
+  }
+};
+
 module.exports = {
   generateTokens,
   verifyAccessToken,
@@ -333,4 +402,6 @@ module.exports = {
   clearTokenCookies,
   ACCESS_TOKEN_SECRET,
   REFRESH_TOKEN_SECRET,
+  createRefreshToken,
+  createAccessToken,
 };

@@ -2,8 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Department = require("../models/Department");
 const Employee = require("../models/Employee");
-const { auth } = require("../middleware/auth");
-const { checkRole } = require("../middleware/secureAuth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 const { recordActivity } = require("./activities");
 const db = require("../config/db");
 
@@ -22,7 +21,7 @@ router.get("/test", (req, res) => {
  * @desc    Récupérer tous les départements de l'utilisateur connecté
  * @access  Private
  */
-router.get("/", auth, async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
   console.log("Route GET /api/departments appelée");
 
   try {
@@ -56,7 +55,7 @@ router.get("/", auth, async (req, res) => {
  * @desc    Récupérer un département par son ID (appartenant à l'utilisateur connecté)
  * @access  Private
  */
-router.get("/:id", auth, async (req, res) => {
+router.get("/:id", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const departmentId = req.params.id;
@@ -87,7 +86,7 @@ router.get("/:id", auth, async (req, res) => {
  * @desc    Récupérer les employés d'un département
  * @access  Private
  */
-router.get("/:id/employees", auth, async (req, res) => {
+router.get("/:id/employees", verifyToken, async (req, res) => {
   console.log(`Route GET /api/departments/${req.params.id}/employees appelée`);
 
   try {
@@ -132,7 +131,7 @@ router.get("/:id/employees", auth, async (req, res) => {
  * @desc    Créer un nouveau département
  * @access  Private
  */
-router.post("/", auth, async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     // Récupérer l'ID de l'utilisateur connecté
     const userId = req.user.id;
@@ -181,7 +180,7 @@ router.post("/", auth, async (req, res) => {
  * @desc    Mettre à jour un département
  * @access  Private (Admin)
  */
-router.put("/:id", auth, checkRole(["admin"]), async (req, res) => {
+router.put("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const { name, description, manager_id } = req.body;
 
@@ -259,7 +258,7 @@ router.put("/:id", auth, checkRole(["admin"]), async (req, res) => {
  * @desc    Supprimer un département
  * @access  Private (Admin)
  */
-router.delete("/:id", auth, checkRole(["admin"]), async (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     // Vérifier si le département existe
     const department = await Department.findById(req.params.id);

@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const VacationRequest = require("../models/VacationRequest");
-const { auth, getCurrentAdminId } = require("../middleware/auth");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 const db = require("../config/db");
 const Employee = require("../models/Employee");
 const Activity = require("../models/Activity");
 const Notification = require("../models/Notification");
 
 // Récupérer toutes les demandes de congés
-router.get("/", auth, async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
   try {
     console.log(
       "GET /api/vacations - Utilisateur connecté:",
@@ -98,7 +98,7 @@ router.get("/", auth, async (req, res) => {
 });
 
 // Récupérer une demande de congé par son ID
-router.get("/:id", auth, async (req, res) => {
+router.get("/:id", verifyToken, async (req, res) => {
   try {
     const vacationRequest = await VacationRequest.findById(req.params.id);
 
@@ -129,7 +129,7 @@ router.get("/:id", auth, async (req, res) => {
 });
 
 // Créer une nouvelle demande de congé
-router.post("/", auth, async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     console.log("POST /api/vacations - Création d'une demande de congés");
     console.log("Body:", req.body);
@@ -337,7 +337,7 @@ router.post("/", auth, async (req, res) => {
 });
 
 // Mettre à jour une demande de congé
-router.put("/:id", auth, async (req, res) => {
+router.put("/:id", verifyToken, async (req, res) => {
   try {
     const vacationRequest = await VacationRequest.findById(req.params.id);
 
@@ -530,7 +530,7 @@ router.put("/:id", auth, async (req, res) => {
 });
 
 // Supprimer une demande de congé
-router.delete("/:id", auth, async (req, res) => {
+router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const vacationRequest = await VacationRequest.findById(req.params.id);
 
@@ -655,7 +655,7 @@ router.delete("/:id", auth, async (req, res) => {
  * @desc    Récupérer les statistiques des demandes de congés
  * @access  Private
  */
-router.get("/stats", auth, async (req, res) => {
+router.get("/stats", verifyToken, async (req, res) => {
   try {
     console.log("Récupération des statistiques de congés");
 
@@ -776,7 +776,7 @@ router.get("/test-stats", async (req, res) => {
  * @desc    Mettre à jour le statut d'une demande de congé (approuver/rejeter)
  * @access  Private (Admin, Manager)
  */
-router.put("/:id/status", auth, async (req, res) => {
+router.put("/:id/status", verifyToken, async (req, res) => {
   try {
     // Récupérer l'ID de la demande de congé à partir de l'URL
     const id = req.params.id;

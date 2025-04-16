@@ -2,6 +2,7 @@ const db = require("../config/db");
 
 /**
  * Modèle pour les logs d'authentification
+ * Permet de suivre les tentatives de connexion, vérifications de token, etc.
  */
 class AuthLog {
   /**
@@ -9,24 +10,40 @@ class AuthLog {
    * @param {Object} logData - Données du log d'authentification
    * @param {string} logData.email - Email utilisé pour la tentative
    * @param {string} logData.ip - Adresse IP de l'utilisateur
-   * @param {string} logData.status - Statut de la tentative ('success' ou 'failed')
+   * @param {string} logData.status - Statut de la tentative ('success', 'failed', 'error', etc.)
    * @param {string} logData.message - Message détaillant la tentative
    * @param {string} logData.user_agent - User-Agent du client
+   * @param {string} logData.path - Chemin de la requête
+   * @param {string} logData.method - Méthode HTTP utilisée
    * @returns {Promise<Object>} Log créé
    */
-  static async create({ email, ip, status, message, user_agent }) {
+  static async create({
+    email,
+    ip,
+    status,
+    message,
+    user_agent,
+    path,
+    method,
+    user_id,
+    token_fragment,
+  }) {
     try {
       const query = `
-        INSERT INTO auth_logs (email, ip_address, status, message, user_agent)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO auth_logs (email, ip_address, status, message, user_agent, path, method, user_id, token_fragment)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const [result] = await db.execute(query, [
-        email,
+        email || "inconnu",
         ip,
         status,
         message,
         user_agent,
+        path,
+        method,
+        user_id || null,
+        token_fragment || null,
       ]);
 
       return {
@@ -36,6 +53,8 @@ class AuthLog {
         status,
         message,
         user_agent,
+        path,
+        method,
         created_at: new Date(),
       };
     } catch (error) {
@@ -43,7 +62,8 @@ class AuthLog {
         "Erreur lors de la création du log d'authentification:",
         error
       );
-      throw error;
+      // Ne pas planter le processus d'authentification si la journalisation échoue
+      return null;
     }
   }
 
@@ -120,6 +140,33 @@ class AuthLog {
     } catch (error) {
       console.error(
         "Erreur lors de la récupération des logs pour l'IP:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Récupère les logs d'authentification pour un statut spécifique
+   * @param {string} status - Statut à rechercher
+   * @param {number} limit - Nombre de logs à récupérer
+   * @returns {Promise<Array>} Liste des logs
+   */
+  static async getByStatus(status, limit = 50) {
+    try {
+      const query = `
+        SELECT *
+        FROM auth_logs
+        WHERE status = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      `;
+
+      const [logs] = await db.execute(query, [status, limit]);
+      return logs;
+    } catch (error) {
+      console.error(
+        "Erreur lors de la récupération des logs par statut:",
         error
       );
       throw error;

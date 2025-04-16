@@ -77,7 +77,7 @@ const corsOptions = {
   origin: [
     "https://smartplanning.fr",
     "https://www.smartplanning.fr",
-    "https://smartplanning.onrender.com/api ",
+    "https://smartplanning.onrender.com",
     "http://localhost:3000",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],

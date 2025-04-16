@@ -23,9 +23,14 @@ const config = {
 
   // JWT
   jwt: {
-    secret: process.env.JWT_SECRET || "smartplanningai_secret_key",
+    secret: process.env.JWT_SECRET || "smartplanning_secret_key",
     expiresIn: process.env.JWT_EXPIRES_IN || "24h",
   },
+
+  // Pour compatibilité avec le middleware d'authentification
+  jwtAccessSecret: process.env.JWT_SECRET || "smartplanning_secret_key",
+  jwtRefreshSecret:
+    process.env.JWT_REFRESH_SECRET || "smartplanning_refresh_secret_key",
 
   // CORS
   cors: {

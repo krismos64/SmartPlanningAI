@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
-const { auth } = require("../middleware/auth");
+const { verifyToken } = require("../middleware/auth");
 
 /**
  * @route GET /api/schedules/test
@@ -30,7 +30,7 @@ router.get("/test", async (req, res) => {
  * @desc Récupérer les statistiques d'activité des employés basées sur les horaires
  * @access Private
  */
-router.get("/activity", auth, async (req, res) => {
+router.get("/activity", verifyToken, async (req, res) => {
   try {
     const { period = "week" } = req.query;
     let data = [];

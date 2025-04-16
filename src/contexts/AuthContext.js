@@ -1,8 +1,12 @@
+import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
 import { apiRequest, fetchCsrfToken, getStoredCsrfToken } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import { getApiUrl } from "../utils/api";
+
+// Définir l'URL de l'API
+const API_URL = getApiUrl();
 
 // Style de la modale d'inactivité
 const StyledInactivityModal = styled.div`
@@ -276,178 +280,80 @@ export const AuthProvider = ({ children }) => {
 
   // Vérifier l'authentification initiale
   const checkInitialAuth = async () => {
-    console.log("🔍 Vérification de l'authentification initiale");
+    console.log("Vérification de l'authentification initiale...");
     setIsLoading(true);
 
-    try {
-      // Récupérer le token depuis localStorage
-      const authToken = localStorage.getItem("token");
-      console.log(`🔑 Token stocké: ${authToken ? "Présent" : "Absent"}`);
+    // Ajouter un timeout de sécurité pour éviter le blocage indéfini
+    const timeoutId = setTimeout(() => {
+      console.warn("Timeout lors de la vérification d'authentification");
+      setIsLoading(false);
+      setUser(null);
+    }, 8000); // 8 secondes maximum
 
-      if (!authToken) {
-        console.log("❌ Aucun token trouvé, déconnexion de l'utilisateur");
-        setIsAuthenticated(false);
-        setUser(null);
-        localStorage.removeItem("user");
+    try {
+      // Vérifier s'il y a un token en local storage (vérifier les deux clés possibles)
+      const storedToken =
+        localStorage.getItem("token") || localStorage.getItem("accessToken");
+      if (!storedToken) {
+        console.log("Aucun token trouvé dans le localStorage");
+        clearTimeout(timeoutId);
         setIsLoading(false);
         return;
       }
 
-      // Si l'utilisateur est déjà dans localStorage, l'utiliser temporairement
-      // pendant que nous vérifions l'authentification pour éviter un flash de déconnexion
-      const localUser = JSON.parse(localStorage.getItem("user") || "null");
-      if (localUser) {
-        console.log("👤 Utilisateur local trouvé temporairement:", localUser);
-        setUser(localUser);
-        setIsAuthenticated(true);
-      }
+      // Stocker le token sous les deux formats pour assurer la compatibilité
+      localStorage.setItem("token", storedToken);
+      localStorage.setItem("accessToken", storedToken);
 
-      // Vérifier le token avec le serveur - on utilise directement apiRequest sans vérification préliminaire
-      console.log("🔐 Vérification du token avec le serveur");
-      try {
-        const response = await apiRequest("/api/auth/verify", "GET");
-        console.log("📥 Réponse de vérification:", response);
+      // Vérifier le token auprès du serveur - CORRECTION: utiliser /api/auth/verify au lieu de /auth/verify
+      const response = await axios.get(`${API_URL}/api/auth/verify`, {
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${storedToken}`, // Ajouter explicitement le token dans l'en-tête
+        },
+      });
 
-        if (response && response.isAuthenticated === true) {
-          console.log("✅ Authentification validée par le serveur");
-          setIsAuthenticated(true);
+      console.log("Réponse de vérification:", response.data);
 
-          if (response.user) {
-            console.log("👤 Informations utilisateur reçues:", response.user);
-            setUser(response.user);
-            localStorage.setItem("user", JSON.stringify(response.user));
-          } else if (localUser) {
-            console.log(
-              "🔄 Utilisation des données utilisateur existantes du localStorage"
-            );
-            // On garde l'utilisateur du localStorage si le serveur n'en a pas fourni
-            setUser(localUser);
-          } else {
-            console.warn(
-              "⚠️ Authentifié mais aucune information utilisateur reçue"
-            );
-            // On tente quand même de continuer la session sans déconnecter l'utilisateur
-            // car le token est valide mais le serveur n'a pas retourné de données utilisateur
-            console.log(
-              "⚠️ Tentative de récupération des données utilisateur via une route alternative"
-            );
-            try {
-              const userResponse = await apiRequest("/api/user/profile", "GET");
-              if (userResponse && userResponse.user) {
-                console.log(
-                  "👤 Informations utilisateur récupérées via profil:",
-                  userResponse.user
-                );
-                setUser(userResponse.user);
-                localStorage.setItem("user", JSON.stringify(userResponse.user));
-              }
-            } catch (profileError) {
-              console.error(
-                "❌ Échec de récupération du profil:",
-                profileError
-              );
-              // On ne déconnecte pas l'utilisateur si le token est valide mais qu'on n'a pas
-              // pu récupérer les données utilisateur
-            }
-          }
-        } else if (response && response.success === true) {
-          // Certaines APIs peuvent retourner success au lieu de isAuthenticated
-          console.log(
-            "✅ Authentification validée par le serveur (format success)"
-          );
-          setIsAuthenticated(true);
+      // Vérifier si l'utilisateur est authentifié selon la nouvelle structure
+      if (response.data.isAuthenticated) {
+        // Stocker les informations de l'utilisateur
+        setUser(response.data.user);
 
-          if (response.user) {
-            console.log("👤 Informations utilisateur reçues:", response.user);
-            setUser(response.user);
-            localStorage.setItem("user", JSON.stringify(response.user));
-          } else if (localUser) {
-            // Garder l'utilisateur du localStorage
-            console.log("🔄 Conservation des données utilisateur locales");
-          }
-        } else {
-          console.log(
-            "🚫 Token invalide selon le serveur, tentative de rafraîchissement"
-          );
-
-          // Tenter de rafraîchir le token avant de déconnecter
-          try {
-            const refreshResponse = await refreshToken();
-            if (refreshResponse && refreshResponse.success) {
-              console.log("✅ Token rafraîchi avec succès");
-              // Si le rafraîchissement a réussi, on garde l'authentification
-              setIsAuthenticated(true);
-              return;
-            } else {
-              console.log("❌ Échec du rafraîchissement, déconnexion");
-              setIsAuthenticated(false);
-              setUser(null);
-              localStorage.removeItem("token");
-              localStorage.removeItem("user");
-            }
-          } catch (refreshError) {
-            console.error("❌ Erreur lors du rafraîchissement:", refreshError);
-            setIsAuthenticated(false);
-            setUser(null);
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-          }
-        }
-      } catch (verifyError) {
-        console.error(
-          "❌ Erreur lors de la vérification du token:",
-          verifyError
-        );
-
-        // Vérifier si l'erreur est liée à une API inaccessible ou à un problème réseau
+        // Mettre à jour le localStorage si nécessaire
         if (
-          verifyError.message &&
-          (verifyError.message.includes("Network Error") ||
-            verifyError.message.includes("Failed to fetch") ||
-            verifyError.message.includes("404"))
+          !localStorage.getItem("user") ||
+          JSON.parse(localStorage.getItem("user")?._id) !==
+            response.data.user._id
         ) {
-          console.log(
-            "🌐 Problème réseau détecté, conservation de la session locale"
-          );
-          // En cas de problème réseau, on garde l'utilisateur connecté avec les données locales
-          // plutôt que de le déconnecter immédiatement
-          if (localUser) {
-            console.log(
-              "👤 Conservation des données utilisateur locales en attendant le rétablissement du réseau"
-            );
-            setUser(localUser);
-            setIsAuthenticated(true);
-          } else {
-            setIsAuthenticated(false);
-            setUser(null);
-            localStorage.removeItem("token");
-          }
-        } else {
-          // Pour d'autres types d'erreurs, on déconnecte
-          setIsAuthenticated(false);
-          setUser(null);
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          localStorage.setItem("user", JSON.stringify(response.data.user));
         }
+
+        // Initialiser la connexion WebSocket
+        if (connect) {
+          connect();
+        }
+      } else {
+        // Non authentifié - message facultatif dans la console
+        console.log(
+          "Vérification d'authentification: non authentifié",
+          response.data.message
+        );
+        // Effacer les données utilisateur
+        setUser(null);
+        localStorage.removeItem("user");
       }
     } catch (error) {
-      console.error("❌ Erreur générale lors de la vérification:", error);
-      // Ne pas déconnecter automatiquement en cas d'erreur générale
-      // car cela pourrait être dû à un problème temporaire
-
-      const localUser = JSON.parse(localStorage.getItem("user") || "null");
-      if (localUser) {
-        console.log("🔄 Conservation de la session locale malgré l'erreur");
-        setUser(localUser);
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        localStorage.removeItem("token");
-      }
+      console.error(
+        "Erreur lors de la vérification de l'authentification initiale:",
+        error
+      );
+      // En cas d'erreur, considérer l'utilisateur comme non authentifié
+      setUser(null);
+      localStorage.removeItem("user");
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
-      console.log("✅ Vérification d'authentification terminée");
     }
   };
 
@@ -674,7 +580,7 @@ export const AuthProvider = ({ children }) => {
 
       // Effectuer la requête de connexion directement
       console.log("📡 Envoi de la requête de connexion au serveur");
-      const response = await apiRequest("/auth/login", "POST", {
+      const response = await apiRequest("/api/auth/login", "POST", {
         email,
         password,
       });
@@ -702,9 +608,10 @@ export const AuthProvider = ({ children }) => {
         console.log("🔄 RefreshToken reçu:", refreshToken ? "Oui" : "Non");
         console.log("👤 User info reçues:", userInfo ? "Oui" : "Non");
 
-        // Stocker le token dans localStorage
+        // Stocker le token dans localStorage sous les deux formats pour compatibilité
         if (userToken) {
           localStorage.setItem("token", userToken);
+          localStorage.setItem("accessToken", userToken);
           setToken(userToken);
           console.log("✅ Token stocké dans localStorage avec succès");
         } else {
@@ -844,7 +751,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       // Effectuer la requête d'inscription
-      const response = await apiRequest("/auth/register", "POST", userData);
+      const response = await apiRequest("/api/auth/register", "POST", userData);
       console.log("Réponse d'inscription reçue:", response);
 
       if (response && response.success) {
@@ -913,7 +820,7 @@ export const AuthProvider = ({ children }) => {
       setToken(null);
 
       // Effectuer une requête de déconnexion au backend (sans attendre la réponse)
-      apiRequest("/auth/logout", "POST").catch((error) => {
+      apiRequest("/api/auth/logout", "POST").catch((error) => {
         console.error("Erreur lors de la déconnexion:", error);
       });
 
@@ -933,7 +840,7 @@ export const AuthProvider = ({ children }) => {
   // Fonction pour se connecter avec Google (redirection)
   const loginWithGoogle = async () => {
     try {
-      window.location.href = getApiUrl("/auth/google");
+      window.location.href = getApiUrl("/api/auth/google");
       return { success: true };
     } catch (error) {
       console.error("Erreur lors de la redirection vers Google:", error);
@@ -951,7 +858,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       const response = await apiRequest(
-        "/auth/request-account-deletion",
+        "/api/auth/request-account-deletion",
         "POST"
       );
 
@@ -976,7 +883,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       const response = await apiRequest(
-        "/auth/confirm-account-deletion",
+        "/api/auth/confirm-account-deletion",
         "POST",
         { token }
       );
@@ -1009,7 +916,7 @@ export const AuthProvider = ({ children }) => {
       // Rafraîchir d'abord le token CSRF
       await refreshCsrfToken();
 
-      const response = await apiRequest("/auth/refresh", "POST");
+      const response = await apiRequest("/api/auth/refresh", "POST");
       console.log("Réponse de rafraîchissement reçue:", response);
 
       if (response && response.success) {
@@ -1023,6 +930,7 @@ export const AuthProvider = ({ children }) => {
         if (newToken) {
           console.log("Nouveau token reçu");
           localStorage.setItem("token", newToken);
+          localStorage.setItem("accessToken", newToken);
           setToken(newToken);
         } else {
           console.warn("Aucun token dans la réponse de rafraîchissement");
@@ -1059,7 +967,7 @@ export const AuthProvider = ({ children }) => {
       // Rafraîchir le token CSRF avant le changement de mot de passe
       await refreshCsrfToken();
 
-      const response = await apiRequest("/users/change-password", "POST", {
+      const response = await apiRequest("/api/users/change-password", "POST", {
         currentPassword,
         newPassword,
       });

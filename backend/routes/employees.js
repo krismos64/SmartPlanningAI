@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const Employee = require("../models/Employee");
-const { auth } = require("../middleware/auth");
-const activitiesRouter = require("./activities");
+const { verifyToken } = require("../middleware/auth");
+const Activity = require("../models/Activity");
 const db = require("../config/db");
 
 // @route   GET /api/employees
 // @desc    Obtenir tous les employés de l'utilisateur connecté
 // @access  Private
-router.get("/", auth, async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
   try {
     console.log("Récupération des employés pour l'utilisateur connecté");
 
@@ -34,7 +34,7 @@ router.get("/", auth, async (req, res) => {
 // @route   GET /api/employees/:id
 // @desc    Obtenir un employé spécifique (de l'utilisateur connecté uniquement)
 // @access  Private
-router.get("/:id", auth, async (req, res) => {
+router.get("/:id", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const employeeId = req.params.id;
@@ -66,7 +66,7 @@ router.get("/:id", auth, async (req, res) => {
 // @route   POST /api/employees
 // @desc    Créer un nouvel employé (ajout automatique du user_id)
 // @access  Private (Admin)
-router.post("/", auth, async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     console.log("Création d'un nouvel employé avec les données:", req.body);
 
@@ -147,7 +147,7 @@ router.post("/", auth, async (req, res) => {
 // @route   PUT /api/employees/:id
 // @desc    Mettre à jour un employé (de l'utilisateur connecté uniquement)
 // @access  Private
-router.put("/:id", auth, async (req, res) => {
+router.put("/:id", verifyToken, async (req, res) => {
   try {
     console.log("Mise à jour de l'employé:", req.params.id);
     console.log("Données reçues:", JSON.stringify(req.body, null, 2));
@@ -269,7 +269,7 @@ router.put("/:id", auth, async (req, res) => {
 // @route   DELETE /api/employees/:id
 // @desc    Supprimer un employé (de l'utilisateur connecté uniquement)
 // @access  Private
-router.delete("/:id", auth, async (req, res) => {
+router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const employeeId = req.params.id;
@@ -344,7 +344,7 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 // Récupérer tous les employés associés à un utilisateur
-router.get("/by-user/:userId", auth, async (req, res) => {
+router.get("/by-user/:userId", verifyToken, async (req, res) => {
   try {
     const userId = req.params.userId;
 

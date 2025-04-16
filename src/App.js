@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "react-hot-toast";
 import {
@@ -69,6 +69,7 @@ const LoadingFallback = () => (
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [isStuck, setIsStuck] = useState(false);
 
   useEffect(() => {
     console.log("ProtectedRoute - vérification d'authentification:", {
@@ -77,6 +78,16 @@ const ProtectedRoute = ({ children }) => {
       token: localStorage.getItem("token") ? "présent" : "absent",
       user: localStorage.getItem("user") ? "présent" : "absent",
     });
+
+    // Timeout de sécurité pour éviter de rester bloqué en chargement
+    const stuckTimer = setTimeout(() => {
+      if (isLoading && localStorage.getItem("token")) {
+        console.log(
+          "ProtectedRoute - timeout de chargement atteint, mais token présent"
+        );
+        setIsStuck(true);
+      }
+    }, 3000); // 3 secondes maximum pour le chargement
 
     // Vérifier s'il y a un token dans localStorage
     const token = localStorage.getItem("token");
@@ -96,7 +107,17 @@ const ProtectedRoute = ({ children }) => {
       );
       // On attend que isAuthenticated soit mis à jour
     }
-  }, [isAuthenticated, navigate]);
+
+    return () => clearTimeout(stuckTimer);
+  }, [isAuthenticated, navigate, isLoading]);
+
+  // Si on a détecté que le chargement est bloqué mais qu'un token existe
+  if (isStuck) {
+    console.log(
+      "ProtectedRoute - forcage de l'affichage malgré le chargement bloqué"
+    );
+    return children;
+  }
 
   if (isLoading) {
     return <LoadingFallback />;
