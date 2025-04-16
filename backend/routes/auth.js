@@ -688,54 +688,6 @@ router.get("/users", secureAuth, async (req, res) => {
   }
 });
 
-// Route pour récupérer un utilisateur spécifique par son ID (sans /users/ préfixe)
-router.get("/:id", secureAuth, async (req, res) => {
-  try {
-    const userId = req.params.id;
-    console.log(
-      `Recherche de l'utilisateur avec ID: ${userId} (route directe)`
-    );
-
-    const user = await User.findById(userId);
-    console.log("Résultat de la recherche:", user ? "Trouvé" : "Non trouvé");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Utilisateur non trouvé",
-      });
-    }
-
-    // Ne pas renvoyer le mot de passe
-    const safeUser = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      created_at: user.created_at,
-      company: user.company,
-      phone: user.phone,
-      jobTitle: user.jobTitle,
-    };
-
-    res.json({
-      success: true,
-      data: safeUser,
-    });
-  } catch (error) {
-    console.error(
-      `Erreur lors de la récupération de l'utilisateur ${req.params.id}:`,
-      error
-    );
-    res.status(500).json({
-      success: false,
-      message: `Erreur lors de la récupération de l'utilisateur ${req.params.id}`,
-      error: error.message,
-    });
-  }
-});
-
 // Route pour récupérer un utilisateur spécifique par son ID
 router.get("/users/:id", secureAuth, async (req, res) => {
   try {
@@ -1044,80 +996,30 @@ router.get("/current-admin", auth, async (req, res) => {
   }
 });
 
-// Route pour vérifier la validité du token JWT
-router.get("/verify", async (req, res) => {
+// Route pour vérifier l'authentification via le token JWT
+router.get("/verify", verifyAccessToken, async (req, res) => {
   try {
-    console.log("🔍 Vérification du token JWT");
+    // Récupérer l'ID utilisateur depuis le token décodé
+    const userId = req.user.id;
 
-    // Récupérer le token depuis les cookies ou depuis le header Authorization
-    let token = req.cookies?.accessToken;
+    // Chercher l'utilisateur dans la base de données
+    const user = await User.findById(userId);
 
-    // Si pas de token dans les cookies, essayer dans les headers
-    if (!token && req.headers.authorization) {
-      const authHeader = req.headers.authorization;
-      if (authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (!token) {
-      console.log("❌ Aucun token trouvé");
-      return res.status(401).json({
-        success: false,
-        message: "Authentification requise",
-        code: "AUTH_REQUIRED",
-      });
-    }
-
-    // Vérifier et décoder le token
-    const decoded = verifyAccessToken(token);
-
-    if (!decoded) {
-      console.log("❌ Token invalide ou expiré");
-      return res.status(401).json({
-        success: false,
-        message: "Session invalide ou expirée",
-        code: "INVALID_TOKEN",
-      });
-    }
-
-    // Récupérer les informations de l'utilisateur
-    const user = await User.findById(decoded.userId);
-
+    // Si l'utilisateur n'est pas trouvé
     if (!user) {
-      console.log("❌ Utilisateur non trouvé avec ID:", decoded.userId);
       return res.status(404).json({
         success: false,
-        message: "Utilisateur non trouvé",
-        code: "USER_NOT_FOUND",
+        message: "Utilisateur introuvable",
       });
     }
 
-    // Renvoyer les informations de l'utilisateur sans les données sensibles
-    const safeUser = {
-      id: user.id,
-      email: user.email,
-      role: user.role || "admin",
-      first_name: user.first_name,
-      last_name: user.last_name,
-      fullName:
-        `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-        "Administrateur",
-    };
-
-    console.log("✅ Token valide pour l'utilisateur:", safeUser.id);
-
-    return res.status(200).json({
-      success: true,
-      message: "Token valide",
-      user: safeUser,
-    });
+    // Retourner les informations de l'utilisateur
+    return res.status(200).json({ user });
   } catch (error) {
-    console.error("❌ Erreur lors de la vérification du token:", error.message);
+    console.error("Erreur lors de la vérification du token:", error);
     return res.status(500).json({
       success: false,
-      message: "Erreur lors de la vérification du token",
-      error: error.message,
+      message: "Erreur serveur lors de la vérification de l'authentification",
     });
   }
 });

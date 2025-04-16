@@ -91,6 +91,43 @@ export const AuthProvider = ({ children }) => {
   const [inactivityLogoutTimer, setInactivityLogoutTimer] = useState(null);
   const [inactivityCheckTimer, setInactivityCheckTimer] = useState(null);
 
+  // Vérification du token et restauration de la session au chargement
+  useEffect(() => {
+    const verifySessionToken = async () => {
+      try {
+        // Récupérer le token depuis le localStorage
+        const storedToken = localStorage.getItem("token");
+
+        if (!storedToken) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Appeler l'API pour vérifier le token
+        const res = await apiRequest("/api/auth/verify", "GET", null, {
+          Authorization: `Bearer ${storedToken}`,
+        });
+
+        // Si l'utilisateur est trouvé, restaurer la session
+        if (res && res.user) {
+          setUser(res.user);
+          setIsAuthenticated(true);
+          setToken(storedToken);
+        } else {
+          // Sinon déconnecter l'utilisateur
+          logout();
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification de la session:", error);
+        logout();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    verifySessionToken();
+  }, []);
+
   // Constantes pour les timeouts d'inactivité
   const INACTIVITY_THRESHOLD = 15 * 60 * 1000; // 15 minutes en millisecondes
   const LOGOUT_WARNING_DURATION = 60 * 1000; // 1 minute en millisecondes
