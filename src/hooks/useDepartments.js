@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { API_ENDPOINTS } from "../config/api";
-import useApi from "./useApi";
+import { API_URL } from "../config/api";
 
 /**
  * Hook personnalisé pour gérer les départements
@@ -19,7 +18,6 @@ const useDepartments = () => {
   ]);
   const [loading, setLoading] = useState(false); // Commencer avec loading à false
   const [error, setError] = useState(null);
-  const api = useApi();
 
   /**
    * Récupère tous les départements depuis les employés existants
@@ -30,20 +28,51 @@ const useDepartments = () => {
       setLoading(true);
       console.log("Tentative de récupération des départements...");
 
-      const response = await api.get(API_ENDPOINTS.DEPARTMENTS.BASE);
-      console.log("Réponse de l'API départements:", response);
+      const token = localStorage.getItem("token");
 
-      if (
-        response.ok &&
-        Array.isArray(response.data) &&
-        response.data.length > 0
-      ) {
-        setDepartments(response.data);
-        setError(null);
-        console.log("Départements récupérés avec succès:", response.data);
+      // Construire l'URL explicitement avec le préfixe /api
+      const baseUrl = API_URL || "http://localhost:5001";
+      const url = `${baseUrl}/api/departments`;
+      console.log("URL des départements:", url);
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Réponse de l'API départements:", data);
+
+        if (Array.isArray(data) && data.length > 0) {
+          setDepartments(data);
+          setError(null);
+          console.log("Départements récupérés avec succès:", data);
+        } else if (
+          data.data &&
+          Array.isArray(data.data) &&
+          data.data.length > 0
+        ) {
+          // Format alternatif de réponse
+          setDepartments(data.data);
+          setError(null);
+          console.log(
+            "Départements récupérés avec succès (format alternatif):",
+            data.data
+          );
+        } else {
+          console.log("Utilisation des départements par défaut (réponse vide)");
+          // Nous gardons les départements par défaut déjà définis dans le state initial
+        }
       } else {
-        console.log("Utilisation des départements par défaut");
-        // Nous gardons les départements par défaut déjà définis dans le state initial
+        console.log(
+          `Erreur ${response.status} - Utilisation des départements par défaut`
+        );
+        // Nous gardons les départements par défaut
       }
     } catch (err) {
       console.error(
@@ -54,83 +83,115 @@ const useDepartments = () => {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, []);
 
-  const createDepartment = useCallback(
-    async (departmentData) => {
-      try {
-        const response = await api.post(
-          API_ENDPOINTS.DEPARTMENTS.BASE,
-          departmentData
+  const createDepartment = useCallback(async (departmentData) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Token d'authentification manquant");
+      }
+
+      const baseUrl = API_URL || "http://localhost:5001";
+      const url = `${baseUrl}/api/departments`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(departmentData),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDepartments((prev) => [...prev, data]);
+        return { success: true, department: data };
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || "Erreur lors de la création du département"
         );
-
-        if (response.ok) {
-          setDepartments((prev) => [...prev, response.data]);
-          return { success: true, department: response.data };
-        } else {
-          throw new Error(
-            response.data?.message ||
-              "Erreur lors de la création du département"
-          );
-        }
-      } catch (err) {
-        console.error("Erreur lors de la création du département:", err);
-        return { success: false, error: err.message };
       }
-    },
-    [api]
-  );
+    } catch (err) {
+      console.error("Erreur lors de la création du département:", err);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-  const updateDepartment = useCallback(
-    async (id, departmentData) => {
-      try {
-        const response = await api.put(
-          API_ENDPOINTS.DEPARTMENTS.BY_ID(id),
-          departmentData
+  const updateDepartment = useCallback(async (id, departmentData) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Token d'authentification manquant");
+      }
+
+      const baseUrl = API_URL || "http://localhost:5001";
+      const url = `${baseUrl}/api/departments/${id}`;
+
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(departmentData),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDepartments((prev) =>
+          prev.map((dept) => (dept.id === id ? { ...dept, ...data } : dept))
         );
-
-        if (response.ok) {
-          setDepartments((prev) =>
-            prev.map((dept) =>
-              dept.id === id ? { ...dept, ...response.data } : dept
-            )
-          );
-          return { success: true, department: response.data };
-        } else {
-          throw new Error(
-            response.data?.message ||
-              "Erreur lors de la mise à jour du département"
-          );
-        }
-      } catch (err) {
-        console.error("Erreur lors de la mise à jour du département:", err);
-        return { success: false, error: err.message };
+        return { success: true, department: data };
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || "Erreur lors de la mise à jour du département"
+        );
       }
-    },
-    [api]
-  );
+    } catch (err) {
+      console.error("Erreur lors de la mise à jour du département:", err);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-  const deleteDepartment = useCallback(
-    async (id) => {
-      try {
-        const response = await api.delete(API_ENDPOINTS.DEPARTMENTS.BY_ID(id));
-
-        if (response.ok) {
-          setDepartments((prev) => prev.filter((dept) => dept.id !== id));
-          return { success: true };
-        } else {
-          throw new Error(
-            response.data?.message ||
-              "Erreur lors de la suppression du département"
-          );
-        }
-      } catch (err) {
-        console.error("Erreur lors de la suppression du département:", err);
-        return { success: false, error: err.message };
+  const deleteDepartment = useCallback(async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Token d'authentification manquant");
       }
-    },
-    [api]
-  );
+
+      const baseUrl = API_URL || "http://localhost:5001";
+      const url = `${baseUrl}/api/departments/${id}`;
+
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        setDepartments((prev) => prev.filter((dept) => dept.id !== id));
+        return { success: true };
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || "Erreur lors de la suppression du département"
+        );
+      }
+    } catch (err) {
+      console.error("Erreur lors de la suppression du département:", err);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
   /**
    * Récupère un département par son ID

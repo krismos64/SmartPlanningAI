@@ -1,6 +1,8 @@
-import { API_ENDPOINTS, apiRequest } from "../config/api";
+import { toast } from "react-toastify";
+import { API_ENDPOINTS, API_URL, apiRequest } from "../config/api";
 import { formatDateForAPI } from "../utils/dateUtils";
 import { formatError } from "../utils/errorHandling";
+import AuthServiceModule from "./AuthService";
 
 /**
  * Configuration et utilitaires pour les appels API
@@ -212,6 +214,24 @@ export const AuthService = {
           error.message ||
           "Erreur lors de la confirmation de suppression de compte",
       };
+    }
+  },
+
+  /**
+   * Vérifie si le token d'authentification actuel est valide
+   * @returns {Promise<boolean>} - True si le token est valide, sinon False
+   */
+  checkTokenValidity: async () => {
+    try {
+      // Vérifier le token en faisant une requête au point de terminaison "me"
+      const response = await apiRequest.get(API_ENDPOINTS.AUTH.ME);
+      return response.success === true && response.data;
+    } catch (error) {
+      console.warn(
+        "Token d'authentification non valide:",
+        error?.response?.status || error
+      );
+      return false;
     }
   },
 };
@@ -762,6 +782,11 @@ export const ActivityService = {
   },
 };
 
+/**
+ * Fournit les méthodes pour travailler avec les plannings hebdomadaires.
+ * Une implémentation alternative plus complète est disponible dans src/services/WeeklyScheduleService.js.
+ * Les deux implémentations fonctionnent de manière indépendante mais offrent les mêmes fonctionnalités de base.
+ */
 export const WeeklyScheduleService = {
   getAll: async () => {
     try {
@@ -798,53 +823,73 @@ export const WeeklyScheduleService = {
         formattedDate
       );
 
-      try {
-        const response = await apiRequest(
-          `${API_ENDPOINTS.WEEKLY_SCHEDULES}/week/${formattedDate}`,
-          "GET"
-        );
+      // Construire l'URL explicitement avec le préfixe /api
+      const apiUrl = API_URL || "http://localhost:5001";
+      const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const url = `${baseUrl}/api/weekly-schedules/week/${formattedDate}`;
+      console.log("URL complète pour les plannings:", url);
 
-        if (response.error) {
+      try {
+        // Récupérer le token d'authentification
+        const token =
+          localStorage.getItem("token") ||
+          localStorage.getItem("accessToken") ||
+          sessionStorage.getItem("token");
+
+        // Effectuer la requête avec une URL explicite
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
           console.error(
             "Erreur API lors de la récupération des plannings:",
-            response.error
+            response.status,
+            response.statusText
           );
+
+          // Récupérer les données d'erreur s'il y en a
+          const errorData = await response.json().catch(() => ({}));
+
           return {
             success: false,
-            message: response.error,
-            details: response.details || "",
+            message: errorData.message || `Erreur ${response.status}`,
+            details: errorData.details || "",
           };
         }
 
+        // Récupérer les données de la réponse
+        const data = await response.json();
         console.log(
           "Réponse API pour les plannings:",
-          JSON.stringify(response).substring(0, 200) + "..."
+          JSON.stringify(data).substring(0, 200) + "..."
         );
 
         // Normaliser la structure de la réponse pour garantir un format cohérent
-        if (
-          response &&
-          response._originalResponse &&
-          response._originalResponse.data
-        ) {
+        if (data && data._originalResponse && data._originalResponse.data) {
           // Cas où la réponse contient la structure normalisée avec _originalResponse
           return {
             success: true,
-            schedules: Array.isArray(response._originalResponse.data)
-              ? response._originalResponse.data
+            schedules: Array.isArray(data._originalResponse.data)
+              ? data._originalResponse.data
               : [],
           };
-        } else if (response && response.data && Array.isArray(response.data)) {
+        } else if (data && data.data && Array.isArray(data.data)) {
           // Cas où la réponse contient directement un champ data qui est un tableau
-          return { success: true, schedules: response.data };
-        } else if (Array.isArray(response)) {
+          return { success: true, schedules: data.data };
+        } else if (Array.isArray(data)) {
           // Cas où la réponse est directement un tableau
-          return { success: true, schedules: response };
+          return { success: true, schedules: data };
         } else {
           // Cas par défaut - on retourne une structure attendue avec un tableau vide si nécessaire
           return {
             success: true,
-            schedules: response && Array.isArray(response) ? response : [],
+            schedules: data && Array.isArray(data) ? data : [],
           };
         }
       } catch (apiError) {
@@ -935,31 +980,65 @@ export const WeeklyScheduleService = {
     }
   },
 
+  // Méthode alias de create pour cohérence d'API avec useWeeklySchedules
+  createSchedule: async (scheduleData) => {
+    return WeeklyScheduleService.create(scheduleData);
+  },
+
   create: async (scheduleData) => {
     try {
       console.log("Création d'un nouveau planning:", scheduleData);
 
-      // Utiliser l'URL complète avec API_URL pour s'assurer que la requête est correctement routée
-      const response = await apiRequest(
-        API_ENDPOINTS.WEEKLY_SCHEDULES,
-        "POST",
-        scheduleData
-      );
+      // Construire l'URL explicitement avec le préfixe /api
+      const apiUrl = API_URL || "http://localhost:5001";
+      const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const url = `${baseUrl}/api/weekly-schedules`;
+      console.log("URL complète pour la création de planning:", url);
 
-      if (response.error) {
-        console.error(
-          "Erreur lors de la création du planning:",
-          response.error
-        );
-        return { success: false, message: response.error };
+      // Récupérer le token d'authentification
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("accessToken") ||
+        sessionStorage.getItem("token");
+
+      if (!token) {
+        console.error("Token d'authentification manquant");
+        return {
+          success: false,
+          message: "Authentification requise pour créer un planning",
+        };
       }
 
-      console.log("Planning créé avec succès:", response);
+      // Effectuer la requête avec une URL explicite
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(scheduleData),
+        credentials: "include",
+      });
 
-      // Normaliser la réponse pour s'assurer que tous les champs nécessaires sont présents
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(
+          "Erreur lors de la création du planning:",
+          errorData.message || response.statusText
+        );
+        return {
+          success: false,
+          message: errorData.message || `Erreur ${response.status}`,
+        };
+      }
+
+      // Récupérer les données de la réponse
+      const data = await response.json();
+      console.log("Réponse API pour la création du planning:", data);
+
       return {
         success: true,
-        schedule: response.data || response,
+        schedule: data.schedule || data.data || data,
       };
     } catch (error) {
       console.error("Exception lors de la création du planning:", error);
@@ -970,50 +1049,70 @@ export const WeeklyScheduleService = {
     }
   },
 
-  // Méthode createSchedule pour cohérence d'API
-  createSchedule: async (scheduleData) => {
-    return WeeklyScheduleService.create(scheduleData);
+  // Méthode updateSchedule pour cohérence d'API
+  updateSchedule: async (id, scheduleData) => {
+    return WeeklyScheduleService.update(id, scheduleData);
   },
 
   update: async (id, scheduleData) => {
     try {
       console.log(`Mise à jour du planning ${id}:`, scheduleData);
-      const response = await apiRequest(
-        `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
-        "PUT",
-        scheduleData
-      );
 
-      console.log(`Réponse de la mise à jour du planning ${id}:`, response);
+      // Construire l'URL explicitement avec le préfixe /api
+      const apiUrl = API_URL || "http://localhost:5001";
+      const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const url = `${baseUrl}/api/weekly-schedules/${id}`;
+      console.log(`URL complète pour la mise à jour du planning ${id}:`, url);
 
-      // Gérer les erreurs spécifiques retournées avec un code 4xx/5xx
-      if (response && response.success === false) {
-        console.error(
-          `Erreur de mise à jour du planning ${id}:`,
-          response.message
-        );
+      // Récupérer le token d'authentification
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("accessToken") ||
+        sessionStorage.getItem("token");
+
+      if (!token) {
+        console.error("Token d'authentification manquant");
         return {
           success: false,
-          message:
-            response.message || "Erreur lors de la mise à jour du planning",
-          scheduleId: response.scheduleId, // Pour gérer le cas de conflit (planning existant)
+          message: "Authentification requise pour modifier un planning",
         };
       }
 
-      // En cas de succès, la réponse contient l'objet schedule
-      if (response && response.schedule) {
-        return { success: true, schedule: response.schedule };
-      } else if (response && response.success) {
-        // Si pas de schedule mais success=true
-        return { success: true, schedule: response };
+      // Effectuer la requête avec une URL explicite
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(scheduleData),
+        credentials: "include",
+      });
+
+      // Gérer les erreurs spécifiques retournées avec un code 4xx/5xx
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(
+          `Erreur de mise à jour du planning ${id}:`,
+          errorData.message || response.statusText
+        );
+        return {
+          success: false,
+          message: errorData.message || `Erreur ${response.status}`,
+          scheduleId: errorData.scheduleId, // Pour gérer le cas de conflit (planning existant)
+        };
       }
 
-      return { success: true, schedule: response }; // Par défaut, considérer la réponse comme le schedule
+      // Récupérer les données de la réponse
+      const data = await response.json();
+
+      // Normaliser la réponse pour s'assurer que tous les champs nécessaires sont présents
+      return {
+        success: true,
+        schedule: data.data || data,
+      };
     } catch (error) {
-      console.error(
-        `Erreur d'API lors de la mise à jour du planning ${id}:`,
-        error
-      );
+      console.error("Exception lors de la mise à jour du planning:", error);
       return {
         success: false,
         message: error.message || "Erreur lors de la mise à jour du planning",
@@ -1021,38 +1120,67 @@ export const WeeklyScheduleService = {
     }
   },
 
-  // Méthode updateSchedule pour cohérence d'API
-  updateSchedule: async (id, scheduleData) => {
-    return WeeklyScheduleService.update(id, scheduleData);
+  // Méthode deleteSchedule pour cohérence d'API
+  deleteSchedule: async (id) => {
+    return WeeklyScheduleService.delete(id);
   },
 
   delete: async (id) => {
     try {
-      console.log(`Suppression du planning ${id}...`);
-      const response = await apiRequest(
-        `${API_ENDPOINTS.WEEKLY_SCHEDULES}/${id}`,
-        "DELETE"
-      );
+      console.log(`Suppression du planning ${id}`);
 
-      console.log(`Réponse de la suppression du planning ${id}:`, response);
+      // Construire l'URL explicitement avec le préfixe /api
+      const apiUrl = API_URL || "http://localhost:5001";
+      const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const url = `${baseUrl}/api/weekly-schedules/${id}`;
+      console.log(`URL complète pour la suppression du planning ${id}:`, url);
 
-      // Gérer les erreurs spécifiques retournées avec un code 4xx/5xx
-      if (response && response.success === false) {
-        console.error(
-          `Erreur de suppression du planning ${id}:`,
-          response.message
-        );
+      // Récupérer le token d'authentification
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("accessToken") ||
+        sessionStorage.getItem("token");
+
+      if (!token) {
+        console.error("Token d'authentification manquant");
         return {
           success: false,
-          message:
-            response.message || "Erreur lors de la suppression du planning",
+          message: "Authentification requise pour supprimer un planning",
         };
       }
 
-      return { success: true };
+      // Effectuer la requête avec une URL explicite
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(
+          `Erreur de suppression du planning ${id}:`,
+          errorData.message || response.statusText
+        );
+        return {
+          success: false,
+          message: errorData.message || `Erreur ${response.status}`,
+        };
+      }
+
+      // Récupérer les données de la réponse
+      const data = await response.json();
+
+      return {
+        success: true,
+        ...data,
+      };
     } catch (error) {
       console.error(
-        `Erreur d'API lors de la suppression du planning ${id}:`,
+        `Exception lors de la suppression du planning ${id}:`,
         error
       );
       return {
@@ -1060,11 +1188,6 @@ export const WeeklyScheduleService = {
         message: error.message || "Erreur lors de la suppression du planning",
       };
     }
-  },
-
-  // Méthode deleteSchedule pour cohérence d'API
-  deleteSchedule: async (id) => {
-    return WeeklyScheduleService.delete(id);
   },
 };
 
@@ -1304,4 +1427,65 @@ export const UserService = {
       };
     }
   },
+};
+
+/**
+ * Fonction générique pour les requêtes API avec gestion des erreurs
+ * @param {Object} options - Options de la requête
+ * @returns {Promise} - Promesse avec la réponse
+ */
+export const serviceApiRequest = async (
+  endpoint,
+  method = "GET",
+  data = null,
+  customHeaders = {}
+) => {
+  try {
+    // Utiliser directement apiRequest de config/api
+    const response = await apiRequest(endpoint, method, data, customHeaders);
+    return normalizeResponse(response);
+  } catch (error) {
+    console.error(`❌ [Service API Error] ${error.message}`);
+
+    // Gérer spécifiquement les erreurs d'authentification
+    if (
+      error?.response?.status === 401 ||
+      error.message?.includes("Authentification invalide")
+    ) {
+      toast.error(
+        "Session expirée ou authentification invalide. Tentative de reconnexion..."
+      );
+
+      try {
+        // Tentative de rafraîchissement du token
+        const refreshResult = await AuthServiceModule.refreshToken();
+        if (refreshResult.success) {
+          // Réessayer la requête après rafraîchissement du token
+          return await apiRequest(endpoint, method, data, customHeaders);
+        } else {
+          // Échec du rafraîchissement, retourner une erreur formatée
+          return {
+            success: false,
+            message: "Erreur d'authentification. Veuillez vous reconnecter.",
+            error: { status: 401 },
+          };
+        }
+      } catch (refreshError) {
+        console.error("Échec du rafraîchissement de token:", refreshError);
+        return {
+          success: false,
+          message:
+            "Impossible de rafraîchir votre session. Veuillez vous reconnecter.",
+          error: { status: 401 },
+        };
+      }
+    }
+
+    // Pour les autres erreurs, retourner une réponse formatée
+    return {
+      success: false,
+      message: error.message || "Erreur lors de la requête au serveur",
+      error: formatError(error),
+    };
+  }
 };

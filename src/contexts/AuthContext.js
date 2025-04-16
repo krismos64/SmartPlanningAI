@@ -103,6 +103,7 @@ export const AuthProvider = ({ children }) => {
         const storedToken = localStorage.getItem("token");
 
         if (!storedToken) {
+          console.log("Aucun token trouvé, mode limité activé");
           setIsLoading(false);
           return;
         }
@@ -110,6 +111,12 @@ export const AuthProvider = ({ children }) => {
         // Appeler l'API pour vérifier le token
         const res = await apiRequest("/api/auth/verify", "GET", null, {
           Authorization: `Bearer ${storedToken}`,
+        }).catch((error) => {
+          console.warn(
+            "Erreur lors de la vérification du token, continuons en mode limité:",
+            error
+          );
+          return { user: null, auth_success: false, valid: false };
         });
 
         // Si l'utilisateur est trouvé, restaurer la session
@@ -118,12 +125,19 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(true);
           setToken(storedToken);
         } else {
-          // Sinon déconnecter l'utilisateur
-          logout();
+          console.warn("Token invalide ou expiré, fonctionnalités limitées");
+          // On laisse quand même le token et l'utilisateur pour permettre l'accès limité
+          setIsAuthenticated(false);
+
+          // Si on a des informations utilisateur locales, les utiliser pour l'accès limité
+          if (localStorageUser) {
+            setUser(localStorageUser);
+          }
         }
       } catch (error) {
-        console.error("Erreur lors de la vérification de la session:", error);
-        logout();
+        console.warn("Erreur lors de la vérification de la session:", error);
+        // Au lieu de déconnecter, on continue avec des fonctionnalités limitées
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }

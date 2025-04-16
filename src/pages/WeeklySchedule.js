@@ -15,7 +15,7 @@ import {
   FaUsers,
 } from "react-icons/fa";
 import { FiCalendar } from "react-icons/fi";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import AutoScheduleWizard from "../components/schedule/AutoScheduleWizard";
 import EmployeeScheduleForm from "../components/schedule/EmployeeScheduleForm";
@@ -818,6 +818,10 @@ const UpdatedByDisplay = ({ userId, userCache, schedule }) => {
 const WeeklySchedulePage = () => {
   const navigate = useNavigate();
   const { weekStart: weekStartParam } = useParams();
+  const location = useLocation();
+
+  // Référence pour suivre si une redirection est déjà en cours
+  const isRedirecting = useRef(false);
 
   // Références pour éviter les boucles infinies
   const prevScheduleDataRef = useRef(null);
@@ -926,8 +930,27 @@ const WeeklySchedulePage = () => {
     try {
       // Utiliser une requête fetch directe
       const token = localStorage.getItem("token");
+
+      // Si pas de token, utiliser un nom générique sans faire d'appel API
+      if (!token) {
+        console.warn(
+          `Pas de token disponible pour l'utilisateur ${userIdStr}, utilisation d'un nom générique`
+        );
+        setUserCache((prev) => ({
+          ...prev,
+          [userIdStr]: `Utilisateur ${userIdStr}`,
+        }));
+        return;
+      }
+
       const apiUrl = API_URL;
-      const response = await fetch(`${apiUrl}/api/users/${userIdStr}`, {
+
+      // Utiliser un timeout pour éviter les requêtes bloquantes
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 5000)
+      );
+
+      const fetchPromise = fetch(`${apiUrl}/api/users/${userIdStr}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -936,7 +959,21 @@ const WeeklySchedulePage = () => {
         credentials: "include", // Ajout de l'option pour envoyer les cookies
       });
 
+      // Utiliser race pour éviter les requêtes bloquantes
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+
       if (!response.ok) {
+        // En cas d'erreur 401, ne pas afficher d'erreur mais utiliser un nom générique
+        if (response.status === 401) {
+          console.warn(
+            `Erreur d'authentification pour l'utilisateur ${userIdStr}, utilisation d'un nom générique`
+          );
+          setUserCache((prev) => ({
+            ...prev,
+            [userIdStr]: `Utilisateur ${userIdStr}`,
+          }));
+          return;
+        }
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
@@ -963,8 +1000,8 @@ const WeeklySchedulePage = () => {
         }
       }
     } catch (error) {
-      console.error(
-        `Erreur lors de la récupération de l'utilisateur ${userIdStr}:`,
+      console.warn(
+        `Avertissement lors de la récupération de l'utilisateur ${userIdStr}:`,
         error
       );
 
@@ -1103,17 +1140,43 @@ const WeeklySchedulePage = () => {
 
   // Gérer les erreurs de chargement des plannings
   useEffect(() => {
-    if (schedulesError) {
+    if (schedulesError && !isRedirecting.current) {
       console.error("Erreur de chargement des plannings:", schedulesError);
-      toast.error(`Erreur lors du chargement des plannings: ${schedulesError}`);
+
+      // Vérifier si c'est une erreur d'authentification
+      if (
+        schedulesError.includes("Authentification invalide") ||
+        schedulesError.includes("authentification")
+      ) {
+        isRedirecting.current = true; // Marquer que la redirection est en cours
+        toast.error("Session expirée. Veuillez vous reconnecter.", {
+          id: "auth-error", // Utiliser un ID unique pour éviter les doublons
+        });
+
+        // Rediriger vers la page de connexion après un court délai
+        setTimeout(() => {
+          localStorage.removeItem("token");
+          localStorage.removeItem("accessToken");
+          navigate("/login", { state: { from: location.pathname } });
+        }, 1500);
+      } else {
+        toast.error(
+          `Erreur lors du chargement des plannings: ${schedulesError}`
+        );
+      }
     }
-  }, [schedulesError]);
+
+    // Nettoyage
+    return () => {
+      isRedirecting.current = false;
+    };
+  }, [schedulesError, navigate, location]);
 
   // Mettre à jour l'URL lorsque la semaine change
   useEffect(() => {
     const formattedDate = formatDateForInput(currentWeekStart);
     navigate(`/weekly-schedule/${formattedDate}`, { replace: true });
-  }, [currentWeekStart, navigate]);
+  }, [currentWeekStart, navigate, location]);
 
   // Obtenir l'employé en cours d'édition
   const editingEmployee = useMemo(() => {

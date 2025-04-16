@@ -17,24 +17,16 @@ router.post("/", authMiddleware, weeklySchedulesController.createSchedule);
 /**
  * @route GET /api/weekly-schedules/:weekStart
  * @desc Récupère tous les plannings d'une semaine spécifiée
- * @access Privé
+ * @access Public (temporairement)
  */
-router.get(
-  "/:weekStart",
-  authMiddleware,
-  weeklySchedulesController.getSchedulesByWeek
-);
+router.get("/:weekStart", weeklySchedulesController.getSchedulesByWeek);
 
 /**
  * @route GET /api/weekly-schedules/week/:weekStart
  * @desc Route alternative pour récupérer les plannings d'une semaine spécifiée
- * @access Privé
+ * @access Public (temporairement)
  */
-router.get(
-  "/week/:weekStart",
-  authMiddleware,
-  weeklySchedulesController.getSchedulesByWeek
-);
+router.get("/week/:weekStart", weeklySchedulesController.getSchedulesByWeek);
 
 /**
  * @route PUT /api/weekly-schedules/:id

@@ -105,32 +105,138 @@ const AuthService = {
   },
 
   /**
-   * Tente de rafraîchir le token d'authentification
-   * @returns {Promise<Object>} Les informations utilisateur mises à jour
+   * Récupère la date d'expiration du token JWT
+   * @returns {number|null} Timestamp d'expiration du token ou null si non disponible
    */
-  refreshToken: async () => {
+  getTokenExpiry: () => {
     try {
-      const response = await axios.post(
-        "/api/auth/refresh",
-        {},
-        {
-          withCredentials: true, // Important pour envoyer les cookies avec la requête
-        }
-      );
+      // Récupérer le token JWT (stocké dans le cookie ou dans le localStorage)
+      const cookies = document.cookie.split(";").reduce((acc, cookie) => {
+        const [name, value] = cookie.trim().split("=");
+        acc[name] = value;
+        return acc;
+      }, {});
 
-      if (response.data && response.data.success && response.data.user) {
-        // Mettre à jour les informations utilisateur en stockage local
-        localStorage.setItem("user_info", JSON.stringify(response.data.user));
-        AuthService.currentUser = response.data.user;
+      const jwtToken = cookies.accessToken || cookies.auth_token;
 
-        return response.data.user;
+      if (!jwtToken) {
+        return null;
       }
 
-      throw new Error("Échec du rafraîchissement du token");
+      // Décoder le token JWT pour extraire l'expiration
+      const base64Url = jwtToken.split(".")[1];
+      if (!base64Url) return null;
+
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+
+      const payload = JSON.parse(jsonPayload);
+
+      // Récupérer l'expiration (exp) et la convertir en millisecondes
+      if (payload.exp) {
+        return payload.exp * 1000; // Convertir les secondes en millisecondes
+      }
+
+      return null;
     } catch (error) {
-      console.error("Erreur lors du rafraîchissement du token:", error);
-      AuthService.logout();
-      throw error;
+      console.error(
+        "Erreur lors de la récupération de l'expiration du token:",
+        error
+      );
+      return null;
+    }
+  },
+
+  /**
+   * Tente de rafraîchir le token d'authentification
+   * @returns {Promise<boolean>} True si le rafraîchissement a réussi, false sinon
+   */
+  refreshToken: async () => {
+    console.log("🔄 Tentative de rafraîchissement du token...");
+
+    // Éviter les appels multiples en parallèle
+    if (AuthService._isRefreshing) {
+      console.log(
+        "⏳ Un rafraîchissement de token est déjà en cours, attente..."
+      );
+      try {
+        await AuthService._refreshPromise;
+        console.log("✅ Le rafraîchissement de token parallèle s'est terminé");
+        return true;
+      } catch (error) {
+        console.error(
+          "❌ Le rafraîchissement de token parallèle a échoué:",
+          error
+        );
+        return false;
+      }
+    }
+
+    // Créer une nouvelle promesse pour ce rafraîchissement
+    AuthService._isRefreshing = true;
+    AuthService._refreshPromise = new Promise(async (resolve, reject) => {
+      try {
+        const response = await axios.post(
+          "/api/auth/refresh",
+          {},
+          {
+            withCredentials: true, // Important pour envoyer les cookies avec la requête
+            timeout: 10000, // Timeout de 10 secondes
+          }
+        );
+
+        if (response.data && response.data.success && response.data.user) {
+          // Mettre à jour les informations utilisateur en stockage local
+          localStorage.setItem("user_info", JSON.stringify(response.data.user));
+          AuthService.currentUser = response.data.user;
+
+          console.log("✅ Token rafraîchi avec succès");
+          resolve(true);
+          return true;
+        } else {
+          console.error(
+            "❌ Réponse invalide du serveur lors du rafraîchissement:",
+            response.data
+          );
+          reject(
+            new Error("Échec du rafraîchissement du token: Réponse invalide")
+          );
+          return false;
+        }
+      } catch (error) {
+        console.error(
+          "❌ Erreur lors du rafraîchissement du token:",
+          error.message
+        );
+
+        // Journal plus détaillé pour les erreurs de réseau ou d'API
+        if (error.response) {
+          console.error(`Statut de l'erreur: ${error.response.status}`);
+          console.error(
+            `Message du serveur: ${JSON.stringify(error.response.data)}`
+          );
+        } else if (error.request) {
+          console.error(`Erreur de réseau, pas de réponse: ${error.request}`);
+        } else {
+          console.error(`Erreur de configuration: ${error.message}`);
+        }
+
+        reject(error);
+        return false;
+      } finally {
+        AuthService._isRefreshing = false;
+      }
+    });
+
+    try {
+      return await AuthService._refreshPromise;
+    } catch (error) {
+      return false;
     }
   },
 
@@ -232,6 +338,75 @@ const AuthService = {
       }
     }, 15 * 60 * 1000); // Vérifier toutes les 15 minutes
   },
+
+  /**
+   * Récupère le token d'authentification
+   * @returns {string|null} Le token d'authentification ou null
+   */
+  getToken: () => {
+    return localStorage.getItem("token");
+  },
+
+  /**
+   * Récupère le refresh token
+   * @returns {string|null} Le refresh token ou null
+   */
+  getRefreshToken: () => {
+    return localStorage.getItem("refreshToken");
+  },
+
+  /**
+   * Vérifie si le token est expiré
+   * @returns {boolean} True si le token est expiré
+   */
+  isTokenExpired: () => {
+    const expiry = AuthService.getTokenExpiry();
+    if (!expiry) return true;
+
+    // Considérer le token comme expiré 30 secondes avant pour éviter les problèmes
+    return expiry - 30000 < Date.now();
+  },
+
+  /**
+   * Vérifie la validité du token d'authentification
+   * @returns {Promise<boolean>} Retourne true si le token est valide, false sinon
+   */
+  checkTokenValidity: async () => {
+    try {
+      // Vérifier d'abord si l'utilisateur a un token
+      if (!AuthService.isAuthenticated()) {
+        console.warn("Aucun token d'authentification trouvé");
+        return false;
+      }
+
+      // Vérifier si le token est expiré
+      if (AuthService.isTokenExpired()) {
+        console.warn("Token expiré, rafraîchissement nécessaire");
+        return false;
+      }
+
+      // Si nous arrivons ici, le token est valide et non expiré
+      return true;
+    } catch (error) {
+      console.error("Erreur lors de la vérification du token:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Calcule la date d'expiration du token
+   * @param {number} expiresIn Durée de validité du token en secondes
+   * @returns {number} Timestamp d'expiration
+   */
+  calculateExpiryTime: (expiresIn) => {
+    return Date.now() + expiresIn * 1000;
+  },
+
+  /**
+   * Authentifie un utilisateur
+   * @param {Object} credentials Les identifiants de connexion
+   * @returns {Promise<Object>} Résultat de la connexion
+   */
 };
 
 // Initialiser le service lors de l'importation

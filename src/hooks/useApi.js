@@ -3,7 +3,7 @@ import { toast } from "react-hot-toast";
 import {
   API_URL,
   checkApiHealth,
-  fetchCsrfToken,
+  fetchCsrfTokenRobust,
   getCsrfToken,
   getStoredCsrfToken,
 } from "../config/api.js";
@@ -20,6 +20,9 @@ const useApi = () => {
     isCsrfAvailable: false,
     error: null,
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [apiHealthy, setApiHealthy] = useState(true); // Optimiste par défaut
 
   // Fonction pour vérifier l'état de l'API
   const checkApiStatus = useCallback(async () => {
@@ -58,6 +61,41 @@ const useApi = () => {
     }
   }, []);
 
+  /**
+   * Initialise l'API en vérifiant sa santé et en récupérant un token CSRF
+   */
+  const initApi = useCallback(async () => {
+    try {
+      // Vérifier la santé de l'API d'abord
+      const isHealthy = await checkApiHealth();
+      setApiHealthy(isHealthy);
+
+      if (!isHealthy) {
+        console.warn(
+          "🔴 L'API semble indisponible, certaines fonctionnalités peuvent être limitées"
+        );
+        return false;
+      }
+
+      // Récupérer un token CSRF avec la méthode robuste
+      const csrfToken = await fetchCsrfTokenRobust();
+
+      if (!csrfToken) {
+        console.warn(
+          "⚠️ Impossible de récupérer un token CSRF, les requêtes POST/PUT/DELETE peuvent échouer"
+        );
+        // Continuer quand même, car certaines API fonctionnent sans CSRF
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("❌ Erreur lors de l'initialisation de l'API:", error);
+      setApiHealthy(false);
+      return false;
+    }
+  }, []);
+
   // Récupérer le token CSRF au chargement du hook
   useEffect(() => {
     const initApi = async () => {
@@ -83,7 +121,7 @@ const useApi = () => {
           const csrfToken = getStoredCsrfToken();
 
           if (!csrfToken) {
-            await fetchCsrfToken();
+            await fetchCsrfTokenRobust();
 
             // Vérifier si le token a bien été récupéré
             const tokenAfterFetch = getStoredCsrfToken();
@@ -543,6 +581,21 @@ const useApi = () => {
       checkApiStatus, // Exposer la fonction de vérification manuelle
     };
   }, [handleResponse, apiStatus, checkApiStatus]);
+
+  // Initialiser l'API au chargement du composant
+  useEffect(() => {
+    initApi();
+
+    // Réessayer périodiquement si l'API est indisponible
+    const intervalId = setInterval(() => {
+      if (!apiHealthy) {
+        console.log("🔄 Tentative de reconnexion à l'API...");
+        initApi();
+      }
+    }, 30000); // Vérifier toutes les 30 secondes
+
+    return () => clearInterval(intervalId);
+  }, [initApi, apiHealthy]);
 
   return api;
 };

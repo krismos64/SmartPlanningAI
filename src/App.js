@@ -77,6 +77,11 @@ const ProtectedRoute = ({ children }) => {
     location.pathname
   );
 
+  // Vérifier s'il s'agit d'une page qui nécessite absolument une authentification
+  const requiresStrictAuth = ["/settings", "/profile", "/activities"].includes(
+    location.pathname
+  );
+
   useEffect(() => {
     console.log("ProtectedRoute - vérification d'authentification:", {
       isAuthenticated,
@@ -84,6 +89,7 @@ const ProtectedRoute = ({ children }) => {
       token: localStorage.getItem("token") ? "présent" : "absent",
       user: localStorage.getItem("user") ? "présent" : "absent",
       isPublicPage,
+      requiresStrictAuth,
     });
 
     // Timeout de sécurité pour éviter de rester bloqué en chargement
@@ -100,24 +106,35 @@ const ProtectedRoute = ({ children }) => {
     const token = localStorage.getItem("token");
     const user = localStorage.getItem("user");
 
-    // Ne rediriger que si ce n'est pas une page publique
-    if (!isAuthenticated && !token && !isPublicPage) {
+    // Ne rediriger que si c'est une page qui nécessite strictement une authentification
+    if (!isAuthenticated && !token && requiresStrictAuth) {
       console.log(
-        "ProtectedRoute - redirection vers login (pas authentifié et pas de token)"
+        "ProtectedRoute - redirection vers login (page nécessitant authentification stricte)"
       );
       navigate(
         "/login?redirect=" + encodeURIComponent(window.location.pathname),
         { replace: true }
       );
+    } else if (
+      !isAuthenticated &&
+      !token &&
+      !isPublicPage &&
+      !requiresStrictAuth
+    ) {
+      // Pour les autres pages, on permet l'accès mais on affiche un avertissement
+      console.log(
+        "ProtectedRoute - accès en mode limité (sans authentification)"
+      );
+      // Ici on pourrait ajouter un toast ou une notification discrète
     } else if (token && !isAuthenticated) {
       console.log(
-        "ProtectedRoute - token présent mais pas authentifié, attendons..."
+        "ProtectedRoute - token présent mais authentification invalide, continuons en mode limité"
       );
-      // On attend que isAuthenticated soit mis à jour
+      // On continue avec des fonctionnalités limitées
     }
 
     return () => clearTimeout(stuckTimer);
-  }, [isAuthenticated, navigate, isLoading, isPublicPage]);
+  }, [isAuthenticated, navigate, isLoading, isPublicPage, requiresStrictAuth]);
 
   // Si on a détecté que le chargement est bloqué mais qu'un token existe
   if (isStuck) {
@@ -131,10 +148,10 @@ const ProtectedRoute = ({ children }) => {
     return <LoadingFallback />;
   }
 
-  // Si on a un token mais qu'on n'est pas authentifié, on affiche quand même
-  // le composant pour éviter les redirections inutiles pendant que le contexte se charge
+  // Accès permissif - on affiche le contenu même si l'authentification n'est pas complète
+  // Sauf pour les pages nécessitant une authentification stricte
   const token = localStorage.getItem("token");
-  if (token || isAuthenticated || isPublicPage) {
+  if (token || isAuthenticated || isPublicPage || !requiresStrictAuth) {
     return children;
   }
 
