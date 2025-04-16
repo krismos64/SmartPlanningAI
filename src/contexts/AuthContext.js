@@ -319,6 +319,7 @@ export const AuthProvider = ({ children }) => {
       if (response.data.isAuthenticated) {
         // Stocker les informations de l'utilisateur
         setUser(response.data.user);
+        setIsAuthenticated(true);
 
         // Mettre à jour le localStorage si nécessaire
         if (
@@ -341,7 +342,19 @@ export const AuthProvider = ({ children }) => {
         );
         // Effacer les données utilisateur
         setUser(null);
+        setIsAuthenticated(false);
         localStorage.removeItem("user");
+
+        // Supprimer les tokens s'ils sont expirés ou invalides
+        if (
+          response.data.message &&
+          (response.data.message.includes("expiré") ||
+            response.data.message.includes("invalide"))
+        ) {
+          console.log("Suppression du token expiré ou invalide");
+          localStorage.removeItem("token");
+          localStorage.removeItem("accessToken");
+        }
       }
     } catch (error) {
       console.error(
@@ -350,7 +363,9 @@ export const AuthProvider = ({ children }) => {
       );
       // En cas d'erreur, considérer l'utilisateur comme non authentifié
       setUser(null);
+      setIsAuthenticated(false);
       localStorage.removeItem("user");
+      // Ne pas supprimer le token en cas d'erreur réseau temporaire
     } finally {
       clearTimeout(timeoutId);
       setIsLoading(false);

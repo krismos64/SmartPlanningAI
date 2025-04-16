@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import styled from "styled-components";
+import { cleanExpiredTokens } from "../utils/auth";
 
 const LayoutContainer = styled.div`
   min-height: 100vh;
@@ -26,6 +27,9 @@ const PublicLayout = () => {
     document.body.style.removeProperty("margin");
     document.body.style.removeProperty("padding");
     document.body.style.removeProperty("overflow");
+
+    // Nettoyer les tokens expirés lors de l'accès à une page publique
+    cleanExpiredTokens();
 
     // Forcer un reflow
     // eslint-disable-next-line no-unused-vars

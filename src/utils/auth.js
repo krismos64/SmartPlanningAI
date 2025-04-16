@@ -61,3 +61,39 @@ export const decodeToken = (token) => {
     return null;
   }
 };
+
+/**
+ * Vérifie si un token JWT est expiré
+ * @param {string} token - Le token JWT à vérifier
+ * @returns {boolean} true si le token est expiré, false sinon
+ */
+export const isTokenExpired = (token) => {
+  if (!token) return true;
+
+  try {
+    const decoded = decodeToken(token);
+    if (!decoded || !decoded.exp) return true;
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    return decoded.exp < currentTime;
+  } catch (error) {
+    console.error(
+      "Erreur lors de la vérification de l'expiration du token:",
+      error
+    );
+    return true;
+  }
+};
+
+/**
+ * Nettoie les tokens expirés du localStorage
+ */
+export const cleanExpiredTokens = () => {
+  const token = getToken();
+  if (token && isTokenExpired(token)) {
+    console.log("Nettoyage d'un token expiré");
+    clearAuth();
+    return true;
+  }
+  return false;
+};

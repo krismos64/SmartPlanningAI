@@ -70,6 +70,12 @@ const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const [isStuck, setIsStuck] = useState(false);
+  const location = window.location;
+
+  // Vérifier si la page actuelle est publique
+  const isPublicPage = ["/", "/terms", "/privacy", "/contact"].includes(
+    location.pathname
+  );
 
   useEffect(() => {
     console.log("ProtectedRoute - vérification d'authentification:", {
@@ -77,6 +83,7 @@ const ProtectedRoute = ({ children }) => {
       isLoading,
       token: localStorage.getItem("token") ? "présent" : "absent",
       user: localStorage.getItem("user") ? "présent" : "absent",
+      isPublicPage,
     });
 
     // Timeout de sécurité pour éviter de rester bloqué en chargement
@@ -93,7 +100,8 @@ const ProtectedRoute = ({ children }) => {
     const token = localStorage.getItem("token");
     const user = localStorage.getItem("user");
 
-    if (!isAuthenticated && !token) {
+    // Ne rediriger que si ce n'est pas une page publique
+    if (!isAuthenticated && !token && !isPublicPage) {
       console.log(
         "ProtectedRoute - redirection vers login (pas authentifié et pas de token)"
       );
@@ -109,7 +117,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     return () => clearTimeout(stuckTimer);
-  }, [isAuthenticated, navigate, isLoading]);
+  }, [isAuthenticated, navigate, isLoading, isPublicPage]);
 
   // Si on a détecté que le chargement est bloqué mais qu'un token existe
   if (isStuck) {
@@ -126,7 +134,7 @@ const ProtectedRoute = ({ children }) => {
   // Si on a un token mais qu'on n'est pas authentifié, on affiche quand même
   // le composant pour éviter les redirections inutiles pendant que le contexte se charge
   const token = localStorage.getItem("token");
-  if (token || isAuthenticated) {
+  if (token || isAuthenticated || isPublicPage) {
     return children;
   }
 
