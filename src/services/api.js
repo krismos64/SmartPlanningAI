@@ -1,5 +1,5 @@
 import { toast } from "react-toastify";
-import { API_ENDPOINTS, API_URL, apiRequest } from "../config/api";
+import { API_ENDPOINTS, API_URL, getStoredCsrfToken } from "../config/api";
 import { formatDateForAPI } from "../utils/dateUtils";
 import { formatError } from "../utils/errorHandling";
 import AuthServiceModule from "./AuthService";
@@ -1488,4 +1488,37 @@ export const serviceApiRequest = async (
       error: formatError(error),
     };
   }
+};
+
+// Nouvelle implémentation de apiRequest avec injection dynamique du token CSRF
+export const apiRequest = async (
+  endpoint,
+  method = "GET",
+  data = null,
+  customHeaders = {}
+) => {
+  const csrfToken = getStoredCsrfToken();
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...customHeaders,
+  };
+
+  if (["POST", "PUT", "DELETE"].includes(method.toUpperCase()) && csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
+  }
+
+  const options = {
+    method,
+    headers,
+    credentials: "include",
+  };
+
+  if (data) {
+    options.body = JSON.stringify(data);
+  }
+
+  const url = endpoint.startsWith("http") ? endpoint : `${API_URL}${endpoint}`;
+  const response = await fetch(url, options);
+  return response.json();
 };

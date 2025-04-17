@@ -259,10 +259,11 @@ const AuthService = {
           password,
         },
         {
-          withCredentials: true, // Important pour stocker les cookies
+          withCredentials: true,
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
+            "X-CSRF-Token": AuthService.getCsrfToken(), // ← cette ligne est cruciale
           },
         }
       );

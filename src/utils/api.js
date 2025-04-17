@@ -222,8 +222,8 @@ export async function fetchCsrfTokenRobust(maxRetries = 3, retryDelay = 1000) {
         );
       }
 
-      // Construction de l'URL avec préfixe /api obligatoire
-      const csrfUrl = `${API_BASE_URL}/api/csrf-token`;
+      // Utiliser le nouvel endpoint /auth/reset-csrf qui est plus fiable
+      const csrfUrl = `${API_BASE_URL}/api/auth/reset-csrf`;
 
       console.log(`📡 [CSRF] Appel à ${csrfUrl}`);
 

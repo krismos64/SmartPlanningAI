@@ -3,11 +3,10 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./i18n"; // Importation des configurations i18n
 import "./index.css";
-import { cleanExpiredTokens } from "./utils/auth";
 import { initializeErrorHandling } from "./utils/errorHandling";
 
 // Nettoyer les tokens expirés au démarrage
-cleanExpiredTokens();
+// cleanExpiredTokens(); // Désactivé pour éviter l'authentification automatique
 
 // Initialiser le système de gestion d'erreurs
 initializeErrorHandling();

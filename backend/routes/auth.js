@@ -1193,4 +1193,50 @@ router.get("/status", (req, res) => {
   });
 });
 
+/**
+ * @route GET /api/auth/reset-csrf
+ * @desc Régénère un token CSRF même si la session est vide
+ * @access Public
+ */
+router.get("/reset-csrf", async (req, res) => {
+  try {
+    // Vérifier si la session existe, sinon en créer une nouvelle
+    if (!req.session) {
+      console.log(
+        "❌ [CSRF] Session inexistante lors de la régénération du token"
+      );
+      req.session = {};
+    }
+
+    // Générer un nouveau token CSRF
+    const csrfToken = crypto.randomBytes(32).toString("hex");
+    req.session.csrfToken = csrfToken;
+
+    // Définir également un cookie pour le client
+    res.cookie("XSRF-TOKEN", csrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    console.log(
+      "✅ [CSRF] Nouveau token généré avec succès:",
+      csrfToken.substring(0, 10) + "..."
+    );
+
+    // Renvoyer le token au client
+    return res.status(200).json({
+      success: true,
+      message: "Token CSRF régénéré avec succès",
+      csrfToken: csrfToken,
+    });
+  } catch (error) {
+    console.error("❌ [CSRF] Erreur lors de la régénération du token:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la régénération du token CSRF",
+    });
+  }
+});
+
 module.exports = router;

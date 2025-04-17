@@ -319,8 +319,8 @@ require("./auth/google");
 app.use(
   "/api/auth",
   (req, res, next) => {
-    // Exclure les routes Google de la vérification CSRF
-    if (req.path.startsWith("/google")) {
+    // Exclure les routes Google et reset-csrf de la vérification CSRF
+    if (req.path.startsWith("/google") || req.path === "/reset-csrf") {
       return next();
     }
     verifyCsrfToken(req, res, next);

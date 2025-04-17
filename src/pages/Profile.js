@@ -235,6 +235,40 @@ const Profile = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const { first_name, last_name, fullName, initials } = useUserName(user);
 
+  // Diagnostic des données utilisateur
+  useEffect(() => {
+    console.log("🔍 Données utilisateur dans Profile:", user);
+
+    // Vérifier si les données utilisateur sont cohérentes
+    if (!user) {
+      console.warn("⚠️ Aucune donnée utilisateur disponible");
+      showNotification({
+        type: "warning",
+        title: "Attention",
+        message:
+          "Vos données de profil ne sont pas disponibles. Essayez de vous reconnecter.",
+      });
+    } else if (user.name === "John Doe" || user.email === "john@example.com") {
+      console.warn("⚠️ Données utilisateur par défaut détectées:", user);
+      showNotification({
+        type: "warning",
+        title: "Attention",
+        message:
+          "Vous semblez utiliser un profil par défaut. Essayez de vous reconnecter avec vos identifiants.",
+      });
+    }
+
+    // Vérifier également les données utilisateur dans localStorage
+    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+    console.log("🔍 Données utilisateur dans localStorage:", storedUser);
+
+    if (storedUser && JSON.stringify(storedUser) !== JSON.stringify(user)) {
+      console.warn(
+        "⚠️ Incohérence entre les données en mémoire et dans localStorage"
+      );
+    }
+  }, [user, showNotification]);
+
   const [formData, setFormData] = useState({
     first_name: user?.first_name || "",
     last_name: user?.last_name || "",

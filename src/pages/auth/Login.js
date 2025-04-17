@@ -235,34 +235,47 @@ const Login = () => {
       console.log("Tentative de connexion avec:", { email, password: "***" });
 
       // Utiliser la fonction login du contexte d'authentification
-      const success = await login(email, cleanPassword);
+      const loginResult = await login(email, cleanPassword);
 
-      console.log("Résultat de la connexion:", success);
+      console.log("Résultat de la connexion:", loginResult);
 
-      if (success) {
+      if (loginResult && loginResult.success) {
         console.log("Connexion réussie, redirection vers le dashboard");
+        console.log("Utilisateur connecté:", loginResult.user);
 
         // Afficher une notification de succès
         showNotification({
           type: "success",
           title: "Connexion réussie",
-          message: "Bienvenue sur SmartPlanning !",
+          message: `Bienvenue ${
+            loginResult.user?.name || loginResult.user?.username || ""
+          } !`,
         });
 
         // Pause plus longue pour s'assurer que tout est bien enregistré et que la notification s'affiche
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
+        // Vérifier que les données utilisateur sont bien stockées avant la redirection
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+        console.log("Utilisateur stocké dans localStorage:", storedUser);
+
         // Forcer une actualisation complète plutôt qu'une redirection simple
         console.log("Redirection vers le dashboard via window.location.href");
         window.location.href = redirectPath;
       } else {
-        console.error("Connexion échouée sans exception", { loginError });
+        console.error(
+          "Connexion échouée:",
+          loginResult?.message || "Raison inconnue"
+        );
 
         // Afficher une notification d'erreur
         showNotification({
           type: "error",
           title: "Échec de connexion",
-          message: loginError || "Identifiants incorrects. Veuillez réessayer.",
+          message:
+            loginResult?.message ||
+            loginError ||
+            "Identifiants incorrects. Veuillez réessayer.",
         });
       }
     } catch (error) {
