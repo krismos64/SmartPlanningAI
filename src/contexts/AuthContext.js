@@ -6,6 +6,7 @@ import useWebSocket from "../hooks/useWebSocket";
 import {
   fetchCsrfTokenRobust as fetchCsrfToken,
   getApiUrl,
+  getCsrfToken,
   getStoredCsrfToken,
 } from "../utils/api";
 
@@ -147,7 +148,70 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    verifySessionToken();
+    // Nouvelle fonction pour restaurer la session depuis l'API /me
+    const restoreSession = async () => {
+      try {
+        setIsLoading(true);
+
+        // Récupérer le token depuis localStorage
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          console.warn(
+            "⚠️ [Auth] Token absent dans localStorage, accès invité"
+          );
+          alert("⚠️ Token absent dans localStorage, accès invité");
+          setIsLoading(false);
+          return false;
+        }
+
+        console.log(
+          `🔄 [Auth] Tentative de restauration de session avec token: ${token.substring(
+            0,
+            15
+          )}...`
+        );
+
+        // Appeler l'API /me avec le token dans l'en-tête
+        const response = await fetch("/api/me", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          console.error(
+            `❌ [Auth] Échec de restauration de session: ${response.status}`
+          );
+          setIsLoading(false);
+          return false;
+        }
+
+        const userData = await response.json();
+        console.log("✅ [Auth] Session restaurée:", userData);
+
+        // Définir l'utilisateur dans le state
+        setUser(userData);
+        setIsAuthenticated(true);
+        setToken(token);
+        setIsLoading(false);
+        return true;
+      } catch (error) {
+        console.error(
+          "❌ [Auth] Erreur lors de la restauration de session:",
+          error
+        );
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return false;
+      }
+    };
+
+    // Essayer d'abord de restaurer la session, puis vérifier le token si nécessaire
+    restoreSession();
   }, []);
 
   // Constantes pour les timeouts d'inactivité
@@ -609,168 +673,107 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       setLoginError(null);
 
-      console.log("🔐 Tentative de connexion pour:", email);
+      console.log(`🔑 [Auth] Tentative de connexion pour: ${email}`);
 
-      // Effectuer la requête de connexion directement
-      console.log("📡 Envoi de la requête de connexion au serveur");
-      const response = await apiRequest("/api/auth/login", "POST", {
-        email,
-        password,
-      });
-
-      // Log complet de la réponse de login
-      console.log("📥 Réponse login reçue:", response);
-      console.log("🧪 document.cookie après login:", document.cookie);
-
-      if (
-        response &&
-        (response.success === true || response.token || response.accessToken)
-      ) {
-        // Afficher un message de connexion réussie
-        console.log("✅ Connexion réussie");
-
-        // Récupérer le token et les informations utilisateur
-        const userToken = response.token || response.accessToken;
-        const refreshToken = response.refreshToken;
-        const userInfo = response.user || response.data || response;
-
-        console.log(
-          "🔑 Token reçu:",
-          userToken ? "Oui, longueur: " + userToken.length : "Non"
-        );
-        console.log("🔄 RefreshToken reçu:", refreshToken ? "Oui" : "Non");
-        console.log("👤 User info reçues:", userInfo ? "Oui" : "Non");
-
-        // Stocker le token dans localStorage sous les deux formats pour compatibilité
-        if (userToken) {
-          localStorage.setItem("token", userToken);
-          localStorage.setItem("accessToken", userToken);
-          setToken(userToken);
-          console.log("✅ Token stocké dans localStorage avec succès");
-        } else {
-          console.error("❌ Pas de token reçu dans la réponse");
-          setLoginError("Authentification échouée: token non reçu");
-          return {
-            success: false,
-            message: "Pas de token reçu du serveur",
-          };
-        }
-
-        // S'assurer que nous avons des informations utilisateur
-        if (userInfo) {
-          // Normaliser les données utilisateur pour garantir une structure cohérente
-          const normalizedUser = {
-            id: userInfo.id || userInfo.userId || userInfo._id,
-            email: userInfo.email,
-            username: userInfo.username || userInfo.email,
-            first_name: userInfo.first_name || userInfo.firstName || "",
-            last_name: userInfo.last_name || userInfo.lastName || "",
-            role: userInfo.role || "user",
-            // autres propriétés utiles...
-          };
-
-          // Mettre à jour l'utilisateur et la session
-          setUser(normalizedUser);
-          localStorage.setItem("user", JSON.stringify(normalizedUser));
-          console.log("👤 Informations utilisateur normalisées et stockées");
-        } else {
-          console.warn(
-            "⚠️ Pas d'informations utilisateur dans la réponse, tentative alternative"
-          );
-
-          // Tenter de récupérer les informations utilisateur séparément
-          try {
-            const userResponse = await apiRequest("/api/user/profile", "GET");
-            if (userResponse && (userResponse.user || userResponse.data)) {
-              const profileData = userResponse.user || userResponse.data;
-              console.log(
-                "👤 Profil utilisateur récupéré séparément:",
-                profileData
-              );
-              setUser(profileData);
-              localStorage.setItem("user", JSON.stringify(profileData));
-            } else {
-              // Si on ne peut pas obtenir les infos utilisateur, créer un utilisateur minimal
-              const minimalUser = {
-                id: Date.now(), // ID temporaire
-                email: email,
-                username: email.split("@")[0],
-                role: "user",
-              };
-              console.log(
-                "⚠️ Création d'un profil utilisateur minimal:",
-                minimalUser
-              );
-              setUser(minimalUser);
-              localStorage.setItem("user", JSON.stringify(minimalUser));
-            }
-          } catch (profileError) {
-            console.error(
-              "❌ Erreur lors de la récupération du profil:",
-              profileError
-            );
-            // Créer un utilisateur minimal en cas d'échec
-            const fallbackUser = {
-              id: Date.now(),
-              email: email,
-              username: email.split("@")[0],
-              role: "user",
-            };
-            console.log(
-              "⚠️ Utilisation d'un profil utilisateur de secours:",
-              fallbackUser
-            );
-            setUser(fallbackUser);
-            localStorage.setItem("user", JSON.stringify(fallbackUser));
-          }
-        }
-
-        setIsAuthenticated(true);
-        setLoginError(null);
-
-        // Si le WebSocket est configuré, se connecter
-        if (connect) {
-          connect();
-        }
-
-        return {
-          success: true,
-          message: "Connexion réussie",
-          user: userInfo,
-        };
+      // S'assurer d'avoir un token CSRF
+      const csrfToken = await getCsrfToken();
+      if (!csrfToken) {
+        console.warn("⚠️ [Auth] Connexion sans token CSRF, risque de 403");
       } else {
-        const errorMsg = response?.message || "Erreur lors de la connexion";
-        console.error("❌ Échec de connexion:", errorMsg);
-        setLoginError(errorMsg);
-        return {
-          success: false,
-          message: errorMsg,
-        };
-      }
-    } catch (error) {
-      console.error("❌ Exception lors de la connexion:", error);
-
-      let errorMsg = "Erreur lors de la connexion";
-
-      // Extraire le message d'erreur le plus précis possible
-      if (error.message) {
-        errorMsg = error.message;
-      } else if (error.response?.data?.message) {
-        errorMsg = error.response.data.message;
-      } else if (error.response?.statusText) {
-        errorMsg = `${error.response.statusText} (${error.response.status})`;
+        console.log(
+          `✅ [Auth] Token CSRF disponible pour la connexion: ${csrfToken.substring(
+            0,
+            10
+          )}...`
+        );
       }
 
-      console.error(`❌ Message d'erreur: ${errorMsg}`);
-      setLoginError(errorMsg);
+      // Utiliser l'URL API complète avec getApiUrl au lieu de l'URL relative
+      const apiEndpoint = getApiUrl("/api/auth/login");
+      console.log(`🔄 [Auth] URL de connexion utilisée: ${apiEndpoint}`);
 
-      return {
-        success: false,
-        message: errorMsg,
-      };
-    } finally {
+      // Utiliser axios pour la requête de connexion (avec l'intercepteur CSRF)
+      const response = await axios.post(
+        apiEndpoint,
+        { email, password },
+        {
+          withCredentials: true,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            // Le token est ajouté automatiquement par l'intercepteur, mais on peut le forcer ici
+            "X-CSRF-Token": csrfToken,
+          },
+        }
+      );
+
+      if (!response.data) {
+        throw new Error("Réponse vide du serveur");
+      }
+
+      console.log("✅ [Auth] Connexion réussie:", response.data);
+
+      // Stocker le token d'accès
+      if (response.data.accessToken) {
+        console.log(
+          `🔐 [Auth] Stockage du token JWT: ${response.data.accessToken.substring(
+            0,
+            15
+          )}...`
+        );
+        localStorage.setItem("token", response.data.accessToken);
+      } else {
+        console.warn("⚠️ [Auth] Aucun token reçu dans la réponse de connexion");
+      }
+
+      // Définir l'utilisateur dans le state
+      setUser(response.data.user || response.data);
+      setIsAuthenticated(true);
       setIsLoading(false);
-      console.log("🏁 Fin du processus de connexion");
+      setLoginError(null);
+
+      // Si le WebSocket est configuré, se connecter
+      if (connect) {
+        connect();
+      }
+
+      return true;
+    } catch (error) {
+      console.error("❌ [Auth] Erreur lors de la connexion:", error);
+
+      // Log détaillé de l'erreur pour aider au diagnostic
+      if (error.response) {
+        console.error(`Statut d'erreur: ${error.response.status}`);
+        console.error(`Message du serveur:`, error.response.data);
+
+        // Erreur CSRF
+        if (
+          error.response.status === 403 &&
+          error.response.data?.message?.includes("CSRF")
+        ) {
+          setLoginError(
+            "Erreur de sécurité CSRF. Veuillez recharger la page et réessayer."
+          );
+        } else {
+          setLoginError(
+            error.response.data?.message || "Erreur lors de la connexion"
+          );
+        }
+      } else if (error.request) {
+        console.error(
+          `Erreur réseau - Pas de réponse du serveur:`,
+          error.request
+        );
+        setLoginError(
+          "Impossible de joindre le serveur. Vérifiez votre connexion internet."
+        );
+      } else {
+        console.error(`Erreur:`, error.message);
+        setLoginError(error.message || "Erreur lors de la connexion");
+      }
+
+      setIsLoading(false);
+      throw error;
     }
   };
 

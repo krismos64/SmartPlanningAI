@@ -8,6 +8,13 @@ const weeklySchedulesController = require("../controllers/weeklySchedulesControl
 const { authMiddleware } = require("../middleware/authMiddleware");
 
 /**
+ * @route GET /api/weekly-schedules
+ * @desc Récupère tous les plannings d'une semaine spécifiée en utilisant le paramètre de requête week
+ * @access Public (temporairement)
+ */
+router.get("/", weeklySchedulesController.getSchedulesByWeekQuery);
+
+/**
  * @route POST /api/weekly-schedules
  * @desc Crée un nouveau planning hebdomadaire
  * @access Privé

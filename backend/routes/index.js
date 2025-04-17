@@ -32,11 +32,10 @@ router.use("/employees", authMiddlewareToUse, require("./employees"));
 router.use("/departments", authMiddlewareToUse, require("./departments"));
 router.use("/planning", authMiddlewareToUse, require("./shifts"));
 router.use("/vacations", authMiddlewareToUse, require("./vacations"));
-router.use(
-  "/weekly-schedules",
-  authMiddlewareToUse,
-  require("./weeklySchedules")
-);
+
+// Route des plannings hebdomadaires - accessible sans authentification
+router.use("/weekly-schedules", require("./weeklySchedules"));
+
 router.use("/schedule", authMiddlewareToUse, require("./autoSchedule"));
 router.use("/stats", authMiddlewareToUse, require("./stats"));
 router.use("/schedule-stats", authMiddlewareToUse, require("./scheduleStats"));

@@ -77,18 +77,6 @@ if lsof -i :$FRONTEND_PORT > /dev/null; then
   fi
 fi
 
-# S'assurer que les variables d'environnement sont correctement configurées
-# Créer/mettre à jour le fichier .env.development pour le backend
-cat > backend/.env.development << EOF
-NODE_ENV=development
-PORT=$BACKEND_PORT
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=
-DB_NAME=smartplanningai
-FRONTEND_URL=http://localhost:$FRONTEND_PORT
-EOF
-
 # Exporter les variables d'environnement pour la session en cours
 export NODE_ENV=development
 export PORT=$BACKEND_PORT
@@ -98,6 +86,15 @@ export DB_PASSWORD=
 export DB_NAME=smartplanningai
 export FRONTEND_URL=http://localhost:$FRONTEND_PORT
 export REACT_APP_API_URL=http://localhost:$BACKEND_PORT
+
+# Créer le fichier .env.development à la racine pour React
+cat > .env.development << EOF
+PORT=$FRONTEND_PORT
+REACT_APP_API_URL=http://localhost:$BACKEND_PORT
+EOF
+
+# Afficher clairement la création du fichier
+echo -e "${GREEN}Fichier .env.development créé à la racine avec REACT_APP_API_URL=http://localhost:$BACKEND_PORT${NC}"
 
 echo -e "${YELLOW}Variables d'environnement configurées pour la session :${NC}"
 echo -e " - BACKEND_PORT=$BACKEND_PORT"

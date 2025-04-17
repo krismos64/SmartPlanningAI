@@ -1,6 +1,6 @@
 module.exports = {
   e2e: {
-    baseUrl: "https://smartplanning.fr",
+    baseUrl: "http://localhost:3000",
     defaultCommandTimeout: 10000,
     viewportWidth: 1280,
     viewportHeight: 800,
@@ -15,7 +15,7 @@ module.exports = {
       });
     },
     env: {
-      apiUrl: "https://smartplanning.onrender.com/api ",
+      apiUrl: "http://localhost:5001",
     },
   },
 };

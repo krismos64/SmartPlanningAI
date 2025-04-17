@@ -16,6 +16,12 @@ router.get("/csrf-token", (req, res) => {
   console.log("📥 [CSRF] Headers reçus:", req.headers);
   console.log("🍪 [CSRF] Cookies reçus:", req.cookies);
   console.log("🔐 [CSRF] Session ID:", req.sessionID || "Non disponible");
+  console.log("🌐 [CSRF] Origine:", req.headers.origin || "Non disponible");
+  console.log("🌐 [CSRF] Referer:", req.headers.referer || "Non disponible");
+  console.log(
+    "🌐 [CSRF] User-Agent:",
+    req.headers["user-agent"] || "Non disponible"
+  );
 
   // Vérification de la session
   if (!req.session) {
@@ -58,22 +64,39 @@ router.get("/csrf-token", (req, res) => {
   const isProd = process.env.NODE_ENV === "production";
   const oneDayInMs = 24 * 60 * 60 * 1000;
 
-  // Configurer le cookie XSRF-TOKEN (doit être accessible via JavaScript)
-  res.cookie("XSRF-TOKEN", csrfToken, {
+  // Configuration du cookie XSRF-TOKEN selon l'environnement (dev/prod)
+  const cookieOptions = {
     httpOnly: false, // IMPORTANT: doit être false pour être accessible en JS côté client
-    secure: isProd, // Sécurisé uniquement en production (HTTPS)
-    sameSite: isProd ? "none" : "lax", // Important pour CORS en production
+    secure: isProd, // false en dev, true en prod
+    sameSite: isProd ? "none" : "lax",
     path: "/",
     maxAge: oneDayInMs,
-    domain: isProd ? "smartplanning.fr" : undefined, // Domaine en production uniquement
-  });
+  };
 
-  // Vérification des headers envoyés
+  // Ajouter domain uniquement en production
+  if (isProd) {
+    cookieOptions.domain = "smartplanning.fr";
+  }
+
+  console.log(chalk.blue("🍪 [CSRF] Configuration du cookie:"), cookieOptions);
+
+  // Configurer le cookie XSRF-TOKEN
+  res.cookie("XSRF-TOKEN", csrfToken, cookieOptions);
+
+  // Log pour chaque header set-cookie
   const sentCookies = res.getHeaders()["set-cookie"];
-  console.log(
-    chalk.magenta("🍪 [Set-Cookie] Headers envoyés:"),
-    sentCookies || "Aucun"
-  );
+  if (sentCookies) {
+    console.log(chalk.magenta("🍪 [Set-Cookie] Headers envoyés:"));
+    if (Array.isArray(sentCookies)) {
+      sentCookies.forEach((cookie, index) => {
+        console.log(`Cookie ${index + 1}:`, cookie);
+      });
+    } else {
+      console.log(`Cookie:`, sentCookies);
+    }
+  } else {
+    console.log(chalk.red("❌ [CSRF] Aucun cookie n'a été défini!"));
+  }
 
   // Envoi du token dans la réponse pour les clients qui n'utilisent pas les cookies
   res.json({
@@ -84,6 +107,8 @@ router.get("/csrf-token", (req, res) => {
     createdAt: req.session.csrfTokenCreatedAt,
     cookieSet: !!sentCookies,
     sessionID: req.sessionID,
+    isProd: isProd,
+    clientOrigin: req.headers.origin || "Non disponible",
   });
 });
 

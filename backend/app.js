@@ -97,9 +97,12 @@ app.use(
   })
 );
 
+// Initialiser cookie-parser AVANT session pour que les cookies soient disponibles
+app.use(cookieParser());
+
+// Parsers pour les requêtes JSON et URL-encoded
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use(cookieParser());
 
 // Configuration pour servir les fichiers statiques
 app.use(express.static(path.join(__dirname, "public")));
@@ -152,7 +155,7 @@ const isProd = process.env.NODE_ENV === "production";
 
 app.use(
   session({
-    name: "sid", // Nom du cookie de session (plus court que connect.sid par défaut)
+    name: "connect.sid", // Nom standard pour meilleure compatibilité
     secret: process.env.JWT_SECRET || "smartplanningai_secret_key",
     resave: false, // Ne pas sauvegarder la session si elle n'est pas modifiée
     saveUninitialized: true, // Créer une session même si l'utilisateur n'est pas connecté
@@ -163,7 +166,7 @@ app.use(
       maxAge: ONE_DAY, // Durée de vie du cookie
       sameSite: isProd ? "none" : "lax", // Important pour les requêtes cross-site en prod
       path: "/", // Disponible sur tout le site
-      domain: isProd ? "smartplanning.fr" : undefined, // Domaine en production
+      ...(isProd ? { domain: "smartplanning.fr" } : {}),
     },
     unset: "destroy", // Détruire la session plutôt que de la conserver vide
   })
@@ -208,25 +211,78 @@ app.use("/api/contact", require("./routes/contact"));
 
 // Routes protégées
 const { auth } = require("./middleware/auth");
-app.use("/api/employees", auth, require("./routes/employees"));
-app.use("/api/departments", auth, require("./routes/departments"));
-app.use("/api/planning", auth, require("./routes/shifts"));
-app.use("/api/vacations", auth, require("./routes/vacations"));
-app.use("/api/weekly-schedules", auth, require("./routes/weeklySchedules"));
-app.use("/api/schedule", auth, require("./routes/autoSchedule"));
-app.use("/api/stats", auth, require("./routes/stats"));
-app.use("/api/schedule-stats", auth, require("./routes/scheduleStats"));
-app.use("/api/users", auth, require("./routes/users"));
-app.use("/api/hour-balance", auth, require("./routes/hourBalance"));
-app.use("/api/work-hours", auth, require("./routes/workHoursRoutes"));
-app.use("/api/activities", auth, require("./routes/activities"));
-app.use("/api/notifications", auth, require("./routes/notifications"));
+const verifyCsrfToken = require("./middleware/verifyCsrfToken");
+
+// Appliquer le middleware CSRF pour toutes les requêtes modifiant des données
+// (POST, PUT, DELETE) sur les routes nécessitant une protection
+const csrfProtection = (req, res, next) => {
+  // Appliquer uniquement pour les méthodes modifiant des données
+  if (["POST", "PUT", "DELETE", "PATCH"].includes(req.method)) {
+    return verifyCsrfToken(req, res, next);
+  }
+  next();
+};
+
+// Routes avec protection CSRF
+app.use("/api/employees", auth, csrfProtection, require("./routes/employees"));
+app.use(
+  "/api/departments",
+  auth,
+  csrfProtection,
+  require("./routes/departments")
+);
+app.use("/api/planning", auth, csrfProtection, require("./routes/shifts"));
+app.use("/api/vacations", auth, csrfProtection, require("./routes/vacations"));
+app.use(
+  "/api/weekly-schedules",
+  auth,
+  csrfProtection,
+  require("./routes/weeklySchedules")
+);
+app.use(
+  "/api/schedule",
+  auth,
+  csrfProtection,
+  require("./routes/autoSchedule")
+);
+app.use("/api/stats", auth, csrfProtection, require("./routes/stats"));
+app.use(
+  "/api/schedule-stats",
+  auth,
+  csrfProtection,
+  require("./routes/scheduleStats")
+);
+app.use("/api/users", auth, csrfProtection, require("./routes/users"));
+app.use(
+  "/api/hour-balance",
+  auth,
+  csrfProtection,
+  require("./routes/hourBalance")
+);
+app.use(
+  "/api/work-hours",
+  auth,
+  csrfProtection,
+  require("./routes/workHoursRoutes")
+);
+app.use(
+  "/api/activities",
+  auth,
+  csrfProtection,
+  require("./routes/activities")
+);
+app.use(
+  "/api/notifications",
+  auth,
+  csrfProtection,
+  require("./routes/notifications")
+);
 
 // Essayer de charger les autres routes
 try {
   const chatbotRoutes = require("./routes/chatbotRoutes");
   if (typeof chatbotRoutes === "function" || chatbotRoutes.stack) {
-    app.use("/api/chatbot", auth, chatbotRoutes);
+    app.use("/api/chatbot", auth, csrfProtection, chatbotRoutes);
   } else {
     console.warn("⚠️ Le module chatbotRoutes n'est pas un middleware valide");
   }
@@ -240,7 +296,7 @@ try {
 try {
   const adminRoutes = require("./routes/admin");
   if (typeof adminRoutes === "function" || adminRoutes.stack) {
-    app.use("/api/admin", auth, adminRoutes);
+    app.use("/api/admin", auth, csrfProtection, adminRoutes);
   } else {
     console.warn("⚠️ Le module adminRoutes n'est pas un middleware valide");
   }
@@ -251,32 +307,91 @@ try {
   );
 }
 
-// ✅ Route ping
+// ✅ Route ping (sans CSRF car en GET)
 app.get("/ping", (req, res) => {
-  res.status(200).json({ message: "API en ligne" });
+  console.log("🏓 [PING] Requête reçue", {
+    sessionID: req.sessionID || "Non disponible",
+    hasCookies: !!req.cookies,
+    cookies: req.cookies,
+  });
+
+  res.status(200).json({
+    message: "API en ligne",
+    env: process.env.NODE_ENV || "development",
+    sessionActive: !!req.session,
+    timestamp: new Date().toISOString(),
+  });
 });
 
-// ✅ Route ping API
+// ✅ Route ping API (sans CSRF car en GET)
 app.get("/api/ping", (req, res) => {
+  console.log("🏓 [API PING] Requête reçue", {
+    sessionID: req.sessionID || "Non disponible",
+    hasCookies: !!req.cookies,
+    cookies: req.cookies,
+  });
+
   res.status(200).send("pong");
 });
 
-// Route de test pour le changement de mot de passe
-app.post("/api/test/password", (req, res) => {
+// Route de test pour le changement de mot de passe (avec CSRF)
+app.post("/api/test/password", csrfProtection, (req, res) => {
   console.log("Route de test password appelée");
   console.log("Requête:", {
     body: req.body,
     headers: {
       authorization: req.headers.authorization ? "Present" : "Missing",
       contentType: req.headers["content-type"],
+      csrf: req.headers["x-csrf-token"] ? "Present" : "Missing",
     },
+    session: req.session ? "Present" : "Missing",
+    sessionID: req.sessionID || "Non disponible",
   });
+
   try {
     return changePassword(req, res);
   } catch (error) {
     console.error("Erreur dans la route de test:", error);
     return res.status(500).json({ error: error.message });
   }
+});
+
+// Routes de test pour le CSRF et cookies
+app.get("/api/test/csrf-check", (req, res) => {
+  console.log(chalk.blue("🔍 [TEST CSRF] Requête de vérification reçue"));
+  console.log("📦 [TEST CSRF] Session ID:", req.sessionID || "Non disponible");
+  console.log("🍪 [TEST CSRF] Cookies reçus:", req.cookies);
+  console.log(
+    "🔑 [TEST CSRF] Token CSRF en session:",
+    req.session?.csrfToken || "Non défini"
+  );
+
+  res.json({
+    success: true,
+    method: "GET",
+    sessionId: req.sessionID,
+    token: req.session?.csrfToken,
+    cookie: req.cookies["XSRF-TOKEN"],
+  });
+});
+
+app.post("/api/test/csrf-check", verifyCsrfToken, (req, res) => {
+  console.log(
+    chalk.green("✅ [TEST CSRF] Test POST avec vérification CSRF réussi")
+  );
+  console.log("📦 [TEST CSRF] Session ID:", req.sessionID || "Non disponible");
+  console.log("🍪 [TEST CSRF] Cookies reçus:", req.cookies);
+  console.log(
+    "🔑 [TEST CSRF] Token CSRF validé:",
+    req.session?.csrfToken || "Non défini"
+  );
+
+  res.json({
+    success: true,
+    method: "POST",
+    tokenValidated: true,
+    data: req.body,
+  });
 });
 
 // ❌ Route non trouvée
@@ -397,4 +512,37 @@ app.use(
 );
 
 initializeServer();
+
+// Afficher toutes les routes de l'application pour le débogage
+console.log("\n📋 Routes disponibles directement depuis app.js:");
+function printRoutes(app) {
+  const routes = [];
+  app._router.stack.forEach(function (middleware) {
+    if (middleware.route) {
+      // C'est une route directe
+      const path = middleware.route.path;
+      const methods = Object.keys(middleware.route.methods)
+        .filter((method) => middleware.route.methods[method])
+        .map((method) => method.toUpperCase());
+      routes.push(`${methods.join(",")} ${path}`);
+    } else if (middleware.name === "router") {
+      // C'est un router monté
+      middleware.handle.stack.forEach(function (handler) {
+        if (handler.route) {
+          const path = handler.route.path;
+          const methods = Object.keys(handler.route.methods)
+            .filter((method) => handler.route.methods[method])
+            .map((method) => method.toUpperCase());
+          routes.push(
+            `${methods.join(",")} ${middleware.regexp.toString()} + ${path}`
+          );
+        }
+      });
+    }
+  });
+  console.log(routes.join("\n"));
+  return routes;
+}
+printRoutes(app);
+
 module.exports = app;

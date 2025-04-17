@@ -79,10 +79,15 @@ const verifyCsrfToken = (req, res, next) => {
     return next();
   }
 
-  // Log détaillé uniquement si CSRF_DEBUG est activé
-  if (process.env.CSRF_DEBUG === "true") {
-    logRequestDetails(req);
-  }
+  // Log détaillé pour faciliter le debugging
+  console.log(
+    "🛡️ [CSRF] Token reçu :",
+    req.headers["x-csrf-token"] || "Non défini"
+  );
+  console.log(
+    "🔐 [CSRF] Token attendu :",
+    req.session?.csrfToken || "Non défini"
+  );
 
   // Récupérer le token depuis les différents en-têtes possibles
   const csrfToken =
@@ -96,19 +101,7 @@ const verifyCsrfToken = (req, res, next) => {
 
   // Si aucun token n'est fourni dans l'en-tête
   if (!csrfToken) {
-    // Log d'erreur simplifié
-    if (process.env.NODE_ENV === "production") {
-      console.error("CSRF token manquant");
-    }
-
-    // En mode DEBUG, on peut temporairement désactiver la vérification
-    if (
-      process.env.CSRF_DEBUG === "true" ||
-      process.env.NODE_ENV === "development"
-    ) {
-      return next();
-    }
-
+    console.error("❌ [CSRF] Token manquant dans l'en-tête");
     return res.status(403).json({
       success: false,
       message: "Accès refusé - Token CSRF manquant",
@@ -118,19 +111,7 @@ const verifyCsrfToken = (req, res, next) => {
 
   // Si aucun token n'est stocké dans la session
   if (!storedToken) {
-    // Log d'erreur simplifié
-    if (process.env.NODE_ENV === "production") {
-      console.error("CSRF token non trouvé en session");
-    }
-
-    // En mode DEBUG, on peut temporairement désactiver la vérification
-    if (
-      process.env.CSRF_DEBUG === "true" ||
-      process.env.NODE_ENV === "development"
-    ) {
-      return next();
-    }
-
+    console.error("❌ [CSRF] Token non trouvé en session");
     return res.status(403).json({
       success: false,
       message: "Accès refusé - Session invalide ou expirée",
@@ -140,19 +121,9 @@ const verifyCsrfToken = (req, res, next) => {
 
   // Comparaison des tokens (sensible à la casse)
   if (csrfToken !== storedToken) {
-    // Log d'erreur simplifié
-    if (process.env.NODE_ENV === "production") {
-      console.error("CSRF token invalide");
-    }
-
-    // En mode DEBUG, on peut temporairement désactiver la vérification
-    if (
-      process.env.CSRF_DEBUG === "true" ||
-      process.env.NODE_ENV === "development"
-    ) {
-      return next();
-    }
-
+    console.error(
+      "❌ [CSRF] Token invalide - ne correspond pas à celui en session"
+    );
     return res.status(403).json({
       success: false,
       message: "Accès refusé - Token CSRF invalide",
@@ -160,7 +131,8 @@ const verifyCsrfToken = (req, res, next) => {
     });
   }
 
-  // Token valide, continuer sans log
+  // Token valide
+  console.log("✅ [CSRF] Vérification du token réussie");
   next();
 };
 

@@ -51,9 +51,7 @@ const Contact = lazy(() => import("./pages/Contact"));
 const ConfirmDeletionPage = lazy(() =>
   import("./components/modals/ConfirmDeletionPage")
 );
-const CsrfDebugExample = lazy(() =>
-  import("./components/dev/CsrfDebugExample")
-);
+const DebugCsrf = lazy(() => import("./pages/DebugCsrf"));
 
 // Composant de chargement
 const LoadingFallback = () => (
@@ -335,7 +333,7 @@ const AppContent = () => {
                 path="/debug-csrf"
                 element={
                   process.env.NODE_ENV === "development" ? (
-                    <CsrfDebugExample />
+                    <DebugCsrf />
                   ) : (
                     <Navigate to="/" />
                   )

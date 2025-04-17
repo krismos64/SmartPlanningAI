@@ -278,6 +278,120 @@ exports.getSchedulesByWeek = async (req, res) => {
 };
 
 /**
+ * Récupère tous les plannings d'une semaine spécifiée via req.query
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ */
+exports.getSchedulesByWeekQuery = async (req, res) => {
+  try {
+    const { week } = req.query;
+
+    console.log(
+      "🧪 [WEEKLY SCHEDULES] getSchedulesByWeekQuery appelé avec week =",
+      week
+    );
+
+    // Vérifier que la semaine a été fournie
+    if (!week) {
+      console.error(
+        "❌ [WEEKLY SCHEDULES] Paramètre week non fourni dans la requête"
+      );
+      return res.status(400).json({
+        success: false,
+        message: "Le paramètre 'week' est requis",
+      });
+    }
+
+    // Vérifier la validité de la date
+    if (!moment(week, "YYYY-MM-DD", true).isValid()) {
+      console.error(`❌ [WEEKLY SCHEDULES] Format de date invalide: ${week}`);
+      return res.status(400).json({
+        success: false,
+        message: "Format de date invalide. Utilisez YYYY-MM-DD",
+      });
+    }
+
+    // Construire la requête SQL
+    let query = `
+      SELECT ws.*, e.first_name AS employee_first_name, e.last_name AS employee_last_name, 
+             e.role, d.name AS department_name
+      FROM weekly_schedules ws
+      JOIN employees e ON ws.employee_id = e.id
+      LEFT JOIN departments d ON e.department = d.id
+      WHERE ws.week_start = ?
+    `;
+
+    const queryParams = [week];
+
+    // Filtrer par statut si spécifié
+    const { status } = req.query;
+    if (status) {
+      query += " AND ws.status = ?";
+      queryParams.push(status);
+    }
+
+    // Trier par employé
+    query += " ORDER BY e.last_name, e.first_name";
+
+    // Log de débogage
+    console.log("📝 [WEEKLY SCHEDULES] Requête SQL:", query);
+    console.log("📝 [WEEKLY SCHEDULES] Paramètres:", queryParams);
+
+    // Exécuter la requête
+    const [schedules] = await db.query(query, queryParams);
+
+    console.log(
+      `✅ [WEEKLY SCHEDULES] ${schedules.length} plannings récupérés pour la semaine ${week}`
+    );
+
+    // Traiter les données pour avoir des objets JSON au lieu de chaînes
+    const formattedSchedules = schedules.map((schedule) => {
+      if (
+        schedule.schedule_data &&
+        typeof schedule.schedule_data === "string"
+      ) {
+        try {
+          schedule.schedule_data = JSON.parse(schedule.schedule_data);
+        } catch (error) {
+          console.error(
+            "❌ [WEEKLY SCHEDULES] Erreur de parsing JSON pour schedule_data:",
+            error
+          );
+        }
+      }
+      return schedule;
+    });
+
+    // Si aucun planning trouvé, retourner une réponse 404
+    if (formattedSchedules.length === 0) {
+      console.warn(
+        `⚠️ [WEEKLY SCHEDULES] Aucun planning trouvé pour la semaine ${week}`
+      );
+      return res.status(404).json({
+        success: false,
+        message: `Aucun planning trouvé pour la semaine ${week}`,
+      });
+    }
+
+    // Retourner les plannings
+    return res.status(200).json({
+      success: true,
+      data: formattedSchedules,
+    });
+  } catch (error) {
+    console.error(
+      "❌ [WEEKLY SCHEDULES] Erreur lors de la récupération des plannings:",
+      error
+    );
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des plannings",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Met à jour un planning hebdomadaire existant
  * @param {Object} req - Requête Express
  * @param {Object} res - Réponse Express

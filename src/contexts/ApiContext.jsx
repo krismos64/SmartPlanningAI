@@ -7,29 +7,47 @@ import {
   useRef,
   useState,
 } from "react";
-import { toast } from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
-import {
-  fetchCsrfTokenRobust,
-  getApiUrl,
-  getStoredCsrfToken,
-} from "../utils/api";
+import { useLocation, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { API_URL } from "../config/constants";
+import { fetchCsrfTokenRobust, getStoredCsrfToken } from "../utils/api";
 import { useAuth } from "./AuthContext";
 
+// Constante de timeout par défaut (pour remplacer l'import qui pose problème)
+const API_TIMEOUT = 30000; // 30 secondes par défaut
+
+// Objet TokenStorage simplifié pour remplacer l'import manquant
+const TokenStorage = {
+  getAccessToken: () => localStorage.getItem("token"),
+  getRefreshToken: () => localStorage.getItem("refreshToken"),
+  setAccessToken: (token) => localStorage.setItem("token", token),
+  setRefreshToken: (token) => localStorage.setItem("refreshToken", token),
+  clearTokens: () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+  },
+};
+
 // Création du contexte
-const ApiContext = createContext();
+export const ApiContext = createContext();
 
-// Hook pour utiliser le contexte API
-export const useApi = () => useContext(ApiContext);
+// Hook personnalisé pour utiliser l'API
+export const useApi = () => {
+  const context = useContext(ApiContext);
+  if (!context) {
+    throw new Error("useApi doit être utilisé dans un ApiProvider");
+  }
+  return context;
+};
 
-// Fournisseur du contexte API
-export function ApiProvider({ children }) {
+const ApiProvider = ({ children }) => {
   const { getToken, logout } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [requestCount, setRequestCount] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Référence pour éviter les appels multiples au CSRF
   const csrfFetchedOnce = useRef(false);
@@ -38,324 +56,342 @@ export function ApiProvider({ children }) {
   useEffect(() => {
     const fetchOnce = async () => {
       if (csrfFetchedOnce.current) return;
-      const token = await fetchCsrfTokenRobust();
-      if (token) {
-        csrfFetchedOnce.current = true;
-        console.log("🎯 [CSRF] Token initialisé dans ApiContext");
+
+      try {
+        console.log("🔄 [ApiContext] Initialisation du token CSRF...");
+        const token = await fetchCsrfTokenRobust();
+
+        if (token) {
+          csrfFetchedOnce.current = true;
+          console.log(
+            "✅ [ApiContext] Token CSRF initialisé avec succès:",
+            token
+          );
+
+          // Vérifier si le cookie est présent
+          const hasCookie = document.cookie.includes("XSRF-TOKEN");
+          console.log(
+            `🍪 [ApiContext] Cookie XSRF-TOKEN: ${
+              hasCookie ? "Présent" : "Absent"
+            }`
+          );
+
+          if (!hasCookie) {
+            console.warn(
+              "⚠️ [ApiContext] Le cookie XSRF-TOKEN n'a pas été défini correctement"
+            );
+          }
+        } else {
+          console.error(
+            "❌ [ApiContext] Échec de l'initialisation du token CSRF"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "❌ [ApiContext] Erreur lors de l'initialisation du token CSRF:",
+          error
+        );
       }
     };
+
     fetchOnce();
   }, []);
 
+  // Vérification des erreurs de configuration
+  const configError = !API_URL ? "L'URL de l'API n'est pas configurée" : null;
+
+  // Création de l'instance Axios - useMemo est maintenant appelé inconditionnellement
   const axiosInstance = useMemo(() => {
+    // La condition est déplacée à l'intérieur du hook
+    if (configError) {
+      return axios.create();
+    }
+
     const instance = axios.create({
-      baseURL: getApiUrl(),
-      withCredentials: true,
-      timeout: 20000, // Timeout après 20 secondes
+      baseURL: API_URL,
+      timeout: API_TIMEOUT,
+      withCredentials: true, // CRUCIAL pour envoyer et recevoir des cookies
     });
 
-    // Ajout d'un intercepteur de requête pour ajouter les headers d'authentification
-    instance.interceptors.request.use(
-      async (config) => {
-        // Incrémenter le compteur de requêtes
-        setRequestCount((prev) => prev + 1);
+    let isRefreshing = false;
+    let failedQueue = [];
 
-        // Ajouter le token CSRF si disponible (sans appel API systématique)
-        const csrfToken = getStoredCsrfToken();
-        if (csrfToken) {
-          config.headers["X-CSRF-Token"] = csrfToken;
+    const processQueue = (error, token = null) => {
+      failedQueue.forEach((prom) => {
+        if (error) {
+          prom.reject(error);
+        } else {
+          prom.resolve(token);
         }
+      });
 
-        // Ajouter le token d'authentification si disponible
-        const token = localStorage.getItem("token");
+      failedQueue = [];
+    };
+
+    // Intercepteur pour les requêtes
+    instance.interceptors.request.use(
+      (config) => {
+        const token = TokenStorage.getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // Détection du format de données pour Content-Type approprié
-        if (config.data instanceof FormData) {
-          config.headers["Content-Type"] = "multipart/form-data";
-        } else if (config.headers["Content-Type"] === undefined) {
-          config.headers["Content-Type"] = "application/json";
+        // Ajout du CSRF token si disponible
+        const csrfToken = getStoredCsrfToken();
+        if (csrfToken) {
+          config.headers["X-CSRF-TOKEN"] = csrfToken;
+          console.log(
+            "🔒 [ApiContext] Token CSRF ajouté à la requête:",
+            csrfToken.substring(0, 8) + "..."
+          );
+        } else {
+          console.warn("⚠️ [ApiContext] Requête sans token CSRF:", config.url);
         }
 
-        // Logger uniquement en développement
-        if (process.env.NODE_ENV === "development") {
-          console.debug(
-            `🚀 API Request [${config.method?.toUpperCase()}]:`,
+        // Vérifier si credentials est défini
+        if (config.withCredentials !== true) {
+          console.warn(
+            "⚠️ [ApiContext] withCredentials n'est pas activé pour la requête:",
             config.url
           );
+          config.withCredentials = true;
         }
+
+        // Increment request count
+        setRequestCount((prev) => prev + 1);
 
         return config;
       },
       (error) => {
-        setRequestCount((prev) => Math.max(0, prev - 1));
-        console.error("Erreur dans l'intercepteur de requête:", error);
         return Promise.reject(error);
       }
     );
 
-    // Intercepteur de réponse pour gérer les erreurs de manière centralisée
+    // Intercepteur pour les réponses
     instance.interceptors.response.use(
       (response) => {
-        setRequestCount((prev) => Math.max(0, prev - 1));
-
-        // Logger uniquement en développement
-        if (process.env.NODE_ENV === "development") {
-          console.debug(
-            `✅ API Response [${response.status}]:`,
-            response.config.url
-          );
+        // Gestion du CSRF token s'il est présent dans la réponse
+        if (response.headers["x-csrf-token"]) {
+          console.log("🎯 [CSRF] Token récupéré dans la réponse");
         }
-
         return response;
       },
       async (error) => {
-        setRequestCount((prev) => Math.max(0, prev - 1));
+        const originalRequest = error.config;
 
-        // Extraire les informations d'erreur
-        const { response, request, config } = error;
-
-        // Logger les erreurs
-        console.error(`❌ API Error:`, {
-          url: config?.url,
-          method: config?.method?.toUpperCase(),
-          status: response?.status,
-          data: response?.data,
-        });
-
-        // Gestion spécifique selon le code d'erreur
-        if (response) {
-          // Erreur de réponse du serveur
-          switch (response.status) {
-            case 401: // Non authentifié
-              localStorage.removeItem("token");
-              setIsLoggedIn(false);
-
-              // Redirection vers login sauf si déjà sur la page de login
-              if (!window.location.pathname.includes("/login")) {
-                toast.error(
-                  "Votre session a expiré. Veuillez vous reconnecter."
-                );
-                navigate("/login", { replace: true });
-              }
-              break;
-
-            case 403: // Accès interdit
-              toast.error(
-                "Vous n'avez pas les droits suffisants pour effectuer cette action."
-              );
-              break;
-
-            case 419: // Token CSRF expiré (Laravel)
-            case 422: // Erreur de validation (potentiellement CSRF)
-              if (
-                response.data?.message?.includes("CSRF") ||
-                response.data?.message?.includes("csrf")
-              ) {
-                // Tentative de récupération d'un nouveau token CSRF
-                localStorage.removeItem("csrfToken");
-                try {
-                  await fetchCsrfTokenRobust(3, 500);
-
-                  // Réessayer la requête originale si possible
-                  if (config) {
-                    return instance(config);
-                  }
-                } catch (e) {
-                  console.error(
-                    "Échec de récupération d'un nouveau token CSRF:",
-                    e
-                  );
-                }
-              }
-              break;
-
-            case 429: // Too Many Requests
-              toast.warning(
-                "Vous avez effectué trop de requêtes. Veuillez patienter quelques instants."
-              );
-              break;
-
-            case 500: // Erreur serveur
-            case 502: // Bad Gateway
-            case 503: // Service Unavailable
-            case 504: // Gateway Timeout
-              toast.error(
-                "Le serveur rencontre des difficultés. Veuillez réessayer plus tard."
-              );
-              break;
+        // Gestion des erreurs 401 (Non autorisé)
+        if (
+          error.response &&
+          error.response.status === 401 &&
+          !originalRequest._retry
+        ) {
+          if (isRefreshing) {
+            return new Promise(function (resolve, reject) {
+              failedQueue.push({ resolve, reject });
+            })
+              .then((token) => {
+                originalRequest.headers["Authorization"] = "Bearer " + token;
+                return instance(originalRequest);
+              })
+              .catch((err) => {
+                return Promise.reject(err);
+              });
           }
 
-          // Retourner un format d'erreur standardisé
-          return Promise.reject({
-            status: response.status,
-            message: response.data?.message || "Une erreur est survenue",
-            errors: response.data?.errors || {},
-            originalError: error,
-          });
-        } else if (request) {
-          // La requête a été envoyée mais aucune réponse n'a été reçue
-          toast.error(
-            "Impossible de contacter le serveur. Vérifiez votre connexion internet."
-          );
-          return Promise.reject({
-            status: 0,
-            message: "Erreur de connexion au serveur",
-            originalError: error,
-          });
-        } else {
-          // Une erreur s'est produite lors de la configuration de la requête
-          return Promise.reject({
-            status: 0,
-            message: "Erreur de configuration de la requête",
-            originalError: error,
-          });
+          originalRequest._retry = true;
+          isRefreshing = true;
+
+          try {
+            // Essayer de rafraîchir le token
+            const refreshToken = TokenStorage.getRefreshToken();
+            if (!refreshToken) {
+              throw new Error("No refresh token available");
+            }
+
+            const response = await instance.post("/auth/refresh-token", {
+              refresh_token: refreshToken,
+            });
+
+            if (response.data.access_token) {
+              TokenStorage.setAccessToken(response.data.access_token);
+              TokenStorage.setRefreshToken(response.data.refresh_token);
+              instance.defaults.headers.common["Authorization"] =
+                "Bearer " + response.data.access_token;
+
+              // Mettre à jour le token pour la requête originale
+              originalRequest.headers["Authorization"] =
+                "Bearer " + response.data.access_token;
+
+              processQueue(null, response.data.access_token);
+              return instance(originalRequest);
+            } else {
+              throw new Error("Failed to refresh token");
+            }
+          } catch (err) {
+            processQueue(err, null);
+            // Déconnecter l'utilisateur et rediriger vers la page de connexion
+            TokenStorage.clearTokens();
+            setIsLoggedIn(false);
+            if (
+              location.pathname !== "/login" &&
+              location.pathname !== "/register"
+            ) {
+              toast.error("Votre session a expiré. Veuillez vous reconnecter.");
+              navigate("/login", {
+                state: { from: location, message: "Session expirée" },
+              });
+            }
+            return Promise.reject(err);
+          } finally {
+            isRefreshing = false;
+          }
         }
+
+        // Gestion des erreurs 403 (Interdit)
+        if (error.response && error.response.status === 403) {
+          console.error("Accès interdit:", error.response.data);
+        }
+
+        // Gestion des erreurs 429 (Trop de requêtes)
+        if (error.response && error.response.status === 429) {
+          console.error("Trop de requêtes:", error.response.data);
+        }
+
+        // Gestion des erreurs 500 (Erreur serveur)
+        if (error.response && error.response.status >= 500) {
+          console.error("Erreur serveur:", error.response.data);
+        }
+
+        // Structurer les données d'erreur
+        const errorData = {
+          message:
+            error.response?.data?.message ||
+            error.message ||
+            "Une erreur est survenue",
+          status: error.response?.status,
+          errors: error.response?.data?.errors || {},
+        };
+
+        return Promise.reject(errorData);
       }
     );
 
     return instance;
-  }, [navigate]);
+  }, [location.pathname, navigate, configError]); // Ajout de configError comme dépendance
 
-  const apiMethods = useMemo(
-    () => ({
-      async get(endpoint, config = {}) {
+  // Fonction pour créer des méthodes de requête HTTP
+  const makeRequest = useMemo(
+    () =>
+      (method) =>
+      async (url, data = null, options = {}) => {
         setIsLoading(true);
         setError(null);
+
         try {
-          const response = await axiosInstance.get(endpoint, config);
-          return { success: true, data: response.data };
-        } catch (err) {
-          setError(err);
-          return {
-            success: false,
-            error: err.message || "Une erreur est survenue",
-            status: err.status,
-            errors: err.errors,
+          const config = {
+            method,
+            url,
+            ...options,
           };
+
+          if (data) {
+            if (method === "GET") {
+              config.params = data;
+            } else {
+              config.data = data;
+            }
+          }
+
+          const response = await axiosInstance(config);
+          return response.data;
+        } catch (error) {
+          setError(error);
+          throw error;
         } finally {
           setIsLoading(false);
         }
       },
-      async post(endpoint, data, config = {}) {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const response = await axiosInstance.post(endpoint, data, config);
-          return { success: true, data: response.data };
-        } catch (err) {
-          setError(err);
-          return {
-            success: false,
-            error: err.message || "Une erreur est survenue",
-            status: err.status,
-            errors: err.errors,
-          };
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      async put(endpoint, data, config = {}) {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const response = await axiosInstance.put(endpoint, data, config);
-          return { success: true, data: response.data };
-        } catch (err) {
-          setError(err);
-          return {
-            success: false,
-            error: err.message || "Une erreur est survenue",
-            status: err.status,
-            errors: err.errors,
-          };
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      async delete(endpoint, config = {}) {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const response = await axiosInstance.delete(endpoint, config);
-          return { success: true, data: response.data };
-        } catch (err) {
-          setError(err);
-          return {
-            success: false,
-            error: err.message || "Une erreur est survenue",
-            status: err.status,
-            errors: err.errors,
-          };
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      // Nouvelle méthode d'upload de fichiers
-      async upload(endpoint, files, additionalData = {}, config = {}) {
-        setIsLoading(true);
-        setError(null);
-
-        const formData = new FormData();
-
-        // Ajouter les fichiers à FormData
-        if (Array.isArray(files)) {
-          files.forEach((file, index) => {
-            formData.append(`file[${index}]`, file);
-          });
-        } else {
-          formData.append("file", files);
-        }
-
-        // Ajouter les données supplémentaires
-        Object.entries(additionalData).forEach(([key, value]) => {
-          formData.append(key, value);
-        });
-
-        try {
-          const response = await axiosInstance.post(endpoint, formData, {
-            ...config,
-            headers: {
-              ...config.headers,
-              "Content-Type": "multipart/form-data",
-            },
-          });
-          return { success: true, data: response.data };
-        } catch (err) {
-          setError(err);
-          return {
-            success: false,
-            error:
-              err.message ||
-              "Une erreur s'est produite lors de l'upload du fichier",
-            status: err.status,
-            errors: err.errors,
-          };
-        } finally {
-          setIsLoading(false);
-        }
-      },
-    }),
     [axiosInstance]
   );
 
-  // Si une erreur de configuration est détectée
-  if (error) {
-    return (
-      <div className="api-error">
-        <h3>Erreur de configuration API</h3>
-        <p>{error}</p>
-      </div>
-    );
-  }
+  // Fonction pour gérer les uploads de fichiers
+  const uploadFile = useMemo(
+    () =>
+      async (url, file, options = {}) => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          // Ajouter des données supplémentaires si fournies
+          if (options.data) {
+            Object.keys(options.data).forEach((key) => {
+              formData.append(key, options.data[key]);
+            });
+          }
+
+          const config = {
+            method: "POST",
+            url,
+            data: formData,
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+            ...options,
+          };
+
+          const response = await axiosInstance(config);
+          return response.data;
+        } catch (error) {
+          setError(error);
+          throw error;
+        } finally {
+          setIsLoading(false);
+        }
+      },
+    [axiosInstance]
+  );
+
+  // Création de l'élément de rendu pour les erreurs
+  const errorElement = configError ? (
+    <div className="api-error">
+      <h3>Erreur de configuration API</h3>
+      <p>{configError}</p>
+    </div>
+  ) : null;
+
+  // Création du contexte d'API avec les méthodes principales
+  const api = useMemo(() => {
+    // Initialiser l'objet API
+    const apiMethods = {
+      get: makeRequest("GET"),
+      post: makeRequest("POST"),
+      put: makeRequest("PUT"),
+      patch: makeRequest("PATCH"),
+      delete: makeRequest("DELETE"),
+      upload: uploadFile,
+    };
+
+    // Vérifier les erreurs de configuration à l'intérieur du hook
+    if (configError) {
+      console.error("⚠️ [API] Erreur de configuration:", configError);
+      return {
+        ...apiMethods,
+        error: configError,
+        isError: true,
+      };
+    }
+
+    return apiMethods;
+  }, [requestCount, navigate, configError, makeRequest, uploadFile]);
 
   return (
-    <ApiContext.Provider value={{ api: apiMethods, axiosInstance }}>
-      {children}
+    <ApiContext.Provider value={{ api: api, axiosInstance }}>
+      {errorElement || children}
     </ApiContext.Provider>
   );
-}
+};
 
 export default ApiProvider;

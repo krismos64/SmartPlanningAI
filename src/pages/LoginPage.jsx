@@ -51,9 +51,13 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
+      // Utiliser buildApiUrl pour construire l'URL complète avec le port correct
+      const loginUrl = buildApiUrl("/api/auth/login");
+      console.log(`🔄 [Login] URL d'authentification utilisée: ${loginUrl}`);
+
       // Appel réel à l'API pour la connexion
       const response = await axios.post(
-        buildApiUrl("/api/auth/login"),
+        loginUrl,
         {
           email,
           password,

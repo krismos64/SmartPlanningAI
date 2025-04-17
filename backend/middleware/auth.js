@@ -26,6 +26,7 @@ const verifyToken = async (req, res, next) => {
       // Format attendu: "Bearer [token]"
       if (authHeader.startsWith("Bearer ")) {
         token = authHeader.substring(7);
+        console.log("🔑 [AUTH] Token récupéré depuis l'en-tête Authorization");
       }
     }
 
@@ -47,6 +48,9 @@ const verifyToken = async (req, res, next) => {
 
     // Vérifier le token
     const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+    console.log(
+      `✅ [AUTH] Token vérifié avec succès pour userID: ${decoded.userId}`
+    );
 
     // Vérifier si l'utilisateur existe toujours
     const user = await User.findById(decoded.userId);
@@ -88,6 +92,21 @@ const verifyToken = async (req, res, next) => {
     // Ajouter l'utilisateur et l'ID à la requête
     req.user = user;
     req.userId = decoded.userId;
+
+    // Définir ou mettre à jour l'utilisateur dans la session
+    if (req.session && !req.session.user) {
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role || "admin",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        name:
+          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+          "Utilisateur",
+      };
+      console.log(`✅ [AUTH] Session utilisateur créée pour: ${user.email}`);
+    }
 
     // Journaliser la tentative d'authentification réussie
     logAuthAttempt(req, user._id, true);

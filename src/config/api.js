@@ -174,11 +174,71 @@ axiosInstance.interceptors.response.use(
 
 // Ajouter un intercepteur pour ajouter automatiquement le token CSRF aux requêtes
 axiosInstance.interceptors.request.use(
-  (config) => {
-    // Ajouter le token CSRF à toutes les requêtes sauf GET
-    if (config.method !== "get" && globalCsrfToken) {
-      config.headers["X-CSRF-Token"] = globalCsrfToken;
+  async (config) => {
+    // Ajouter le token CSRF à toutes les requêtes sauf GET, HEAD et OPTIONS
+    const safeHttpMethods = ["get", "head", "options"];
+    const method = config.method?.toLowerCase() || "get";
+
+    // Vérifier si on a besoin d'un token CSRF (pour méthodes non sécurisées)
+    if (!safeHttpMethods.includes(method)) {
+      // Si on a déjà un token global, l'utiliser
+      if (globalCsrfToken) {
+        config.headers["X-CSRF-Token"] = globalCsrfToken;
+        console.log(
+          `🔒 [CSRF] Token ajouté à la requête ${method.toUpperCase()} ${
+            config.url
+          }:`,
+          globalCsrfToken.substring(0, 10) + "..."
+        );
+      } else {
+        // Sinon essayer d'en récupérer un nouveau (async)
+        console.log(
+          `⚠️ [CSRF] Pas de token pour la requête ${method.toUpperCase()} ${
+            config.url
+          }, récupération...`
+        );
+        try {
+          // Tentative de récupération synchrone depuis le cookie pour éviter d'attendre
+          const cookieToken = getCookie("XSRF-TOKEN");
+          if (cookieToken) {
+            // Mise à jour de la variable globale pour les futurs appels
+            globalCsrfToken = cookieToken;
+            localStorage.setItem("csrf_token", cookieToken);
+
+            // Utilisation immédiate pour cette requête
+            config.headers["X-CSRF-Token"] = cookieToken;
+            console.log(
+              `🔒 [CSRF] Token récupéré du cookie et ajouté à la requête:`,
+              cookieToken.substring(0, 10) + "..."
+            );
+          } else {
+            // Si pas de cookie, lancer une requête pour obtenir un token (pour les futurs appels)
+            // Cette requête est lancée en parallèle et ne bloque pas la requête actuelle
+            getCsrfToken()
+              .then((token) => {
+                console.log(
+                  "🔄 [CSRF] Token obtenu pour les prochaines requêtes"
+                );
+              })
+              .catch((err) => {
+                console.error("❌ [CSRF] Échec de récupération du token:", err);
+              });
+
+            console.warn(
+              `⚠️ [CSRF] Requête ${method.toUpperCase()} ${
+                config.url
+              } envoyée SANS token CSRF!`
+            );
+          }
+        } catch (error) {
+          console.error(
+            `❌ [CSRF] Erreur lors de la récupération du token:`,
+            error
+          );
+        }
+      }
     }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -370,13 +430,50 @@ export const fetchCsrfTokenRobust = async (
       // Si on a déjà un token CSRF en mémoire, on le retourne
       const existingToken = getStoredCsrfToken();
       if (existingToken) {
+        // Mettre à jour la variable globale avec le token existant
+        globalCsrfToken = existingToken;
+        console.log(
+          "♻️ [CSRF] Utilisation du token CSRF existant:",
+          existingToken.substring(0, 10) + "..."
+        );
         return existingToken;
       }
 
+      // Toujours s'assurer qu'on utilise le préfixe /api/
+      const csrfEndpoint = "/api/csrf-token";
+      console.log(
+        `🔄 [CSRF] Tentative ${
+          attempt + 1
+        }/${maxRetries} d'appel à ${API_URL}${csrfEndpoint}`
+      );
+
       // Sinon on fait la requête pour en obtenir un nouveau
-      const response = await axios.get(`${API_URL}/api/csrf-token`, {
+      const response = await axios.get(`${API_URL}${csrfEndpoint}`, {
         withCredentials: true,
       });
+
+      // Vérifier que la réponse est de type JSON
+      const contentType = response.headers["content-type"] || "";
+      if (contentType.includes("text/html")) {
+        console.error("⚠️ Mauvais type de réponse reçu : HTML au lieu de JSON");
+        throw new Error("Le serveur a renvoyé du HTML au lieu du JSON attendu");
+      }
+
+      // Vérifier que la réponse est bien un objet avec un token CSRF
+      if (response.data && response.data.csrfToken) {
+        // Stocker le token pour les prochaines requêtes
+        const token = response.data.csrfToken;
+        localStorage.setItem("csrf_token", token);
+
+        // Mise à jour de la variable globale pour les intercepteurs
+        globalCsrfToken = token;
+
+        console.log(
+          "✅ [CSRF] Token récupéré et globalisé avec succès:",
+          token.substring(0, 10) + "..."
+        );
+        return token;
+      }
 
       // Extraire le token depuis les cookies
       const csrfToken = getCookieValue("XSRF-TOKEN");
@@ -384,6 +481,14 @@ export const fetchCsrfTokenRobust = async (
       if (csrfToken) {
         // Stocker le token pour les prochaines requêtes
         localStorage.setItem("csrf_token", csrfToken);
+
+        // Mise à jour de la variable globale pour les intercepteurs
+        globalCsrfToken = csrfToken;
+
+        console.log(
+          "✅ [CSRF] Token récupéré depuis le cookie et globalisé:",
+          csrfToken.substring(0, 10) + "..."
+        );
         return csrfToken;
       } else {
         console.warn(
@@ -400,6 +505,22 @@ export const fetchCsrfTokenRobust = async (
         }/${maxRetries}):`,
         error.message
       );
+
+      // Si l'erreur indique un problème de parsing JSON, afficher plus de détails
+      if (error.message.includes("JSON")) {
+        console.error(
+          "❌ [CSRF] Erreur de parsing JSON. La réponse pourrait être du HTML."
+        );
+        // Si c'est une erreur Axios, tenter d'afficher le contenu de la réponse pour diagnostic
+        if (error.response && error.response.data) {
+          const preview =
+            typeof error.response.data === "string"
+              ? error.response.data.substring(0, 150)
+              : JSON.stringify(error.response.data).substring(0, 150);
+          console.error(`⚠️ Début du contenu reçu: ${preview}...`);
+        }
+      }
+
       lastError = error;
     }
 
@@ -433,26 +554,42 @@ export const checkApiHealth = async () => {
 
 // Mise à jour de getCsrfToken pour utiliser la nouvelle méthode robuste
 export const getCsrfToken = async () => {
-  // Si on a déjà un token stocké, le retourner
+  // Si on a déjà un token stocké en variable globale, le retourner
   if (globalCsrfToken) {
+    console.log(
+      "♻️ [CSRF] Réutilisation du token global existant:",
+      globalCsrfToken.substring(0, 10) + "..."
+    );
     return globalCsrfToken;
   }
 
-  // Sinon essayer d'en récupérer un nouveau
+  console.log("🔍 [CSRF] Pas de token global, tentative de récupération...");
+
+  // Sinon essayer d'en récupérer un nouveau via la méthode robuste
+  // Cette fonction met déjà à jour globalCsrfToken
   const token = await fetchCsrfTokenRobust();
   if (token) {
-    globalCsrfToken = token;
+    // On n'a pas besoin de mettre à jour globalCsrfToken ici car c'est déjà fait dans fetchCsrfTokenRobust
+    console.log(
+      "✅ [CSRF] Token récupéré et disponible pour tous les appels API"
+    );
     return token;
   }
 
   // En dernier recours, essayer de récupérer depuis les cookies
   const cookieToken = getCookie("XSRF-TOKEN");
   if (cookieToken) {
+    // Mettre à jour la variable globale et le localStorage
     globalCsrfToken = cookieToken;
+    localStorage.setItem("csrf_token", cookieToken);
+    console.log(
+      "🍪 [CSRF] Token récupéré depuis le cookie et globalisé:",
+      cookieToken.substring(0, 10) + "..."
+    );
     return cookieToken;
   }
 
-  console.warn("⚠️ Aucun token CSRF n'a pu être récupéré");
+  console.warn("⚠️ [CSRF] Aucun token CSRF n'a pu être récupéré");
   return null;
 };
 
@@ -478,23 +615,26 @@ export const apiDebug = (message, data = null) => {
   }
 };
 
-// Avant d'exécuter une requête, vérifier et ajouter l'en-tête d'autorisation
+// Fonction pour configurer l'en-tête d'authentification
 const setAuthHeader = (config, headers = {}) => {
-  // Récupérer le token depuis différentes sources possibles
-  const token =
-    localStorage.getItem("token") ||
-    localStorage.getItem("accessToken") ||
-    sessionStorage.getItem("token");
+  // Récupérer le token depuis localStorage
+  const token = localStorage.getItem("token");
 
+  // Si un token est trouvé, l'ajouter à l'en-tête
   if (token) {
-    console.log("🔑 Token trouvé, ajout à l'en-tête Authorization");
+    console.log(
+      `🔑 [API] Ajout du token JWT (${token.substring(0, 15)}...) à la requête`
+    );
     return {
       ...headers,
       Authorization: `Bearer ${token}`,
     };
   }
 
-  console.warn("⚠️ Aucun token d'authentification trouvé");
+  // Si aucun token n'est trouvé, log d'avertissement
+  console.warn(
+    "⚠️ [API] Aucun token JWT trouvé dans localStorage pour l'authentification"
+  );
   return headers;
 };
 
@@ -547,43 +687,121 @@ export const apiRequest = async (
     // URL complète de l'API avec préfixe /api
     const url = buildCompleteApiUrl(endpoint);
 
+    // Récupérer le token depuis localStorage pour l'authentification
+    const token = localStorage.getItem("token");
+
     // En-têtes par défaut avec authentification
     const headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...setAuthHeader(null, customHeaders),
     };
+
+    // Ajouter le token d'authentification s'il existe
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      console.log(
+        `🔑 [API] Token JWT ajouté à la requête: ${token.substring(0, 15)}...`
+      );
+    } else if (
+      endpoint.includes("/auth/") === false &&
+      endpoint !== "/api/csrf-token"
+    ) {
+      // Ne pas afficher d'avertissement pour les endpoints d'authentification ou de CSRF
+      console.warn(
+        `⚠️ [API] Requête ${method} ${endpoint} sans token JWT (mode invité)`
+      );
+    }
+
+    // Fusionner avec les en-têtes personnalisés
+    const mergedHeaders = { ...headers, ...customHeaders };
+
+    // Journaliser les en-têtes (sans Authorization complet pour la sécurité)
+    const loggableHeaders = { ...mergedHeaders };
+    if (loggableHeaders.Authorization) {
+      loggableHeaders.Authorization =
+        loggableHeaders.Authorization.substring(0, 20) + "...";
+    }
+    console.log(`🧩 [API] En-têtes de la requête:`, loggableHeaders);
 
     // Configuration de la requête
     const config = {
       method,
-      headers,
+      headers: mergedHeaders,
       credentials: "include", // Pour envoyer les cookies
       ...(data && { body: JSON.stringify(data) }),
     };
 
     console.log(`📡 [API] ${method} ${url}`);
+    if (data) {
+      console.log(`📦 [API] Données envoyées:`, data);
+    }
 
     // Exécuter la requête
     const response = await fetch(url, config);
 
     // Gérer les erreurs d'authentification
     if (response.status === 401) {
-      console.error("🔒 Erreur d'authentification 401");
+      console.error("🔒 [API] Erreur d'authentification 401");
+
+      // Si nous sommes déjà sur la page de login, ne pas rediriger à nouveau
+      if (
+        window.location.pathname !== "/login" &&
+        window.location.pathname !== "/register"
+      ) {
+        console.warn(
+          "🔄 [API] Redirection vers la page de connexion en raison d'un token invalide"
+        );
+        // Optionnel: rediriger vers la page de login
+        // window.location.href = "/login?expired=true";
+      }
+
       throw new Error("Authentification invalide. Veuillez vous reconnecter.");
     }
 
     // Autres erreurs
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Erreur ${response.status}`);
+      try {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`❌ [API] Erreur ${response.status}:`, errorData);
+        throw new Error(errorData.message || `Erreur ${response.status}`);
+      } catch (parseError) {
+        console.error(
+          `❌ [API] Erreur ${response.status} - Impossible de parser la réponse`
+        );
+        throw new Error(
+          `Erreur ${response.status}: Impossible de parser la réponse`
+        );
+      }
+    }
+
+    // Vérifier le Content-Type de la réponse
+    const contentType = response.headers.get("Content-Type") || "";
+    if (contentType.includes("text/html")) {
+      console.error(
+        "⚠️ [API] Mauvais type de réponse reçu : HTML au lieu de JSON"
+      );
+      // Récupérer le début du contenu HTML pour le diagnostic
+      const htmlContent = await response.clone().text();
+      const previewContent = htmlContent.substring(0, 150);
+      console.error(`⚠️ [API] Début du contenu HTML: ${previewContent}...`);
+      throw new Error("Le serveur a renvoyé du HTML au lieu du JSON attendu");
     }
 
     // Lire la réponse JSON
-    const result = await response.json();
-    return result;
+    try {
+      const result = await response.json();
+      console.log(`✅ [API] Réponse reçue pour ${method} ${endpoint}:`, result);
+      return result;
+    } catch (jsonError) {
+      console.error(`❌ [API] Erreur de parsing JSON:`, jsonError);
+      // Récupérer le contenu brut pour le diagnostic
+      const textContent = await response.clone().text();
+      const previewContent = textContent.substring(0, 150);
+      console.error(`⚠️ [API] Contenu brut reçu (début): ${previewContent}...`);
+      throw new Error("Erreur de parsing: la réponse n'est pas un JSON valide");
+    }
   } catch (error) {
-    console.error(`❌ [API Error] ${error.message}`);
+    console.error(`❌ [API Error] ${error.message}`, error);
     throw error;
   }
 };

@@ -350,6 +350,9 @@ router.post("/login", async (req, res) => {
   // Récupérer le user-agent
   const userAgent = req.headers["user-agent"];
 
+  // S'assurer que la réponse sera en JSON
+  res.setHeader("Content-Type", "application/json");
+
   try {
     const { email, password } = req.body;
 
@@ -364,6 +367,9 @@ router.post("/login", async (req, res) => {
         user_agent: userAgent,
       });
 
+      console.error(
+        "❌ [AUTH] Échec de connexion: Email ou mot de passe non fourni"
+      );
       return res.status(400).json({
         success: false,
         message: "Email et mot de passe requis",
@@ -384,6 +390,7 @@ router.post("/login", async (req, res) => {
         user_agent: userAgent,
       });
 
+      console.error(`❌ [AUTH] Échec de connexion: Email inconnu ${email}`);
       return res.status(401).json({
         success: false,
         message: "Email ou mot de passe incorrect",
@@ -424,8 +431,23 @@ router.post("/login", async (req, res) => {
 
     // Stocker l'ID utilisateur dans la session
     if (req.session) {
-      req.session.userId = user.id;
-      console.log(`✅ Session utilisateur mise à jour - ID: ${user.id}`);
+      // Définir l'utilisateur complet dans la session
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role || "admin",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        name:
+          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+          "Utilisateur",
+      };
+      console.log(
+        `✅ Session utilisateur mise à jour - ID: ${user.id}, Email: ${user.email}`
+      );
+      console.log(
+        `🔑 Tokens générés - Access: ${tokens.accessToken.substring(0, 15)}...`
+      );
     } else {
       console.warn(
         "⚠️ Session non disponible - Impossible de sauvegarder l'ID utilisateur"
@@ -443,8 +465,8 @@ router.post("/login", async (req, res) => {
 
       return res.json({
         success: true,
+        accessToken: tokens.accessToken, // Assurer la cohérence des noms de clés
         token: tokens.accessToken, // Pour la rétrocompatibilité
-        accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         user: {
           id: user.id,

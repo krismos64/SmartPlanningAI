@@ -248,8 +248,12 @@ const AuthService = {
    */
   login: async (email, password) => {
     try {
+      // Utiliser l'URL API complète en important getApiUrl
+      const apiUrl = require("../utils/api").getApiUrl("/api/auth/login");
+      console.log(`🔄 [AuthService] URL de connexion utilisée: ${apiUrl}`);
+
       const response = await axios.post(
-        "/api/auth/login",
+        apiUrl,
         {
           email,
           password,

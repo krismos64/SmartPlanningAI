@@ -1,4 +1,3 @@
-import { toast } from "react-hot-toast";
 import { API_URL, axiosInstance } from "../config/api";
 import { formatDateForAPI } from "../utils/dateUtils";
 
@@ -83,6 +82,42 @@ class WeeklyScheduleService {
           error.message || "Erreur lors de la récupération des plannings",
         error,
       };
+    }
+  }
+
+  /**
+   * Récupère les plannings pour une semaine spécifique
+   * @param {string} weekStartDate - Date de début de semaine au format YYYY-MM-DD
+   * @returns {Promise<Object>} Réponse API avec les plannings de la semaine
+   */
+  static async getByWeek(weekStartDate) {
+    try {
+      console.log(
+        "🔍 [Frontend] Récupération des plannings pour la semaine:",
+        weekStartDate
+      );
+
+      // S'assurer que la date est au bon format
+      if (!weekStartDate || !weekStartDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        throw new Error("Format de date invalide. Utilisez YYYY-MM-DD");
+      }
+
+      // Utiliser le paramètre de requête ?week= au lieu du paramètre de route :weekStart
+      const response = await axiosInstance.get(
+        `/api/weekly-schedules?week=${weekStartDate}`
+      );
+
+      console.log(
+        "✅ [Frontend] Réponse reçue pour les plannings:",
+        response.data
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        "❌ [Frontend] Erreur lors de la récupération des plannings par semaine:",
+        error
+      );
+      throw error;
     }
   }
 
@@ -301,262 +336,54 @@ class WeeklyScheduleService {
   /**
    * Crée un nouveau planning hebdomadaire
    * @param {Object} scheduleData - Données du planning à créer
-   * @returns {Promise<Object>} - Réponse avec le planning créé
+   * @returns {Promise<Object>} Réponse API avec le planning créé
    */
   static async createSchedule(scheduleData) {
     try {
-      console.log("WeeklyScheduleService.createSchedule - Début", scheduleData);
-
-      const apiUrl = API_URL || "http://localhost:5001";
-      const url = `${apiUrl}/api/weekly-schedules`;
-
-      // Récupérer le token d'authentification
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
-
-      if (!token) {
-        console.error("Token d'authentification manquant");
-        return {
-          success: false,
-          message: "Authentification requise pour créer un planning",
-          statusCode: 401,
-        };
-      }
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(scheduleData),
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.log(
-            "Erreur d'authentification 401 détectée, tentative de refresh du token"
-          );
-          // Tenter de rafraîchir le token
-          const refreshed = await this.handleAuthError();
-          if (refreshed) {
-            console.log(
-              "Token rafraîchi avec succès, réessai de la création du planning"
-            );
-            // Réessayer la requête avec le nouveau token
-            return await this.createSchedule(scheduleData);
-          } else {
-            return {
-              success: false,
-              message: "Authentification invalide. Veuillez vous reconnecter.",
-              statusCode: 401,
-            };
-          }
-        }
-
-        const errorData = await response.json().catch(() => ({}));
-        console.error(
-          "WeeklyScheduleService.createSchedule - Erreur:",
-          errorData
-        );
-        toast.error(
-          errorData.message || "Erreur lors de la création du planning"
-        );
-        return {
-          success: false,
-          message: errorData.message || `Erreur ${response.status}`,
-          statusCode: response.status,
-        };
-      }
-
-      const data = await response.json();
-      console.log("WeeklyScheduleService.createSchedule - Succès:", data);
-
-      return {
-        success: true,
-        data: data.data || data,
-      };
+      const response = await axiosInstance.post(
+        "/api/weekly-schedules",
+        scheduleData
+      );
+      return response.data;
     } catch (error) {
-      console.error("WeeklyScheduleService.createSchedule - Exception:", error);
-      return {
-        success: false,
-        message: error.message || "Erreur lors de la création du planning",
-        error,
-      };
+      console.error("Erreur lors de la création du planning:", error);
+      throw error;
     }
   }
 
   /**
-   * Met à jour un planning hebdomadaire existant
-   * @param {string} id - ID du planning à mettre à jour
+   * Met à jour un planning existant
+   * @param {string|number} id - Identifiant du planning à mettre à jour
    * @param {Object} scheduleData - Nouvelles données du planning
-   * @returns {Promise<Object>} - Réponse avec le planning mis à jour
+   * @returns {Promise<Object>} Réponse API avec le planning mis à jour
    */
   static async updateSchedule(id, scheduleData) {
     try {
-      console.log(
-        `WeeklyScheduleService.updateSchedule - Début: ${id}`,
+      const response = await axiosInstance.put(
+        `/api/weekly-schedules/${id}`,
         scheduleData
       );
-
-      const apiUrl = API_URL || "http://localhost:5001";
-      const url = `${apiUrl}/api/weekly-schedules/${id}`;
-
-      // Récupérer le token d'authentification
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
-
-      if (!token) {
-        console.error("Token d'authentification manquant");
-        return {
-          success: false,
-          message: "Authentification requise pour modifier un planning",
-          statusCode: 401,
-        };
-      }
-
-      const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(scheduleData),
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.log(
-            "Erreur d'authentification 401 détectée, tentative de refresh du token"
-          );
-          // Tenter de rafraîchir le token
-          const refreshed = await this.handleAuthError();
-          if (refreshed) {
-            console.log(
-              "Token rafraîchi avec succès, réessai de la mise à jour du planning"
-            );
-            // Réessayer la requête avec le nouveau token
-            return await this.updateSchedule(id, scheduleData);
-          } else {
-            return {
-              success: false,
-              message: "Authentification invalide. Veuillez vous reconnecter.",
-              statusCode: 401,
-            };
-          }
-        }
-
-        const errorData = await response.json().catch(() => ({}));
-        console.error(
-          "WeeklyScheduleService.updateSchedule - Erreur:",
-          errorData
-        );
-        toast.error(
-          errorData.message || "Erreur lors de la mise à jour du planning"
-        );
-        return {
-          success: false,
-          message: errorData.message || `Erreur ${response.status}`,
-          statusCode: response.status,
-        };
-      }
-
-      const data = await response.json();
-      console.log("WeeklyScheduleService.updateSchedule - Succès:", data);
-
-      return {
-        success: true,
-        data: data.data || data,
-      };
+      return response.data;
     } catch (error) {
-      console.error("WeeklyScheduleService.updateSchedule - Exception:", error);
-      return {
-        success: false,
-        message: error.message || "Erreur lors de la mise à jour du planning",
-        error,
-      };
+      console.error(`Erreur lors de la mise à jour du planning #${id}:`, error);
+      throw error;
     }
   }
 
   /**
-   * Supprime un planning hebdomadaire
-   * @param {string} id - ID du planning à supprimer
-   * @returns {Promise<Object>} - Réponse indiquant le succès ou l'échec
+   * Supprime un planning
+   * @param {string|number} id - Identifiant du planning à supprimer
+   * @returns {Promise<Object>} Réponse API confirmant la suppression
    */
   static async deleteSchedule(id) {
     try {
-      console.log(`WeeklyScheduleService.deleteSchedule - Début: ${id}`);
-
-      const apiUrl = API_URL || "http://localhost:5001";
-      const url = `${apiUrl}/api/weekly-schedules/${id}`;
-
-      // Récupérer le token d'authentification
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
-
-      if (!token) {
-        console.error("Token d'authentification manquant");
-        return {
-          success: false,
-          message: "Authentification requise pour supprimer un planning",
-          statusCode: 401,
-        };
-      }
-
-      const response = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        // Gérer spécifiquement les erreurs d'authentification
-        if (response.status === 401) {
-          // Tenter de rafraîchir le token
-          const refreshed = await this.handleAuthError();
-          if (refreshed) {
-            // Réessayer la requête avec le nouveau token
-            return await this.deleteSchedule(id);
-          } else {
-            return {
-              success: false,
-              message: "Authentification invalide. Veuillez vous reconnecter.",
-              statusCode: 401,
-            };
-          }
-        }
-
-        const errorData = await response.json().catch(() => ({}));
-        console.error(
-          "WeeklyScheduleService.deleteSchedule - Erreur:",
-          errorData
-        );
-        return {
-          success: false,
-          message: errorData.message || `Erreur ${response.status}`,
-          statusCode: response.status,
-        };
-      }
-
-      const data = await response.json();
-      console.log("WeeklyScheduleService.deleteSchedule - Succès");
-
-      return {
-        success: true,
-        ...data,
-      };
+      const response = await axiosInstance.delete(
+        `/api/weekly-schedules/${id}`
+      );
+      return response.data;
     } catch (error) {
-      console.error("WeeklyScheduleService.deleteSchedule - Exception:", error);
-      return {
-        success: false,
-        message: error.message || "Erreur lors de la suppression du planning",
-        error,
-      };
+      console.error(`Erreur lors de la suppression du planning #${id}:`, error);
+      throw error;
     }
   }
 
@@ -644,80 +471,6 @@ class WeeklyScheduleService {
         message: error.message || "Erreur lors de la génération du planning",
         error,
       };
-    }
-  }
-
-  /**
-   * Récupère les plannings pour une semaine spécifique
-   * @param {string} weekStartDate - Date de début de semaine au format YYYY-MM-DD
-   * @returns {Promise<Object>} Réponse API avec les plannings de la semaine
-   */
-  static async getByWeek(weekStartDate) {
-    try {
-      const response = await axiosInstance.get(
-        `/api/weekly-schedules?week=${weekStartDate}`
-      );
-      return response.data;
-    } catch (error) {
-      console.error(
-        "Erreur lors de la récupération des plannings par semaine:",
-        error
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Crée un nouveau planning hebdomadaire
-   * @param {Object} scheduleData - Données du planning à créer
-   * @returns {Promise<Object>} Réponse API avec le planning créé
-   */
-  static async createSchedule(scheduleData) {
-    try {
-      const response = await axiosInstance.post(
-        "/api/weekly-schedules",
-        scheduleData
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Erreur lors de la création du planning:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Met à jour un planning existant
-   * @param {string|number} id - Identifiant du planning à mettre à jour
-   * @param {Object} scheduleData - Nouvelles données du planning
-   * @returns {Promise<Object>} Réponse API avec le planning mis à jour
-   */
-  static async updateSchedule(id, scheduleData) {
-    try {
-      const response = await axiosInstance.put(
-        `/api/weekly-schedules/${id}`,
-        scheduleData
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Erreur lors de la mise à jour du planning #${id}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Supprime un planning
-   * @param {string|number} id - Identifiant du planning à supprimer
-   * @returns {Promise<Object>} Réponse API confirmant la suppression
-   */
-  static async deleteSchedule(id) {
-    try {
-      const response = await axiosInstance.delete(
-        `/api/weekly-schedules/${id}`
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Erreur lors de la suppression du planning #${id}:`, error);
-      throw error;
     }
   }
 }
