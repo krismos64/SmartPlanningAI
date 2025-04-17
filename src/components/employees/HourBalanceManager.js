@@ -151,6 +151,11 @@ const HoursDisplay = styled.div`
   text-align: center;
 `;
 
+const BalanceLabel = styled.label`
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
 const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
   const [hours, setHours] = useState("1");
   const [currentBalance, setCurrentBalance] = useState(null);
@@ -399,7 +404,7 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
       {currentBalance !== null && (
         <CurrentBalance>
           Solde actuel:
-          <BalanceValue isPositive={currentBalance >= 0}>
+          <BalanceValue isPositive={currentBalance >= 0 ? "true" : undefined}>
             {currentBalance >= 0 ? "+" : ""}
             {currentBalance.toFixed(2)}h
           </BalanceValue>
@@ -423,7 +428,6 @@ const HourBalanceManager = ({ employeeId, onBalanceUpdated }) => {
           <StepperContainer>
             <StepButton
               type="button"
-              type="decrease"
               onClick={() => adjustHours(-0.25)}
               disabled={loading || parseFloat(hours) <= 0.25}
             >

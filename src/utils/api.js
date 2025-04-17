@@ -181,7 +181,16 @@ function getDefaultFetchConfig() {
  * @returns {Promise<string|null>} Le token CSRF ou null en cas d'erreur
  */
 export async function fetchCsrfTokenRobust(maxRetries = 3, retryDelay = 1000) {
-  // Vérifier d'abord le cache pour éviter des requêtes inutiles
+  // Vérifier d'abord le cookie, qui est la source la plus fiable
+  const csrfCookie = getCookie("XSRF-TOKEN");
+  if (csrfCookie) {
+    console.log("🍪 [CSRF] Token valide trouvé dans les cookies");
+    // Mettre à jour le cache mémoire et localStorage
+    saveTokenToStorage(csrfCookie);
+    return csrfCookie;
+  }
+
+  // Vérifier ensuite le cache mémoire
   if (isTokenCacheValid()) {
     console.log("♻️ [CSRF] Token valide présent en cache mémoire");
     return csrfTokenCache;
@@ -198,107 +207,84 @@ export async function fetchCsrfTokenRobust(maxRetries = 3, retryDelay = 1000) {
 
   console.log("🔄 [CSRF] Récupération d'un nouveau token...");
 
-  // Tentatives de récupération avec retry
+  // Initialisation
   let attempt = 0;
   let lastError = null;
 
+  // Boucle de tentatives
   while (attempt < maxRetries) {
     try {
-      const fetchOptions = {
+      if (attempt > 0) {
+        console.log(`🔁 [CSRF] Tentative ${attempt + 1}/${maxRetries}...`);
+        // Délai progressif entre les tentatives
+        await new Promise((resolve) =>
+          setTimeout(resolve, retryDelay * (attempt + 1))
+        );
+      }
+
+      // Construction de l'URL avec préfixe /api obligatoire
+      const csrfUrl = `${API_BASE_URL}/api/csrf-token`;
+
+      console.log(`📡 [CSRF] Appel à ${csrfUrl}`);
+
+      // Utilisation de fetch avec credentials pour assurer la conservation des cookies
+      const response = await fetch(csrfUrl, {
         method: "GET",
-        credentials: "include", // CRUCIAL pour envoyer et recevoir des cookies
+        credentials: "include", // CRUCIAL pour recevoir et envoyer les cookies
+        cache: "no-cache", // Éviter le cache navigateur
         headers: {
           Accept: "application/json",
           "X-Requested-With": "XMLHttpRequest",
         },
-      };
-
-      console.log(
-        `🔍 [CSRF] Tentative ${attempt + 1}/${maxRetries} - URL: ${getApiUrl(
-          "/csrf-token"
-        )}`
-      );
-
-      // Afficher les cookies actuels avant la requête
-      console.log(
-        "🍪 [CSRF] Cookies avant la requête:",
-        document.cookie || "Aucun"
-      );
-
-      const response = await fetch(getApiUrl("/csrf-token"), fetchOptions);
+      });
 
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        throw new Error(
+          `Erreur HTTP: ${response.status} ${response.statusText}`
+        );
       }
 
-      // Vérifier le Content-Type de la réponse
-      const contentType = response.headers.get("Content-Type");
-      if (contentType && contentType.includes("text/html")) {
-        console.error("⚠️ Mauvais type de réponse reçu : HTML au lieu de JSON");
-        throw new Error("Le serveur a renvoyé du HTML au lieu du JSON attendu");
+      // Vérifier d'abord le cookie qui a pu être défini par la réponse
+      const newCookie = getCookie("XSRF-TOKEN");
+      if (newCookie) {
+        console.log("✅ [CSRF] Nouveau token récupéré depuis les cookies");
+        saveTokenToStorage(newCookie);
+        return newCookie;
       }
 
-      // Log pour les cookies reçus
-      const cookies = document.cookie;
-      console.log("🍪 [CSRF] Cookies après la requête:", cookies || "Aucun");
-
+      // Sinon, essayer de récupérer le token depuis la réponse JSON
       try {
         const data = await response.json();
-        console.log("📄 [CSRF] Réponse du serveur:", data);
-
         if (data && data.csrfToken) {
-          // Sauvegarder le token
+          console.log("✅ [CSRF] Token récupéré depuis la réponse JSON");
           saveTokenToStorage(data.csrfToken);
-          console.log(
-            "✅ [CSRF] Token récupéré et mis en cache:",
-            data.csrfToken
-          );
-
-          // Vérifier si le cookie a été également défini
-          const hasCookie = document.cookie.includes("XSRF-TOKEN");
-          console.log(
-            `🍪 [CSRF] Cookie XSRF-TOKEN: ${hasCookie ? "Présent" : "Absent"}`
-          );
-
           return data.csrfToken;
         } else {
-          console.warn("⚠️ [CSRF] La réponse ne contient pas de token:", data);
-          lastError = new Error("Réponse sans token CSRF");
+          console.warn("⚠️ [CSRF] Aucun token dans la réponse JSON");
         }
       } catch (jsonError) {
         console.error(
-          "❌ [CSRF] Erreur lors du parsing JSON:",
-          jsonError.message
-        );
-
-        // Tenter de lire le contenu brut pour le diagnostic
-        const textContent = await response.clone().text();
-        const previewContent = textContent.substring(0, 150);
-        console.error(`⚠️ Contenu reçu (début): ${previewContent}...`);
-
-        throw new Error(
-          "Erreur de parsing: la réponse n'est pas un JSON valide"
+          "❌ [CSRF] Erreur lors du parsing de la réponse JSON:",
+          jsonError
         );
       }
+
+      // Si on arrive ici, c'est qu'on n'a pas trouvé de token
+      return null;
     } catch (error) {
-      console.warn(
-        `⚠️ [CSRF] Tentative ${attempt + 1}/${maxRetries} échouée:`,
-        error.message
+      console.error(
+        `❌ [CSRF] Erreur lors de la tentative ${attempt + 1}/${maxRetries}:`,
+        error
       );
       lastError = error;
+      attempt++;
     }
-
-    // Attendre avant de réessayer (délai exponentiel)
-    const backoffDelay = retryDelay * Math.pow(1.5, attempt);
-    console.log(
-      `⏱️ [CSRF] Attente de ${backoffDelay}ms avant nouvelle tentative`
-    );
-    await new Promise((r) => setTimeout(r, backoffDelay));
-    attempt++;
   }
 
-  console.error("❌ [CSRF] Échec après plusieurs tentatives:", lastError);
-  return null;
+  console.error(
+    "❌ [CSRF] Échec de récupération du token après plusieurs tentatives"
+  );
+  throw lastError || new Error("Échec de récupération du token CSRF");
 }
 
 /**
@@ -326,59 +312,89 @@ export async function fetchWithCsrf(url, options = {}) {
     config.credentials = "include";
   }
 
-  // Ajouter le token CSRF s'il existe
-  const csrfToken = await getStoredCsrfToken();
-  if (csrfToken) {
-    config.headers["X-CSRF-Token"] = csrfToken;
-    console.log(`🔒 [API] Token CSRF ajouté à la requête: ${url}`);
-  } else {
-    console.warn(`⚠️ [API] Requête sans token CSRF: ${url}`);
+  // Vérifier la méthode pour déterminer si un token CSRF est nécessaire
+  const method = (config.method || "GET").toUpperCase();
+  const requiresCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
 
-    // Si méthode non-GET et pas de token, tenter de récupérer un token
-    if (
-      !["GET", "HEAD", "OPTIONS"].includes(
-        options.method?.toUpperCase() || "GET"
-      )
-    ) {
-      console.log(
-        "🔄 [API] Tentative de récupération d'un token CSRF avant la requête"
-      );
-      const newToken = await fetchCsrfTokenRobust();
-      if (newToken) {
-        config.headers["X-CSRF-Token"] = newToken;
-        console.log(`✅ [API] Nouveau token CSRF récupéré et ajouté: ${url}`);
-      } else {
-        console.error(
-          `❌ [API] Impossible de récupérer un token CSRF pour: ${url}`
-        );
+  // Vérifier si un token CSRF est déjà présent
+  let csrfToken =
+    config.headers["X-CSRF-Token"] || config.headers["x-csrf-token"];
+
+  if (requiresCsrf && !csrfToken) {
+    // Pour les méthodes non sécurisées, on a besoin d'un token CSRF
+    console.log(`🔒 [API] Requête ${method} nécessite un token CSRF`);
+
+    // Vérifier d'abord le cookie, qui est la source la plus fiable
+    csrfToken = getCookie("XSRF-TOKEN");
+
+    if (!csrfToken) {
+      // Si aucun token n'est disponible, tenter d'en récupérer un nouveau
+      console.log("🔄 [API] Récupération d'un token CSRF avant la requête");
+      try {
+        csrfToken = await fetchCsrfTokenRobust();
+      } catch (error) {
+        console.error("❌ [API] Impossible de récupérer un token CSRF:", error);
       }
+    }
+
+    if (csrfToken) {
+      config.headers["X-CSRF-Token"] = csrfToken;
+      console.log(`✅ [API] Token CSRF ajouté à la requête ${method}`);
+    } else {
+      console.warn(
+        `⚠️ [API] Requête ${method} sans token CSRF, risque d'échec`
+      );
     }
   }
 
+  // Construire l'URL complète
   const finalUrl = getApiUrl(url);
-  console.log(`🔄 [API] Requête ${config.method || "GET"} vers ${finalUrl}`);
+  console.log(`🔄 [API] Requête ${method} vers ${finalUrl}`);
 
   // Effectuer la requête
   try {
     const response = await fetch(finalUrl, config);
-    console.log(
-      `✅ [API] Réponse reçue: ${response.status} ${response.statusText}`
-    );
 
-    // Vérifier si un nouveau token CSRF est présent dans la réponse
-    try {
-      const data = await response.clone().json();
-      if (data && data.csrfToken) {
-        saveTokenToStorage(data.csrfToken);
-        console.log("🔄 [API] Token CSRF mis à jour depuis la réponse");
-      }
-    } catch (e) {
-      // Ignorer les erreurs de parsing JSON
+    // Vérifier si la réponse contient un nouveau token CSRF dans les en-têtes
+    const newCsrfToken =
+      response.headers.get("X-CSRF-Token") ||
+      response.headers.get("csrf-token") ||
+      response.headers.get("CSRF-Token");
+
+    if (newCsrfToken) {
+      console.log("✅ [API] Nouveau token CSRF reçu dans les en-têtes");
+      saveTokenToStorage(newCsrfToken);
+    }
+
+    // Vérifier si un nouveau cookie CSRF a été défini
+    const cookieToken = getCookie("XSRF-TOKEN");
+    if (cookieToken && cookieToken !== csrfToken) {
+      console.log("✅ [API] Nouveau token CSRF reçu dans les cookies");
+      saveTokenToStorage(cookieToken);
     }
 
     return response;
   } catch (error) {
-    console.error(`❌ [API] Erreur lors de la requête vers ${url}:`, error);
+    // Si l'erreur est liée au CSRF, retenter avec un nouveau token
+    if (error.message.includes("CSRF") || error.message.includes("csrf")) {
+      console.warn("⚠️ [API] Possible erreur CSRF, nouvelle tentative...");
+
+      // Forcer la récupération d'un nouveau token
+      try {
+        const newToken = await fetchCsrfTokenRobust(3, 500);
+        if (newToken) {
+          config.headers["X-CSRF-Token"] = newToken;
+          console.log("🔄 [API] Nouvelle tentative avec un nouveau token CSRF");
+          return fetch(finalUrl, config);
+        }
+      } catch (retryError) {
+        console.error(
+          "❌ [API] Échec de récupération d'un nouveau token CSRF:",
+          retryError
+        );
+      }
+    }
+
     throw error;
   }
 }

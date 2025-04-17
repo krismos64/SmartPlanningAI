@@ -370,7 +370,7 @@ const SearchBar = ({
   return (
     <div ref={searchRef}>
       <SearchContainer>
-        <SearchInputWrapper focused={focused}>
+        <SearchInputWrapper focused={focused ? "true" : undefined}>
           <SearchIcon>
             <FiSearch />
           </SearchIcon>
@@ -383,7 +383,7 @@ const SearchBar = ({
             onFocus={handleInputFocus}
           />
           <ClearButton
-            visible={query.length > 0}
+            visible={query.length > 0 ? "true" : undefined}
             onClick={handleClear}
             aria-label="Effacer la recherche"
           >
@@ -391,7 +391,9 @@ const SearchBar = ({
           </ClearButton>
         </SearchInputWrapper>
 
-        <SearchResults visible={showResults && results.length > 0}>
+        <SearchResults
+          visible={showResults && results.length > 0 ? "true" : undefined}
+        >
           {results.length === 0 ? (
             <NoResults>Aucun résultat trouvé pour "{query}"</NoResults>
           ) : (

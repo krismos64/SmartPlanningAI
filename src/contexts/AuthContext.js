@@ -1,17 +1,20 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
 import styled from "styled-components";
-import { apiRequest } from "../config/api";
+import axiosInstance, { apiRequest } from "../config/api";
 import useWebSocket from "../hooks/useWebSocket";
 import {
   fetchCsrfTokenRobust as fetchCsrfToken,
   getApiUrl,
-  getCsrfToken,
   getStoredCsrfToken,
 } from "../utils/api";
+import { getCookie } from "../utils/cookies";
+import { useNotifications } from "./NotificationContext";
 
 // Définir l'URL de l'API
 const API_URL = getApiUrl();
+
+console.log("🧪 axiosInstance =", axiosInstance);
 
 // Style de la modale d'inactivité
 const StyledInactivityModal = styled.div`
@@ -93,6 +96,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorageToken);
   const [loginError, setLoginError] = useState(null);
   const { notifyDataChange, disconnect, connect } = useWebSocket();
+  const { showNotification } = useNotifications();
 
   // État pour gérer l'inactivité de l'utilisateur
   const [lastActivity, setLastActivity] = useState(Date.now());
@@ -102,117 +106,26 @@ export const AuthProvider = ({ children }) => {
 
   // Vérification du token et restauration de la session au chargement
   useEffect(() => {
-    const verifySessionToken = async () => {
+    // Nouvelle fonction pour restaurer la session depuis l'API /me
+    const restoreSession = async () => {
       try {
-        // Récupérer le token depuis le localStorage
-        const storedToken = localStorage.getItem("token");
-
-        if (!storedToken) {
-          console.log("Aucun token trouvé, mode limité activé");
-          setIsLoading(false);
-          return;
-        }
-
-        // Appeler l'API pour vérifier le token
-        const res = await apiRequest("/api/auth/verify", "GET", null, {
-          Authorization: `Bearer ${storedToken}`,
-        }).catch((error) => {
-          console.warn(
-            "Erreur lors de la vérification du token, continuons en mode limité:",
-            error
-          );
-          return { user: null, auth_success: false, valid: false };
-        });
-
-        // Si l'utilisateur est trouvé, restaurer la session
-        if (res && res.user) {
-          setUser(res.user);
-          setIsAuthenticated(true);
-          setToken(storedToken);
-        } else {
-          console.warn("Token invalide ou expiré, fonctionnalités limitées");
-          // On laisse quand même le token et l'utilisateur pour permettre l'accès limité
-          setIsAuthenticated(false);
-
-          // Si on a des informations utilisateur locales, les utiliser pour l'accès limité
-          if (localStorageUser) {
-            setUser(localStorageUser);
-          }
-        }
+        const res = await axiosInstance.get("/auth/verify"); // Appelle le backend pour vérifier la session
+        const { user } = res.data;
+        console.log("🔐 Session restaurée :", user);
+        setUser(user);
+        setIsAuthenticated(true);
       } catch (error) {
-        console.warn("Erreur lors de la vérification de la session:", error);
-        // Au lieu de déconnecter, on continue avec des fonctionnalités limitées
+        console.warn("🚪 Aucune session active, mode invité");
+        setUser(null);
         setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Nouvelle fonction pour restaurer la session depuis l'API /me
-    const restoreSession = async () => {
-      try {
-        setIsLoading(true);
-
-        // Récupérer le token depuis localStorage
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          console.warn(
-            "⚠️ [Auth] Token absent dans localStorage, accès invité"
-          );
-          alert("⚠️ Token absent dans localStorage, accès invité");
-          setIsLoading(false);
-          return false;
-        }
-
-        console.log(
-          `🔄 [Auth] Tentative de restauration de session avec token: ${token.substring(
-            0,
-            15
-          )}...`
-        );
-
-        // Appeler l'API /me avec le token dans l'en-tête
-        const response = await fetch("/api/me", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          console.error(
-            `❌ [Auth] Échec de restauration de session: ${response.status}`
-          );
-          setIsLoading(false);
-          return false;
-        }
-
-        const userData = await response.json();
-        console.log("✅ [Auth] Session restaurée:", userData);
-
-        // Définir l'utilisateur dans le state
-        setUser(userData);
-        setIsAuthenticated(true);
-        setToken(token);
-        setIsLoading(false);
-        return true;
-      } catch (error) {
-        console.error(
-          "❌ [Auth] Erreur lors de la restauration de session:",
-          error
-        );
-        setIsAuthenticated(false);
-        setIsLoading(false);
-        return false;
-      }
-    };
-
-    // Essayer d'abord de restaurer la session, puis vérifier le token si nécessaire
+    // Essayer de restaurer la session
     restoreSession();
-  }, []);
+  }, []); // ✅ Une seule fois au montage
 
   // Constantes pour les timeouts d'inactivité
   const INACTIVITY_THRESHOLD = 15 * 60 * 1000; // 15 minutes en millisecondes
@@ -259,48 +172,48 @@ export const AuthProvider = ({ children }) => {
   // Configurer les écouteurs d'événements pour suivre l'activité
   useEffect(() => {
     // Uniquement initialiser les écouteurs si l'utilisateur est authentifié
-    if (isAuthenticated) {
-      // Liste des événements à suivre pour l'activité de l'utilisateur
-      const activityEvents = [
-        "mousedown",
-        "mousemove",
-        "keypress",
-        "scroll",
-        "touchstart",
-        "click",
-        "keydown",
-      ];
+    if (!isAuthenticated) return;
 
-      // Fonction de gestionnaire pour réinitialiser le timer
-      const handleUserActivity = () => {
-        resetInactivityTimer();
-      };
+    // Liste des événements à suivre pour l'activité de l'utilisateur
+    const activityEvents = [
+      "mousedown",
+      "mousemove",
+      "keypress",
+      "scroll",
+      "touchstart",
+      "click",
+      "keydown",
+    ];
 
-      // Ajouter les écouteurs d'événements
+    // Fonction de gestionnaire pour réinitialiser le timer
+    const handleUserActivity = () => {
+      resetInactivityTimer();
+    };
+
+    // Ajouter les écouteurs d'événements
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, handleUserActivity);
+    });
+
+    // Configurer une vérification périodique de l'inactivité (toutes les minutes)
+    const checkTimer = setInterval(checkInactivity, 60 * 1000);
+    setInactivityCheckTimer(checkTimer);
+
+    // Nettoyer les écouteurs et timers au démontage
+    return () => {
       activityEvents.forEach((event) => {
-        window.addEventListener(event, handleUserActivity);
+        window.removeEventListener(event, handleUserActivity);
       });
 
-      // Configurer une vérification périodique de l'inactivité (toutes les minutes)
-      const checkTimer = setInterval(checkInactivity, 60 * 1000);
-      setInactivityCheckTimer(checkTimer);
+      if (inactivityLogoutTimer) {
+        clearTimeout(inactivityLogoutTimer);
+      }
 
-      // Nettoyer les écouteurs et timers au démontage
-      return () => {
-        activityEvents.forEach((event) => {
-          window.removeEventListener(event, handleUserActivity);
-        });
-
-        if (inactivityLogoutTimer) {
-          clearTimeout(inactivityLogoutTimer);
-        }
-
-        if (checkTimer) {
-          clearInterval(checkTimer);
-        }
-      };
-    }
-  }, [isAuthenticated, lastActivity]);
+      if (checkTimer) {
+        clearInterval(checkTimer);
+      }
+    };
+  }, [isAuthenticated]); // Dépend uniquement de isAuthenticated
 
   // Configurer le rafraîchissement périodique du token
   useEffect(() => {
@@ -350,15 +263,32 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Initialiser le token CSRF
     const initApp = async () => {
-      // Récupérer un token CSRF au démarrage
-      await fetchCsrfToken();
+      try {
+        // Variable pour suivre la progression de l'initialisation
+        console.log("🚀 Initialisation de l'application...");
 
-      // Vérifier l'authentification
-      await checkInitialAuth();
+        // 1. Récupérer un token CSRF au démarrage (une seule fois)
+        await fetchCsrfToken();
+        console.log(
+          "✅ CSRF Token initial récupéré :",
+          getCookie("XSRF-TOKEN")
+        );
+
+        // 2. Vérifier l'authentification
+        await checkInitialAuth();
+
+        console.log("✅ Initialisation complète");
+      } catch (error) {
+        console.error(
+          "❌ Erreur lors de l'initialisation de l'application:",
+          error
+        );
+        setIsLoading(false);
+      }
     };
 
     initApp();
-  }, []);
+  }, []); // ✅ Une seule fois au montage
 
   // Vérifier l'authentification initiale
   const checkInitialAuth = async () => {
@@ -670,110 +600,32 @@ export const AuthProvider = ({ children }) => {
   // Fonction pour se connecter
   const login = async (email, password) => {
     try {
-      setIsLoading(true);
-      setLoginError(null);
+      const csrfToken = getCookie("XSRF-TOKEN"); // ✅ récupère le bon token depuis les cookies
+      if (!csrfToken)
+        throw new Error("❌ CSRF token introuvable dans les cookies");
 
-      console.log(`🔑 [Auth] Tentative de connexion pour: ${email}`);
-
-      // S'assurer d'avoir un token CSRF
-      const csrfToken = await getCsrfToken();
-      if (!csrfToken) {
-        console.warn("⚠️ [Auth] Connexion sans token CSRF, risque de 403");
-      } else {
-        console.log(
-          `✅ [Auth] Token CSRF disponible pour la connexion: ${csrfToken.substring(
-            0,
-            10
-          )}...`
-        );
-      }
-
-      // Utiliser l'URL API complète avec getApiUrl au lieu de l'URL relative
-      const apiEndpoint = getApiUrl("/api/auth/login");
-      console.log(`🔄 [Auth] URL de connexion utilisée: ${apiEndpoint}`);
-
-      // Utiliser axios pour la requête de connexion (avec l'intercepteur CSRF)
-      const response = await axios.post(
-        apiEndpoint,
+      const res = await axiosInstance.post(
+        "/auth/login",
         { email, password },
         {
           withCredentials: true,
           headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            // Le token est ajouté automatiquement par l'intercepteur, mais on peut le forcer ici
-            "X-CSRF-Token": csrfToken,
+            "X-CSRF-Token": csrfToken, // ✅ synchronisé avec req.session.csrfToken
           },
         }
       );
 
-      if (!response.data) {
-        throw new Error("Réponse vide du serveur");
-      }
-
-      console.log("✅ [Auth] Connexion réussie:", response.data);
-
-      // Stocker le token d'accès
-      if (response.data.accessToken) {
-        console.log(
-          `🔐 [Auth] Stockage du token JWT: ${response.data.accessToken.substring(
-            0,
-            15
-          )}...`
-        );
-        localStorage.setItem("token", response.data.accessToken);
-      } else {
-        console.warn("⚠️ [Auth] Aucun token reçu dans la réponse de connexion");
-      }
-
-      // Définir l'utilisateur dans le state
-      setUser(response.data.user || response.data);
+      const user = res.data?.user;
+      setUser(user);
       setIsAuthenticated(true);
-      setIsLoading(false);
-      setLoginError(null);
-
-      // Si le WebSocket est configuré, se connecter
-      if (connect) {
-        connect();
-      }
-
-      return true;
+      console.log("✅ Connexion réussie :", user);
     } catch (error) {
-      console.error("❌ [Auth] Erreur lors de la connexion:", error);
-
-      // Log détaillé de l'erreur pour aider au diagnostic
-      if (error.response) {
-        console.error(`Statut d'erreur: ${error.response.status}`);
-        console.error(`Message du serveur:`, error.response.data);
-
-        // Erreur CSRF
-        if (
-          error.response.status === 403 &&
-          error.response.data?.message?.includes("CSRF")
-        ) {
-          setLoginError(
-            "Erreur de sécurité CSRF. Veuillez recharger la page et réessayer."
-          );
-        } else {
-          setLoginError(
-            error.response.data?.message || "Erreur lors de la connexion"
-          );
-        }
-      } else if (error.request) {
-        console.error(
-          `Erreur réseau - Pas de réponse du serveur:`,
-          error.request
-        );
-        setLoginError(
-          "Impossible de joindre le serveur. Vérifiez votre connexion internet."
-        );
-      } else {
-        console.error(`Erreur:`, error.message);
-        setLoginError(error.message || "Erreur lors de la connexion");
-      }
-
-      setIsLoading(false);
-      throw error;
+      console.error(
+        "❌ Erreur lors de la connexion :",
+        error.response?.data || error.message
+      );
+      setUser(null);
+      setIsAuthenticated(false);
     }
   };
 
@@ -787,7 +639,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       // Effectuer la requête d'inscription
-      const response = await apiRequest("/api/auth/register", "POST", userData);
+      const response = await apiRequest("/auth/register", "POST", userData);
       console.log("Réponse d'inscription reçue:", response);
 
       if (response && response.success) {
@@ -841,31 +693,63 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fonction pour se déconnecter
-  const logout = () => {
+  const logout = async () => {
     try {
       // Supprimer les informations d'authentification
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
       // Fermer les connexions WebSocket
-      disconnect();
+      if (disconnect) disconnect();
 
       // Mettre à jour l'état
       setIsAuthenticated(false);
       setUser(null);
       setToken(null);
 
-      // Effectuer une requête de déconnexion au backend (sans attendre la réponse)
-      apiRequest("/api/auth/logout", "POST").catch((error) => {
-        console.error("Erreur lors de la déconnexion:", error);
-      });
+      // Récupérer un token CSRF avant la déconnexion
+      try {
+        // Vérifier si un token CSRF est disponible
+        const csrfToken = getCookie("XSRF-TOKEN");
+
+        if (csrfToken) {
+          // Effectuer une requête de déconnexion au backend avec le token CSRF
+          await apiRequest("/auth/logout", "POST", null, {
+            "X-CSRF-Token": csrfToken,
+          });
+          console.log("✅ Déconnexion réussie côté serveur");
+        } else {
+          // Si aucun token CSRF n'est disponible, essayer d'en obtenir un nouveau
+          await fetchCsrfToken();
+          const newCsrfToken = getCookie("XSRF-TOKEN");
+
+          if (newCsrfToken) {
+            await apiRequest("/auth/logout", "POST", null, {
+              "X-CSRF-Token": newCsrfToken,
+            });
+            console.log(
+              "✅ Déconnexion réussie après récupération d'un nouveau token CSRF"
+            );
+          } else {
+            console.warn(
+              "⚠️ Impossible de récupérer un token CSRF pour la déconnexion"
+            );
+          }
+        }
+      } catch (logoutError) {
+        // Ne pas bloquer la déconnexion côté client en cas d'erreur avec le serveur
+        console.warn(
+          "⚠️ Erreur lors de la déconnexion côté serveur:",
+          logoutError.message
+        );
+      }
 
       return {
         success: true,
         message: "Déconnexion réussie",
       };
     } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error);
+      console.error("❌ Erreur lors de la déconnexion:", error);
       return {
         success: false,
         message: error.message || "Erreur lors de la déconnexion",
@@ -876,7 +760,7 @@ export const AuthProvider = ({ children }) => {
   // Fonction pour se connecter avec Google (redirection)
   const loginWithGoogle = async () => {
     try {
-      window.location.href = getApiUrl("/api/auth/google");
+      window.location.href = getApiUrl("/auth/google");
       return { success: true };
     } catch (error) {
       console.error("Erreur lors de la redirection vers Google:", error);
@@ -894,7 +778,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       const response = await apiRequest(
-        "/api/auth/request-account-deletion",
+        "/auth/request-account-deletion",
         "POST"
       );
 
@@ -919,7 +803,7 @@ export const AuthProvider = ({ children }) => {
       await refreshCsrfToken();
 
       const response = await apiRequest(
-        "/api/auth/confirm-account-deletion",
+        "/auth/confirm-account-deletion",
         "POST",
         { token }
       );
@@ -952,7 +836,7 @@ export const AuthProvider = ({ children }) => {
       // Rafraîchir d'abord le token CSRF
       await refreshCsrfToken();
 
-      const response = await apiRequest("/api/auth/refresh", "POST");
+      const response = await apiRequest("/auth/refresh", "POST");
       console.log("Réponse de rafraîchissement reçue:", response);
 
       if (response && response.success) {
@@ -1003,7 +887,7 @@ export const AuthProvider = ({ children }) => {
       // Rafraîchir le token CSRF avant le changement de mot de passe
       await refreshCsrfToken();
 
-      const response = await apiRequest("/api/users/change-password", "POST", {
+      const response = await apiRequest("/users/change-password", "POST", {
         currentPassword,
         newPassword,
       });

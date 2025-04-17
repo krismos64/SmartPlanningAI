@@ -423,8 +423,8 @@ const Profile = () => {
       let errorMessage = "Erreur lors de la mise à jour du profil";
 
       const endpoints = [
-        buildApiUrl("/api/user/profile"),
-        buildApiUrl("/api/auth/profile"),
+        buildApiUrl("/user/profile"),
+        buildApiUrl("/auth/profile"),
       ];
 
       for (const endpoint of endpoints) {

@@ -27,45 +27,59 @@ console.log("🌐 [API] API_URL utilisé :", API_URL);
 // Variable globale pour stocker le token CSRF
 let globalCsrfToken = null;
 
-// Création d'une instance Axios - Utiliser directement l'URL de base sans modification
-export const axiosInstance = axios.create({
-  baseURL: API_URL,
+// Détection automatique de l'URL backend
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
+
+const axiosInstance = axios.create({
+  baseURL: `${API_BASE_URL}/api`,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
+    Accept: "application/json",
   },
 });
 
-// Intercepteur pour détecter les appels à axiosInstance sans endpoint
+// Intercepteur principal qui ajoute les tokens d'authentification et CSRF
 axiosInstance.interceptors.request.use((config) => {
-  if (!config.url || config.url === "/" || config.url === "") {
-    console.warn("🚨 Requête axiosInstance détectée sans endpoint :", config);
-    console.trace(); // pour voir l'origine exacte dans la console navigateur
+  // Ajouter le token d'authentification depuis localStorage
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // Liste des endpoints qui fonctionnent sans préfixe /api
-  const noApiPrefixEndpoints = ["/csrf-token", "/ping"];
-
-  // Vérifier si l'URL est déjà absolue (commence par http ou https)
-  if (config.url.startsWith("http")) {
-    return config;
+  // Ajouter le token CSRF depuis les cookies
+  const csrf = getCookie("XSRF-TOKEN");
+  if (csrf && !config.headers["X-CSRF-Token"]) {
+    config.headers["X-CSRF-Token"] = csrf;
   }
 
-  // Déterminer si nous devons ajouter le préfixe /api
-  const useApiPrefix =
-    !config.url.startsWith("/api") &&
-    !noApiPrefixEndpoints.includes(config.url);
-
-  // S'assurer que l'URL commence par /api si nécessaire
-  if (useApiPrefix) {
-    console.log(`Ajout du préfixe /api à l'URL: ${config.url}`);
-    config.url = `/api${
-      config.url.startsWith("/") ? config.url : `/${config.url}`
-    }`;
-  }
+  // S'assurer que withCredentials est activé pour toutes les requêtes
+  config.withCredentials = true;
 
   return config;
 });
+
+// Log global des appels API
+axiosInstance.interceptors.request.use((config) => {
+  console.log(
+    `📡 [API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`
+  );
+  return config;
+});
+
+// Log des réponses API
+axiosInstance.interceptors.response.use(
+  (response) => {
+    console.log(`✅ [API OK] ${response.status} ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    console.error(
+      `❌ [API ERROR] ${error.response?.status} ${error.config?.url}`
+    );
+    return Promise.reject(error);
+  }
+);
 
 // Variable pour suivre si un rafraîchissement de token est en cours
 let isRefreshing = false;
@@ -171,6 +185,8 @@ axiosInstance.interceptors.response.use(
     }
   }
 );
+
+export default axiosInstance; // ✅ export par défaut obligatoire
 
 // Ajouter un intercepteur pour ajouter automatiquement le token CSRF aux requêtes
 axiosInstance.interceptors.request.use(
@@ -881,5 +897,3 @@ export const normalizeApiError = (error) => {
 
   return normalizedError;
 };
-
-export default apiRequest;

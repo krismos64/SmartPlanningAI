@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled, { css, keyframes } from "styled-components";
-import { inputFocus, fadeIn } from "../../styles/animations";
+import { fadeIn, inputFocus } from "../../styles/animations";
 
 // Animations
 const shake = keyframes`
@@ -435,7 +435,7 @@ export const FormInput = ({
           <FloatingLabel
             htmlFor={id}
             $error={!!error}
-            isFocused={isFocused}
+            isFocused={isFocused ? "true" : undefined}
             hasValue={!!value}
             required={required}
           >

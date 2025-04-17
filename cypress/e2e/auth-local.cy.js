@@ -24,7 +24,7 @@ describe("Tests du cycle d'authentification SmartPlanning - Développement Local
     cy.log("🧪 Début du test d'authentification local");
 
     // Stub des requêtes réseau pour simuler les réponses API
-    cy.intercept("POST", buildApiUrl("/api/auth/login"), (req) => {
+    cy.intercept("POST", buildApiUrl("/auth/login"), (req) => {
       if (
         req.body.email === TEST_USER.email &&
         req.body.password === TEST_USER.validPassword
@@ -60,7 +60,7 @@ describe("Tests du cycle d'authentification SmartPlanning - Développement Local
       }
     }).as("loginRequest");
 
-    cy.intercept("POST", buildApiUrl("/api/auth/logout"), {
+    cy.intercept("POST", buildApiUrl("/auth/logout"), {
       statusCode: 200,
       body: {
         success: true,
@@ -72,7 +72,7 @@ describe("Tests du cycle d'authentification SmartPlanning - Développement Local
       },
     }).as("logoutRequest");
 
-    cy.intercept("GET", buildApiUrl("/api/auth/profile"), (req) => {
+    cy.intercept("GET", buildApiUrl("/auth/profile"), (req) => {
       const hasAuth =
         req.headers.authorization &&
         req.headers.authorization.includes("mock-jwt-token");

@@ -1183,4 +1183,14 @@ router.get("/verify", async (req, res) => {
   }
 });
 
+// Route simple pour vérifier le statut du service d'authentification
+router.get("/status", (req, res) => {
+  res.status(200).json({
+    status: "active",
+    message: "Service d'authentification fonctionnel",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+  });
+});
+
 module.exports = router;

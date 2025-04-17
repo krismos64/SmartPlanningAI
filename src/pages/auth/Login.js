@@ -8,7 +8,7 @@ import EnhancedLottie from "../../components/ui/EnhancedLottie";
 import { FormInput } from "../../components/ui/Form";
 import GoogleLoginButton from "../../components/ui/GoogleLoginButton";
 import { useNotification } from "../../components/ui/Notification";
-import { apiRequest, getCsrfToken } from "../../config/api";
+import { getCsrfToken } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { getApiUrl } from "../../utils/api";
 
@@ -190,24 +190,6 @@ const Login = () => {
     }
   }, []);
 
-  // Effet pour obtenir un token CSRF au chargement
-  useEffect(() => {
-    const fetchCsrfToken = async () => {
-      try {
-        console.log("Demande de token CSRF...");
-        // Appeler l'API pour récupérer un token CSRF
-        await apiRequest("/csrf-token", "GET");
-        console.log("Token CSRF obtenu avec succès");
-      } catch (error) {
-        console.error("Erreur lors de la récupération du token CSRF:", error);
-      }
-    };
-
-    fetchCsrfToken();
-
-    return () => {}; // Plus besoin du setInterval pour rafraîchir
-  }, []);
-
   // Valider le formulaire
   const validateForm = () => {
     const newErrors = {};
@@ -238,13 +220,7 @@ const Login = () => {
     const cleanPassword = password.trim().replace(/[.\s]+$/, "");
     console.log("Mot de passe nettoyé pour connexion");
 
-    // Essayer d'obtenir un nouveau token CSRF juste avant la connexion
-    try {
-      await apiRequest("/csrf-token", "GET");
-      console.log("Token CSRF rafraîchi avant connexion");
-    } catch (error) {
-      console.error("Erreur lors du rafraîchissement du token CSRF:", error);
-    }
+    // La récupération du token CSRF est gérée automatiquement via l'interceptor
 
     // Vérifier si le token CSRF est bien présent
     const csrfToken = getCsrfToken();

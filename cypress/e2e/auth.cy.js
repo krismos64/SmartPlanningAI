@@ -198,7 +198,7 @@ describe("Tests du cycle d'authentification SmartPlanning", () => {
     // Se connecter en utilisant l'API directement pour avoir plus de contrôle
     cy.request({
       method: "POST",
-      url: buildApiUrl("/api/auth/login"),
+      url: buildApiUrl("/auth/login"),
       body: {
         email: TEST_USER.email,
         password: TEST_USER.validPassword,
@@ -227,7 +227,7 @@ describe("Tests du cycle d'authentification SmartPlanning", () => {
       // Faisons une requête vers une route protégée
       cy.request({
         method: "GET",
-        url: buildApiUrl("/api/auth/check"),
+        url: buildApiUrl("/auth/check"),
         failOnStatusCode: false,
       }).then((checkResponse) => {
         expect(checkResponse.status).to.eq(200);
@@ -241,7 +241,7 @@ describe("Tests du cycle d'authentification SmartPlanning", () => {
       cy.log("📍 Déconnexion via API");
       cy.request({
         method: "POST",
-        url: buildApiUrl("/api/auth/logout"),
+        url: buildApiUrl("/auth/logout"),
         failOnStatusCode: false,
       }).then((logoutResponse) => {
         expect(logoutResponse.status).to.eq(200);

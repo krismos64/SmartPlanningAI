@@ -10,7 +10,7 @@ import { useTheme } from "../components/ThemeProvider";
 import Button from "../components/ui/Button";
 import EnhancedLottie from "../components/ui/EnhancedLottie";
 import { ThemeSwitch } from "../components/ui/ThemeSwitch";
-import { axiosInstance } from "../config/api";
+import axiosInstance from "../config/api";
 
 // Animations
 const fadeIn = keyframes`
@@ -499,7 +499,7 @@ const Contact = () => {
     }
 
     try {
-      const response = await axiosInstance.post("/api/contact", {
+      const response = await axiosInstance.post("/contact", {
         name: formData.name,
         prenom: formData.prenom,
         email: formData.email,

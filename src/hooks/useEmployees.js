@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_ENDPOINTS, API_URL } from "../config/api";
+import { useAuth } from "../contexts/AuthContext";
 import { EmployeeService } from "../services/api";
 import { buildApiUrl } from "../utils/apiHelpers";
 import { formatError } from "../utils/errorHandling";
@@ -12,7 +13,8 @@ const useEmployees = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const api = useApi();
+  const { api } = useApi();
+  const { isAuthenticated } = useAuth();
   // Référence pour suivre si le composant est monté
   const isMountedRef = useRef(true);
   // Référence pour éviter les appels multiples simultanés
@@ -23,6 +25,7 @@ const useEmployees = () => {
   const employeesCacheTimestamp = useRef(null);
   // Référence pour le délai de cache
   const CACHE_DURATION = 1000 * 60 * 5; // 5 minutes
+  const retryTimeoutRef = useRef(null);
 
   // Marquer le composant comme monté/démonté
   useEffect(() => {
@@ -143,7 +146,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(buildApiUrl(`/api/employees/${id}`), {
+      const response = await fetch(buildApiUrl(`/employees/${id}`), {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -225,7 +228,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(buildApiUrl("/api/employees"), {
+      const response = await fetch(buildApiUrl("/employees"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -309,7 +312,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(buildApiUrl(`/api/employees/${id}`), {
+      const response = await fetch(buildApiUrl(`/employees/${id}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -375,7 +378,7 @@ const useEmployees = () => {
       }
 
       // Utiliser fetch directement avec l'URL correcte
-      const response = await fetch(buildApiUrl(`/api/employees/${id}`), {
+      const response = await fetch(buildApiUrl(`/employees/${id}`), {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -443,7 +446,7 @@ const useEmployees = () => {
         const randomDelay = Math.floor(Math.random() * 200);
         await new Promise((resolve) => setTimeout(resolve, randomDelay));
 
-        const response = await api.get(buildApiUrl(`/api/hour-balance/${id}`));
+        const response = await api.get(buildApiUrl(`/hour-balance/${id}`));
 
         // Vérifier si la réponse contient hour_balance ou balance
         if (
@@ -523,35 +526,24 @@ const useEmployees = () => {
     }
   }, [employees, fetchEmployeeHourBalance]);
 
-  // Charger les employés depuis l'API
-  useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 2;
-
-    // Fonction pour charger les employés - le cache local a été supprimé pour éviter les bugs
-    const loadEmployees = async () => {
-      if (retryCount >= maxRetries || !isMountedRef.current) {
-        if (isMountedRef.current) {
-          setError(
-            "Erreur lors du chargement des employés après plusieurs tentatives"
-          );
-          setLoading(false);
-        }
+  const loadEmployees = async (retryCount = 0) => {
+    try {
+      if (!isMountedRef.current) {
         return;
       }
 
+      // Vérifier si l'utilisateur est authentifié
+      if (!isAuthenticated) {
+        console.log(
+          "Chargement des employés ignoré : utilisateur non authentifié"
+        );
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
       try {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          console.error("Token d'authentification manquant");
-          if (isMountedRef.current) {
-            setError("Vous devez être connecté pour accéder à ces données");
-            setLoading(false);
-          }
-          return;
-        }
-
         const data = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
 
         if (isMountedRef.current) {
@@ -570,23 +562,29 @@ const useEmployees = () => {
           console.error("Erreur lors du chargement des employés:", err);
           setError(err.message || "Erreur lors du chargement des employés");
 
-          // Réessayer avec un délai exponentiel
-          retryCount++;
-          setTimeout(loadEmployees, 1000 * Math.pow(2, retryCount));
+          // Réessayer avec un délai exponentiel seulement si l'utilisateur est authentifié
+          if (isAuthenticated && retryCount < 3) {
+            retryCount++;
+            retryTimeoutRef.current = setTimeout(
+              () => loadEmployees(retryCount),
+              1000 * Math.pow(2, retryCount)
+            );
+          } else {
+            setLoading(false);
+          }
         }
       }
-    };
-
-    // Charger les employés uniquement si le composant est monté
-    if (isMountedRef.current) {
-      loadEmployees();
+    } catch (error) {
+      console.error(
+        "Erreur inattendue lors du chargement des employés:",
+        error
+      );
+      if (isMountedRef.current) {
+        setError("Erreur inattendue lors du chargement des données");
+        setLoading(false);
+      }
     }
-
-    // Nettoyer lors du démontage
-    return () => {
-      // Le nettoyage est géré dans le premier useEffect
-    };
-  }, [api]);
+  };
 
   // Charger les soldes d'heures après avoir chargé les employés
   // Utiliser une référence pour suivre si l'effet a déjà été exécuté
@@ -614,6 +612,30 @@ const useEmployees = () => {
       return () => clearTimeout(timer);
     }
   }, [employees.length, fetchAllEmployeesHourBalances]);
+
+  // Nettoyer les timeouts lors du démontage
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Charger les employés uniquement si l'utilisateur est authentifié
+  useEffect(() => {
+    if (isAuthenticated && isMountedRef.current) {
+      loadEmployees();
+    } else if (!isAuthenticated) {
+      setLoading(false);
+    }
+
+    // Nettoyer lors du démontage
+    return () => {
+      // Le nettoyage est géré dans le premier useEffect
+    };
+  }, [isAuthenticated, api]);
 
   return {
     employees,

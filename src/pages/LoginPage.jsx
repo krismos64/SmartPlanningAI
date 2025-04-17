@@ -52,7 +52,7 @@ const LoginPage = () => {
 
     try {
       // Utiliser buildApiUrl pour construire l'URL complète avec le port correct
-      const loginUrl = buildApiUrl("/api/auth/login");
+      const loginUrl = buildApiUrl("/auth/login");
       console.log(`🔄 [Login] URL d'authentification utilisée: ${loginUrl}`);
 
       // Appel réel à l'API pour la connexion

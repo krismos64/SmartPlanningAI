@@ -1,4 +1,4 @@
-import { API_URL, axiosInstance } from "../config/api";
+import axiosInstance, { API_URL } from "../config/api";
 import { formatDateForAPI } from "../utils/dateUtils";
 
 /**
@@ -104,7 +104,7 @@ class WeeklyScheduleService {
 
       // Utiliser le paramètre de requête ?week= au lieu du paramètre de route :weekStart
       const response = await axiosInstance.get(
-        `/api/weekly-schedules?week=${weekStartDate}`
+        `/weekly-schedules?week=${weekStartDate}`
       );
 
       console.log(
@@ -341,7 +341,7 @@ class WeeklyScheduleService {
   static async createSchedule(scheduleData) {
     try {
       const response = await axiosInstance.post(
-        "/api/weekly-schedules",
+        "/weekly-schedules",
         scheduleData
       );
       return response.data;
@@ -360,7 +360,7 @@ class WeeklyScheduleService {
   static async updateSchedule(id, scheduleData) {
     try {
       const response = await axiosInstance.put(
-        `/api/weekly-schedules/${id}`,
+        `/weekly-schedules/${id}`,
         scheduleData
       );
       return response.data;
@@ -377,9 +377,7 @@ class WeeklyScheduleService {
    */
   static async deleteSchedule(id) {
     try {
-      const response = await axiosInstance.delete(
-        `/api/weekly-schedules/${id}`
-      );
+      const response = await axiosInstance.delete(`/weekly-schedules/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la suppression du planning #${id}:`, error);

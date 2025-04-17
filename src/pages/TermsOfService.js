@@ -484,7 +484,7 @@ const TermsOfService = () => {
       </Content>
 
       <BackToTopButton
-        visible={showBackToTop}
+        visible={showBackToTop ? "true" : undefined}
         onClick={scrollToTop}
         aria-label="Retour en haut de page"
       >

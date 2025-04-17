@@ -586,7 +586,7 @@ const DataTable = ({
 
     if (column.type === "hour_balance") {
       return (
-        <HourBalanceBadge $isPositive={value.isPositive}>
+        <HourBalanceBadge $isPositive={value.isPositive ? "true" : undefined}>
           {value.display}
           {column.id === "hour_balance" && <EditIcon />}
         </HourBalanceBadge>

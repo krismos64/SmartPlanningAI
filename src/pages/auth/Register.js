@@ -5,9 +5,8 @@ import planningAnimation from "../../assets/animations/planning-animation.json";
 import EnhancedLottie from "../../components/ui/EnhancedLottie";
 import GoogleSignupButton from "../../components/ui/GoogleSignupButton";
 import { useNotification } from "../../components/ui/Notification";
-import { apiRequest } from "../../config/api";
 import { useAuth } from "../../contexts/AuthContext";
-import { getApiUrl } from "../../utils/api";
+import { getApiUrl, getCsrfToken } from "../../utils/api";
 
 // Animations
 const fadeInUp = keyframes`
@@ -179,22 +178,11 @@ const Register = () => {
   const { showNotification } = useNotification();
   const navigate = useNavigate();
 
-  // Effet pour obtenir un token CSRF au chargement
+  // Effet pour la sécurité et le nettoyage
   useEffect(() => {
-    const fetchCsrfToken = async () => {
-      try {
-        console.log("Demande de token CSRF...");
-        // Appeler l'API pour récupérer un token CSRF
-        await apiRequest("/csrf-token", "GET");
-        console.log("Token CSRF obtenu avec succès");
-      } catch (error) {
-        console.error("Erreur lors de la récupération du token CSRF:", error);
-      }
+    return () => {
+      // Nettoyage lors du démontage
     };
-
-    fetchCsrfToken();
-
-    return () => {}; // Plus besoin du setInterval pour rafraîchir
   }, []);
 
   // Mise à jour du formulaire
@@ -289,7 +277,7 @@ const Register = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Soumission du formulaire
+  // Gérer la soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -297,18 +285,19 @@ const Register = () => {
       return;
     }
 
-    // Essayer d'obtenir un nouveau token CSRF juste avant l'inscription
-    try {
-      await apiRequest("/csrf-token", "GET");
-      console.log("Token CSRF rafraîchi avant inscription");
-    } catch (error) {
-      console.error("Erreur lors du rafraîchissement du token CSRF:", error);
-    }
-
     setIsLoading(true);
 
     try {
       const { confirmPassword, ...registrationData } = formData;
+
+      // Vérifier si le token CSRF est présent
+      const csrfToken = getCsrfToken();
+      console.log(
+        "Token CSRF avant inscription:",
+        csrfToken ? "Présent" : "Absent"
+      );
+
+      // La récupération du token CSRF est gérée automatiquement via l'interceptor
 
       // Utiliser le register du contexte Auth qui a été corrigé
       const result = await register(registrationData);

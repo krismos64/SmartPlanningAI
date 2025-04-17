@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
+import { checkApiHealth } from "../config/api.js";
 import {
-  API_URL,
-  checkApiHealth,
   fetchCsrfTokenRobust,
-  getCsrfToken,
+  getCookie,
   getStoredCsrfToken,
-} from "../config/api.js";
+} from "../utils/api.js";
 import { buildApiUrl } from "../utils/apiHelpers";
 
 /**
@@ -66,42 +65,30 @@ const useApi = () => {
    */
   const initApi = useCallback(async () => {
     try {
-      // Vérifier la santé de l'API d'abord
-      const isHealthy = await checkApiHealth();
-      setApiHealthy(isHealthy);
-
-      if (!isHealthy) {
-        console.warn(
-          "🔴 L'API semble indisponible, certaines fonctionnalités peuvent être limitées"
-        );
-        return false;
-      }
-
-      // Récupérer un token CSRF avec la méthode robuste
-      const csrfToken = await fetchCsrfTokenRobust();
+      // Essayer d'obtenir un token CSRF avant de vérifier l'état de l'API
+      const csrfToken = getStoredCsrfToken() || getCookie("XSRF-TOKEN");
 
       if (!csrfToken) {
-        console.warn(
-          "⚠️ Impossible de récupérer un token CSRF, les requêtes POST/PUT/DELETE peuvent échouer"
-        );
-        // Continuer quand même, car certaines API fonctionnent sans CSRF
-        return false;
+        console.log("🔄 Récupération du token CSRF initial...");
+        try {
+          await fetchCsrfTokenRobust(2, 500);
+        } catch (csrfError) {
+          console.warn(
+            "⚠️ Impossible de récupérer le token CSRF initial:",
+            csrfError.message
+          );
+          // Ne pas bloquer l'initialisation complète à cause du CSRF
+        }
       }
 
-      return true;
-    } catch (error) {
-      console.error("❌ Erreur lors de l'initialisation de l'API:", error);
-      setApiHealthy(false);
-      return false;
-    }
-  }, []);
+      // Vérifier l'état de l'API avec un timeout court (2s max)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-  // Récupérer le token CSRF au chargement du hook
-  useEffect(() => {
-    const initApi = async () => {
       try {
-        // Vérifier l'état de l'API et du CSRF
-        const healthStatus = await checkApiHealth();
+        const healthStatus = await checkApiHealth(controller.signal);
+        clearTimeout(timeoutId);
+
         setApiStatus({
           checked: true,
           isApiAvailable: healthStatus.apiAvailable,
@@ -110,38 +97,115 @@ const useApi = () => {
         });
 
         if (!healthStatus.apiAvailable) {
-          console.error("❌ API indisponible, les requêtes peuvent échouer");
-        }
-
-        // Si la vérification de santé n'a pas pu récupérer le token CSRF, essayer une dernière fois
-        if (!healthStatus.csrfAvailable) {
-          console.log(
-            "🔄 Tentative supplémentaire de récupération du token CSRF"
+          console.warn(
+            "⚠️ API potentiellement indisponible, les requêtes peuvent échouer"
           );
-          const csrfToken = getStoredCsrfToken();
-
-          if (!csrfToken) {
-            await fetchCsrfTokenRobust();
-
-            // Vérifier si le token a bien été récupéré
-            const tokenAfterFetch = getStoredCsrfToken();
-            if (!tokenAfterFetch) {
-              console.warn(
-                "⚠️ Échec de la récupération initiale du token CSRF, tentative avec getCsrfToken"
-              );
-              await getCsrfToken(); // Utilise la logique de retry intégrée
-            }
-          } else {
-            console.log("✅ Token CSRF déjà présent dans useApi");
-          }
+        } else {
+          console.log("✅ API disponible et opérationnelle");
         }
-      } catch (error) {
-        console.error("❌ Erreur lors de l'initialisation de l'API:", error);
+      } catch (healthError) {
+        clearTimeout(timeoutId);
+
+        // Si l'API est indisponible, ne pas bloquer l'interface
+        console.warn(
+          "⚠️ Impossible de vérifier l'état de l'API:",
+          healthError.message
+        );
+
         setApiStatus({
           checked: true,
-          isApiAvailable: false,
-          isCsrfAvailable: false,
-          error: error.message,
+          isApiAvailable: true, // Supposer que l'API est disponible
+          isCsrfAvailable: !!getStoredCsrfToken() || !!getCookie("XSRF-TOKEN"),
+          error: "Vérification impossible, continue en mode optimiste",
+        });
+      }
+    } catch (error) {
+      console.warn(
+        "⚠️ Erreur non critique lors de l'initialisation de l'API:",
+        error.message
+      );
+
+      // Continuer en mode dégradé plutôt que de bloquer l'interface
+      setApiStatus({
+        checked: true,
+        isApiAvailable: true,
+        isCsrfAvailable: !!getStoredCsrfToken() || !!getCookie("XSRF-TOKEN"),
+        error: "Initialisation en mode dégradé",
+      });
+    }
+  }, []);
+
+  // Récupérer le token CSRF au chargement du hook
+  useEffect(() => {
+    const initApi = async () => {
+      try {
+        // Essayer d'obtenir un token CSRF avant de vérifier l'état de l'API
+        const csrfToken = getStoredCsrfToken() || getCookie("XSRF-TOKEN");
+
+        if (!csrfToken) {
+          console.log("🔄 Récupération du token CSRF initial...");
+          try {
+            await fetchCsrfTokenRobust(2, 500);
+          } catch (csrfError) {
+            console.warn(
+              "⚠️ Impossible de récupérer le token CSRF initial:",
+              csrfError.message
+            );
+            // Ne pas bloquer l'initialisation complète à cause du CSRF
+          }
+        }
+
+        // Vérifier l'état de l'API avec un timeout court (2s max)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        try {
+          const healthStatus = await checkApiHealth(controller.signal);
+          clearTimeout(timeoutId);
+
+          setApiStatus({
+            checked: true,
+            isApiAvailable: healthStatus.apiAvailable,
+            isCsrfAvailable: healthStatus.csrfAvailable,
+            error: healthStatus.error,
+          });
+
+          if (!healthStatus.apiAvailable) {
+            console.warn(
+              "⚠️ API potentiellement indisponible, les requêtes peuvent échouer"
+            );
+          } else {
+            console.log("✅ API disponible et opérationnelle");
+          }
+        } catch (healthError) {
+          clearTimeout(timeoutId);
+
+          // Si l'API est indisponible, ne pas bloquer l'interface
+          console.warn(
+            "⚠️ Impossible de vérifier l'état de l'API:",
+            healthError.message
+          );
+
+          setApiStatus({
+            checked: true,
+            isApiAvailable: true, // Supposer que l'API est disponible
+            isCsrfAvailable:
+              !!getStoredCsrfToken() || !!getCookie("XSRF-TOKEN"),
+            error: "Vérification impossible, continue en mode optimiste",
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "⚠️ Erreur non critique lors de l'initialisation de l'API:",
+          error.message
+        );
+
+        // Continuer en mode dégradé plutôt que de bloquer l'interface
+        setApiStatus({
+          checked: true,
+          isApiAvailable: true,
+          isCsrfAvailable: !!getStoredCsrfToken() || !!getCookie("XSRF-TOKEN"),
+          error: "Initialisation en mode dégradé",
         });
       }
     };
@@ -251,14 +315,10 @@ const useApi = () => {
       const attemptRequest = async () => {
         attempt++;
         try {
-          // Vérifier que l'URL est correcte
-          const apiBaseUrl = API_URL.includes("/api")
-            ? API_URL
-            : `${API_URL}/api`;
+          // Construire l'URL complète avec buildApiUrl
+          const apiUrl = buildApiUrl(endpoint);
           console.log(
-            `[API] GET ${apiBaseUrl}${
-              endpoint.startsWith("/") ? endpoint : `/${endpoint}`
-            } (tentative ${attempt}/${retries + 1})`
+            `[API] GET ${apiUrl} (tentative ${attempt}/${retries + 1})`
           );
 
           // Gestion spéciale pour les départements - ne pas afficher d'erreurs
@@ -270,7 +330,7 @@ const useApi = () => {
             ...(token && { Authorization: `Bearer ${token}` }),
           };
 
-          const response = await fetch(buildApiUrl(endpoint), {
+          const response = await fetch(apiUrl, {
             method: "GET",
             headers,
             credentials: "include",
@@ -362,15 +422,9 @@ const useApi = () => {
           throw new Error("Données invalides pour la requête POST");
         }
 
-        // Vérifier que l'URL est correcte
-        const apiBaseUrl = API_URL.includes("/api")
-          ? API_URL
-          : `${API_URL}/api`;
-        console.log(
-          `[API] POST ${apiBaseUrl}${
-            endpoint.startsWith("/") ? endpoint : `/${endpoint}`
-          }`
-        );
+        // Construire l'URL complète avec buildApiUrl
+        const apiUrl = buildApiUrl(endpoint);
+        console.log(`[API] POST ${apiUrl}`);
 
         // Vérifier si le token est présent
         const token = localStorage.getItem("token");
@@ -422,7 +476,7 @@ const useApi = () => {
         });
 
         // Effectuer la requête avec fetch
-        const response = await fetch(buildApiUrl(endpoint), {
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers,
           body: JSON.stringify(snakeCaseData),
@@ -444,15 +498,9 @@ const useApi = () => {
           throw new Error("Données invalides pour la requête PUT");
         }
 
-        // Vérifier que l'URL est correcte
-        const apiBaseUrl = API_URL.includes("/api")
-          ? API_URL
-          : `${API_URL}/api`;
-        console.log(
-          `[API] PUT ${apiBaseUrl}${
-            endpoint.startsWith("/") ? endpoint : `/${endpoint}`
-          }`
-        );
+        // Construire l'URL complète avec buildApiUrl
+        const apiUrl = buildApiUrl(endpoint);
+        console.log(`[API] PUT ${apiUrl}`);
 
         // Vérifier si le token est présent
         const token = localStorage.getItem("token");
@@ -504,7 +552,7 @@ const useApi = () => {
         });
 
         // Effectuer la requête avec fetch
-        const response = await fetch(buildApiUrl(endpoint), {
+        const response = await fetch(apiUrl, {
           method: "PUT",
           headers,
           body: JSON.stringify(snakeCaseData),
@@ -520,15 +568,9 @@ const useApi = () => {
 
     const del = async (endpoint) => {
       try {
-        // Vérifier que l'URL est correcte
-        const apiBaseUrl = API_URL.includes("/api")
-          ? API_URL
-          : `${API_URL}/api`;
-        console.log(
-          `[API] DELETE ${apiBaseUrl}${
-            endpoint.startsWith("/") ? endpoint : `/${endpoint}`
-          }`
-        );
+        // Construire l'URL complète avec buildApiUrl
+        const apiUrl = buildApiUrl(endpoint);
+        console.log(`[API] DELETE ${apiUrl}`);
 
         // Vérifier si le token est présent
         const token = localStorage.getItem("token");
@@ -559,7 +601,7 @@ const useApi = () => {
           },
         });
 
-        const response = await fetch(buildApiUrl(endpoint), {
+        const response = await fetch(apiUrl, {
           method: "DELETE",
           headers,
           credentials: "include", // indispensable pour envoyer les cookies

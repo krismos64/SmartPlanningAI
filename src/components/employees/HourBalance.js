@@ -143,7 +143,9 @@ const HourBalance = ({ employeeId }) => {
   return (
     <BalanceContainer>
       <BalanceIcon>{isPositive ? "✅" : "🔴"}</BalanceIcon>
-      <BalanceValue isPositive={isPositive}>{formattedBalance}</BalanceValue>
+      <BalanceValue isPositive={isPositive ? "true" : undefined}>
+        {formattedBalance}
+      </BalanceValue>
       <BalanceLabel>
         {isPositive ? "Heures supplémentaires" : "Heures manquantes"}
       </BalanceLabel>

@@ -634,7 +634,9 @@ const Dashboard = () => {
             </StatIcon>
           </StatHeader>
           <StatValue>{stats.pendingVacations}</StatValue>
-          <StatInfo positive={stats.pendingVacations === 0}>
+          <StatInfo
+            positive={stats.pendingVacations === 0 ? "true" : undefined}
+          >
             {stats.pendingVacations === 0
               ? "Aucune demande en attente"
               : "Nécessite votre attention"}
